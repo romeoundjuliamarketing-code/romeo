@@ -29,7 +29,7 @@ export default function WeeklyVolumeCard({ refetchTrigger = 0, compact = false }
     return (
       <View style={styles.compactRow}>
         <Text style={styles.compactText}>
-          {sessions} Einheiten · {minutes} Min · {points} Pts
+          Diese Woche: {sessions} Einheiten · {minutes} Min · {points} Pts
         </Text>
       </View>
     );

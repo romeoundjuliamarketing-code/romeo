@@ -72,34 +72,7 @@ export default function TrainingScreen(): React.ReactElement {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
 
-        {/* ── Fixed header ── */}
-        <View style={styles.header}>
-          {todaySchedule.length === 0 ? (
-            <View style={styles.todayCard}>
-              <View style={styles.todayCardInfo}>
-                <Text style={styles.todayCardName}>Heute kein Studiotraining</Text>
-              </View>
-              <TouchableOpacity onPress={() => setActiveTab('workouts')} activeOpacity={0.7}>
-                <Text style={styles.freeTrainingLink}>Freies Training starten</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.todayList}>
-              {todaySchedule.map((session) => (
-                <TodaySessionCard
-                  key={session.id}
-                  session={session}
-                  participating={isParticipating(session.id, todayDate)}
-                  onParticipate={() => { void participate(session.id, todayDate, session.points_per_30min, session.duration_min, session.training_name, session.training_type); }}
-                  onCancel={() => { void cancelParticipation(session.id, todayDate); }}
-                />
-              ))}
-            </View>
-          )}
-          <WeeklyVolumeCard refetchTrigger={focusTrigger} compact />
-        </View>
-
-        {/* ── Tab bar ── */}
+        {/* ── Tab bar (fixiert) ── */}
         <View style={styles.tabBar}>
           <TouchableOpacity
             style={[styles.tabPill, activeTab === 'workouts' && styles.tabPillActive]}
@@ -121,12 +94,39 @@ export default function TrainingScreen(): React.ReactElement {
           </TouchableOpacity>
         </View>
 
-        {/* ── Tab content ── */}
+        {/* ── Scrollbarer Inhalt ── */}
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {/* Header scrollt mit */}
+          <View style={styles.header}>
+            {todaySchedule.length === 0 ? (
+              <View style={styles.todayCard}>
+                <View style={styles.todayCardInfo}>
+                  <Text style={styles.todayCardName}>Heute kein Studiotraining</Text>
+                </View>
+                <TouchableOpacity onPress={() => setActiveTab('workouts')} activeOpacity={0.7}>
+                  <Text style={styles.freeTrainingLink}>Freies Training starten</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.todayList}>
+                {todaySchedule.map((session) => (
+                  <TodaySessionCard
+                    key={session.id}
+                    session={session}
+                    participating={isParticipating(session.id, todayDate)}
+                    onParticipate={() => { void participate(session.id, todayDate, session.points_per_30min, session.duration_min, session.training_name, session.training_type); }}
+                    onCancel={() => { void cancelParticipation(session.id, todayDate); }}
+                  />
+                ))}
+              </View>
+            )}
+            <WeeklyVolumeCard refetchTrigger={focusTrigger} compact />
+          </View>
+
           {activeTab === 'workouts' ? (
             <>
               <WorkoutCategoryRows disciplines={profile?.disciplines ?? []} />
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingTop: 16,
+    marginBottom: 16,
   },
   todayList: {
     paddingHorizontal: 16,
