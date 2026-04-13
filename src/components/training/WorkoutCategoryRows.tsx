@@ -180,9 +180,10 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
       title: workout.title,
       subtitle: '',
       category: 'eigene',
+      trainingType: workout.training_type,
       exercises: exercises.length > 0 ? exercises : [{ name: 'Freies Training', duration: '60s', pause: '30s' }],
       duration: `${workout.duration_min} Min`,
-      earnedPoints: Math.max(1, Math.floor(workout.duration_min / 30)) * 20,
+      earnedPoints: Math.max(1, Math.floor(workout.duration_min / 30)) * 35,
     });
   }
 

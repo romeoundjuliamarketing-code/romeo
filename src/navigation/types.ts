@@ -6,7 +6,13 @@ export type AuthStackParamList = {
 };
 
 export type RootStackParamList = {
+  Onboarding: undefined;
   Tabs: undefined;
+  Team: {
+    studioId: string;
+    studioName: string;
+    studioCity: string;
+  };
   Workout: {
     title: string;
     subtitle: string;
@@ -17,7 +23,10 @@ export type RootStackParamList = {
     equipment?: string[];
     pointsPer30Min?: number;
     earnedPoints?: number;
+    trainingType?: string;
   };
+  Settings: undefined;
+  Paywall: undefined;
   Timer: {
     workoutTitle: string;
     exercises: Exercise[];

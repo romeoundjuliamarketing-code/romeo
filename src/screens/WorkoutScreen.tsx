@@ -50,7 +50,7 @@ export default function WorkoutScreen({ route, navigation }: Props) {
   const { user } = useAuth();
   const {
     title, subtitle, category, exercises,
-    duration, difficulty, equipment, earnedPoints,
+    duration, difficulty, equipment, earnedPoints, trainingType,
   } = route.params;
 
   const startedAt = useRef<number>(Date.now());
@@ -77,7 +77,7 @@ export default function WorkoutScreen({ route, navigation }: Props) {
       completed:     true,
       points,
       title,
-      training_type: isCustom ? 'eigene' : category,
+      training_type: isCustom ? (trainingType ?? 'eigene') : category,
       category:      isCustom ? 'Eigene' : 'Spezifisch',
       duration_min:  Math.max(1, Math.round((Date.now() - startedAt.current) / 60000)),
     });
