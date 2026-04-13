@@ -1,166 +1,272 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
-import workouts, { type Workout } from '../data/workouts';
-import ModuleTab from '../components/training/ModuleTab';
-import TrainingsplanTab from '../components/training/TrainingsplanTab';
+import { useSchedule } from '../hooks/useSchedule';
+import { useParticipation } from '../hooks/useParticipation';
+import { useProfile } from '../hooks/useProfile';
+import StundenplanSection from '../components/training/StundenplanSection';
+import WorkoutCategoryRows from '../components/training/WorkoutCategoryRows';
 import ExtraTab from '../components/training/ExtraTab';
+import WeeklyVolumeCard from '../components/training/WeeklyVolumeCard';
+import type { StudioSchedule } from '../types/database.types';
 
-type ActiveTab = 'module' | 'plan' | 'extra';
-type SegmentItem = { key: ActiveTab; label: string };
-type WorkoutCategory = Workout['category'];
+type TabKey = 'workouts' | 'plan';
 
-type CategoryFilter = {
-  key: WorkoutCategory;
-  label: string;
+// JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
+function todayDayOfWeek(): number {
+  return (new Date().getDay() + 6) % 7;
+}
+
+// ─── Today session card ───────────────────────────────────────────────────────
+
+type TodayCardProps = {
+  session: StudioSchedule;
+  participating: boolean;
+  onParticipate: () => void;
+  onCancel: () => void;
 };
 
-const SEGMENTS: SegmentItem[] = [
-  { key: 'module', label: 'Module' },
-  { key: 'plan', label: 'Trainingsplan' },
-  { key: 'extra', label: 'Extra' },
-];
-
-const CATEGORY_FILTERS: CategoryFilter[] = [
-  { key: 'schlagkraft', label: 'Schlagkraft' },
-  { key: 'trittkraft', label: 'Trittkraft' },
-  { key: 'ausdauer', label: 'Ausdauer' },
-  { key: 'schulter', label: 'Schulter' },
-  { key: 'beinarbeit', label: 'Beinarbeit' },
-  { key: 'koordination', label: 'Koordination' },
-  { key: 'mobilitaet', label: 'Mobilitaet' },
-];
-
-export default function TrainingScreen() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('module');
-  const [activeCategory, setActiveCategory] = useState<WorkoutCategory>('schlagkraft');
-
-  const filteredWorkouts = useMemo(
-    () => workouts.filter((workout) => workout.category === activeCategory),
-    [activeCategory]
+function TodaySessionCard({ session, participating, onParticipate, onCancel }: TodayCardProps): React.ReactElement {
+  return (
+    <View style={styles.todayCard}>
+      <View style={styles.todayCardInfo}>
+        <Text style={styles.todayCardName}>{session.training_name}</Text>
+        <Text style={styles.todayCardMeta}>
+          {session.start_time.slice(0, 5)} Uhr · {session.duration_min} Min
+          {session.coach_name !== null ? ` · ${session.coach_name}` : ''}
+        </Text>
+      </View>
+      <TouchableOpacity
+        style={[styles.participateBtn, participating && styles.participateBtnActive]}
+        onPress={participating ? onCancel : onParticipate}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.participateBtnText, participating && styles.participateBtnTextActive]}>
+          {participating ? 'Zugesagt' : 'Teilnehmen'}
+        </Text>
+      </TouchableOpacity>
+    </View>
   );
+}
 
-  function renderTab(): React.ReactElement {
-    switch (activeTab) {
-      case 'module':
-        return <ModuleTab workouts={filteredWorkouts} />;
-      case 'plan':
-        return <TrainingsplanTab />;
-      case 'extra':
-        return <ExtraTab />;
-    }
-  }
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+export default function TrainingScreen(): React.ReactElement {
+  const todayDow = todayDayOfWeek();
+  const todayDate = new Date().toISOString().split('T')[0];
+  const [focusTrigger, setFocusTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState<TabKey>('workouts');
+
+  useFocusEffect(useCallback(() => {
+    setFocusTrigger((n) => n + 1);
+  }, []));
+
+  const { schedule: todaySchedule } = useSchedule(todayDow);
+  const { schedule: fullSchedule, loading: scheduleLoading } = useSchedule();
+  const { isParticipating, participate, cancelParticipation } = useParticipation();
+  const { profile } = useProfile(focusTrigger);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.segmentWrap}>
-        {SEGMENTS.map((seg) => {
-          const active = activeTab === seg.key;
-          return (
-            <TouchableOpacity
-              key={seg.key}
-              style={[styles.segment, active && styles.segmentActive]}
-              onPress={() => setActiveTab(seg.key)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.segmentLabel, active && styles.segmentLabelActive]} numberOfLines={1}>
-                {seg.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <View style={styles.container}>
 
-      {activeTab === 'module' && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterContent}
-          style={styles.filterScroll}
-        >
-          {CATEGORY_FILTERS.map((item) => {
-            const isActive = item.key === activeCategory;
-            return (
-              <TouchableOpacity
-                key={item.key}
-                style={[styles.filterChip, isActive && styles.filterChipActive]}
-                onPress={() => setActiveCategory(item.key)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                  {item.label}
-                </Text>
+        {/* ── Fixed header ── */}
+        <View style={styles.header}>
+          {todaySchedule.length === 0 ? (
+            <View style={styles.todayCard}>
+              <View style={styles.todayCardInfo}>
+                <Text style={styles.todayCardName}>Heute kein Studiotraining</Text>
+              </View>
+              <TouchableOpacity onPress={() => setActiveTab('workouts')} activeOpacity={0.7}>
+                <Text style={styles.freeTrainingLink}>Freies Training starten</Text>
               </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      )}
+            </View>
+          ) : (
+            <View style={styles.todayList}>
+              {todaySchedule.map((session) => (
+                <TodaySessionCard
+                  key={session.id}
+                  session={session}
+                  participating={isParticipating(session.id, todayDate)}
+                  onParticipate={() => { void participate(session.id, todayDate, session.points_per_30min, session.duration_min, session.training_name, session.training_type); }}
+                  onCancel={() => { void cancelParticipation(session.id, todayDate); }}
+                />
+              ))}
+            </View>
+          )}
+          <WeeklyVolumeCard refetchTrigger={focusTrigger} compact />
+        </View>
 
-      {renderTab()}
+        {/* ── Tab bar ── */}
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'workouts' && styles.tabPillActive]}
+            onPress={() => setActiveTab('workouts')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabLabel, activeTab === 'workouts' && styles.tabLabelActive]}>
+              Workouts
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabPill, activeTab === 'plan' && styles.tabPillActive]}
+            onPress={() => setActiveTab('plan')}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabLabel, activeTab === 'plan' && styles.tabLabelActive]}>
+              Plan
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* ── Tab content ── */}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {activeTab === 'workouts' ? (
+            <>
+              <WorkoutCategoryRows disciplines={profile?.disciplines ?? []} />
+              <Text style={styles.extraHeader}>Zusatztraining</Text>
+              <ExtraTab />
+            </>
+          ) : (
+            <StundenplanSection
+              studioSchedule={fullSchedule}
+              studioLoading={scheduleLoading}
+              todayDow={todayDow}
+              hasStudio={profile?.studio_id !== null && profile?.studio_id !== undefined}
+            />
+          )}
+          <View style={styles.bottomPad} />
+        </ScrollView>
+
+      </View>
     </SafeAreaView>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.dark,
   },
-  segmentWrap: {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 0,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  segment: {
+  container: {
     flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    marginBottom: -1,
   },
-  segmentActive: {
-    borderBottomColor: colors.accentBlue,
+  header: {
+    paddingTop: 16,
+    gap: 0,
   },
-  segmentLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.inactive,
-  },
-  segmentLabelActive: {
-    color: colors.accentBlue,
-  },
-  filterScroll: {
-    maxHeight: 48,
-  },
-  filterContent: {
+  todayList: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
     gap: 8,
   },
-  filterChip: {
+
+  // Tab bar
+  tabBar: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  tabPill: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.headerCard,
+  },
+  tabPillActive: {
+    backgroundColor: colors.accentBlue,
+  },
+  tabLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.headerTextSecondary,
+  },
+  tabLabelActive: {
+    color: colors.headerTextPrimary,
+  },
+
+  // Scroll area
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingTop: 16,
+  },
+
+  // Extras section header
+  extraHeader: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.headerTextSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginTop: 32,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+
+  bottomPad: {
+    height: 32,
+  },
+
+  // Today card
+  todayCard: {
+    marginHorizontal: 16,
+    backgroundColor: colors.headerCard,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
+    borderColor: colors.headerBorder,
+  },
+  todayCardInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  todayCardName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
+  },
+  todayCardMeta: {
+    fontSize: 12,
+    color: colors.headerTextSecondary,
+    fontWeight: '400',
+  },
+  freeTrainingLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.accentBlue,
+  },
+  participateBtn: {
+    borderWidth: 1,
+    borderColor: colors.headerBorder,
+    borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 7,
-    backgroundColor: colors.card,
+    paddingVertical: 8,
   },
-  filterChipActive: {
-    backgroundColor: colors.dark,
-    borderColor: colors.dark,
+  participateBtnActive: {
+    backgroundColor: colors.accentBlue,
+    borderColor: colors.accentBlue,
   },
-  filterChipText: {
+  participateBtnText: {
     fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.headerTextSecondary,
   },
-  filterChipTextActive: {
+  participateBtnTextActive: {
     color: colors.headerTextPrimary,
   },
 });
