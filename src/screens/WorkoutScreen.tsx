@@ -1,82 +1,144 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Workout'>;
 
+// All workouts follow the same round structure
+const ROUNDS = 3;
+
 function getCategoryLabel(category: Props['route']['params']['category']): string {
-  switch (category) {
-    case 'schlagkraft':
-      return 'Schlagkraft';
-    case 'trittkraft':
-      return 'Trittkraft';
-    case 'ausdauer':
-      return 'Ausdauer';
-    case 'schulter':
-      return 'Schulter';
-    case 'beinarbeit':
-      return 'Beinarbeit';
-    case 'koordination':
-      return 'Koordination';
-    case 'mobilitaet':
-      return 'Mobilitaet';
-  }
+  const map: Record<string, string> = {
+    schlagkraft:     'Schlagkraft',
+    trittkraft:      'Trittkraft',
+    ausdauer:        'Ausdauer',
+    schulter:        'Schulter',
+    beinarbeit:      'Beinarbeit',
+    koordination:    'Koordination',
+    mobilitaet:      'Mobilität',
+    partnertraining: 'Partnertraining',
+    eigene:          'Eigene',
+  };
+  return map[category] ?? category;
 }
 
 function getDifficultyLabel(difficulty?: Props['route']['params']['difficulty']): string {
-  switch (difficulty) {
-    case 'leicht':
-      return 'Leicht';
-    case 'mittel':
-      return 'Mittel';
-    case 'schwer':
-      return 'Schwer';
-    default:
-      return 'Offen';
-  }
+  const map: Record<string, string> = { leicht: 'Leicht', mittel: 'Mittel', schwer: 'Schwer' };
+  return difficulty !== undefined ? (map[difficulty] ?? difficulty) : 'Offen';
 }
 
-export default function WorkoutScreen({ route, navigation }: Props) {
-  const { title, subtitle, category, exercises, duration, difficulty, equipment, pointsPer30Min, earnedPoints } = route.params;
+function todayIso(): string {
+  return new Date().toISOString().split('T')[0];
+}
 
-  function handleStartTraining() {
-    navigation.navigate('Timer', { workoutTitle: title, exercises, earnedPoints, category });
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function WorkoutScreen({ route, navigation }: Props) {
+  const { user } = useAuth();
+  const {
+    title, subtitle, category, exercises,
+    duration, difficulty, equipment, earnedPoints,
+  } = route.params;
+
+  const startedAt = useRef<number>(Date.now());
+  const [logging, setLogging] = useState(false);
+  const [done, setDone] = useState(false);
+
+  // Derive format from first exercise (all exercises share same timing)
+  const firstEx = exercises[0];
+  const workDuration = firstEx?.duration ?? '60s';
+  const workPause    = firstEx?.pause    ?? '30s';
+
+  async function handleComplete(): Promise<void> {
+    if (user === null || logging || done) return;
+    setLogging(true);
+
+    const today  = todayIso();
+    const points = earnedPoints ?? 0;
+
+    const isCustom = category === 'eigene';
+    await supabase.from('workout_logs').insert({
+      user_id:       user.id,
+      date:          today,
+      source:        isCustom ? 'custom' : 'module',
+      completed:     true,
+      points,
+      title,
+      training_type: isCustom ? 'eigene' : category,
+      category:      isCustom ? 'Eigene' : 'Spezifisch',
+      duration_min:  Math.max(1, Math.round((Date.now() - startedAt.current) / 60000)),
+    });
+
+    if (points > 0) {
+      await supabase.rpc('add_workout_points', {
+        p_user_id: user.id,
+        p_date:    today,
+        p_points:  points,
+      });
+    }
+
+    setLogging(false);
+    setDone(true);
+    setTimeout(() => navigation.popToTop(), 1500);
   }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+
+      {/* ── Dark header ────────────────────────────────────────────────────── */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backButtonLabel}>‹</Text>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={18} color={colors.headerTextPrimary} />
         </TouchableOpacity>
 
-        <Text style={styles.category}>{getCategoryLabel(category)}</Text>
+        <Text style={styles.categoryLabel}>{getCategoryLabel(category)}</Text>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
-        <Text style={styles.meta}>{(duration ?? 'Dauer offen') + ' • ' + getDifficultyLabel(difficulty)}</Text>
-
-        {(equipment?.length ?? 0) > 0 && (
-          <Text style={styles.equipment}>Equipment: {equipment?.join(', ')}</Text>
+        {subtitle !== undefined && subtitle.length > 0 && (
+          <Text style={styles.subtitle}>{subtitle}</Text>
         )}
-        {typeof pointsPer30Min === 'number' && (
-          <Text style={styles.points}>Punkte pro 30 Min: {pointsPer30Min}</Text>
+
+        {/* Meta: duration · difficulty · exercise count */}
+        <Text style={styles.meta}>
+          {duration ?? 'Offen'} · {getDifficultyLabel(difficulty)} · {exercises.length} Übungen
+        </Text>
+
+        {/* Format + equipment chips */}
+        <View style={styles.chipsRow}>
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>{ROUNDS} Runden</Text>
+          </View>
+          <View style={styles.chip}>
+            <Text style={styles.chipText}>{workDuration} / {workPause}</Text>
+          </View>
+          {(equipment ?? []).map((eq) => (
+            <View key={eq} style={[styles.chip, styles.chipEquip]}>
+              <Text style={[styles.chipText, styles.chipEquipText]}>{eq}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Points badge */}
+        {(earnedPoints ?? 0) > 0 && (
+          <View style={styles.pointsBadge}>
+            <Text style={styles.pointsBadgeText}>+{earnedPoints}p</Text>
+          </View>
         )}
       </View>
 
+      {/* ── Exercise list ───────────────────────────────────────────────────── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -84,97 +146,133 @@ export default function WorkoutScreen({ route, navigation }: Props) {
       >
         {exercises.map((exercise, index) => (
           <View key={`${exercise.name}-${index}`} style={styles.card}>
-            <Text style={styles.exerciseName}>{exercise.name}</Text>
-
-            <View style={styles.metaRow}>
-              <View style={styles.metaTag}>
-                <Text style={styles.metaTagText}>Belastung: {exercise.duration}</Text>
-              </View>
-              <View style={styles.metaTag}>
-                <Text style={styles.metaTagText}>Pause: {exercise.pause}</Text>
-              </View>
+            <Text style={styles.exerciseNumber}>
+              {String(index + 1).padStart(2, '0')}
+            </Text>
+            <View style={styles.exerciseInfo}>
+              <Text style={styles.exerciseName}>{exercise.name}</Text>
+              {exercise.description !== undefined && exercise.description.length > 0 && (
+                <Text style={styles.exerciseDesc}>{exercise.description}</Text>
+              )}
             </View>
-
-            {exercise.description ? <Text style={styles.description}>{exercise.description}</Text> : null}
           </View>
         ))}
       </ScrollView>
 
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.startButton} onPress={handleStartTraining} activeOpacity={0.8}>
-          <Text style={styles.startButtonLabel}>Training starten</Text>
+        <TouchableOpacity
+          style={[styles.completeBtn, done && styles.completeBtnDone]}
+          onPress={() => { void handleComplete(); }}
+          disabled={done || logging}
+          activeOpacity={0.8}
+        >
+          {logging ? (
+            <ActivityIndicator color={colors.headerTextPrimary} />
+          ) : (
+            <Text style={styles.completeBtnLabel}>
+              {done ? 'Gespeichert' : 'Workout absolviert'}
+            </Text>
+          )}
         </TouchableOpacity>
       </View>
+
     </SafeAreaView>
   );
 }
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
   },
+
+  // Header
   header: {
     backgroundColor: colors.dark,
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 20,
   },
-  backButton: {
+  backBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
     backgroundColor: colors.headerCard,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  backButtonLabel: {
-    color: colors.headerTextPrimary,
-    fontSize: 22,
-    lineHeight: 24,
-    fontWeight: '600',
-    marginTop: -1,
-  },
-  category: {
+  categoryLabel: {
     color: colors.accentBlue,
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 0.4,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
     marginBottom: 8,
   },
   title: {
     color: colors.headerTextPrimary,
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 26,
     fontWeight: '700',
+    lineHeight: 32,
     marginBottom: 4,
   },
   subtitle: {
     color: colors.headerTextSecondary,
     fontSize: 14,
-    lineHeight: 20,
+    fontWeight: '400',
     marginBottom: 8,
-    fontWeight: '500',
   },
   meta: {
     color: colors.headerTextSecondary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
+    marginBottom: 12,
   },
-  equipment: {
-    marginTop: 8,
-    color: colors.headerTextSecondary,
+
+  // Chips row
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: colors.headerCard,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  chipText: {
+    color: colors.headerTextPrimary,
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  points: {
-    marginTop: 4,
-    color: colors.headerTextSecondary,
-    fontSize: 12,
-    fontWeight: '500',
+  chipEquip: {
+    backgroundColor: 'rgba(74,144,217,0.2)',
   },
+  chipEquipText: {
+    color: colors.accentBlue,
+  },
+
+  // Points badge
+  pointsBadge: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.accentBlue,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  pointsBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  // Scroll / exercise list
   scroll: {
     flex: 1,
   },
@@ -182,55 +280,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 120,
-    gap: 12,
+    gap: 10,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 14,
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.text,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  exerciseNumber: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    paddingTop: 2,
+    minWidth: 24,
+  },
+  exerciseInfo: {
+    flex: 1,
+    gap: 6,
   },
   exerciseName: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 10,
+    lineHeight: 21,
   },
-  metaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 8,
-  },
-  metaTag: {
-    backgroundColor: colors.accentBlueSoft,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  metaTagText: {
-    color: colors.accentBlue,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  description: {
-    color: colors.textSecondary,
+  exerciseDesc: {
     fontSize: 13,
+    color: colors.textSecondary,
     lineHeight: 18,
   },
+
+  // Footer
   footer: {
     position: 'absolute',
     left: 0,
@@ -238,19 +323,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 24,
+    paddingBottom: 32,
     backgroundColor: colors.background,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  startButton: {
+  completeBtn: {
     backgroundColor: colors.dark,
     borderRadius: 14,
-    minHeight: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  startButtonLabel: {
+  completeBtnDone: {
+    backgroundColor: colors.accentBlue,
+  },
+  completeBtnLabel: {
     color: colors.headerTextPrimary,
     fontSize: 16,
     fontWeight: '700',

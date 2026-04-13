@@ -38,7 +38,12 @@ export const colors = {
   catSchulter:    '#3D6B9E',
   catCore:        '#2D6E6E',
   catCardio:      '#B8975A',
-  catMobility:    '#7B6FA0',
+  catMobility:        '#7B6FA0',
+  catPartnertraining:    '#4A7C59',
+
+  // ── Semantic status ───────────────────────────────────────────────────────
+  deleteRed:       '#D94A4A',
+  difficultyGreen: '#52C41A',
 
   // ── Donut chart segments ───────────────────────────────────────────────────
   chartK1:    '#0A0A0A',

@@ -13,6 +13,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { getRelevantWorkoutCategories } from '../../data/disciplines';
 import { useCustomWorkouts } from '../../hooks/useCustomWorkouts';
 import { useFavorites } from '../../hooks/useFavorites';
+import { useCompletedWorkoutIds } from '../../hooks/useCompletedWorkoutIds';
 import CustomWorkoutSheet from './CustomWorkoutSheet';
 import type { CustomWorkout, CustomExercise } from '../../types/database.types';
 
@@ -22,6 +23,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Workout'>;
+
+function difficultyColor(difficulty: Workout['difficulty']): string {
+  if (difficulty === 'leicht') return colors.difficultyGreen;
+  if (difficulty === 'schwer') return colors.deleteRed;
+  return colors.accentBlue;
+}
 
 type CategoryEntry = { key: Workout['category']; label: string };
 
@@ -98,7 +105,7 @@ function EigeneCard({
                 <View style={styles.workoutInfo}>
                   <Text style={styles.workoutTitle}>{w.title}</Text>
                   <Text style={styles.workoutMeta}>
-                    {w.rounds} Runden · {w.duration_min} Min · {Math.max(1, Math.floor(w.duration_min / 30)) * 20} Pts
+                    {w.rounds} Runden · {w.duration_min} Min · {Math.max(1, Math.floor(w.duration_min / 30)) * 35} Pts
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -130,6 +137,7 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
 
   const { customWorkouts, create, remove } = useCustomWorkouts();
   const { favoriteIds, isFavorite, toggleFavorite } = useFavorites();
+  const completedTitles = useCompletedWorkoutIds();
 
   const rotations = useRef<Record<string, Animated.Value>>(
     Object.fromEntries(ROTATION_KEYS.map((k) => [k, new Animated.Value(0)])),
@@ -223,8 +231,14 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
                   activeOpacity={0.7}
                   onPress={() => navigateToWorkout(workout)}
                 >
+                  {completedTitles.has(workout.title) && (
+                    <Ionicons name="checkmark-circle" size={18} color={colors.accentBlue} style={styles.doneCheck} />
+                  )}
                   <View style={styles.workoutInfo}>
-                    <Text style={styles.workoutTitle}>{workout.title}</Text>
+                    <View style={styles.titleRow}>
+                      <View style={[styles.difficultyDot, { backgroundColor: difficultyColor(workout.difficulty) }]} />
+                      <Text style={[styles.workoutTitle, styles.titleFlex]}>{workout.title}</Text>
+                    </View>
                     <Text style={styles.workoutSubtitle}>{workout.subtitle}</Text>
                     <Text style={styles.workoutMeta}>
                       {workout.durationMin} Min
@@ -288,8 +302,14 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
                     activeOpacity={0.7}
                     onPress={() => navigateToWorkout(workout)}
                   >
+                    {completedTitles.has(workout.title) && (
+                      <Ionicons name="checkmark-circle" size={18} color={colors.accentBlue} style={styles.doneCheck} />
+                    )}
                     <View style={styles.workoutInfo}>
-                      <Text style={styles.workoutTitle}>{workout.title}</Text>
+                      <View style={styles.titleRow}>
+                        <View style={[styles.difficultyDot, { backgroundColor: difficultyColor(workout.difficulty) }]} />
+                        <Text style={[styles.workoutTitle, styles.titleFlex]}>{workout.title}</Text>
+                      </View>
                       <Text style={styles.workoutSubtitle}>{workout.subtitle}</Text>
                       <Text style={styles.workoutMeta}>
                         {workout.durationMin} Min
@@ -392,5 +412,27 @@ const styles = StyleSheet.create({
     color: colors.headerTextSecondary,
     fontWeight: '400',
     lineHeight: 18,
+  },
+
+  // Difficulty dot + title row
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  titleFlex: {
+    flex: 1,
+  },
+  difficultyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+
+  // Completed checkmark (top-right of card)
+  doneCheck: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
   },
 });
