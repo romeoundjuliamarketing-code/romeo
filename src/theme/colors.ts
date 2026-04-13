@@ -1,0 +1,50 @@
+export const colors = {
+  // ── Surfaces ──────────────────────────────────────────────────────────────
+  background: '#F7F5F0',
+  card:       '#FFFFFF',
+
+  // ── Typography ────────────────────────────────────────────────────────────
+  text:          '#141414', // near-black body text
+  textPrimary:   '#141414',
+  textSecondary: '#8A8A8A',
+  textTertiary:  '#8A8A8A',
+  inactive:      '#8A8A8A', // alias → textTertiary
+
+  // ── Accent ────────────────────────────────────────────────────────────────
+  accent:          '#C8A882', // warm gold (legacy, prefer accentBlue)
+  accentLight:     'rgba(200,168,130,0.15)',
+  accentBlue:      '#4A90D9', // primary interactive accent
+  accentBlueMuted: 'rgba(74,144,217,0.3)',
+  accentBlueSoft:  'rgba(74,144,217,0.15)',
+
+  // ── Borders ───────────────────────────────────────────────────────────────
+  border:       'rgba(20,20,20,0.08)',
+  tabBar:       '#FFFFFF',
+  tabBarBorder: 'rgba(20,20,20,0.08)', // alias → border
+
+  // ── Dark section (hero / coach) ───────────────────────────────────────────
+  dark:                '#0A0A0A',
+  darkMuted:           'rgba(10,10,10,0.06)',
+  headerBg:            '#0A0A0A', // alias → dark
+  headerCard:          'rgba(255,255,255,0.08)',
+  headerTextPrimary:   '#FFFFFF',
+  headerTextSecondary: 'rgba(255,255,255,0.65)',
+  headerBorder:        'rgba(255,255,255,0.25)',
+  headerDotFuture:     'rgba(255,255,255,0.1)',
+
+  // ── Module category left borders ──────────────────────────────────────────
+  catSchlagkraft: '#0A0A0A',
+  catTrittkraft:  '#C4704F',
+  catSchulter:    '#3D6B9E',
+  catCore:        '#2D6E6E',
+  catCardio:      '#B8975A',
+  catMobility:    '#7B6FA0',
+
+  // ── Donut chart segments ───────────────────────────────────────────────────
+  chartK1:    '#0A0A0A',
+  chartBoxen: '#4A90D9',
+  chartBJJ:   '#2D6B9E',
+  chartMMA:   '#6BAED6',
+  chartKraft: '#1A1A2E',
+  chartExtra: '#8CB8E0',
+};
