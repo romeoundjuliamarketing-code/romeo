@@ -167,11 +167,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  // Tab bar
+  // Tab bar — schwebt über dem Scroll-Inhalt
   tabBar: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    zIndex: 10,
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 16,
     gap: 8,
   },
   tabPill: {
@@ -180,7 +183,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: colors.headerBorder,
   },
   tabPillActive: {
     backgroundColor: colors.accentBlue,
@@ -199,7 +202,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 16,
+    paddingTop: 72,
   },
 
   // Extras section header
