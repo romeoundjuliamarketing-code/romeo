@@ -63,8 +63,8 @@ export default function TrainingScreen(): React.ReactElement {
     setFocusTrigger((n) => n + 1);
   }, []));
 
-  const { schedule: todaySchedule } = useSchedule(todayDow);
   const { schedule: fullSchedule, loading: scheduleLoading } = useSchedule();
+  const todaySchedule = fullSchedule.filter((s) => s.day_of_week === todayDow);
   const { isParticipating, participate, cancelParticipation } = useParticipation();
   const { profile } = useProfile(focusTrigger);
 
@@ -161,7 +161,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 16,
-    gap: 0,
   },
   todayList: {
     paddingHorizontal: 16,
@@ -227,7 +226,7 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     borderWidth: 1,
     borderColor: colors.headerBorder,
   },
