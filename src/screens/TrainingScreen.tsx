@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.headerCard,
+    backgroundColor: 'transparent',
   },
   tabPillActive: {
     backgroundColor: colors.accentBlue,
