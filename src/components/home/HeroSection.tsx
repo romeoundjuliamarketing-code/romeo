@@ -85,7 +85,7 @@ export default function HeroSection({
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting}>{greeting}</Text>
-          {name !== null && <Text style={styles.name}>{name}</Text>}
+          {name !== null && <Text style={styles.name}>{name.split(' ')[0]}</Text>}
         </View>
         <View style={styles.logoWrap}>
           <Image
@@ -200,6 +200,7 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+    maxWidth: '45%',
   },
   logoWrap: {
     position: 'absolute',
