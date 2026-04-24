@@ -1,13 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 
 interface WorkoutStats {
   completedDayIndices: number[]; // 0=Mon … 6=Sun for the current week
   totalPoints: number;
   totalWorkouts: number; // all-time completed workout count
   streak: number; // consecutive completed days ending today or yesterday
+  rank: number | null; // position within the user's studio by total_points
+  eigenePoints: number; // points earned from custom workouts
   loading: boolean;
+  refetch: () => void;
 }
 
 // Returns Monday of the ISO week that contains the given date
@@ -20,8 +24,12 @@ function getMondayOfWeek(date: Date): Date {
   return d;
 }
 
+// Use local date components to avoid UTC-offset shifting the date boundary
 function toIso(date: Date): string {
-  return date.toISOString().split('T')[0];
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 // Counts consecutive days ending on today or yesterday
@@ -49,13 +57,20 @@ function calcStreak(dates: string[]): number {
   return streak;
 }
 
+type ProfileRow = { total_points: number; studio_id: string | null };
+
 export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
   const { user } = useAuth();
   const [completedDayIndices, setCompletedDayIndices] = useState<number[]>([]);
   const [totalPoints, setTotalPoints] = useState(0);
   const [totalWorkouts, setTotalWorkouts] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [rank, setRank] = useState<number | null>(null);
+  const [eigenePoints, setEigenePoints] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [internalTrigger, setInternalTrigger] = useState(0);
+
+  const refetch = useCallback(() => setInternalTrigger((n) => n + 1), []);
 
   useEffect(() => {
     if (user === null) {
@@ -76,10 +91,10 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
         .eq('completed', true)
         .gte('date', toIso(monday))
         .lte('date', toIso(sunday)),
-      // Total XP + all dates for streak (last 365 days)
+      // All dates for streak (last 365 days)
       supabase
         .from('workout_logs')
-        .select('date, points')
+        .select('date')
         .eq('user_id', user.id)
         .eq('completed', true)
         .gte('date', toIso(new Date(Date.now() - 365 * 86_400_000))),
@@ -89,24 +104,58 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .eq('completed', true),
-    ]).then(([weekRes, allRes, countRes]) => {
+      // Total points + studio_id from profile (source of truth)
+      supabase
+        .from('profiles')
+        .select('total_points, studio_id')
+        .eq('id', user.id)
+        .single(),
+      // Points from custom workouts
+      supabase
+        .from('workout_logs')
+        .select('points')
+        .eq('user_id', user.id)
+        .eq('source', 'custom')
+        .eq('completed', true),
+    ]).then(async ([weekRes, allRes, countRes, profileRes, eigeneRes]) => {
+      if (weekRes.error !== null) { reportNetworkError(weekRes.error); return; }
+      reportNetworkSuccess();
       if (weekRes.data !== null) {
         const indices = weekRes.data.map((row) => {
           const d = new Date(row.date + 'T12:00:00'); // noon to avoid TZ issues
           const js = d.getDay(); // 0=Sun
           return (js + 6) % 7; // convert to 0=Mon
         });
-        setCompletedDayIndices(indices);
+        // Deduplicate: multiple logs on the same day should count as one
+        setCompletedDayIndices([...new Set(indices)]);
       }
       if (allRes.data !== null) {
-        const sum = allRes.data.reduce((acc, row) => acc + (row.points as number), 0);
-        setTotalPoints(sum);
         setStreak(calcStreak(allRes.data.map((row) => row.date as string)));
       }
       setTotalWorkouts(countRes.count ?? 0);
+      if (eigeneRes.data !== null) {
+        const sum = eigeneRes.data.reduce((acc, row) => acc + (row.points as number), 0);
+        setEigenePoints(sum);
+      }
+      if (profileRes.data !== null) {
+        setTotalPoints(profileRes.data.total_points);
+
+        // Rank = number of studio members with more points + 1
+        const studioId = (profileRes.data as ProfileRow).studio_id;
+        if (studioId !== null) {
+          const { count } = await supabase
+            .from('profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('studio_id', studioId)
+            .gt('total_points', profileRes.data.total_points);
+          setRank((count ?? 0) + 1);
+        } else {
+          setRank(null);
+        }
+      }
       setLoading(false);
     });
-  }, [user, refetchTrigger]);
+  }, [user, refetchTrigger, internalTrigger]);
 
-  return { completedDayIndices, totalPoints, totalWorkouts, streak, loading };
+  return { completedDayIndices, totalPoints, totalWorkouts, streak, rank, eigenePoints, loading, refetch };
 }

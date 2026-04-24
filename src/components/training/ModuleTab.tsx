@@ -30,12 +30,20 @@ function formatCategory(category: Workout['category']): string {
       return 'Ausdauer';
     case 'schulter':
       return 'Schulter';
+    case 'nackenhals':
+      return 'Nacken und Hals';
+    case 'griffkraft':
+      return 'Griffkraft';
     case 'beinarbeit':
       return 'Beinarbeit';
     case 'koordination':
       return 'Koordination';
     case 'mobilitaet':
-      return 'Mobilitaet';
+      return 'Mobilität';
+    case 'partnertraining':
+      return 'Partnertraining';
+    case 'eigene':
+      return 'Eigene';
   }
 }
 
@@ -73,7 +81,7 @@ export default function ModuleTab({ workouts }: Props) {
               difficulty: workout.difficulty,
               equipment: workout.equipment,
               pointsPer30Min: workout.pointsPerUnit,
-              earnedPoints: workout.maxPoints ?? Math.floor(workout.durationMin / 30) * workout.pointsPerUnit,
+              earnedPoints: workout.maxPoints ?? Math.max(1, Math.floor(workout.durationMin / 30)) * workout.pointsPerUnit,
             })
           }
           activeOpacity={0.7}
@@ -131,12 +139,12 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.accentBlue,
     ...Platform.select({
       ios: {
-        shadowColor: colors.headerBg,
+        shadowColor: '#000000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
+        shadowOpacity: 0.12,
         shadowRadius: 8,
       },
-      android: { elevation: 2 },
+      android: { elevation: 3 },
     }),
   },
   cardBody: {
@@ -191,7 +199,7 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     marginTop: 12,
-    backgroundColor: colors.card,
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,

@@ -8,8 +8,8 @@ import { useParticipation } from '../hooks/useParticipation';
 import { useProfile } from '../hooks/useProfile';
 import StundenplanSection from '../components/training/StundenplanSection';
 import WorkoutCategoryRows from '../components/training/WorkoutCategoryRows';
-import ExtraTab from '../components/training/ExtraTab';
 import WeeklyVolumeCard from '../components/training/WeeklyVolumeCard';
+import WorkoutStartSheet from '../components/training/WorkoutStartSheet';
 import type { StudioSchedule } from '../types/database.types';
 
 type TabKey = 'workouts' | 'plan';
@@ -58,6 +58,7 @@ export default function TrainingScreen(): React.ReactElement {
   const todayDate = new Date().toISOString().split('T')[0];
   const [focusTrigger, setFocusTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<TabKey>('workouts');
+  const [workoutSheetVisible, setWorkoutSheetVisible] = useState(false);
 
   useFocusEffect(useCallback(() => {
     setFocusTrigger((n) => n + 1);
@@ -102,14 +103,12 @@ export default function TrainingScreen(): React.ReactElement {
         >
           {/* Header scrollt mit */}
           <View style={styles.header}>
+            <Text style={styles.todaySectionTitle}>Heute auf dem Plan</Text>
             {todaySchedule.length === 0 ? (
               <View style={styles.todayCard}>
                 <View style={styles.todayCardInfo}>
-                  <Text style={styles.todayCardName}>Heute kein Studiotraining</Text>
+                  <Text style={styles.todayCardName}>Kein Studiotraining</Text>
                 </View>
-                <TouchableOpacity onPress={() => setActiveTab('workouts')} activeOpacity={0.7}>
-                  <Text style={styles.freeTrainingLink}>Freies Training starten</Text>
-                </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.todayList}>
@@ -129,9 +128,16 @@ export default function TrainingScreen(): React.ReactElement {
 
           {activeTab === 'workouts' ? (
             <>
+              <Text style={styles.sectionTitle}>Punkte für extra Workouts bekommen</Text>
+              <TouchableOpacity
+                style={styles.startWorkoutBtn}
+                onPress={() => setWorkoutSheetVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.startWorkoutLabel}>Workout starten</Text>
+              </TouchableOpacity>
+              <Text style={styles.sectionTitle}>Vorgeschlagene Workouts</Text>
               <WorkoutCategoryRows disciplines={profile?.disciplines ?? []} />
-              <Text style={styles.extraHeader}>Zusatztraining</Text>
-              <ExtraTab />
             </>
           ) : (
             <StundenplanSection
@@ -145,6 +151,10 @@ export default function TrainingScreen(): React.ReactElement {
         </ScrollView>
 
       </View>
+      <WorkoutStartSheet
+        visible={workoutSheetVisible}
+        onClose={() => setWorkoutSheetVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -161,6 +171,13 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 16,
+  },
+  todaySectionTitle: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
   },
   todayList: {
     paddingHorizontal: 16,
@@ -183,7 +200,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.headerBorder,
+    backgroundColor: colors.card,
   },
   tabPillActive: {
     backgroundColor: colors.accentBlue,
@@ -191,7 +208,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.headerTextSecondary,
+    color: colors.text,
   },
   tabLabelActive: {
     color: colors.headerTextPrimary,
@@ -205,20 +222,30 @@ const styles = StyleSheet.create({
     paddingTop: 72,
   },
 
-  // Extras section header
-  extraHeader: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.headerTextSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginTop: 32,
-    marginBottom: 8,
-    paddingHorizontal: 16,
-  },
-
   bottomPad: {
     height: 32,
+  },
+
+  sectionTitle: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
+  },
+  startWorkoutBtn: {
+    marginHorizontal: 16,
+    marginBottom: 24,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: colors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  startWorkoutLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
   },
 
   // Today card
@@ -246,11 +273,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.headerTextSecondary,
     fontWeight: '400',
-  },
-  freeTrainingLink: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.accentBlue,
   },
   participateBtn: {
     borderWidth: 1,

@@ -1,32 +1,68 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import StudioTrainingCard from './StudioTrainingCard';
+import DailyStretchCard from './DailyStretchCard';
+import DailyMobilityCard from './DailyMobilityCard';
+import type { StudioSchedule, TeamAnnouncement } from '../../types/database.types';
+
+// Returns 'stretch' on even day-of-year, 'mobility' on odd — alternates daily
+function todayRoutineType(): 'stretch' | 'mobility' {
+  const now = new Date();
+  const start = Date.UTC(now.getUTCFullYear(), 0, 0);
+  const dayOfYear = Math.floor((Date.now() - start) / 86_400_000);
+  return dayOfYear % 2 === 0 ? 'stretch' : 'mobility';
+}
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
-const USER_NAME     = 'Romeo';
-const USER_INITIALS = 'RG';
-const DAY_LABELS    = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-const TOTAL_DAYS    = DAY_LABELS.length;
-
-const TODAY_WORKOUT = { title: 'Upper Body Power', duration: '45 Min', category: 'Kraft' };
-
-// 0 = Mon … 6 = Sun
-const jsDay      = new Date().getDay();
-const TODAY_INDEX = (jsDay + 6) % 7;
+const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const TOTAL_DAYS = DAY_LABELS.length;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 type Props = {
+  name: string | null;
+  announcement: TeamAnnouncement | null;
+  isCoach: boolean;
+  onDeleteAnnouncement: () => void;
   completedDayIndices: number[];
   streak: number;
+  todaySession: StudioSchedule | null;
+  isParticipating: boolean;
+  onParticipate: () => void;
+  onCancel: () => void;
+  stretchDone: boolean;
+  stretchUrgent: boolean;
+  onStretch: () => void;
+  mobilityDone: boolean;
+  mobilityUrgent: boolean;
+  onMobility: () => void;
 };
 
-export default function HeroSection({ completedDayIndices, streak }: Props) {
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Guten Morgen' : hour < 18 ? 'Guten Tag' : 'Guten Abend';
+export default function HeroSection({
+  name,
+  announcement,
+  isCoach,
+  onDeleteAnnouncement,
+  completedDayIndices,
+  streak,
+  todaySession,
+  isParticipating,
+  onParticipate,
+  onCancel,
+  stretchDone,
+  stretchUrgent,
+  onStretch,
+  mobilityDone,
+  mobilityUrgent,
+  onMobility,
+}: Props) {
+  const routineType = todayRoutineType();
+  const now = new Date();
+  const greeting = now.getHours() < 12 ? 'Guten Morgen' : now.getHours() < 18 ? 'Guten Tag' : 'Guten Abend';
+  const todayIndex = (now.getDay() + 6) % 7;
 
   // Connector line geometry derived from real completed days
   const connectorLeft = useMemo((): `${number}%` => {
@@ -45,24 +81,27 @@ export default function HeroSection({ completedDayIndices, streak }: Props) {
   return (
     <View style={styles.hero}>
 
-      {/* ── Header ── */}
+      {/* ── Header: greeting left, logo centered ── */}
       <View style={styles.header}>
-        <View>
+        <View style={styles.headerLeft}>
           <Text style={styles.greeting}>{greeting}</Text>
-          <Text style={styles.name}>{USER_NAME}</Text>
+          {name !== null && <Text style={styles.name}>{name}</Text>}
         </View>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{USER_INITIALS}</Text>
+        <View style={styles.logoWrap}>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            source={require('../../../assets/logo-home.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
       </View>
 
       {/* ── Streak ── */}
-      {streak > 0 && (
-        <View style={styles.streakWrap}>
-          <Text style={styles.streakValue}>{streak}</Text>
-          <Text style={styles.streakLabel}>Tage hintereinander</Text>
-        </View>
-      )}
+      <View style={styles.streakWrap}>
+        <Text style={styles.streakValue}>{streak}</Text>
+        <Text style={styles.streakLabel}>Tage hintereinander</Text>
+      </View>
 
       {/* ── Week strip ── */}
       <View style={styles.weekStrip}>
@@ -74,8 +113,8 @@ export default function HeroSection({ completedDayIndices, streak }: Props) {
         )}
         {DAY_LABELS.map((day, i) => {
           const isDone   = completedDayIndices.includes(i);
-          const isToday  = i === TODAY_INDEX;
-          const isFuture = i > TODAY_INDEX;
+          const isToday  = i === todayIndex;
+          const isFuture = i > todayIndex;
           return (
             <View key={day} style={styles.dayCol}>
               <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{day}</Text>
@@ -94,31 +133,48 @@ export default function HeroSection({ completedDayIndices, streak }: Props) {
       </View>
       <Text style={styles.weekSubtext}>{completedDayIndices.length} von 7 Tagen erledigt</Text>
 
-      {/* ── Studio session ── */}
-      <StudioTrainingCard dark />
-
-      {/* ── Today's own workout ── */}
-      <View style={styles.workoutCard}>
-        <Text style={styles.workoutCardTitle}>Heutiges Training</Text>
-        <View style={styles.workoutRow}>
-          <View style={styles.workoutIconWrap}>
-            <MaterialCommunityIcons name="lightning-bolt" size={24} color={colors.accentBlue} />
+      {announcement !== null && (
+        <View style={styles.announcementCard}>
+          <View style={styles.announcementHeader}>
+            <Text style={styles.announcementTitle}>Ankündigung vom Trainer</Text>
+            {isCoach && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={onDeleteAnnouncement}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.deleteButtonLabel}>Löschen</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <View style={styles.workoutInfo}>
-            <Text style={styles.workoutTitle}>{TODAY_WORKOUT.title}</Text>
-            <View style={styles.workoutMeta}>
-              <MaterialCommunityIcons name="clock-outline" size={13} color={colors.headerTextSecondary} />
-              <Text style={styles.workoutMetaText}>{TODAY_WORKOUT.duration}</Text>
-              <View style={styles.workoutDivider} />
-              <MaterialCommunityIcons name="weight-lifter" size={13} color={colors.headerTextSecondary} />
-              <Text style={styles.workoutMetaText}>{TODAY_WORKOUT.category}</Text>
-            </View>
-          </View>
+          <Text style={styles.announcementText}>{announcement.message}</Text>
         </View>
-        <TouchableOpacity style={styles.startButton} activeOpacity={0.8}>
-          <Text style={styles.startButtonText}>Training starten</Text>
-        </TouchableOpacity>
-      </View>
+      )}
+
+      {/* ── Studio session ── */}
+      <StudioTrainingCard
+        dark
+        session={todaySession}
+        participating={isParticipating}
+        onParticipate={onParticipate}
+        onCancel={onCancel}
+      />
+
+      {/* ── Daily routine (alternates daily: stretch / mobility) ── */}
+      {routineType === 'stretch' ? (
+        <DailyStretchCard
+          isDone={stretchDone}
+          isUrgent={stretchUrgent}
+          onConfirm={onStretch}
+        />
+      ) : (
+        <DailyMobilityCard
+          isDone={mobilityDone}
+          isUrgent={mobilityUrgent}
+          onConfirm={onMobility}
+        />
+      )}
+
 
     </View>
   );
@@ -130,7 +186,7 @@ const styles = StyleSheet.create({
   hero: {
     backgroundColor: colors.headerBg,
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 0,
     paddingBottom: 24,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -139,9 +195,22 @@ const styles = StyleSheet.create({
   // Header
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 24,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  logoWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: -14,
+    alignItems: 'center',
+  },
+  headerLogo: {
+    width: 220,
+    height: 100,
   },
   greeting: {
     fontSize: 13,
@@ -154,22 +223,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.headerTextPrimary,
     letterSpacing: -0.5,
-  },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.headerCard,
-    borderWidth: 1.5,
-    borderColor: colors.accentBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: colors.headerTextPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.5,
   },
 
   // Streak
@@ -191,11 +244,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     marginBottom: 4,
-  },
-  streakMotivation: {
-    fontSize: 11,
-    color: colors.headerTextSecondary,
-    fontWeight: '400',
   },
 
   // Week strip
@@ -264,73 +312,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
-
-  // Today's own workout card
-  workoutCard: {
+  announcementCard: {
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accentBlue,
     borderRadius: 16,
     padding: 16,
+    marginBottom: 16,
   },
-  workoutCardTitle: {
+  announcementHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 8,
+  },
+  announcementTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.headerTextSecondary,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    marginBottom: 14,
   },
-  workoutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 14,
-  },
-  workoutIconWrap: {
-    width: 50,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: colors.headerBg,
+  deleteButton: {
+    height: 32,
+    borderRadius: 10,
+    paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  workoutInfo: {
-    flex: 1,
-  },
-  workoutTitle: {
-    fontSize: 17,
+  deleteButtonLabel: {
+    fontSize: 12,
     fontWeight: '700',
     color: colors.headerTextPrimary,
-    marginBottom: 5,
   },
-  workoutMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  workoutMetaText: {
-    fontSize: 12,
-    color: colors.headerTextSecondary,
-    fontWeight: '500',
-  },
-  workoutDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: colors.headerBorder,
-    marginHorizontal: 4,
-  },
-  startButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  startButtonText: {
-    color: colors.headerBg,
+  announcementText: {
     fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '600',
+    color: colors.headerTextPrimary,
+    lineHeight: 22,
   },
+
 });

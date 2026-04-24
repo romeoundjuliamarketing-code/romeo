@@ -50,7 +50,12 @@ export default function RegisterScreen() {
     const { error: authError } = await signUp(email.trim(), password);
     setLoading(false);
     if (authError) {
-      setError(authError.message.includes('already') ? 'Diese E-Mail ist bereits registriert.' : 'Registrierung fehlgeschlagen.');
+      console.error('[RegisterScreen] signUp error:', authError.message, authError.status);
+      if (authError.message === 'User already registered') {
+        setError('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an.');
+      } else {
+        setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
+      }
     } else {
       setSuccess(true);
     }
@@ -88,7 +93,7 @@ export default function RegisterScreen() {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={22} color={colors.headerTextPrimary} />
             </TouchableOpacity>
-            <Text style={styles.appName}>Strikeforce</Text>
+            <Text style={styles.appName}>Kombat</Text>
             <Text style={styles.headerSubtitle}>Konto erstellen</Text>
           </View>
 

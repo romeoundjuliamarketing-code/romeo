@@ -36,6 +36,7 @@ export const colors = {
   catSchlagkraft: '#0A0A0A',
   catTrittkraft:  '#C4704F',
   catSchulter:    '#3D6B9E',
+  catGriffkraft:  '#4F6D7A',
   catCore:        '#2D6E6E',
   catCardio:      '#B8975A',
   catMobility:        '#7B6FA0',

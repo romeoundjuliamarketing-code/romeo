@@ -68,19 +68,30 @@ export default function TimerScreen({ route, navigation }: Props) {
     if (phase !== 'done' || savedRef.current || user === null) return;
     savedRef.current = true;
 
+    const today = todayIso();
+
+    // Insert workout log (category logged as training_type for recommendation engine)
     supabase
-      .rpc('add_workout_points', { p_user_id: user.id, p_date: todayIso(), p_points: earnedPoints })
+      .from('workout_logs')
+      .insert({
+        user_id: user.id,
+        date: today,
+        source: 'module',
+        completed: true,
+        points: earnedPoints,
+        duration_min: Math.round((TOTAL_ROUNDS * WORK_SECONDS) / 60),
+        title: workoutTitle,
+        training_type: category ?? null,
+        category: 'Spezifisch',
+      })
+      .then(() => undefined);
+
+    // Credit profile points atomically
+    supabase
+      .rpc('add_workout_points', { p_user_id: user.id, p_date: today, p_points: earnedPoints })
       .then(({ error }) => {
         if (error !== null) setSaveError(true);
       });
-
-    // Log category for recommendation engine
-    if (category !== undefined) {
-      supabase
-        .from('training_category_log')
-        .insert({ user_id: user.id, category })
-        .then(() => undefined);
-    }
   }, [phase, user, earnedPoints, category]);
 
   function handleNextExercise() {
@@ -89,7 +100,7 @@ export default function TimerScreen({ route, navigation }: Props) {
   }
 
   function getPhaseLabel(): string {
-    if (phase === 'work') return 'Runde laeuft';
+    if (phase === 'work') return 'Runde läuft';
     if (phase === 'rest') return 'Pause';
     return 'Training beendet';
   }
@@ -112,7 +123,7 @@ export default function TimerScreen({ route, navigation }: Props) {
             onPress={() => navigation.popToTop()}
             activeOpacity={0.8}
           >
-            <Text style={styles.doneButtonLabel}>Zurueck zur Uebersicht</Text>
+            <Text style={styles.doneButtonLabel}>Zurück zur Übersicht</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -123,7 +134,7 @@ export default function TimerScreen({ route, navigation }: Props) {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backButton}>
-          <Text style={styles.backLabel}>Zurueck</Text>
+          <Text style={styles.backLabel}>Zurück</Text>
         </TouchableOpacity>
         <Text style={styles.workoutTitle}>{workoutTitle}</Text>
         <Text style={styles.roundLabel}>Runde {Math.min(round, TOTAL_ROUNDS)} / {TOTAL_ROUNDS}</Text>
@@ -135,10 +146,10 @@ export default function TimerScreen({ route, navigation }: Props) {
       </View>
 
       <View style={styles.exerciseCard}>
-        <Text style={styles.sectionTitle}>Aktuelle Uebung</Text>
-        <Text style={styles.exerciseName}>{currentExercise?.name ?? 'Keine Uebung vorhanden'}</Text>
+        <Text style={styles.sectionTitle}>Aktuelle Übung</Text>
+        <Text style={styles.exerciseName}>{currentExercise?.name ?? 'Keine Übung vorhanden'}</Text>
         <Text style={styles.exerciseMeta}>
-          {currentExercise ? `Belastung: ${currentExercise.duration} • Pause: ${currentExercise.pause}` : 'Bitte Trainingsdaten pruefen'}
+          {currentExercise ? `Belastung: ${currentExercise.duration} • Pause: ${currentExercise.pause}` : 'Bitte Trainingsdaten prüfen'}
         </Text>
         {currentExercise?.description ? <Text style={styles.exerciseDescription}>{currentExercise.description}</Text> : null}
       </View>

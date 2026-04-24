@@ -37,6 +37,8 @@ const ALL_CATEGORIES: CategoryEntry[] = [
   { key: 'trittkraft',      label: 'Trittkraft' },
   { key: 'ausdauer',        label: 'Ausdauer' },
   { key: 'schulter',        label: 'Schulter' },
+  { key: 'nackenhals',      label: 'Nacken und Hals' },
+  { key: 'griffkraft',      label: 'Griffkraft' },
   { key: 'beinarbeit',      label: 'Beinarbeit' },
   { key: 'koordination',    label: 'Koordination' },
   { key: 'mobilitaet',      label: 'Mobilität' },

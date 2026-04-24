@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,31 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import HeroSection from '../components/home/HeroSection';
 import RecommendedWorkoutCard from '../components/home/RecommendedWorkoutCard';
+import WaterBottleCard from '../components/home/WaterBottleCard';
+import WeightCheckInModal from '../components/home/WeightCheckInModal';
+import PaywallCard from '../components/common/PaywallCard';
 import { useWorkoutStats } from '../hooks/useWorkoutStats';
+import { useSchedule } from '../hooks/useSchedule';
+import { useParticipation } from '../hooks/useParticipation';
+import { useDailyStretch } from '../hooks/useDailyStretch';
+import { useDailyMobility } from '../hooks/useDailyMobility';
+import { useProfile } from '../hooks/useProfile';
+import { useAnnouncement } from '../hooks/useAnnouncement';
+import { useWaterTracking } from '../hooks/useWaterTracking';
+import { useWeight } from '../hooks/useWeight';
+import ConfettiOverlay from '../components/ernaehrung/ConfettiOverlay';
+import { useEntitlement } from '../hooks/useEntitlement';
+import type { RootStackParamList } from '../navigation/types';
+
+const WEIGHT_DISMISSED_KEY = 'weight_checkin_dismissed';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,19 +41,91 @@ type StatEntry = { label: string; value: string; unit: string; icon: StatIcon };
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const [focusTrigger, setFocusTrigger] = useState(0);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [focusTrigger,    setFocusTrigger]    = useState(0);
+  const [showConfetti,    setShowConfetti]    = useState(false);
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const weightCheckTriggered = useRef(false);
 
   useFocusEffect(useCallback(() => {
     setFocusTrigger((n) => n + 1);
   }, []));
 
-  const { completedDayIndices, totalPoints, totalWorkouts, streak } = useWorkoutStats(focusTrigger);
+  const { isNewWeek, loading: weightLoading, logWeight } = useWeight(focusTrigger);
+  const { profile } = useProfile(focusTrigger);
+  const { announcement, deleteAnnouncement } = useAnnouncement(focusTrigger);
+  const { entitlement } = useEntitlement(focusTrigger);
+  const { completedDayIndices, totalPoints, totalWorkouts, streak, rank, refetch: refetchStats } = useWorkoutStats(focusTrigger);
+  // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
+  const todayDow = (new Date().getDay() + 6) % 7;
+  const { schedule } = useSchedule(todayDow);
+  const { isParticipating, participate, cancelParticipation } = useParticipation();
+  const { isDone: stretchDone, isUrgent: stretchUrgent, logStretch } = useDailyStretch();
+  const { isDone: mobilityDone, isUrgent: mobilityUrgent, logMobility } = useDailyMobility();
+  // Show weight check-in modal on Mondays when no entry exists for this week
+  useEffect(() => {
+    if (weightLoading) return;
+    if (!isNewWeek) return;
+    if (todayDow !== 0) return; // only on Mondays (0 = Mon in remapped week)
+    if (weightCheckTriggered.current) return;
+
+    async function maybeShow(): Promise<void> {
+      const dismissed = await AsyncStorage.getItem(WEIGHT_DISMISSED_KEY);
+      const todayIso = new Date().toISOString().split('T')[0];
+      if (dismissed === todayIso) return;
+      weightCheckTriggered.current = true;
+      setTimeout(() => setShowWeightModal(true), 600);
+    }
+
+    void maybeShow();
+  }, [weightLoading, isNewWeek]);
+
+  async function handleWeightSubmit(kg: number): Promise<void> {
+    setShowWeightModal(false);
+    await logWeight(kg);
+  }
+
+  async function handleWeightLater(): Promise<void> {
+    setShowWeightModal(false);
+    const todayIso = new Date().toISOString().split('T')[0];
+    await AsyncStorage.setItem(WEIGHT_DISMISSED_KEY, todayIso);
+  }
+
+  const { amountMl, goalMl, hydrationMode, setHydrationMode, addWater, loading: waterLoading } = useWaterTracking(
+    () => setShowConfetti(true),
+    focusTrigger,
+  );
+
+  // First active session of the day shown in the hero card
+  const todaySession = schedule.length > 0 ? schedule[0] : null;
+  const todaySessionDate = new Date().toISOString().split('T')[0];
+  const heroParticipating =
+    todaySession !== null && isParticipating(todaySession.id, todaySessionDate);
+
+  async function handleHeroParticipate(): Promise<void> {
+    if (todaySession === null) return;
+    await participate(
+      todaySession.id,
+      todaySessionDate,
+      todaySession.points_per_30min,
+      todaySession.duration_min,
+      todaySession.training_name,
+      todaySession.training_type,
+    );
+    refetchStats();
+  }
+
+  async function handleHeroCancel(): Promise<void> {
+    if (todaySession === null) return;
+    await cancelParticipation(todaySession.id, todaySessionDate);
+    refetchStats();
+  }
 
   const STATS: StatEntry[] = [
     { label: 'Streak',       value: String(streak),          unit: 'Tage',   icon: 'flame-outline'   },
     { label: 'Punkte',       value: String(totalPoints),     unit: 'XP',     icon: 'star-outline'    },
     { label: 'Workouts',     value: String(totalWorkouts),   unit: 'gesamt', icon: 'barbell-outline' },
-    { label: 'Gruppenplatz', value: '#3',                    unit: 'Rang',   icon: 'trophy-outline'  },
+    { label: 'Gruppenplatz', value: rank !== null ? `#${rank}` : '–', unit: 'Rang', icon: 'trophy-outline' },
   ];
 
   return (
@@ -45,30 +135,82 @@ export default function HomeScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <HeroSection completedDayIndices={completedDayIndices} streak={streak} />
+        <HeroSection
+          name={profile?.name ?? null}
+          announcement={announcement}
+          isCoach={profile?.is_coach ?? false}
+          onDeleteAnnouncement={() => { void deleteAnnouncement(); }}
+          completedDayIndices={completedDayIndices}
+          streak={streak}
+          todaySession={todaySession}
+          isParticipating={heroParticipating}
+          onParticipate={handleHeroParticipate}
+          onCancel={handleHeroCancel}
+          stretchDone={stretchDone}
+          stretchUrgent={stretchUrgent}
+          onStretch={() => { void logStretch().then(refetchStats); }}
+          mobilityDone={mobilityDone}
+          mobilityUrgent={mobilityUrgent}
+          onMobility={() => { void logMobility().then(refetchStats); }}
+        />
 
         {/* ── Stats section (light) ── */}
         <View style={styles.lightSection}>
+          <View style={styles.waterCardWrap}>
+            <WaterBottleCard
+              amountMl={amountMl}
+              goalMl={goalMl}
+              hydrationMode={hydrationMode}
+              onHydrationModeChange={(mode) => { void setHydrationMode(mode); }}
+              loading={waterLoading}
+              onAdd250={() => { void addWater(250); }}
+              onAdd500={() => { void addWater(500); }}
+              focusTrigger={focusTrigger}
+            />
+          </View>
+
           <RecommendedWorkoutCard refetchTrigger={focusTrigger} />
 
-          <Text style={styles.sectionTitle}>Deine Stats</Text>
-          <View style={styles.statsGrid}>
-            {STATS.map((stat) => (
-              <View key={stat.label} style={styles.statCard}>
-                <Ionicons
-                  name={stat.icon}
-                  size={22}
-                  color={colors.accentBlue}
-                  style={styles.statIcon}
-                />
-                <Text style={styles.statValue}>{stat.value}</Text>
-                <Text style={styles.statUnit}>{stat.unit}</Text>
-                <Text style={styles.statLabel}>{stat.label}</Text>
+          {entitlement.hasAccess ? (
+            <>
+              <Text style={styles.sectionTitle}>Deine Stats</Text>
+              <View style={styles.statsGrid}>
+                {STATS.map((stat) => (
+                  <View key={stat.label} style={styles.statCard}>
+                    <Ionicons
+                      name={stat.icon}
+                      size={22}
+                      color={colors.accentBlue}
+                      style={styles.statIcon}
+                    />
+                    <Text style={styles.statValue}>{stat.value}</Text>
+                    <Text style={styles.statUnit}>{stat.unit}</Text>
+                    <Text style={styles.statLabel}>{stat.label}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          ) : (
+            <PaywallCard
+              title="Punkte & Stats im Abo"
+              message="Punkte, Rang und Leistungs-Statistiken sind nur mit einem aktiven Abo verfügbar."
+              onPressCta={() => navigation.navigate('Paywall')}
+            />
+          )}
+
         </View>
       </ScrollView>
+
+      <WeightCheckInModal
+        visible={showWeightModal}
+        onSubmit={(kg) => { void handleWeightSubmit(kg); }}
+        onLater={() => { void handleWeightLater(); }}
+      />
+
+      <ConfettiOverlay
+        visible={showConfetti}
+        onComplete={() => setShowConfetti(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -95,6 +237,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     paddingHorizontal: 16,
     paddingTop: 24,
     paddingBottom: 32,
@@ -105,12 +249,16 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 16,
   },
+  waterCardWrap: {
+    marginBottom: 24,
+  },
 
   // Stats grid
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    marginBottom: 24,
   },
   statCard: {
     backgroundColor: '#FFFFFF',

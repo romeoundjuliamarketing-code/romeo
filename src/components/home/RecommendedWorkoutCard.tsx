@@ -3,22 +3,27 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useRecommendedWorkout } from '../../hooks/useRecommendedWorkout';
-import type { RootStackParamList } from '../../navigation/types';
+import type { FitnessGroup } from '../../hooks/useRecommendedWorkout';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const DIFFICULTY_LABEL: Record<string, string> = {
-  leicht: 'Leicht',
-  mittel: 'Mittel',
-  schwer: 'Schwer',
+// Presentation metadata per fitness group — kept in the component layer
+const GROUP_META: Record<FitnessGroup, { icon: IoniconName; accentColor: string }> = {
+  schlagkraft:  { icon: 'flash-outline',      accentColor: colors.catSchlagkraft },
+  trittkraft:   { icon: 'footsteps-outline',  accentColor: colors.catTrittkraft  },
+  ausdauer:     { icon: 'pulse-outline',       accentColor: colors.catCardio      },
+  schulter:     { icon: 'barbell-outline',     accentColor: colors.catSchulter    },
+  nackenhals:   { icon: 'fitness-outline',      accentColor: colors.catSchulter    },
+  griffkraft:   { icon: 'hand-left-outline',    accentColor: colors.catGriffkraft  },
+  beinarbeit:   { icon: 'walk-outline',        accentColor: colors.catCore        },
+  koordination: { icon: 'sync-outline',        accentColor: colors.accentBlue     },
+  mobilitaet:   { icon: 'body-outline',        accentColor: colors.catMobility       },
+  partnertraining: { icon: 'people-outline',      accentColor: colors.catPartnertraining   },
 };
 
 interface Props {
@@ -26,76 +31,50 @@ interface Props {
 }
 
 export default function RecommendedWorkoutCard({ refetchTrigger = 0 }: Props) {
-  const navigation = useNavigation<Nav>();
   const { recommendation, loading } = useRecommendedWorkout(refetchTrigger);
 
   if (loading || recommendation === null) return null;
 
-  const { workout, reason } = recommendation;
-  const earnedPoints = workout.maxPoints ?? Math.floor(workout.durationMin / 30) * workout.pointsPerUnit;
-
-  function handlePress(): void {
-    navigation.navigate('Workout', {
-      title:        workout.title,
-      subtitle:     workout.subtitle,
-      category:     workout.category,
-      exercises:    workout.exercises,
-      duration:     `${workout.durationMin} Min`,
-      difficulty:   workout.difficulty,
-      equipment:    workout.equipment,
-      pointsPer30Min: workout.pointsPerUnit,
-      earnedPoints,
-    });
-  }
+  const { group, label, reason, tip } = recommendation;
+  const meta = GROUP_META[group];
 
   return (
-    <TouchableOpacity style={styles.card} onPress={handlePress} activeOpacity={0.85}>
-      {/* Header row */}
-      <View style={styles.header}>
-        <View style={styles.badge}>
-          <Ionicons name="flash-outline" size={12} color={colors.accentBlue} />
-          <Text style={styles.badgeText}>Empfohlen</Text>
-        </View>
-        <Text style={styles.reason}>{reason}</Text>
-      </View>
+    <View style={styles.card}>
+      {/* Left accent strip */}
+      <View style={styles.accentStrip} />
 
-      {/* Workout info */}
-      <Text style={styles.title}>{workout.title}</Text>
-      <Text style={styles.subtitle}>{workout.subtitle}</Text>
+      <View style={styles.content}>
+        {/* Header row: icon + label + reason */}
+        <View style={styles.header}>
+          <View style={styles.iconWrap}>
+            <Ionicons name={meta.icon} size={22} color={colors.accentBlue} />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={styles.label}>{label}</Text>
+            <Text style={styles.reason}>{reason}</Text>
+          </View>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>Empfohlen</Text>
+          </View>
+        </View>
 
-      {/* Meta row */}
-      <View style={styles.metaRow}>
-        <View style={styles.metaItem}>
-          <Ionicons name="time-outline" size={13} color={colors.inactive} />
-          <Text style={styles.metaText}>{workout.durationMin} Min</Text>
-        </View>
-        <View style={styles.metaDivider} />
-        <View style={styles.metaItem}>
-          <Ionicons name="bar-chart-outline" size={13} color={colors.inactive} />
-          <Text style={styles.metaText}>{DIFFICULTY_LABEL[workout.difficulty]}</Text>
-        </View>
-        <View style={styles.metaDivider} />
-        <View style={styles.metaItem}>
-          <Ionicons name="star-outline" size={13} color={colors.inactive} />
-          <Text style={styles.metaText}>{earnedPoints} Punkte</Text>
-        </View>
-      </View>
+        {/* Divider */}
+        <View style={styles.divider} />
 
-      {/* CTA */}
-      <View style={styles.cta}>
-        <Text style={styles.ctaText}>Training starten</Text>
-        <Ionicons name="chevron-forward" size={16} color={colors.accentBlue} />
+        {/* Tip text */}
+        <Text style={styles.tip}>{tip}</Text>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
+    flexDirection: 'row',
     backgroundColor: colors.card,
     borderRadius: 16,
-    padding: 16,
     marginBottom: 16,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
     ...Platform.select({
@@ -108,78 +87,64 @@ const styles = StyleSheet.create({
       android: { elevation: 2 },
     }),
   },
+  accentStrip: {
+    width: 4,
+    backgroundColor: colors.accentBlue,
+  },
+  content: {
+    flex: 1,
+    padding: 16,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
     marginBottom: 12,
   },
-  badge: {
-    flexDirection: 'row',
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    backgroundColor: colors.accentBlueSoft,
+  },
+  headerText: {
+    flex: 1,
+    gap: 2,
+  },
+  label: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  reason: {
+    fontSize: 12,
+    color: colors.inactive,
+    fontWeight: '400',
+  },
+  badge: {
     backgroundColor: colors.accentBlueSoft,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: colors.accentBlue,
     textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
-  reason: {
-    fontSize: 12,
-    color: colors.inactive,
-    fontWeight: '500',
-    flex: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.inactive,
-    fontWeight: '400',
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
     marginBottom: 12,
   },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  metaText: {
-    fontSize: 12,
-    color: colors.inactive,
-    fontWeight: '500',
-  },
-  metaDivider: {
-    width: 1,
-    height: 10,
-    backgroundColor: colors.border,
-  },
-  cta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 12,
-  },
-  ctaText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.accentBlue,
+  tip: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '400',
+    lineHeight: 19,
   },
 });

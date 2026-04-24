@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 
 export interface Studio {
   id: string;
@@ -19,6 +20,7 @@ export function useStudio(refetchTrigger = 0): {
   loading: boolean;
   joinStudio: (studioId: string) => Promise<void>;
   searchStudios: (query: string) => Promise<Studio[]>;
+  createStudio: (name: string, city: string) => Promise<Studio | null>;
 } {
   const { user } = useAuth();
   const [currentStudio, setCurrentStudio] = useState<Studio | null>(null);
@@ -34,7 +36,12 @@ export function useStudio(refetchTrigger = 0): {
       .select('studio_id, studios!studio_id(id, name, city)')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error !== null) {
+          reportNetworkError(error);
+        } else {
+          reportNetworkSuccess();
+        }
         const row = data as ProfileRow | null;
         setCurrentStudio(row?.studios ?? null);
         setLoading(false);
@@ -55,12 +62,12 @@ export function useStudio(refetchTrigger = 0): {
     if (existing !== null) {
       await supabase
         .from('profiles')
-        .update({ studio_id: studioId, updated_at: new Date().toISOString() })
+        .update({ studio_id: studioId })
         .eq('id', user.id);
     } else {
       await supabase
         .from('profiles')
-        .insert({ id: user.id, studio_id: studioId, updated_at: new Date().toISOString() });
+        .insert({ id: user.id, studio_id: studioId });
     }
 
     const { data } = await supabase
@@ -82,5 +89,16 @@ export function useStudio(refetchTrigger = 0): {
     return (data ?? []) as Studio[];
   }, []);
 
-  return { currentStudio, loading, joinStudio, searchStudios };
+  const createStudio = useCallback(async (name: string, city: string): Promise<Studio | null> => {
+    const { data, error } = await supabase.rpc('create_studio_with_owner', {
+      p_name: name.trim(),
+      p_city: city.trim(),
+    });
+    if (error !== null || data === null || data.length === 0) return null;
+    const studio = data[0] as Studio;
+    await joinStudio(studio.id);
+    return studio;
+  }, [joinStudio]);
+
+  return { currentStudio, loading, joinStudio, searchStudios, createStudio };
 }

@@ -2,27 +2,12 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { colors } from '../../theme/colors';
+import { useModuleStats } from '../../hooks/useModuleStats';
+import type { ModuleSegment } from '../../hooks/useModuleStats';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Segment = {
-  label: string;
-  value: number;
-  color: string;
-};
-
-// ─── Data ─────────────────────────────────────────────────────────────────────
-
-const SEGMENTS: Segment[] = [
-  { label: 'K1 Technik',       value: 14, color: colors.chartK1    },
-  { label: 'Boxen',            value: 11, color: colors.chartBoxen  },
-  { label: 'BJJ',              value: 7,  color: colors.chartBJJ    },
-  { label: 'MMA',              value: 6,  color: colors.chartMMA    },
-  { label: 'Kraft & Ausdauer', value: 5,  color: colors.chartKraft  },
-  { label: 'Extra Solo',       value: 4,  color: colors.chartExtra  },
-];
-
-const TOTAL = SEGMENTS.reduce((sum, s) => sum + s.value, 0);
+type Segment = ModuleSegment;
 
 // ─── SVG donut helpers ────────────────────────────────────────────────────────
 
@@ -61,12 +46,12 @@ function buildPath(
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function DonutChart() {
+function DonutChart({ segments, total }: { segments: Segment[]; total: number }) {
   const slices: { d: string; color: string }[] = [];
   let angle = -Math.PI / 2; // start at 12 o'clock
 
-  for (const seg of SEGMENTS) {
-    const sweep = (seg.value / TOTAL) * 2 * Math.PI;
+  for (const seg of segments) {
+    const sweep = (seg.value / total) * 2 * Math.PI;
     slices.push({
       d: buildPath(CX, CY, OUTER, INNER, angle + GAP / 2, angle + sweep - GAP / 2),
       color: seg.color,
@@ -86,7 +71,7 @@ function DonutChart() {
 
       {/* Center text overlaid via absolute positioning */}
       <View style={styles.centerLabel}>
-        <Text style={styles.centerValue}>{TOTAL}</Text>
+        <Text style={styles.centerValue}>{total}</Text>
         <Text style={styles.centerUnit}>Einheiten</Text>
       </View>
     </View>
@@ -105,17 +90,42 @@ function LegendItem({ segment }: { segment: Segment }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function TrainingDonutCard() {
+export default function TrainingDonutCard({ refetchTrigger = 0 }: { refetchTrigger?: number }) {
+  const { segments, total, loading } = useModuleStats(refetchTrigger);
+
+  if (loading) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Trainingsverteilung</Text>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>Wird geladen...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (segments.length === 0) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Trainingsverteilung</Text>
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>Noch keine Modul-Trainings absolviert.</Text>
+          <Text style={styles.emptySubText}>Starte ein Workout im Training-Tab.</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Mein Training</Text>
-      <DonutChart />
+      <Text style={styles.cardTitle}>Trainingsverteilung</Text>
+      <DonutChart segments={segments} total={total} />
 
       {/* Two-column legend */}
       <View style={styles.legend}>
-        {SEGMENTS.map((seg, i) => {
+        {segments.map((seg, i) => {
           if (i % 2 !== 0) return null;
-          const right = SEGMENTS[i + 1];
+          const right = segments[i + 1];
           return (
             <View key={seg.label} style={styles.legendRow}>
               <View style={styles.legendCol}><LegendItem segment={seg} /></View>
@@ -182,6 +192,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.inactive,
     fontWeight: '400',
+  },
+
+  // Empty state
+  emptyState: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  emptySubText: {
+    fontSize: 13,
+    color: colors.inactive,
+    textAlign: 'center',
   },
 
   // Legend

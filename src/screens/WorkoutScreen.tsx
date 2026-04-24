@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -26,6 +27,8 @@ function getCategoryLabel(category: Props['route']['params']['category']): strin
     trittkraft:      'Trittkraft',
     ausdauer:        'Ausdauer',
     schulter:        'Schulter',
+    nackenhals:      'Nacken und Hals',
+    griffkraft:      'Griffkraft',
     beinarbeit:      'Beinarbeit',
     koordination:    'Koordination',
     mobilitaet:      'Mobilität',
@@ -70,7 +73,7 @@ export default function WorkoutScreen({ route, navigation }: Props) {
     const points = earnedPoints ?? 0;
 
     const isCustom = category === 'eigene';
-    await supabase.from('workout_logs').insert({
+    const { error: logErr } = await supabase.from('workout_logs').insert({
       user_id:       user.id,
       date:          today,
       source:        isCustom ? 'custom' : 'module',
@@ -82,12 +85,19 @@ export default function WorkoutScreen({ route, navigation }: Props) {
       duration_min:  Math.max(1, Math.round((Date.now() - startedAt.current) / 60000)),
     });
 
+    if (logErr !== null) {
+      setLogging(false);
+      Alert.alert('Fehler', 'Bitte versuche es erneut.');
+      return;
+    }
+
     if (points > 0) {
-      await supabase.rpc('add_workout_points', {
+      const { error: pointsErr } = await supabase.rpc('add_workout_points', {
         p_user_id: user.id,
         p_date:    today,
         p_points:  points,
       });
+      if (pointsErr !== null) console.warn('add_workout_points failed', pointsErr.message);
     }
 
     setLogging(false);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -7,41 +7,34 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import type { StudioSchedule } from '../../types/database.types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type StudioSession = {
-  title: string;
-  time: string;
-  duration: string;
-  coach: string;
-};
-
 type Props = {
   dark?: boolean;
-};
-
-// ─── Dummy data — null means no studio training today ─────────────────────────
-
-const TODAY_SESSION: StudioSession | null = {
-  title: 'MMA Technik',
-  time: '18:00 Uhr',
-  duration: '90 Min',
-  coach: 'Coach Mehmet',
+  session: StudioSchedule | null;
+  participating: boolean;
+  onParticipate: () => void;
+  onCancel: () => void;
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function StudioTrainingCard({ dark = false }: Props) {
-  const [committed, setCommitted] = useState(false);
-
+export default function StudioTrainingCard({
+  dark = false,
+  session,
+  participating,
+  onParticipate,
+  onCancel,
+}: Props): React.ReactElement {
   return (
     <View style={[styles.card, dark && styles.cardDark]}>
       <Text style={[styles.cardTitle, dark && styles.cardTitleDark]}>
         Heutiges Studio-Training
       </Text>
 
-      {TODAY_SESSION === null ? (
+      {session === null ? (
         <Text style={[styles.emptyText, dark && styles.emptyTextDark]}>
           Heute kein Studio-Training
         </Text>
@@ -49,7 +42,7 @@ export default function StudioTrainingCard({ dark = false }: Props) {
         <View style={styles.sessionRow}>
           <View style={styles.sessionInfo}>
             <Text style={[styles.sessionName, dark && styles.sessionNameDark]}>
-              {TODAY_SESSION.title}
+              {session.training_name}
             </Text>
             <View style={styles.metaRow}>
               <MaterialCommunityIcons
@@ -58,16 +51,20 @@ export default function StudioTrainingCard({ dark = false }: Props) {
                 color={dark ? colors.headerTextSecondary : colors.inactive}
               />
               <Text style={[styles.metaText, dark && styles.metaTextDark]}>
-                {TODAY_SESSION.time}
+                {session.start_time.slice(0, 5)} Uhr
               </Text>
               <View style={[styles.metaDivider, dark && styles.metaDividerDark]} />
               <Text style={[styles.metaText, dark && styles.metaTextDark]}>
-                {TODAY_SESSION.duration}
+                {session.duration_min} Min
               </Text>
-              <View style={[styles.metaDivider, dark && styles.metaDividerDark]} />
-              <Text style={[styles.metaText, dark && styles.metaTextDark]}>
-                {TODAY_SESSION.coach}
-              </Text>
+              {session.coach_name !== null && (
+                <>
+                  <View style={[styles.metaDivider, dark && styles.metaDividerDark]} />
+                  <Text style={[styles.metaText, dark && styles.metaTextDark]}>
+                    {session.coach_name}
+                  </Text>
+                </>
+              )}
             </View>
           </View>
 
@@ -75,17 +72,17 @@ export default function StudioTrainingCard({ dark = false }: Props) {
             style={[
               styles.button,
               dark && styles.buttonDark,
-              committed && styles.buttonCommitted,
+              participating && styles.buttonCommitted,
             ]}
-            onPress={() => setCommitted((prev) => !prev)}
+            onPress={participating ? onCancel : onParticipate}
             activeOpacity={0.7}
           >
             <Text style={[
               styles.buttonLabel,
               dark && styles.buttonLabelDark,
-              committed && styles.buttonLabelCommitted,
+              participating && styles.buttonLabelCommitted,
             ]}>
-              {committed ? 'Zugesagt' : 'Teilnehmen'}
+              {participating ? 'Zugesagt' : 'Teilnehmen'}
             </Text>
           </TouchableOpacity>
         </View>

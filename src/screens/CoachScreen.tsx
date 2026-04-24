@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,43 +10,27 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-
-// ─── Dummy data ───────────────────────────────────────────────────────────────
-
-const RECOMMENDATIONS = [
-  {
-    id: '1',
-    category: 'Schulterausdauer',
-    tip: 'Deine Schulterrotation zeigt Ermuedungserscheinungen. Integriere täglich 3 Sätze Theraband-Kreise zur Stabilisierung.',
-  },
-  {
-    id: '2',
-    category: 'Schlagkraft',
-    tip: 'Plyometrische Übungen steigern deine explosive Kraft. Zwei gezielte Einheiten pro Woche sind ausreichend.',
-  },
-  {
-    id: '3',
-    category: 'Cardio-Basis',
-    tip: 'Dein Herzfrequenz-Profil empfiehlt Zonentraining. Zone 2 dreimal pro Woche für jeweils 30 Minuten.',
-  },
-];
-
-const RATINGS: { label: string; value: number }[] = [
-  { label: 'Schlagkraft', value: 78 },
-  { label: 'Trittkraft',  value: 65 },
-  { label: 'Schulter',    value: 52 },
-  { label: 'Cardio',      value: 85 },
-];
+import { useCoachChat } from '../hooks/useCoachChat';
+import { useFitnessRatings } from '../hooks/useFitnessRatings';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function CoachScreen() {
   const [message, setMessage] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
+  const { messages, loading, remaining, sendMessage } = useCoachChat();
+  const { ratings } = useFitnessRatings();
+
+  const handleContentSizeChange = useCallback(
+    () => scrollRef.current?.scrollToEnd({ animated: true }),
+    [],
+  );
 
   function handleSend(): void {
-    if (message.trim().length === 0) return;
+    if (message.trim().length === 0 || loading) return;
+    sendMessage(message.trim());
     setMessage('');
   }
 
@@ -57,65 +41,85 @@ export default function CoachScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={handleContentSizeChange}
         >
           {/* ── Header ── */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Dein Coach</Text>
+            <Text style={styles.headerTitle}>KI Coach</Text>
             <Text style={styles.headerSubtitle}>KI-gestützte Empfehlungen</Text>
           </View>
 
-          {/* ── Recommendations ── */}
-          <Text style={styles.sectionTitle}>Empfehlungen</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cardRow}
-            style={styles.cardScroll}
-          >
-            {RECOMMENDATIONS.map((rec) => (
-              <View key={rec.id} style={styles.recCard}>
-                <Text style={styles.recCategory}>{rec.category}</Text>
-                <Text style={styles.recTip}>{rec.tip}</Text>
-                <TouchableOpacity style={styles.recButton} activeOpacity={0.8}>
-                  <Text style={styles.recButtonText}>Übung ansehen</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-
-          {/* ── Last Rating ── */}
-          <Text style={styles.sectionTitle}>Letzte Bewertung</Text>
+          {/* ── Fitness Ratings ── */}
+          <Text style={styles.sectionTitle}>Fitness-Profil</Text>
           <View style={styles.ratingsCard}>
-            {RATINGS.map((rating) => (
-              <View key={rating.label} style={styles.ratingRow}>
-                <Text style={styles.ratingLabel}>{rating.label}</Text>
-                <View style={styles.barTrack}>
-                  {/* Dynamic width is unavoidable for data-driven bars */}
-                  <View style={[styles.barFill, { width: `${rating.value}%` }]} />
+            {ratings.length === 0 ? (
+              <Text style={styles.ratingsEmpty}>Noch keine Trainings in den letzten 30 Tagen.</Text>
+            ) : (
+              ratings.map((rating) => (
+                <View key={rating.group} style={styles.ratingRow}>
+                  <Text style={styles.ratingLabel}>{rating.label}</Text>
+                  <View style={styles.barTrack}>
+                    {/* Dynamic width is unavoidable for data-driven bars */}
+                    <View style={[styles.barFill, { width: `${rating.score}%` }]} />
+                  </View>
+                  <Text style={styles.ratingValue}>{rating.count}</Text>
                 </View>
-                <Text style={styles.ratingValue}>{rating.value}</Text>
-              </View>
-            ))}
+              ))
+            )}
           </View>
+
+          {/* ── Chat Messages ── */}
+          {(messages.length > 0 || loading) && (
+            <View style={styles.chatSection}>
+              <Text style={styles.sectionTitle}>Chat</Text>
+              {messages.map((msg) => (
+                <View key={msg.id} style={msg.role === 'user' ? styles.bubbleRowUser : styles.bubbleRowCoach}>
+                  <View style={[styles.bubble, msg.role === 'user' ? styles.bubbleUser : styles.bubbleCoach]}>
+                    <Text style={[styles.bubbleText, msg.role === 'user' ? styles.bubbleTextUser : styles.bubbleTextCoach]}>
+                      {msg.text}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+              {loading && (
+                <Text style={styles.typingText}>Coach tippt...</Text>
+              )}
+            </View>
+          )}
         </ScrollView>
 
         {/* ── Chat Input ── */}
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.input}
-            placeholder="Frag deinen Coach..."
-            placeholderTextColor={colors.headerTextSecondary}
-            value={message}
-            onChangeText={setMessage}
-            returnKeyType="send"
-            onSubmitEditing={handleSend}
-          />
-          <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.8}>
-            <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
-          </TouchableOpacity>
+        <View style={styles.inputWrap}>
+          {remaining !== null && remaining <= 3 && remaining > 0 && (
+            <Text style={styles.limitHint}>Noch {remaining} Nachrichten heute</Text>
+          )}
+          {remaining === 0 && (
+            <Text style={styles.limitHint}>Tageslimit erreicht. Morgen wieder verfügbar.</Text>
+          )}
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              placeholder="Frag deinen Coach..."
+              placeholderTextColor={colors.headerTextSecondary}
+              value={message}
+              onChangeText={setMessage}
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
+              editable={remaining !== 0}
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, (loading || remaining === 0) && styles.sendButtonDisabled]}
+              onPress={handleSend}
+              activeOpacity={0.8}
+              disabled={loading || remaining === 0}
+            >
+              <Ionicons name="send" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -139,7 +143,7 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 0,
     paddingBottom: 16,
   },
 
@@ -166,48 +170,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.headerTextPrimary,
     marginBottom: 12,
-  },
-
-  // Recommendation cards (horizontal scroll)
-  cardScroll: {
-    marginBottom: 32,
-    marginHorizontal: -16,
-  },
-  cardRow: {
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  recCard: {
-    width: 240,
-    backgroundColor: colors.headerCard,
-    borderRadius: CARD_RADIUS,
-    padding: 16,
-  },
-  recCategory: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.accentBlue,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 8,
-  },
-  recTip: {
-    fontSize: 14,
-    color: colors.headerTextPrimary,
-    lineHeight: 20,
-    flex: 1,
-    marginBottom: 16,
-  },
-  recButton: {
-    backgroundColor: colors.accentBlue,
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  recButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
   },
 
   // Ratings
@@ -248,17 +210,31 @@ const styles = StyleSheet.create({
     width: 24,
     textAlign: 'right',
   },
+  ratingsEmpty: {
+    fontSize: 13,
+    color: colors.headerTextSecondary,
+    fontWeight: '400',
+  },
 
   // Chat input
+  inputWrap: {
+    backgroundColor: colors.headerCard,
+    borderTopWidth: 1,
+    borderTopColor: colors.headerBorder,
+  },
+  limitHint: {
+    fontSize: 11,
+    color: colors.headerTextSecondary,
+    textAlign: 'center',
+    paddingTop: 8,
+    fontWeight: '500',
+  },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: colors.headerCard,
-    borderTopWidth: 1,
-    borderTopColor: colors.headerBorder,
   },
   input: {
     flex: 1,
@@ -276,5 +252,75 @@ const styles = StyleSheet.create({
     backgroundColor: colors.dark,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
+
+  // Chat messages
+  chatSection: {
+    marginTop: 16,
+  },
+  bubbleRowUser: {
+    alignItems: 'flex-end',
+    marginBottom: 8,
+  },
+  bubbleRowCoach: {
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  bubble: {
+    borderRadius: 16,
+    padding: 12,
+    maxWidth: '80%',
+  },
+  bubbleUser: {
+    backgroundColor: colors.accentBlue,
+  },
+  bubbleCoach: {
+    backgroundColor: colors.headerCard,
+  },
+  bubbleText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  bubbleTextUser: {
+    color: '#FFFFFF',
+  },
+  bubbleTextCoach: {
+    color: colors.headerTextPrimary,
+  },
+  typingText: {
+    fontSize: 13,
+    color: colors.headerTextSecondary,
+    marginBottom: 8,
+  },
+
+  // Workout link card (below coach bubble)
+  workoutLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.headerCard,
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.accentBlue,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 6,
+    maxWidth: '80%',
+  },
+  workoutLinkBody: {
+    flex: 1,
+    gap: 2,
+  },
+  workoutLinkTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.headerTextPrimary,
+  },
+  workoutLinkMeta: {
+    fontSize: 11,
+    color: colors.headerTextSecondary,
+    fontWeight: '400',
   },
 });
