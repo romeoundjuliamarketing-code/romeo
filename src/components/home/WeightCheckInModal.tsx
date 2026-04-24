@@ -18,7 +18,7 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const MASCOT_SIZE = Math.round(SCREEN_W * 0.78);
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const WAAGE_IMG = require('../../../COACH/Waage.png') as number;
+const WAAGE_IMG = require('../../../assets/waage.png') as number;
 
 interface Props {
   visible:  boolean;
