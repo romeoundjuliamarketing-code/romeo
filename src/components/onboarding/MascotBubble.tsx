@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Image,
@@ -21,17 +21,41 @@ interface Props {
 }
 
 export default function MascotBubble({ image, text, stepKey }: Props) {
-  const translateX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
-  const bubbleScale = useRef(new Animated.Value(0)).current;
+  const translateX    = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const bubbleScale   = useRef(new Animated.Value(0)).current;
   const bubbleOpacity = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    translateX.setValue(-SCREEN_WIDTH);
-    bubbleScale.setValue(0);
-    bubbleOpacity.setValue(0);
+  // Image and text only update while the mascot is off-screen so the user
+  // never sees the wrong image on-screen during a transition.
+  const [displayedImage, setDisplayedImage] = useState<ImageSourcePropType>(image);
+  const [displayedText,  setDisplayedText]  = useState(text);
+  const isFirstRender = useRef(true);
 
-    // 1) Mascot slides in from left
-    // 2) Speech bubble pops up below mascot
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      setDisplayedImage(image);
+      setDisplayedText(text);
+      translateX.setValue(-SCREEN_WIDTH);
+      bubbleScale.setValue(0);
+      bubbleOpacity.setValue(0);
+      slideIn();
+      return;
+    }
+
+    // Slide out (bubble hides, mascot exits left), then swap content, then slide in.
+    Animated.parallel([
+      Animated.timing(bubbleOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: -SCREEN_WIDTH, tension: 80, friction: 10, useNativeDriver: true }),
+    ]).start(() => {
+      setDisplayedImage(image);
+      setDisplayedText(text);
+      bubbleScale.setValue(0);
+      slideIn();
+    });
+  }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function slideIn() {
     Animated.sequence([
       Animated.spring(translateX, {
         toValue: 0,
@@ -53,16 +77,14 @@ export default function MascotBubble({ image, text, stepKey }: Props) {
         }),
       ]),
     ]).start();
-  }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
   return (
     <View style={styles.container}>
-      {/* Mascot — large, centered, slides in from left */}
       <Animated.View style={[styles.mascotShadow, { transform: [{ translateX }] }]}>
-        <Image source={image} style={styles.mascot} resizeMode="contain" />
+        <Image source={displayedImage} style={styles.mascot} resizeMode="contain" />
       </Animated.View>
 
-      {/* Speech bubble — below mascot, pops up after arrival */}
       <Animated.View
         style={[
           styles.bubbleWrap,
@@ -72,10 +94,9 @@ export default function MascotBubble({ image, text, stepKey }: Props) {
           },
         ]}
       >
-        {/* Tail pointing up toward mascot */}
         <View style={styles.tail} />
         <View style={styles.bubble}>
-          <Text style={styles.bubbleText}>{text}</Text>
+          <Text style={styles.bubbleText}>{displayedText}</Text>
         </View>
       </Animated.View>
     </View>
