@@ -11,7 +11,9 @@ interface UseScheduleResult {
 }
 
 // dayOfWeek: 0=Mon … 6=Sun (optional — omit to load all days)
-export function useSchedule(dayOfWeek?: number): UseScheduleResult {
+// studioId: filter by studio. Pass null when user has no studio (returns empty).
+//           Pass undefined to skip the filter (backward compat for callers that own their context).
+export function useSchedule(dayOfWeek?: number, studioId?: string | null): UseScheduleResult {
   const [schedule, setSchedule] = useState<StudioSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,6 +22,12 @@ export function useSchedule(dayOfWeek?: number): UseScheduleResult {
   const refetch = useCallback(() => setTrigger((n) => n + 1), []);
 
   useEffect(() => {
+    if (studioId === null) {
+      setSchedule([]);
+      setLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -33,6 +41,10 @@ export function useSchedule(dayOfWeek?: number): UseScheduleResult {
 
     if (dayOfWeek !== undefined) {
       query = query.eq('day_of_week', dayOfWeek);
+    }
+
+    if (studioId !== undefined) {
+      query = query.eq('studio_id', studioId);
     }
 
     query.then(({ data, error: err }) => {
@@ -50,7 +62,7 @@ export function useSchedule(dayOfWeek?: number): UseScheduleResult {
     return () => {
       cancelled = true;
     };
-  }, [dayOfWeek, trigger]);
+  }, [dayOfWeek, studioId, trigger]);
 
   return { schedule, loading, error, refetch };
 }

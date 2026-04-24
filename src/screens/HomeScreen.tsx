@@ -58,7 +58,7 @@ export default function HomeScreen() {
   const { completedDayIndices, totalPoints, totalWorkouts, streak, rank, refetch: refetchStats } = useWorkoutStats(focusTrigger);
   // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
   const todayDow = (new Date().getDay() + 6) % 7;
-  const { schedule } = useSchedule(todayDow);
+  const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
   const { isParticipating, participate, cancelParticipation } = useParticipation();
   const { isDone: stretchDone, isUrgent: stretchUrgent, logStretch } = useDailyStretch();
   const { isDone: mobilityDone, isUrgent: mobilityUrgent, logMobility } = useDailyMobility();

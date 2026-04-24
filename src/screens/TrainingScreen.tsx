@@ -64,10 +64,10 @@ export default function TrainingScreen(): React.ReactElement {
     setFocusTrigger((n) => n + 1);
   }, []));
 
-  const { schedule: fullSchedule, loading: scheduleLoading } = useSchedule();
+  const { profile } = useProfile(focusTrigger);
+  const { schedule: fullSchedule, loading: scheduleLoading } = useSchedule(undefined, profile?.studio_id ?? null);
   const todaySchedule = fullSchedule.filter((s) => s.day_of_week === todayDow);
   const { isParticipating, participate, cancelParticipation } = useParticipation();
-  const { profile } = useProfile(focusTrigger);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
