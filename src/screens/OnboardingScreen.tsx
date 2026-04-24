@@ -9,7 +9,12 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const PRELOAD_SIZE = Math.round(SCREEN_W * 0.88);
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -237,6 +242,12 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Preload all mascot images so PNG decode happens before user reaches each step */}
+      <View style={styles.preloader}>
+        {(Object.values(MASCOT) as number[]).map((src, i) => (
+          <Image key={i} source={src} style={styles.preloadImg} />
+        ))}
+      </View>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -325,6 +336,14 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  preloader: {
+    position: 'absolute',
+    left: -10000,
+  },
+  preloadImg: {
+    width: PRELOAD_SIZE,
+    height: PRELOAD_SIZE,
   },
   flex: {
     flex: 1,
