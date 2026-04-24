@@ -7,7 +7,7 @@ import { colors } from '../theme/colors';
 import HomeScreen from '../screens/HomeScreen';
 import TrainingScreen from '../screens/TrainingScreen';
 import ProfilScreen from '../screens/ProfilScreen';
-import ErnährungScreen from '../screens/ErnährungScreen';
+import ErnährungScreen from '../screens/ErnaehrungScreen';
 
 const Tab = createBottomTabNavigator();
 
