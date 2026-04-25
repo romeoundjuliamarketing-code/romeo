@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 
 export type FrequencyTier = 'low' | 'medium' | 'high';
@@ -33,12 +34,17 @@ export default function StepTrainingFrequency({ value, onChange }: Props) {
             onPress={() => onChange(opt.value)}
             activeOpacity={0.75}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>
-              {opt.label}
-            </Text>
-            <Text style={[styles.sub, active && styles.subActive]}>
-              {opt.sub}
-            </Text>
+            <View style={styles.textCol}>
+              <Text style={[styles.label, active && styles.labelActive]}>
+                {opt.label}
+              </Text>
+              <Text style={[styles.sub, active && styles.subActive]}>
+                {opt.sub}
+              </Text>
+            </View>
+            {active && (
+              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         );
       })}
@@ -51,10 +57,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 24,
   },
+  textCol: {
+    flex: 1,
+  },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 16,
