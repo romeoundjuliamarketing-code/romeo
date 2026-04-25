@@ -347,15 +347,15 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     flex: 1,
-    height: 3,
+    height: 5,
     backgroundColor: colors.border,
     borderRadius: 2,
     overflow: 'hidden',
     marginLeft: 8,
   },
   progressFill: {
-    height: 3,
-    backgroundColor: colors.text,
+    height: 5,
+    backgroundColor: colors.accentBlue,
     borderRadius: 2,
   },
   mascotArea: {
