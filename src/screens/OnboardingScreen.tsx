@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Animated,
+  Dimensions,
 } from 'react-native';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -121,6 +125,31 @@ export default function OnboardingScreen() {
   const [frequency, setFrequency]     = useState<FrequencyTier | null>(null);
   const [inviteCode, setInviteCode]   = useState('');
 
+  const contentTranslateX = useRef(new Animated.Value(0)).current;
+  const contentOpacity    = useRef(new Animated.Value(1)).current;
+  const buttonScale       = useRef(new Animated.Value(1)).current;
+  const directionRef      = useRef<'forward' | 'back'>('forward');
+  const prevCanContinue   = useRef(false);
+
+  useEffect(() => {
+    const startX = directionRef.current === 'forward' ? SCREEN_WIDTH : -SCREEN_WIDTH;
+    contentTranslateX.setValue(startX);
+    contentOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(contentTranslateX, {
+        toValue: 0,
+        tension: 60,
+        friction: 10,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentOpacity, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [stepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const isWelcome   = stepIndex === -1;
   const currentStep = isWelcome ? null : STEPS[stepIndex];
   const mascotKey   = isWelcome ? WELCOME_MASCOT : currentStep!.mascotImage;
@@ -140,6 +169,18 @@ export default function OnboardingScreen() {
       case 'invitecode':  return true;
     }
   };
+
+  const isReady = canContinue();
+
+  useEffect(() => {
+    if (isReady && !prevCanContinue.current && !isWelcome) {
+      Animated.sequence([
+        Animated.spring(buttonScale, { toValue: 1.04, tension: 200, friction: 5, useNativeDriver: true }),
+        Animated.spring(buttonScale, { toValue: 1.0,  tension: 200, friction: 5, useNativeDriver: true }),
+      ]).start();
+    }
+    prevCanContinue.current = isReady;
+  }, [isReady, isWelcome]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFinish = async () => {
     if (!user) return;
@@ -189,7 +230,7 @@ export default function OnboardingScreen() {
   };
 
   const handleNext = async () => {
-    if (!canContinue()) return;
+    if (!isReady) return;
 
     const isLastStep = stepIndex === STEPS.length - 1;
 
@@ -208,12 +249,14 @@ export default function OnboardingScreen() {
       await handleFinish();
     } else {
       setError(null);
+      directionRef.current = 'forward';
       setStepIndex((i) => i + 1);
     }
   };
 
   const handleWeightSkip = () => {
     setWeight('');
+    directionRef.current = 'forward';
     setStepIndex((i) => i + 1);
   };
 
@@ -224,6 +267,7 @@ export default function OnboardingScreen() {
 
   const handleBack = () => {
     setError(null);
+    directionRef.current = 'back';
     setStepIndex((i) => i - 1);
   };
 
@@ -265,56 +309,68 @@ export default function OnboardingScreen() {
           />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
+        <Animated.View
+          style={[
+            styles.contentAnimWrapper,
+            {
+              transform: [{ translateX: contentTranslateX }],
+              opacity: contentOpacity,
+            },
+          ]}
         >
-          <View style={styles.stepContent}>
-            {!isWelcome && currentStep?.id === 'name' && (
-              <StepName value={name} onChange={setName} />
-            )}
-            {!isWelcome && currentStep?.id === 'gender' && (
-              <StepGender value={gender} onChange={setGender} />
-            )}
-            {!isWelcome && currentStep?.id === 'age' && (
-              <StepAge value={age} onChange={setAge} />
-            )}
-            {!isWelcome && currentStep?.id === 'weight' && (
-              <StepWeight value={weight} onChange={setWeight} onSkip={handleWeightSkip} />
-            )}
-            {!isWelcome && currentStep?.id === 'discipline' && (
-              <StepDiscipline value={disciplines} onChange={setDisciplines} />
-            )}
-            {!isWelcome && currentStep?.id === 'experience' && (
-              <StepExperience value={experience} onChange={setExperience} />
-            )}
-            {!isWelcome && currentStep?.id === 'frequency' && (
-              <StepTrainingFrequency value={frequency} onChange={setFrequency} />
-            )}
-            {!isWelcome && currentStep?.id === 'invitecode' && (
-              <StepInviteCode value={inviteCode} onChange={setInviteCode} onSkip={handleInviteSkip} />
-            )}
-          </View>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.stepContent}>
+              {!isWelcome && currentStep?.id === 'name' && (
+                <StepName value={name} onChange={setName} />
+              )}
+              {!isWelcome && currentStep?.id === 'gender' && (
+                <StepGender value={gender} onChange={setGender} />
+              )}
+              {!isWelcome && currentStep?.id === 'age' && (
+                <StepAge value={age} onChange={setAge} />
+              )}
+              {!isWelcome && currentStep?.id === 'weight' && (
+                <StepWeight value={weight} onChange={setWeight} onSkip={handleWeightSkip} />
+              )}
+              {!isWelcome && currentStep?.id === 'discipline' && (
+                <StepDiscipline value={disciplines} onChange={setDisciplines} />
+              )}
+              {!isWelcome && currentStep?.id === 'experience' && (
+                <StepExperience value={experience} onChange={setExperience} />
+              )}
+              {!isWelcome && currentStep?.id === 'frequency' && (
+                <StepTrainingFrequency value={frequency} onChange={setFrequency} />
+              )}
+              {!isWelcome && currentStep?.id === 'invitecode' && (
+                <StepInviteCode value={inviteCode} onChange={setInviteCode} onSkip={handleInviteSkip} />
+              )}
+            </View>
 
-          {error !== null && (
-            <Text style={styles.errorText}>{error}</Text>
-          )}
-        </ScrollView>
+            {error !== null && (
+              <Text style={styles.errorText}>{error}</Text>
+            )}
+          </ScrollView>
+        </Animated.View>
 
         <View style={styles.footer}>
-          <TouchableOpacity
-            style={[styles.btn, !canContinue() && styles.btnDisabled]}
-            onPress={handleNext}
-            disabled={saving || !canContinue()}
-            activeOpacity={0.85}
-          >
-            {saving ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.btnText}>{buttonLabel}</Text>
-            )}
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: buttonScale }] }}>
+            <TouchableOpacity
+              style={[styles.btn, !isReady && styles.btnDisabled]}
+              onPress={handleNext}
+              disabled={saving || !isReady}
+              activeOpacity={0.85}
+            >
+              {saving ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.btnText}>{buttonLabel}</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -361,6 +417,9 @@ const styles = StyleSheet.create({
   mascotArea: {
     alignItems: 'center',
     paddingTop: 8,
+  },
+  contentAnimWrapper: {
+    flex: 1,
   },
   scroll: {
     paddingBottom: 16,
