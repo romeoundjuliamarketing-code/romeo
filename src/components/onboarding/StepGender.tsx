@@ -42,6 +42,9 @@ export default function StepGender({ value, onChange }: Props) {
             <Text style={[styles.label, active && styles.labelActive]}>
               {opt.label}
             </Text>
+            {active && (
+              <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         );
       })}
