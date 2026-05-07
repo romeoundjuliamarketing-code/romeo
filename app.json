@@ -3,7 +3,7 @@
     "name": "Sparr",
     "slug": "sparr",
     "scheme": "sparr",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
       "backgroundColor": "#0A0A0A"
     },
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.kombat.app",
       "requireFullScreen": true,
       "infoPlist": {
@@ -37,7 +37,8 @@
     ],
     "plugins": [
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "react-native-purchases"
     ],
     "extra": {
       "eas": {
