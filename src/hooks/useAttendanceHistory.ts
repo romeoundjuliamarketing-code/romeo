@@ -1,0 +1,38 @@
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+
+export function useAttendanceHistory(): {
+  attendedDates: Set<string>;
+  loading: boolean;
+} {
+  const { user } = useAuth();
+  const [attendedDates, setAttendedDates] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user === null) return;
+
+    void (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('attendance_logs')
+        .select('session_date')
+        .eq('user_id', user.id)
+        .order('session_date', { ascending: false });
+
+      if (error !== null) {
+        reportNetworkError(error);
+        setLoading(false);
+        return;
+      }
+
+      reportNetworkSuccess();
+      setAttendedDates(new Set((data ?? []).map((r) => r.session_date as string)));
+      setLoading(false);
+    })();
+  }, [user]);
+
+  return { attendedDates, loading };
+}
