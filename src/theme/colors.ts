@@ -53,4 +53,7 @@ export const colors = {
   chartMMA:   '#6BAED6',
   chartKraft: '#1A1A2E',
   chartExtra: '#8CB8E0',
+
+  // ── Overlays ──────────────────────────────────────────────────────────────
+  mapOverlay: 'rgba(0,0,0,0.55)',
 };

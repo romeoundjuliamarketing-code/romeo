@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: colors.mapOverlay,
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 7,
