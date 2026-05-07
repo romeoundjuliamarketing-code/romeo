@@ -27,6 +27,9 @@ export type RootStackParamList = {
   };
   Settings: undefined;
   Paywall: undefined;
+  WeightHistory: undefined;
+  PointsBreakdown: undefined;
+  SparringMap: undefined;
   Timer: {
     workoutTitle: string;
     exercises: Exercise[];
