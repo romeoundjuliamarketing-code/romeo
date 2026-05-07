@@ -74,7 +74,7 @@ export default function SparringDetailSheet({ sparring, onClose, onToggleSignup,
           <Text style={styles.infoText}>
             {sparring.signup_count}/{sparring.max_slots} Angemeldet
             {!isFull && (
-              <Text style={styles.slotsLeft}>{`  ${slotsLeft} Platz${slotsLeft === 1 ? '' : 'ätze'} frei`}</Text>
+              <Text style={styles.slotsLeft}>{`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}</Text>
             )}
           </Text>
         </View>
