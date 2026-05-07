@@ -7,6 +7,9 @@ import TimerScreen from '../screens/TimerScreen';
 import TeamScreen from '../screens/TeamScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import PaywallScreen from '../screens/PaywallScreen';
+import WeightHistoryScreen from '../screens/WeightHistoryScreen';
+import PointsBreakdownScreen from '../screens/PointsBreakdownScreen';
+import SparringMapScreen from '../screens/SparringMapScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -14,6 +17,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
 import type { RootStackParamList, AuthStackParamList } from './types';
+import OfflineBanner from '../components/common/OfflineBanner';
 
 const AppStack  = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -28,6 +32,13 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen name="Team"     component={TeamScreen}     />
       <AppStack.Screen name="Settings" component={SettingsScreen} />
       <AppStack.Screen name="Paywall" component={PaywallScreen} />
+      <AppStack.Screen name="WeightHistory"    component={WeightHistoryScreen}    />
+      <AppStack.Screen name="PointsBreakdown" component={PointsBreakdownScreen} />
+      <AppStack.Screen
+        name="SparringMap"
+        component={SparringMapScreen}
+        options={{ presentation: 'fullScreenModal' }}
+      />
       <AppStack.Screen name="Workout"  component={WorkoutScreen}  />
       <AppStack.Screen name="Timer"    component={TimerScreen}    />
     </AppStack.Navigator>
@@ -81,13 +92,26 @@ export default function RootNavigator() {
   }
 
   if (session === null) {
-    return <AuthNavigator />;
+    return (
+      <View style={styles.root}>
+        <AuthNavigator />
+        <OfflineBanner />
+      </View>
+    );
   }
 
-  return <AppNavigator showOnboarding={onboardingCompleted === false} />;
+  return (
+    <View style={styles.root}>
+      <AppNavigator showOnboarding={onboardingCompleted === false} />
+      <OfflineBanner />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loader: {
     flex: 1,
     backgroundColor: colors.background,
