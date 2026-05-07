@@ -9,6 +9,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import PaywallScreen from '../screens/PaywallScreen';
 import WeightHistoryScreen from '../screens/WeightHistoryScreen';
 import PointsBreakdownScreen from '../screens/PointsBreakdownScreen';
+import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
 import SparringMapScreen from '../screens/SparringMapScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -34,6 +35,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen name="Paywall" component={PaywallScreen} />
       <AppStack.Screen name="WeightHistory"    component={WeightHistoryScreen}    />
       <AppStack.Screen name="PointsBreakdown" component={PointsBreakdownScreen} />
+      <AppStack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
       <AppStack.Screen
         name="SparringMap"
         component={SparringMapScreen}

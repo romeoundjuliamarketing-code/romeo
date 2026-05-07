@@ -29,6 +29,7 @@ export type RootStackParamList = {
   Paywall: undefined;
   WeightHistory: undefined;
   PointsBreakdown: undefined;
+  AttendanceHistory: undefined;
   SparringMap: undefined;
   Timer: {
     workoutTitle: string;
