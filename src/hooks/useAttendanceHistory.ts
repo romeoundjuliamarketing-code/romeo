@@ -29,7 +29,13 @@ export function useAttendanceHistory(): {
       }
 
       reportNetworkSuccess();
-      setAttendedDates(new Set((data ?? []).map((r) => r.session_date as string)));
+      setAttendedDates(
+        new Set(
+          (data ?? [])
+            .filter((r) => r.session_date !== null)
+            .map((r) => r.session_date as string),
+        ),
+      );
       setLoading(false);
     })();
   }, [user]);

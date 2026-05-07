@@ -9,8 +9,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import type { RootStackParamList } from '../navigation/types';
 import { useAttendanceHistory } from '../hooks/useAttendanceHistory';
 
 const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
@@ -39,7 +41,7 @@ interface MonthBlock {
 }
 
 export default function AttendanceHistoryScreen(): React.ReactElement {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { attendedDates, loading } = useAttendanceHistory();
 
   const months = useMemo<MonthBlock[]>(() => {
@@ -51,11 +53,11 @@ export default function AttendanceHistoryScreen(): React.ReactElement {
       return [{ year: currentYear, month: currentMonth }];
     }
 
-    // Find earliest attended date
+    // Find earliest attended date — parse manually to avoid UTC-offset month shift
     const sorted = Array.from(attendedDates).sort();
-    const earliest = new Date(sorted[0]);
-    const startYear = earliest.getFullYear();
-    const startMonth = earliest.getMonth();
+    const parts = sorted[0].split('-').map(Number);
+    const startYear = parts[0];
+    const startMonth = parts[1] - 1; // 0-indexed
 
     const result: MonthBlock[] = [];
     let y = currentYear;
@@ -148,7 +150,7 @@ export default function AttendanceHistoryScreen(): React.ReactElement {
   );
 }
 
-const CELL_SIZE = 36;
+const CELL_SIZE = 40;
 
 const styles = StyleSheet.create({
   safe: {
@@ -219,8 +221,7 @@ const styles = StyleSheet.create({
     height: CELL_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
-    marginBottom: 2,
+    borderRadius: 20,
   },
   cellAttended: {
     backgroundColor: colors.accentBlue,
@@ -234,6 +235,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bottomPad: {
-    height: 40,
+    height: 48,
   },
 });
