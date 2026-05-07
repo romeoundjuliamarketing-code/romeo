@@ -221,6 +221,108 @@ export type Database = {
         }
         Relationships: []
       }
+      open_sparrings: {
+        Row: {
+          id: string
+          studio_id: string
+          created_by: string
+          title: string
+          discipline: string
+          address: string
+          lat: number | null
+          lng: number | null
+          scheduled_at: string
+          duration_min: number
+          max_slots: number
+          notes: string | null
+          is_active: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          studio_id: string
+          created_by: string
+          title: string
+          discipline: string
+          address: string
+          lat?: number | null
+          lng?: number | null
+          scheduled_at: string
+          duration_min?: number
+          max_slots?: number
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          studio_id?: string
+          created_by?: string
+          title?: string
+          discipline?: string
+          address?: string
+          lat?: number | null
+          lng?: number | null
+          scheduled_at?: string
+          duration_min?: number
+          max_slots?: number
+          notes?: string | null
+          is_active?: boolean
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'open_sparrings_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'open_sparrings_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sparring_signups: {
+        Row: {
+          id: string
+          sparring_id: string
+          user_id: string
+          signed_up_at: string
+        }
+        Insert: {
+          id?: string
+          sparring_id: string
+          user_id: string
+          signed_up_at?: string
+        }
+        Update: {
+          id?: string
+          sparring_id?: string
+          user_id?: string
+          signed_up_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_signups_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_signups_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           id: string
