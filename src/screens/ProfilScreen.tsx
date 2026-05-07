@@ -17,21 +17,18 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import TrainingDonutCard from '../components/profil/TrainingDonutCard';
 import FightRecordCard from '../components/profil/FightRecordCard';
 import AddFightSheet from '../components/profil/AddFightSheet';
 import TeamPickerCard from '../components/profil/TeamPickerCard';
 import AvatarPicker from '../components/profil/AvatarPicker';
 import ProfileNameEditor from '../components/profil/ProfileNameEditor';
 import DisciplinePickerCard from '../components/profil/DisciplinePickerCard';
-import WeightChartCard from '../components/profil/WeightChartCard';
 import PaywallCard from '../components/common/PaywallCard';
 import type { Discipline } from '../data/disciplines';
 import { useWorkoutStats } from '../hooks/useWorkoutStats';
 import { useFightRecord } from '../hooks/useFightRecord';
 import { useStudio } from '../hooks/useStudio';
 import { useProfile } from '../hooks/useProfile';
-import { useFitnessRatings } from '../hooks/useFitnessRatings';
 import { useWeight } from '../hooks/useWeight';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
@@ -66,12 +63,11 @@ export default function ProfilScreen() {
     setFocusTrigger((n) => n + 1);
   }, []));
 
-  const { totalPoints, totalWorkouts, streak, rank, eigenePoints } = useWorkoutStats(focusTrigger);
+  const { totalPoints, totalWorkouts, streak, rank } = useWorkoutStats(focusTrigger);
   const { currentStudio, joinStudio, searchStudios, createStudio } = useStudio(focusTrigger);
   const { profile, uploadAvatar, updateProfile } = useProfile(focusTrigger);
   const { acceptInvite } = useStudioInvite();
-  const { ratings } = useFitnessRatings(focusTrigger, profile?.disciplines ?? []);
-  const { history: weightHistory, currentWeight, isNewWeek, logWeight } = useWeight(focusTrigger);
+  const { currentWeight, isNewWeek, logWeight } = useWeight(focusTrigger);
   const { entitlement } = useEntitlement(focusTrigger);
   const { fights, loading: fightsLoading, addFight, deleteFight } = useFightRecord(focusTrigger);
   const [fightSheetVisible, setFightSheetVisible] = useState(false);
@@ -191,9 +187,9 @@ export default function ProfilScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.content}>
         {/* ── Profile header ── */}
         <View style={styles.profileCard}>
           <View style={styles.profileTopRow}>
@@ -324,6 +320,19 @@ export default function ProfilScreen() {
             <MaterialCommunityIcons name="chevron-right" size={18} color={colors.inactive} />
           </TouchableOpacity>
 
+          {/* Weight history nav row */}
+          <TouchableOpacity
+            style={styles.weightRow}
+            onPress={() => navigation.navigate('WeightHistory')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="chart-line" size={20} color={colors.inactive} />
+            <View style={styles.weightInfo}>
+              <Text style={styles.weightLabel}>Gewichtsverlauf</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.inactive} />
+          </TouchableOpacity>
+
           {/* Arm span row */}
           <TouchableOpacity
             style={styles.weightRow}
@@ -359,21 +368,6 @@ export default function ProfilScreen() {
             ))}
           </View>
 
-          {/* Pro/Amateur row */}
-          <View style={styles.stanceRow}>
-            {([false, true] as const).map((isPro) => (
-              <TouchableOpacity
-                key={isPro ? 'pro' : 'amateur'}
-                style={[styles.stanceChip, profile?.is_professional === isPro && styles.stanceChipActive]}
-                onPress={() => { void updateProfile({ is_professional: isPro }); }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.stanceChipText, profile?.is_professional === isPro && styles.stanceChipTextActive]}>
-                  {isPro ? 'Profi' : 'Amateur'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
         </View>
 
         {entitlement.hasAccess ? (
@@ -388,55 +382,50 @@ export default function ProfilScreen() {
 
             {/* ── Stats grid ── */}
             <View style={styles.statsGrid}>
-              {STATS.map((stat) => (
-                <View key={stat.label} style={styles.statCard}>
-                  <MaterialCommunityIcons
-                    name={stat.icon}
-                    size={22}
-                    color={colors.accentBlue}
-                    style={styles.statIcon}
-                  />
-                  <Text style={styles.statValue}>{stat.value}</Text>
-                  <Text style={styles.statUnit}>{stat.unit}</Text>
-                  <Text style={styles.statLabel}>{stat.label}</Text>
-                </View>
-              ))}
-            </View>
-
-            {/* ── Eigene Punkte ── */}
-            {eigenePoints > 0 && (
-              <View style={styles.eigeneCard}>
-                <MaterialCommunityIcons name="pencil-ruler" size={22} color={colors.accentBlue} />
-                <Text style={styles.eigeneLabel}>Eigene Workouts</Text>
-                <Text style={styles.eigenePoints}>{eigenePoints} <Text style={styles.eigeneUnit}>XP</Text></Text>
-              </View>
-            )}
-
-            {/* ── Fitness-Profil ── */}
-            <View style={styles.ratingsCard}>
-              <Text style={styles.ratingsTitle}>Fitness-Profil</Text>
-              <Text style={styles.ratingsSubtitle}>Letzte 30 Tage · relativ zum stärksten Bereich</Text>
-              {ratings.length === 0 ? (
-                <Text style={styles.ratingsEmpty}>Noch keine Trainings in den letzten 30 Tagen.</Text>
-              ) : (
-                ratings.map((rating) => (
-                  <View key={rating.group} style={styles.ratingRow}>
-                    <Text style={styles.ratingLabel}>{rating.label}</Text>
-                    <View style={styles.barTrack}>
-                      {/* Dynamic width is unavoidable for data-driven bars */}
-                      <View style={[styles.barFill, { width: `${rating.score}%` }]} />
+              {STATS.map((stat) => {
+                const isPunkte = stat.label === 'Punkte';
+                const isStreak = stat.label === 'Streak';
+                const isTappable = isPunkte || isStreak;
+                const cardContent = (
+                  <>
+                    <MaterialCommunityIcons
+                      name={stat.icon}
+                      size={22}
+                      color={colors.accentBlue}
+                      style={styles.statIcon}
+                    />
+                    <Text style={styles.statValue}>{stat.value}</Text>
+                    <Text style={styles.statUnit}>{stat.unit}</Text>
+                    <View style={styles.statLabelRow}>
+                      <Text style={styles.statLabel}>{stat.label}</Text>
+                      {isTappable && (
+                        <MaterialCommunityIcons name="chevron-right" size={14} color={colors.inactive} />
+                      )}
                     </View>
-                    <Text style={styles.ratingCount}>{rating.count}</Text>
+                  </>
+                );
+                if (isTappable) {
+                  return (
+                    <TouchableOpacity
+                      key={stat.label}
+                      style={styles.statCard}
+                      onPress={() =>
+                        navigation.navigate(isPunkte ? 'PointsBreakdown' : 'AttendanceHistory')
+                      }
+                      activeOpacity={0.7}
+                    >
+                      {cardContent}
+                    </TouchableOpacity>
+                  );
+                }
+                return (
+                  <View key={stat.label} style={styles.statCard}>
+                    {cardContent}
                   </View>
-                ))
-              )}
+                );
+              })}
             </View>
 
-            {/* ── Training distribution donut ── */}
-            <TrainingDonutCard refetchTrigger={focusTrigger} />
-
-            {/* ── Weight chart ── */}
-            <WeightChartCard history={weightHistory} />
           </>
         ) : (
           <PaywallCard
@@ -445,6 +434,7 @@ export default function ProfilScreen() {
             onPressCta={() => navigation.navigate('Paywall')}
           />
         )}
+        </View>
       </ScrollView>
 
       {/* Height input modal */}
@@ -641,6 +631,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 0,
     paddingBottom: 32,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
 
   // Profile header card
@@ -702,90 +695,10 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 
-  // Eigene Punkte card (full-width row below stats grid)
-  eigeneCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: CARD_RADIUS,
-    padding: 16,
-    marginBottom: 16,
+  statLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    ...cardShadow,
-  },
-  eigeneLabel: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  eigenePoints: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  eigeneUnit: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.inactive,
-  },
-
-  // Fitness ratings card
-  ratingsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: CARD_RADIUS,
-    padding: 16,
-    marginBottom: 16,
-    gap: 12,
-    ...cardShadow,
-  },
-  ratingsTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  ratingsSubtitle: {
-    fontSize: 12,
-    color: colors.inactive,
-    fontWeight: '400',
-    marginTop: -4,
-    marginBottom: 4,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  ratingLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.text,
-    width: 104,
-  },
-  barTrack: {
-    flex: 1,
-    height: 8,
-    backgroundColor: colors.border,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: 8,
-    backgroundColor: colors.accentBlue,
-    borderRadius: 4,
-  },
-  ratingCount: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.inactive,
-    width: 16,
-    textAlign: 'right',
-  },
-  ratingsEmpty: {
-    fontSize: 13,
-    color: colors.inactive,
-    fontWeight: '400',
+    gap: 2,
   },
 
   // Weight row (inside profile card)
