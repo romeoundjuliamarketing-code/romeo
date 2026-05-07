@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { useSchedule } from '../hooks/useSchedule';
 import { useParticipation } from '../hooks/useParticipation';
@@ -10,6 +12,9 @@ import StundenplanSection from '../components/training/StundenplanSection';
 import WorkoutCategoryRows from '../components/training/WorkoutCategoryRows';
 import WeeklyVolumeCard from '../components/training/WeeklyVolumeCard';
 import WorkoutStartSheet from '../components/training/WorkoutStartSheet';
+import ExtraTab from '../components/training/ExtraTab';
+import SparringMapCard from '../components/sparring/SparringMapCard';
+import { useOpenSparrings } from '../hooks/useOpenSparrings';
 import type { StudioSchedule } from '../types/database.types';
 
 type TabKey = 'workouts' | 'plan';
@@ -64,6 +69,8 @@ export default function TrainingScreen(): React.ReactElement {
     setFocusTrigger((n) => n + 1);
   }, []));
 
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { sparrings } = useOpenSparrings(focusTrigger);
   const { profile } = useProfile(focusTrigger);
   const { schedule: fullSchedule, loading: scheduleLoading } = useSchedule(undefined, profile?.studio_id ?? null);
   const todaySchedule = fullSchedule.filter((s) => s.day_of_week === todayDow);
@@ -128,7 +135,6 @@ export default function TrainingScreen(): React.ReactElement {
 
           {activeTab === 'workouts' ? (
             <>
-              <Text style={styles.sectionTitle}>Punkte für extra Workouts bekommen</Text>
               <TouchableOpacity
                 style={styles.startWorkoutBtn}
                 onPress={() => setWorkoutSheetVisible(true)}
@@ -138,14 +144,22 @@ export default function TrainingScreen(): React.ReactElement {
               </TouchableOpacity>
               <Text style={styles.sectionTitle}>Vorgeschlagene Workouts</Text>
               <WorkoutCategoryRows disciplines={profile?.disciplines ?? []} />
+              <Text style={styles.sectionTitle}>Extras</Text>
+              <ExtraTab />
             </>
           ) : (
-            <StundenplanSection
-              studioSchedule={fullSchedule}
-              studioLoading={scheduleLoading}
-              todayDow={todayDow}
-              hasStudio={profile?.studio_id !== null && profile?.studio_id !== undefined}
-            />
+            <>
+              <StundenplanSection
+                studioSchedule={fullSchedule}
+                studioLoading={scheduleLoading}
+                todayDow={todayDow}
+                hasStudio={profile?.studio_id !== null && profile?.studio_id !== undefined}
+              />
+              <SparringMapCard
+                sparrings={sparrings}
+                onPress={() => navigation.navigate('SparringMap')}
+              />
+            </>
           )}
           <View style={styles.bottomPad} />
         </ScrollView>
@@ -168,9 +182,12 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   todaySectionTitle: {
     marginHorizontal: 16,
@@ -228,6 +245,7 @@ const styles = StyleSheet.create({
 
   sectionTitle: {
     marginHorizontal: 16,
+    marginTop: 24,
     marginBottom: 16,
     fontSize: 16,
     fontWeight: '700',
@@ -235,7 +253,7 @@ const styles = StyleSheet.create({
   },
   startWorkoutBtn: {
     marginHorizontal: 16,
-    marginBottom: 24,
+    marginBottom: 0,
     height: 56,
     borderRadius: 14,
     backgroundColor: colors.accentBlue,
