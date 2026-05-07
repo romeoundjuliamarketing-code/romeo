@@ -31,6 +31,8 @@ import NominationCard from '../components/team/NominationCard';
 import AttendanceSheet from '../components/team/AttendanceSheet';
 import StudioScheduleSection from '../components/team/StudioScheduleSection';
 import PaywallCard from '../components/common/PaywallCard';
+import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
+import { useSparringActions } from '../hooks/useSparringActions';
 import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Team'>;
@@ -107,7 +109,11 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
 
   // Studio schedule editor
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
-  const { schedule: studioSchedule, loading: scheduleLoading, refetch: refetchSchedule } = useSchedule();
+  const { schedule: studioSchedule, loading: scheduleLoading, refetch: refetchSchedule } = useSchedule(undefined, studioId);
+
+  // Sparring sheet
+  const [sparringSheetVisible, setSparringSheetVisible] = useState(false);
+  const { createSparring } = useSparringActions();
 
   // Invite code
   const { code: inviteCode, loading: inviteLoading, error: inviteError, createInvite } = useStudioInvite();
@@ -331,6 +337,17 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
                   {inviteError !== null && <Text style={styles.inviteErrorText}>{inviteError}</Text>}
                 </View>
               )}
+
+              {isCoach && (
+                <TouchableOpacity
+                  style={styles.sparringBtn}
+                  onPress={() => setSparringSheetVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="boxing-glove" size={20} color={colors.accentBlue} />
+                  <Text style={styles.sparringBtnText}>Sparring planen</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -497,6 +514,19 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
           </View>
         </View>
       </Modal>
+
+      {/* Sparring sheet */}
+      <CreateSparringSheet
+        visible={sparringSheetVisible}
+        studioId={route.params.studioId}
+        onClose={() => setSparringSheetVisible(false)}
+        onCreate={async (params) => {
+          const { error } = await createSparring(params);
+          if (error !== null) {
+            Alert.alert('Fehler', error);
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -692,5 +722,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.deleteRed,
     marginTop: 4,
+  },
+
+  // Sparring button
+  sparringBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.accentBlueSoft,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginTop: 16,
+  },
+  sparringBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.accentBlue,
   },
 });
