@@ -68,6 +68,7 @@ export function useDailyStretch(): UseDailyStretchResult {
         duration_min: 15,
         title: 'Tägliches Dehnen',
         category: 'Recovery',
+        training_type: 'mobilitaet',
       }),
       supabase.rpc('add_workout_points', {
         p_user_id: user.id,

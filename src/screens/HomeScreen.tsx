@@ -132,9 +132,9 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.content}>
         <HeroSection
           name={profile?.name ?? null}
           announcement={announcement}
@@ -199,6 +199,7 @@ export default function HomeScreen() {
           )}
 
         </View>
+        </View>
       </ScrollView>
 
       <WeightCheckInModal
@@ -230,6 +231,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 32,
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
   },
 
   // Light section below the dark hero
@@ -247,6 +251,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    marginTop: 8,
     marginBottom: 16,
   },
   waterCardWrap: {
@@ -257,7 +262,7 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
     marginBottom: 24,
   },
   statCard: {
@@ -291,7 +296,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.inactive,
     fontWeight: '500',
-    marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,

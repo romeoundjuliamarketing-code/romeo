@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -43,6 +43,13 @@ interface MonthBlock {
 export default function AttendanceHistoryScreen(): React.ReactElement {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { attendedDates, loading } = useAttendanceHistory();
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (!loading) {
+      scrollRef.current?.scrollToEnd({ animated: false });
+    }
+  }, [loading]);
 
   const months = useMemo<MonthBlock[]>(() => {
     const now = new Date();
@@ -67,7 +74,7 @@ export default function AttendanceHistoryScreen(): React.ReactElement {
       m -= 1;
       if (m < 0) { m = 11; y -= 1; }
     }
-    return result;
+    return result.reverse(); // oldest first, current month last
   }, [attendedDates]);
 
   return (
@@ -91,6 +98,7 @@ export default function AttendanceHistoryScreen(): React.ReactElement {
         </View>
       ) : (
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >

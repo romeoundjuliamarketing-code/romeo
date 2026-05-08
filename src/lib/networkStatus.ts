@@ -33,3 +33,18 @@ export function subscribeNetworkStatus(listener: Listener): () => void {
 export function getNetworkOffline(): boolean {
   return offline;
 }
+
+export async function checkConnectivity(): Promise<void> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    await fetch('https://captive.apple.com/hotspot-detect.html', {
+      method: 'HEAD',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    notify(false);
+  } catch {
+    notify(true);
+  }
+}

@@ -12,6 +12,7 @@ import {
 import { colors } from '../../theme/colors';
 
 const DAY_NAMES = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const STUDIO_TRAINING_TYPES = ['BJJ', 'K1', 'MMA', 'Ringen'] as const;
 
 function isValidTime(value: string): boolean {
   if (!/^\d{2}:\d{2}$/.test(value)) return false;
@@ -42,7 +43,6 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
   const [name, setName] = useState('');
   const [time, setTime] = useState('');
   const [duration, setDuration] = useState('');
-  const [points, setPoints] = useState('35');
   const [trainingType, setTrainingType] = useState('');
   const [coachName, setCoachName] = useState('');
 
@@ -56,7 +56,6 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
       setName('');
       setTime('');
       setDuration('');
-      setPoints('35');
       setTrainingType('');
       setCoachName('');
       setTimeError(false);
@@ -74,15 +73,13 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
 
     if (!timeValid || !durationValid || name.trim().length === 0) return;
 
-    const pointsNum = parseInt(points, 10);
-
     onConfirm({
       day_of_week:      selectedDay,
       training_name:    name.trim(),
       start_time:       time,
       duration_min:     durationNum,
-      points_per_30min: isNaN(pointsNum) || pointsNum <= 0 ? 35 : pointsNum,
-      training_type:    showCoachFields ? trainingType.trim() : 'training',
+      points_per_30min: 35,
+      training_type:    showCoachFields ? trainingType : 'training',
       coach_name:       showCoachFields ? (coachName.trim() || null) : null,
     });
   }
@@ -174,20 +171,25 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
 
           {/* Coach-only fields */}
           {showCoachFields && (
-            <View style={styles.row}>
-              <View style={[styles.field, styles.fieldHalf]}>
+            <>
+              <View style={styles.field}>
                 <Text style={styles.label}>Trainingsart *</Text>
-                <TextInput
-                  style={styles.input}
-                  value={trainingType}
-                  onChangeText={setTrainingType}
-                  placeholder="z. B. Muay Thai"
-                  placeholderTextColor={colors.textSecondary}
-                  maxLength={40}
-                  returnKeyType="next"
-                />
+                <View style={styles.typeRow}>
+                  {STUDIO_TRAINING_TYPES.map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.typeChip, trainingType === type && styles.typeChipActive]}
+                      onPress={() => setTrainingType(type)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.typeChipText, trainingType === type && styles.typeChipTextActive]}>
+                        {type}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-              <View style={[styles.field, styles.fieldHalf]}>
+              <View style={styles.field}>
                 <Text style={styles.label}>Coach</Text>
                 <TextInput
                   style={styles.input}
@@ -199,23 +201,8 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
                   returnKeyType="next"
                 />
               </View>
-            </View>
+            </>
           )}
-
-          {/* Points */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Punkte / 30 Min</Text>
-            <TextInput
-              style={styles.input}
-              value={points}
-              onChangeText={setPoints}
-              placeholder="35"
-              placeholderTextColor={colors.textSecondary}
-              keyboardType="number-pad"
-              maxLength={3}
-              returnKeyType="done"
-            />
-          </View>
 
           {/* Buttons */}
           <View style={styles.buttons}>
@@ -323,6 +310,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.deleteRed,
     fontWeight: '500',
+  },
+
+  // Training type chips
+  typeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  typeChip: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  typeChipActive: {
+    backgroundColor: colors.dark,
+    borderColor: colors.dark,
+  },
+  typeChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  typeChipTextActive: {
+    color: colors.headerTextPrimary,
   },
 
   // Buttons

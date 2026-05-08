@@ -13,8 +13,10 @@ import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 
 interface Props {
   sparring: SparringWithMeta | null;
+  currentUserId: string | null;
   onClose: () => void;
   onToggleSignup: () => Promise<void>;
+  onDeactivate: () => void;
   loading: boolean;
 }
 
@@ -29,11 +31,12 @@ function formatDateTime(iso: string): string {
   return `${date}, ${time} Uhr`;
 }
 
-export default function SparringDetailSheet({ sparring, onClose, onToggleSignup, loading }: Props) {
+export default function SparringDetailSheet({ sparring, currentUserId, onClose, onToggleSignup, onDeactivate, loading }: Props) {
   if (sparring === null) return null;
 
   const slotsLeft = sparring.max_slots - sparring.signup_count;
   const isFull = slotsLeft <= 0;
+  const isCreator = currentUserId !== null && sparring.created_by === currentUserId;
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
@@ -100,6 +103,16 @@ export default function SparringDetailSheet({ sparring, onClose, onToggleSignup,
             </Text>
           )}
         </TouchableOpacity>
+
+        {isCreator && (
+          <TouchableOpacity
+            style={styles.btnDeactivate}
+            onPress={onDeactivate}
+            disabled={loading}
+          >
+            <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </Modal>
   );
@@ -192,5 +205,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.card,
+  },
+  btnDeactivate: {
+    borderRadius: 14,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(217,74,74,0.4)',
+  },
+  btnDeactivateText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.deleteRed,
   },
 });

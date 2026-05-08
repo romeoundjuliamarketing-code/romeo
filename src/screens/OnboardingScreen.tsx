@@ -10,10 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
-  Dimensions,
+  Keyboard,
 } from 'react-native';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,20 +129,28 @@ export default function OnboardingScreen() {
   const directionRef      = useRef<'forward' | 'back'>('forward');
   const prevCanContinue   = useRef(false);
 
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
   useEffect(() => {
-    const startX = directionRef.current === 'forward' ? SCREEN_WIDTH : -SCREEN_WIDTH;
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hide  = Keyboard.addListener('keyboardDidHide',  () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  useEffect(() => {
+    const startX = directionRef.current === 'forward' ? 40 : -40;
     contentTranslateX.setValue(startX);
     contentOpacity.setValue(0);
     Animated.parallel([
       Animated.spring(contentTranslateX, {
         toValue: 0,
-        tension: 60,
-        friction: 10,
+        tension: 300,
+        friction: 28,
         useNativeDriver: true,
       }),
       Animated.timing(contentOpacity, {
         toValue: 1,
-        duration: 180,
+        duration: 140,
         useNativeDriver: true,
       }),
     ]).start();
@@ -280,12 +286,12 @@ export default function OnboardingScreen() {
     : 'Weiter';
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
+    <KeyboardAvoidingView
+      style={styles.safe}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={0}
+    >
+      <SafeAreaView style={styles.flex}>
         <View style={styles.headerRow}>
           {stepIndex >= 0 ? (
             <TouchableOpacity style={styles.backBtn} onPress={handleBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -301,7 +307,7 @@ export default function OnboardingScreen() {
           )}
         </View>
 
-        <View style={styles.mascotArea}>
+        <View style={[styles.mascotArea, keyboardVisible && styles.mascotAreaHidden]}>
           <MascotBubble
             image={MASCOT[mascotKey]}
             text={bubbleText}
@@ -372,8 +378,8 @@ export default function OnboardingScreen() {
             </TouchableOpacity>
           </Animated.View>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -384,6 +390,9 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   headerRow: {
     flexDirection: 'row',
@@ -417,6 +426,9 @@ const styles = StyleSheet.create({
   mascotArea: {
     alignItems: 'center',
     paddingTop: 8,
+  },
+  mascotAreaHidden: {
+    display: 'none',
   },
   contentAnimWrapper: {
     flex: 1,

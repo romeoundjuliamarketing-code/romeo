@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
+import { useAuth } from '../context/AuthContext';
 import { useOpenSparrings } from '../hooks/useOpenSparrings';
 import { useSparringActions } from '../hooks/useSparringActions';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
@@ -21,8 +22,10 @@ const INITIAL_REGION = {
 type Props = NativeStackScreenProps<RootStackParamList, 'SparringMap'>;
 
 export default function SparringMapScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
+  const { user } = useAuth();
   const { sparrings, refetch } = useOpenSparrings();
-  const { signUp, cancelSignup } = useSparringActions();
+  const { signUp, cancelSignup, deactivateSparring } = useSparringActions();
   const [selected, setSelected] = useState<SparringWithMeta | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -38,6 +41,32 @@ export default function SparringMapScreen({ navigation }: Props) {
     if (error !== null) return;
     refetch();
     setSelected(null);
+  }
+
+  function handleDeactivate(): void {
+    if (selected === null) return;
+    Alert.alert(
+      'Sparring absagen',
+      `"${selected.title}" wirklich absagen? Diese Aktion kann nicht rückgängig gemacht werden.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Absagen',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            const { error } = await deactivateSparring(selected.id);
+            setActionLoading(false);
+            if (error !== null) {
+              Alert.alert('Fehler', error);
+              return;
+            }
+            refetch();
+            setSelected(null);
+          },
+        },
+      ],
+    );
   }
 
   return (
@@ -58,7 +87,7 @@ export default function SparringMapScreen({ navigation }: Props) {
         ))}
       </MapView>
 
-      <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
         <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="close" size={22} color={colors.text} />
         </TouchableOpacity>
@@ -69,12 +98,14 @@ export default function SparringMapScreen({ navigation }: Props) {
               : `${sparrings.length} Sparring${sparrings.length === 1 ? '' : 's'}`}
           </Text>
         </View>
-      </SafeAreaView>
+      </View>
 
       <SparringDetailSheet
         sparring={selected}
+        currentUserId={user?.id ?? null}
         onClose={() => setSelected(null)}
         onToggleSignup={handleToggleSignup}
+        onDeactivate={handleDeactivate}
         loading={actionLoading}
       />
     </View>
@@ -96,7 +127,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
     gap: 12,
   },
   closeBtn: {

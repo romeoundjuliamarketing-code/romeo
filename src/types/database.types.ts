@@ -200,6 +200,8 @@ export type Database = {
           city: string
           created_at: string
           id: string
+          lat: number | null
+          lng: number | null
           name: string
           owner_user_id: string | null
         }
@@ -208,6 +210,8 @@ export type Database = {
           city: string
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           name: string
           owner_user_id?: string | null
         }
@@ -216,6 +220,8 @@ export type Database = {
           city?: string
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           name?: string
           owner_user_id?: string | null
         }
@@ -828,6 +834,10 @@ export type Database = {
       }
       delete_my_account: {
         Args: Record<string, never>
+        Returns: undefined
+      }
+      deactivate_sparring: {
+        Args: { p_id: string }
         Returns: undefined
       }
     }

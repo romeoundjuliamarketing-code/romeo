@@ -16,7 +16,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import ExtraUnitCard from './ExtraUnitCard';
 import StepsInputModal, { stepsToPoints } from './StepsInputModal';
-import KampfsportInputModal, { KampfsportIntensity } from './KampfsportInputModal';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,34 +27,38 @@ export type ExtraUnit = {
   intensity: 'leicht' | 'mittel' | 'intensiv';
   points: number;
   durationLabel: string;
+  training_type?: string;
   isSteps?: boolean;
+  subcategories?: { training_type: string; points: number }[];
 };
 
 // ─── Static data ──────────────────────────────────────────────────────────────
 
 const EXTRA_UNITS: ExtraUnit[] = [
-  { id: 'joggen',       title: 'Joggen',      category: 'Kondition',    intensity: 'mittel',   points: 10, durationLabel: '30–60 Min' },
-  { id: 'schwimmen',    title: 'Schwimmen',   category: 'Kondition',    intensity: 'mittel',   points: 10, durationLabel: '45 Min'    },
-  { id: 'seilspringen', title: 'Seilspringen',category: 'Kondition',    intensity: 'intensiv', points: 10, durationLabel: '15–30 Min' },
-  { id: 'radfahren',    title: 'Rad Fahren',  category: 'Kondition',    intensity: 'leicht',   points: 10, durationLabel: '45–60 Min' },
-  { id: 'schritte',     title: 'Schritte',    category: 'Kondition',    intensity: 'leicht',   points: 0,  durationLabel: 'Tagesziel', isSteps: true },
-  { id: 'gym',          title: 'Gym',         category: 'Kraft',        intensity: 'intensiv', points: 15, durationLabel: '60 Min'    },
-  { id: 'sauna',        title: 'Sauna',       category: 'Regeneration', intensity: 'leicht',   points: 10, durationLabel: '30 Min'    },
+  { id: 'joggen',       title: 'Joggen',       category: 'Kondition', intensity: 'mittel',   points: 10, durationLabel: '30–60 Min', training_type: 'ausdauer' },
+  { id: 'schwimmen',    title: 'Schwimmen',    category: 'Kondition', intensity: 'mittel',   points: 10, durationLabel: '45 Min',    training_type: 'ausdauer' },
+  { id: 'seilspringen', title: 'Seilspringen', category: 'Kondition', intensity: 'intensiv', points: 10, durationLabel: '15–30 Min', training_type: 'ausdauer' },
+  { id: 'radfahren',    title: 'Rad Fahren',   category: 'Kondition', intensity: 'leicht',   points: 10, durationLabel: '45–60 Min', training_type: 'ausdauer' },
+  { id: 'schritte',     title: 'Schritte',     category: 'Kondition', intensity: 'leicht',   points: 0,  durationLabel: 'Tagesziel', isSteps: true },
+  { id: 'gym',          title: 'Gym',          category: 'Kraft',     intensity: 'intensiv', points: 15, durationLabel: '60 Min'    },
+  {
+    id: 'stairruns',
+    title: 'Stairruns',
+    category: 'Kondition',
+    intensity: 'intensiv',
+    points: 10,
+    durationLabel: '20–30 Min',
+    subcategories: [
+      { training_type: 'beinarbeit',   points: 2 },
+      { training_type: 'trittkraft',   points: 2 },
+      { training_type: 'koordination', points: 2 },
+      { training_type: 'ausdauer',     points: 4 },
+    ],
+  },
 ];
 
-const CATEGORIES = ['Kondition', 'Kraft', 'Regeneration'];
+const CATEGORIES = ['Kondition', 'Kraft'];
 
-const KAMPFSPORT_CATEGORIES: { id: string; label: string; color: string }[] = [
-  { id: 'schlagkraft',     label: 'Schlagkraft',     color: colors.catSchlagkraft },
-  { id: 'trittkraft',      label: 'Trittkraft',       color: colors.catTrittkraft },
-  { id: 'ausdauer',        label: 'Ausdauer',         color: colors.catCardio },
-  { id: 'schulter',        label: 'Schulter',         color: colors.catSchulter },
-  { id: 'griffkraft',      label: 'Griffkraft',       color: colors.catGriffkraft },
-  { id: 'beinarbeit',      label: 'Beinarbeit',       color: colors.catCore },
-  { id: 'koordination',    label: 'Koordination',     color: colors.accent },
-  { id: 'mobilitaet',      label: 'Mobilität',        color: colors.catMobility },
-  { id: 'partnertraining', label: 'Partnertraining',  color: colors.catPartnertraining },
-];
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -95,9 +99,6 @@ export default function ExtraTab() {
 
   // Steps modal
   const [stepsModalVisible, setStepsModalVisible] = useState(false);
-
-  // Kampfsport modal — holds the selected category label (null = closed)
-  const [kampfsportCategory, setKampfsportCategory] = useState<string | null>(null);
 
   // Suggestion modal
   const [suggestionVisible, setSuggestionVisible] = useState(false);
@@ -151,21 +152,41 @@ export default function ExtraTab() {
 
     const points = unit.isSteps ? (steps !== undefined ? stepsToPoints(steps) : 0) : unit.points;
 
-    const { error: logErr } = await supabase.from('workout_logs').insert({
-      user_id: user.id,
-      date: today,
-      source: 'extra',
-      completed: true,
-      points,
-      title: unit.title,
-      category: 'Extra',
-      duration_min: 0,
-    });
-
-    if (logErr !== null) {
-      setLoadingUnit(null);
-      Alert.alert('Fehler', 'Bitte versuche es erneut.');
-      return;
+    if (unit.subcategories !== undefined) {
+      const rows = unit.subcategories.map((sub) => ({
+        user_id: user.id,
+        date: today,
+        source: 'extra' as const,
+        completed: true,
+        points: sub.points,
+        title: unit.title,
+        category: 'Extra',
+        training_type: sub.training_type,
+        duration_min: 0,
+      }));
+      const { error: logErr } = await supabase.from('workout_logs').insert(rows);
+      if (logErr !== null) {
+        setLoadingUnit(null);
+        Alert.alert('Fehler', 'Bitte versuche es erneut.');
+        return;
+      }
+    } else {
+      const { error: logErr } = await supabase.from('workout_logs').insert({
+        user_id: user.id,
+        date: today,
+        source: 'extra',
+        completed: true,
+        points,
+        title: unit.title,
+        category: 'Extra',
+        duration_min: 0,
+        training_type: unit.training_type ?? null,
+      });
+      if (logErr !== null) {
+        setLoadingUnit(null);
+        Alert.alert('Fehler', 'Bitte versuche es erneut.');
+        return;
+      }
     }
 
     const { error: pointsErr } = await supabase.rpc('add_workout_points', {
@@ -177,57 +198,6 @@ export default function ExtraTab() {
 
     await loadLogs();
     setLoadingUnit(null);
-  }
-
-  // ── Log a Kampfsport session ──────────────────────────────────────────────
-
-  async function logKampfsport(
-    category: string,
-    totalMin: number,
-    points: number,
-    intensity: KampfsportIntensity,
-  ): Promise<void> {
-    if (user === null || loadingUnit !== null) return;
-    setLoadingUnit(`kampfsport_${category}`);
-
-    const { error: logErr } = await supabase.from('workout_logs').insert({
-      user_id: user.id,
-      date: today,
-      source: 'extra',
-      completed: true,
-      points,
-      title: category,
-      category: 'Kampfsport',
-      duration_min: totalMin,
-      training_type: intensity,
-    });
-
-    if (logErr !== null) {
-      setLoadingUnit(null);
-      Alert.alert('Fehler', 'Bitte versuche es erneut.');
-      return;
-    }
-
-    const { error: pointsErr } = await supabase.rpc('add_workout_points', {
-      p_user_id: user.id,
-      p_date: today,
-      p_points: points,
-    });
-    if (pointsErr !== null) console.warn('add_workout_points failed', pointsErr.message);
-
-    await loadLogs();
-    setLoadingUnit(null);
-  }
-
-  function handleKampfsportConfirm(
-    totalMin: number,
-    points: number,
-    intensity: KampfsportIntensity,
-  ): void {
-    if (kampfsportCategory === null) return;
-    const category = kampfsportCategory;
-    setKampfsportCategory(null);
-    void logKampfsport(category, totalMin, points, intensity);
   }
 
   // ── Steps modal confirm ───────────────────────────────────────────────────
@@ -285,39 +255,6 @@ export default function ExtraTab() {
 
   return (
     <View style={styles.container}>
-      {/* ── Kampfsport ── */}
-      <View style={styles.categoryBlock}>
-        <Text style={styles.categoryLabel}>Kampfsport</Text>
-        <View style={styles.kampfsportGrid}>
-          {KAMPFSPORT_CATEGORIES.map((cat) => {
-            const doneToday = loggedToday.has(cat.label);
-            const isLoading = loadingUnit === `kampfsport_${cat.id}`;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[styles.kampfsportTile, { borderLeftColor: cat.color }]}
-                onPress={() => { if (!doneToday) setKampfsportCategory(cat.label); }}
-                activeOpacity={0.7}
-                disabled={doneToday || isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color={colors.accentBlue} />
-                ) : (
-                  <>
-                    <Text style={[styles.kampfsportTileLabel, doneToday && styles.kampfsportTileLabelDone]}>
-                      {cat.label}
-                    </Text>
-                    {doneToday && (
-                      <Text style={styles.kampfsportDoneTag}>Erledigt</Text>
-                    )}
-                  </>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
       {CATEGORIES.map((cat) => {
         const units = EXTRA_UNITS.filter((u) => u.category === cat);
         return (
@@ -359,14 +296,6 @@ export default function ExtraTab() {
         visible={stepsModalVisible}
         onClose={() => setStepsModalVisible(false)}
         onConfirm={handleStepsConfirm}
-      />
-
-      {/* ── Kampfsport Modal ── */}
-      <KampfsportInputModal
-        visible={kampfsportCategory !== null}
-        category={kampfsportCategory ?? ''}
-        onClose={() => setKampfsportCategory(null)}
-        onConfirm={handleKampfsportConfirm}
       />
 
       {/* ── Suggestion Modal ── */}

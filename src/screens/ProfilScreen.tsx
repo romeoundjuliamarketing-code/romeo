@@ -385,7 +385,8 @@ export default function ProfilScreen() {
               {STATS.map((stat) => {
                 const isPunkte = stat.label === 'Punkte';
                 const isStreak = stat.label === 'Streak';
-                const isTappable = isPunkte || isStreak;
+                const isWorkouts = stat.label === 'Workouts';
+                const isTappable = isPunkte || isStreak || isWorkouts;
                 const cardContent = (
                   <>
                     <MaterialCommunityIcons
@@ -410,7 +411,9 @@ export default function ProfilScreen() {
                       key={stat.label}
                       style={styles.statCard}
                       onPress={() =>
-                        navigation.navigate(isPunkte ? 'PointsBreakdown' : 'AttendanceHistory')
+                        isPunkte ? navigation.navigate('PointsBreakdown')
+                        : isStreak ? navigation.navigate('AttendanceHistory')
+                        : navigation.navigate('WorkoutHistory')
                       }
                       activeOpacity={0.7}
                     >

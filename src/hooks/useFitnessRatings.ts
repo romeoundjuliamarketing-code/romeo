@@ -67,7 +67,6 @@ const TRAINING_TYPE_TO_GROUP: Record<string, FitnessGroup> = {
   'Schwimmen':        'ausdauer',
   'Dehnen':           'mobilitaet',
   'Yoga':             'mobilitaet',
-  'Sauna':            'mobilitaet',
 };
 
 const ALL_GROUPS: FitnessGroup[] = [

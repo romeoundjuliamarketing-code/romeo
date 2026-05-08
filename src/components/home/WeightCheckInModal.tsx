@@ -7,15 +7,12 @@ import {
   Modal,
   TextInput,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
   Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { colors } from '../../theme/colors';
-
-const { width: SCREEN_W } = Dimensions.get('window');
-const MASCOT_SIZE = Math.round(SCREEN_W * 0.78);
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const WAAGE_IMG = require('../../../assets/waage.png') as number;
@@ -27,10 +24,14 @@ interface Props {
 }
 
 export default function WeightCheckInModal({ visible, onSubmit, onLater }: Props) {
+  const { width: screenW } = useWindowDimensions();
+  const contentW = Math.min(screenW, 600);
+  const mascotSize = Math.round(contentW * 0.78);
+
   const [draft, setDraft] = useState('');
 
   const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const slideX        = useRef(new Animated.Value(SCREEN_W)).current;
+  const slideX        = useRef(new Animated.Value(screenW)).current;
   const bubbleScale   = useRef(new Animated.Value(0)).current;
   const bubbleOpacity = useRef(new Animated.Value(0)).current;
 
@@ -38,7 +39,7 @@ export default function WeightCheckInModal({ visible, onSubmit, onLater }: Props
     if (!visible) return;
 
     overlayOpacity.setValue(0);
-    slideX.setValue(SCREEN_W);
+    slideX.setValue(screenW);
     bubbleScale.setValue(0);
     bubbleOpacity.setValue(0);
 
@@ -104,6 +105,7 @@ export default function WeightCheckInModal({ visible, onSubmit, onLater }: Props
           <Animated.View
             style={[
               styles.bubbleOuter,
+              { width: contentW - 32 },
               { opacity: bubbleOpacity, transform: [{ scale: bubbleScale }] },
             ]}
           >
@@ -151,7 +153,7 @@ export default function WeightCheckInModal({ visible, onSubmit, onLater }: Props
           </Animated.View>
 
           {/* Mascot */}
-          <Image source={WAAGE_IMG} style={styles.mascot} resizeMode="contain" />
+          <Image source={WAAGE_IMG} style={[styles.mascot, { width: mascotSize, height: mascotSize }]} resizeMode="contain" />
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -177,7 +179,6 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 0 : 16,
   },
   bubbleOuter: {
-    width: SCREEN_W - 32,
     alignItems: 'center',
     zIndex: 2,
   },
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingHorizontal: 16,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Inter_400Regular',
     color: colors.text,
     backgroundColor: colors.background,
     textAlign: 'center',
@@ -255,7 +256,5 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   mascot: {
-    width: MASCOT_SIZE,
-    height: MASCOT_SIZE,
   },
 });

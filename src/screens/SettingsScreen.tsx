@@ -228,7 +228,7 @@ export default function SettingsScreen(): React.ReactElement {
         <View style={styles.card}>
           <SettingsRow
             icon="storefront-outline"
-            label="Paywall anzeigen"
+            label="Abo ändern"
             onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Paywall'); }}
           />
         </View>

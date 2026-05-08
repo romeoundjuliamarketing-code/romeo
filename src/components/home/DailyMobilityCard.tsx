@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import { MOBILITY_EXERCISES } from '../../data/mobilityWorkout';
 
 type Props = {
   isDone: boolean;
@@ -11,8 +10,6 @@ type Props = {
 };
 
 export default function DailyMobilityCard({ isDone, isUrgent, onConfirm }: Props): React.ReactElement {
-  const [expanded, setExpanded] = useState(false);
-
   return (
     <View style={[styles.card, isUrgent && !isDone && styles.cardUrgent, isDone && styles.cardDone]}>
       <View style={styles.row}>
@@ -45,36 +42,6 @@ export default function DailyMobilityCard({ isDone, isUrgent, onConfirm }: Props
           </TouchableOpacity>
         )}
       </View>
-
-      {/* Toggle exercise list */}
-      <TouchableOpacity
-        style={styles.toggleRow}
-        onPress={() => setExpanded((v) => !v)}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.toggleLabel}>
-          {expanded ? 'Übungen ausblenden' : 'Übungen anzeigen'}
-        </Text>
-        <MaterialCommunityIcons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={colors.headerTextSecondary}
-        />
-      </TouchableOpacity>
-
-      {expanded && (
-        <View style={styles.exerciseList}>
-          {MOBILITY_EXERCISES.map((ex, index) => (
-            <View key={ex.id} style={styles.exerciseRow}>
-              <Text style={styles.exerciseIndex}>{index + 1}.</Text>
-              <View style={styles.exerciseInfo}>
-                <Text style={styles.exerciseName}>{ex.title}</Text>
-                <Text style={styles.exerciseReps}>{ex.reps}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
 
       {!isDone && (
         <Text style={styles.honesty}>
@@ -156,46 +123,6 @@ const styles = StyleSheet.create({
   },
   buttonLabelUrgent: {
     color: '#E07B5A',
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  toggleLabel: {
-    fontSize: 12,
-    color: colors.headerTextSecondary,
-    fontWeight: '500',
-  },
-  exerciseList: {
-    gap: 8,
-    paddingTop: 4,
-  },
-  exerciseRow: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'flex-start',
-  },
-  exerciseIndex: {
-    fontSize: 12,
-    color: colors.headerTextSecondary,
-    fontWeight: '500',
-    width: 20,
-    paddingTop: 1,
-  },
-  exerciseInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  exerciseName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.headerTextPrimary,
-  },
-  exerciseReps: {
-    fontSize: 11,
-    color: colors.headerTextSecondary,
-    fontWeight: '400',
   },
   honesty: {
     fontSize: 11,

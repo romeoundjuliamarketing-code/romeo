@@ -17,10 +17,11 @@ export function useAttendanceHistory(): {
     void (async () => {
       setLoading(true);
       const { data, error } = await supabase
-        .from('attendance_logs')
-        .select('session_date')
+        .from('workout_logs')
+        .select('date')
         .eq('user_id', user.id)
-        .order('session_date', { ascending: false });
+        .eq('completed', true)
+        .order('date', { ascending: false });
 
       if (error !== null) {
         reportNetworkError(error);
@@ -32,8 +33,8 @@ export function useAttendanceHistory(): {
       setAttendedDates(
         new Set(
           (data ?? [])
-            .filter((r) => r.session_date !== null)
-            .map((r) => r.session_date as string),
+            .filter((r) => r.date !== null)
+            .map((r) => r.date as string),
         ),
       );
       setLoading(false);

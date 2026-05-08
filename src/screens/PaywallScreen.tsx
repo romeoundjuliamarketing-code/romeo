@@ -156,7 +156,8 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
         <View style={styles.backBtn} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
         <Text style={styles.title}>Alle Premium-Funktionen freischalten</Text>
         <Text style={styles.subtitle}>
           Punkte, Stats und Team-Ranking sind im Abo enthalten.
@@ -222,6 +223,7 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
         <Text style={styles.legalNote}>
           Das Abo verlängert sich automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende der aktuellen Laufzeit gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.
         </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -258,6 +260,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 16,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 24,

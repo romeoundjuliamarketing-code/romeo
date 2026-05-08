@@ -9,15 +9,15 @@ import type { CreateCustomWorkoutPayload } from '../../hooks/useCustomWorkouts';
 import type { CustomExercise } from '../../types/database.types';
 
 const CATEGORIES: { key: string; label: string }[] = [
-  { key: 'schlagkraft',     label: 'Schlagkraft' },
-  { key: 'trittkraft',      label: 'Trittkraft' },
-  { key: 'ausdauer',        label: 'Ausdauer' },
-  { key: 'schulter',        label: 'Schulter' },
-  { key: 'griffkraft',      label: 'Griffkraft' },
-  { key: 'beinarbeit',      label: 'Beinarbeit' },
-  { key: 'koordination',    label: 'Koordination' },
-  { key: 'mobilitaet',      label: 'Mobilität' },
-  { key: 'partnertraining', label: 'Partnertraining' },
+  { key: 'schlagkraft',  label: 'Schlagkraft' },
+  { key: 'trittkraft',   label: 'Trittkraft' },
+  { key: 'ausdauer',     label: 'Ausdauer' },
+  { key: 'schulter',     label: 'Schulter' },
+  { key: 'nackenhals',   label: 'Nacken & Hals' },
+  { key: 'griffkraft',   label: 'Griffkraft' },
+  { key: 'beinarbeit',   label: 'Beinarbeit' },
+  { key: 'koordination', label: 'Koordination' },
+  { key: 'mobilitaet',   label: 'Mobilität' },
 ];
 
 interface Props {

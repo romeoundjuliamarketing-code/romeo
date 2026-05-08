@@ -30,6 +30,7 @@ export type RootStackParamList = {
   WeightHistory: undefined;
   PointsBreakdown: undefined;
   AttendanceHistory: undefined;
+  WorkoutHistory: undefined;
   SparringMap: undefined;
   Timer: {
     workoutTitle: string;

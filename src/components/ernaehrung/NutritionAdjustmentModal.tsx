@@ -6,15 +6,12 @@ import {
   Animated,
   Modal,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
   Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { colors } from '../../theme/colors';
-
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const MASCOT_SIZE = Math.round(SCREEN_W * 0.72);
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const WAAGE_IMG = require('../../../assets/waage.png') as number;
@@ -46,8 +43,12 @@ export default function NutritionAdjustmentModal({
   onConfirm,
   onDecline,
 }: Props) {
+  const { width: screenW } = useWindowDimensions();
+  const contentW = Math.min(screenW, 600);
+  const mascotSize = Math.round(contentW * 0.72);
+
   const overlayOpacity = useRef(new Animated.Value(0)).current;
-  const slideX         = useRef(new Animated.Value(SCREEN_W)).current;
+  const slideX         = useRef(new Animated.Value(screenW)).current;
   const bubbleScale    = useRef(new Animated.Value(0)).current;
   const bubbleOpacity  = useRef(new Animated.Value(0)).current;
 
@@ -55,7 +56,7 @@ export default function NutritionAdjustmentModal({
     if (!visible) return;
 
     overlayOpacity.setValue(0);
-    slideX.setValue(SCREEN_W);
+    slideX.setValue(screenW);
     bubbleScale.setValue(0);
     bubbleOpacity.setValue(0);
 
@@ -110,6 +111,7 @@ export default function NutritionAdjustmentModal({
           <Animated.View
             style={[
               styles.bubbleOuter,
+              { width: contentW - 32 },
               { opacity: bubbleOpacity, transform: [{ scale: bubbleScale }] },
             ]}
           >
@@ -140,7 +142,7 @@ export default function NutritionAdjustmentModal({
           {/* Mascot */}
           <Image
             source={WAAGE_IMG}
-            style={styles.mascot}
+            style={[styles.mascot, { width: mascotSize, height: mascotSize }]}
             resizeMode="contain"
           />
         </Animated.View>
@@ -168,7 +170,6 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 0 : 16,
   },
   bubbleOuter: {
-    width: SCREEN_W - 32,
     alignItems: 'center',
     zIndex: 2,
   },
@@ -228,7 +229,5 @@ const styles = StyleSheet.create({
     marginTop: -1,
   },
   mascot: {
-    width: MASCOT_SIZE,
-    height: MASCOT_SIZE,
   },
 });

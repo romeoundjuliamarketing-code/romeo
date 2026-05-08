@@ -35,7 +35,6 @@ function nextDay18h(): Date {
 export default function CreateSparringSheet({ visible, studioId, onClose, onCreate }: Props) {
   const [title, setTitle] = useState('');
   const [discipline, setDiscipline] = useState(DISCIPLINES[0]);
-  const [address, setAddress] = useState('');
   const [scheduledAt, setScheduledAt] = useState<Date>(nextDay18h);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -57,10 +56,6 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
       Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
       return;
     }
-    if (address.trim().length === 0) {
-      Alert.alert('Adresse fehlt', 'Bitte gib die Adresse des Sparrings ein.');
-      return;
-    }
     const dur = parseInt(durationMin, 10);
     const slots = parseInt(maxSlots, 10);
     if (isNaN(dur) || dur < 1) {
@@ -77,7 +72,6 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
       studioId,
       title: title.trim(),
       discipline,
-      address: address.trim(),
       scheduledAt: scheduledAt.toISOString(),
       durationMin: dur,
       maxSlots: slots,
@@ -85,7 +79,6 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
     });
     setLoading(false);
     setTitle('');
-    setAddress('');
     setDiscipline(DISCIPLINES[0]);
     setNotes('');
     setDurationMin('90');
@@ -133,15 +126,6 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
               ))}
             </View>
           </ScrollView>
-
-          <Text style={styles.label}>Adresse</Text>
-          <TextInput
-            style={styles.input}
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Straße, Hausnummer, Stadt"
-            placeholderTextColor={colors.textSecondary}
-          />
 
           <Text style={styles.label}>Datum</Text>
           <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>

@@ -26,13 +26,14 @@ import { useAttendance } from '../hooks/useAttendance';
 import { useSchedule } from '../hooks/useSchedule';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
-import TeamMemberRow from '../components/team/TeamMemberRow';
 import NominationCard from '../components/team/NominationCard';
 import AttendanceSheet from '../components/team/AttendanceSheet';
 import StudioScheduleSection from '../components/team/StudioScheduleSection';
 import PaywallCard from '../components/common/PaywallCard';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import { useSparringActions } from '../hooks/useSparringActions';
+import { useStudioAddress } from '../hooks/useStudioAddress';
+import { useStudioSparrings } from '../hooks/useStudioSparrings';
 import { colors } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Team'>;
@@ -57,12 +58,22 @@ const ANNOUNCEMENT_DURATION_OPTIONS: AnnouncementDurationOption[] = [
   { value: 'forever', label: 'Dauerhaft' },
 ];
 
+const MEMBER_COLORS = [
+  '#4A90D9', '#E05252', '#52A86E', '#E07A52',
+  '#7B52C4', '#52A8A8', '#D4B942', '#C052A8',
+];
+
+function getInitials(name: string | null): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
 function mapExpiresAtToDuration(expiresAt: string | null): AnnouncementDuration {
   if (expiresAt === null) return 'forever';
-
   const ms = new Date(expiresAt).getTime() - Date.now();
   const days = ms / (24 * 60 * 60 * 1000);
-
   if (days <= 2) return '1d';
   if (days <= 5) return '3d';
   return '1w';
@@ -70,19 +81,14 @@ function mapExpiresAtToDuration(expiresAt: string | null): AnnouncementDuration 
 
 function durationToExpiresAt(duration: AnnouncementDuration): string | null {
   if (duration === 'forever') return null;
-
   const daysByDuration: Record<Exclude<AnnouncementDuration, 'forever'>, number> = {
-    '1d': 1,
-    '3d': 3,
-    '1w': 7,
+    '1d': 1, '3d': 3, '1w': 7,
   };
-
-  const expiresAt = new Date(Date.now() + daysByDuration[duration] * 24 * 60 * 60 * 1000);
-  return expiresAt.toISOString();
+  return new Date(Date.now() + daysByDuration[duration] * 24 * 60 * 60 * 1000).toISOString();
 }
 
 export default function TeamScreen({ route, navigation }: Props): React.ReactElement {
-  const { studioId, studioName, studioCity } = route.params;
+  const { studioId, studioName } = route.params;
   const { user } = useAuth();
 
   const {
@@ -97,44 +103,83 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
   const [actionTarget, setActionTarget] = useState<Profile | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [nominationLoading, setNominationLoading] = useState<string | null>(null);
+  const [membersExpanded, setMembersExpanded] = useState(false);
 
-  // Announcement modal
   const [announcementVisible, setAnnouncementVisible] = useState(false);
   const [announcementDraft, setAnnouncementDraft] = useState('');
   const [announcementDuration, setAnnouncementDuration] = useState<AnnouncementDuration>('forever');
   const [announcementPosting, setAnnouncementPosting] = useState(false);
 
-  // Attendance sheet
   const [attendanceVisible, setAttendanceVisible] = useState(false);
-
-  // Studio schedule editor
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const { schedule: studioSchedule, loading: scheduleLoading, refetch: refetchSchedule } = useSchedule(undefined, studioId);
 
-  // Sparring sheet
   const [sparringSheetVisible, setSparringSheetVisible] = useState(false);
-  const { createSparring } = useSparringActions();
+  const { createSparring, deactivateSparring } = useSparringActions();
+  const { sparrings: studioSparrings, refetch: refetchSparrings } = useStudioSparrings(studioId);
 
-  // Invite code
+  const { address: studioAddress, loading: addressLoading, updateAddress } = useStudioAddress(studioId);
+  const [addressDraft, setAddressDraft] = useState('');
+  const [addressEditing, setAddressEditing] = useState(false);
+  const [addressSaving, setAddressSaving] = useState(false);
+
   const { code: inviteCode, loading: inviteLoading, error: inviteError, createInvite } = useStudioInvite();
 
-  // Team weights: userId → kg
   const [teamWeights, setTeamWeights] = useState<Record<string, number>>({});
-
   useEffect(() => {
     if (teamMembers.length === 0) return;
     void fetchTeamWeights(teamMembers.map((m) => m.id)).then(setTeamWeights);
   }, [teamMembers]);
+
+  const ranked = useMemo(
+    () => [...teamMembers].sort((a, b) => b.total_points - a.total_points),
+    [teamMembers],
+  );
+
+  const teamXP = useMemo(
+    () => teamMembers.reduce((sum, m) => sum + m.total_points, 0),
+    [teamMembers],
+  );
+
+  const nextSparring = useMemo(() => {
+    const now = new Date();
+    return studioSparrings
+      .filter((s) => new Date(s.scheduled_at) > now)
+      .sort((a, b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime())[0] ?? null;
+  }, [studioSparrings]);
+
+  const totalSeats = entitlement.includedSeats + entitlement.extraSeats;
+  const freeSeats = totalSeats - entitlement.usedSeats;
+
+  async function handleSaveAddress(): Promise<void> {
+    if (addressDraft.trim().length === 0) return;
+    setAddressSaving(true);
+    const { error } = await updateAddress(addressDraft);
+    setAddressSaving(false);
+    if (error !== null) { Alert.alert('Fehler', error); return; }
+    setAddressEditing(false);
+  }
+
+  function handleCancelSparring(sparringId: string, title: string): void {
+    Alert.alert('Sparring absagen', `"${title}" wirklich absagen?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Absagen', style: 'destructive',
+        onPress: async () => {
+          const { error } = await deactivateSparring(sparringId);
+          if (error !== null) Alert.alert('Fehler', error);
+          else refetchSparrings();
+        },
+      },
+    ]);
+  }
 
   async function handlePostAnnouncement(): Promise<void> {
     if (announcementDraft.trim().length === 0) return;
     setAnnouncementPosting(true);
     const result = await postAnnouncement(announcementDraft, durationToExpiresAt(announcementDuration));
     setAnnouncementPosting(false);
-    if (result.error !== null) {
-      Alert.alert('Fehler', result.error);
-      return;
-    }
+    if (result.error !== null) { Alert.alert('Fehler', result.error); return; }
     setAnnouncementDraft('');
     setAnnouncementDuration('forever');
     setAnnouncementVisible(false);
@@ -145,13 +190,6 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
     if (result.error !== null) Alert.alert('Fehler', result.error);
   }
 
-  // Members sorted by total_points descending
-  const ranked = useMemo(
-    () => [...teamMembers].sort((a, b) => b.total_points - a.total_points),
-    [teamMembers],
-  );
-
-  // Compute available actions for a given member
   function sheetActionsFor(target: Profile): SheetAction[] {
     const hasPendingPromote = pendingNominations.some(
       (n) => n.nominee_id === target.id && n.type === 'promote',
@@ -159,29 +197,17 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
     const hasPendingDemote = pendingNominations.some(
       (n) => n.nominee_id === target.id && n.type === 'demote',
     );
-
-    // Self: step down as coach
     if (target.id === user?.id && isCoach) {
       return [{ label: 'Trainer-Rolle abgeben', destructive: true, onPress: async () => nominateDemotion(target.id) }];
     }
-    // No actions on own row when not a coach (self-nomination not allowed)
     if (target.id === user?.id) return [];
-
     const actions: SheetAction[] = [];
     const coachCount = teamCoaches.length;
-
     if (!target.is_coach && !hasPendingPromote && (coachCount === 0 || isCoach)) {
-      actions.push({
-        label: 'Als Trainer vorschlagen',
-        onPress: async () => nominatePromotion(target.id),
-      });
+      actions.push({ label: 'Als Trainer vorschlagen', onPress: async () => nominatePromotion(target.id) });
     }
     if (target.is_coach && isCoach && !hasPendingDemote) {
-      actions.push({
-        label: 'Trainer-Rolle entfernen',
-        destructive: true,
-        onPress: async () => nominateDemotion(target.id),
-      });
+      actions.push({ label: 'Trainer-Rolle entfernen', destructive: true, onPress: async () => nominateDemotion(target.id) });
     }
     return actions;
   }
@@ -194,10 +220,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
     setActionLoading(true);
     const result = await action.onPress();
     setActionLoading(false);
-    if (result.error !== null) {
-      Alert.alert('Fehler', result.error);
-      return;
-    }
+    if (result.error !== null) { Alert.alert('Fehler', result.error); return; }
     setActionTarget(null);
   }
 
@@ -215,39 +238,164 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Dark header */}
-      <View style={styles.header}>
+
+      {/* ── 1. Dark Hero Header ── */}
+      <View style={styles.hero}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <MaterialCommunityIcons name="arrow-left" size={18} color={colors.headerTextPrimary} />
+          <MaterialCommunityIcons name="chevron-left" size={26} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.teamName}>{studioName}</Text>
-        <Text style={styles.teamMeta}>
-          {studioCity}
-          {!loading && teamMembers.length > 0 ? `  ·  ${teamMembers.length} Mitglieder` : ''}
-          {!loading && teamCoaches.length > 0 ? `  ·  ${teamCoaches.length} Trainer` : ''}
-        </Text>
+        <Text style={styles.heroName}>{studioName}</Text>
+        {!addressLoading && studioAddress !== null && (
+          <View style={styles.heroAddressRow}>
+            <Text style={styles.heroAddress} numberOfLines={1}>{studioAddress}</Text>
+            {isCoach && (
+              <TouchableOpacity
+                onPress={() => { setAddressDraft(studioAddress); setAddressEditing(true); }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <MaterialCommunityIcons name="pencil-outline" size={13} color="rgba(255,255,255,0.45)" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        {!addressLoading && studioAddress === null && isCoach && (
+          <TouchableOpacity onPress={() => { setAddressDraft(''); setAddressEditing(true); }}>
+            <Text style={styles.heroAddressAdd}>Adresse hinzufügen</Text>
+          </TouchableOpacity>
+        )}
+        {!loading && (
+          <View style={styles.pillRow}>
+            <View style={styles.pill}>
+              <Text style={styles.pillValue}>{teamMembers.length}</Text>
+              <Text style={styles.pillLabel}>Mitglieder</Text>
+            </View>
+            <View style={styles.pill}>
+              <Text style={styles.pillValue}>{teamCoaches.length}</Text>
+              <Text style={styles.pillLabel}>Trainer</Text>
+            </View>
+            <View style={styles.pill}>
+              <Text style={styles.pillValue}>{teamXP.toLocaleString('de-DE')}</Text>
+              <Text style={styles.pillLabel}>Team-XP</Text>
+            </View>
+          </View>
+        )}
       </View>
 
       {loading ? (
         <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
 
-          {/* Coach actions */}
+          {/* ── 2. Nächstes Sparring ── */}
+          {nextSparring !== null && (
+            <View style={styles.sparringCard}>
+              <Text style={styles.sparringCardEyebrow}>Nächstes Sparring</Text>
+              <Text style={styles.sparringCardTitle}>{nextSparring.title}</Text>
+              <View style={styles.sparringCardMeta}>
+                <Text style={styles.sparringCardMetaText}>
+                  {new Date(nextSparring.scheduled_at).toLocaleDateString('de-DE', {
+                    day: '2-digit', month: '2-digit', year: '2-digit',
+                  })}
+                  {' · '}
+                  {new Date(nextSparring.scheduled_at).toLocaleTimeString('de-DE', {
+                    hour: '2-digit', minute: '2-digit',
+                  })} Uhr
+                </Text>
+                <View style={styles.signupBadge}>
+                  <Text style={styles.signupBadgeText}>
+                    {nextSparring.signup_count} / {nextSparring.max_slots} Angemeldet
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.progressTrack}>
+                <View style={[styles.progressFill, { flex: nextSparring.signup_count }]} />
+                <View style={{ flex: Math.max(0, nextSparring.max_slots - nextSparring.signup_count) }} />
+              </View>
+            </View>
+          )}
+
+          {/* ── 3. Mitglieder ── */}
+          <View style={styles.card}>
+            <Text style={styles.cardSectionLabel}>Mitglieder</Text>
+            {entitlement.hasAccess ? (
+              <>
+                {(membersExpanded ? ranked : ranked.slice(0, 3)).map((member, idx) => {
+                  const avatarColor = MEMBER_COLORS[idx % MEMBER_COLORS.length];
+                  return (
+                    <TouchableOpacity
+                      key={member.id}
+                      style={[styles.memberRow, idx > 0 && styles.memberRowBorder]}
+                      onPress={hasActions(member) ? () => setActionTarget(member) : undefined}
+                      activeOpacity={hasActions(member) ? 0.7 : 1}
+                    >
+                      <View style={[styles.memberAvatar, { backgroundColor: avatarColor }]}>
+                        <Text style={styles.memberAvatarText}>{getInitials(member.name)}</Text>
+                      </View>
+                      <View style={styles.memberInfo}>
+                        <Text style={styles.memberName} numberOfLines={1}>
+                          {member.name ?? 'Unbekannt'}
+                          {member.id === user?.id ? '  (Du)' : ''}
+                        </Text>
+                        <Text style={styles.memberRole}>
+                          {member.is_coach ? 'Trainer' : 'Mitglied'}
+                        </Text>
+                      </View>
+                      <Text style={styles.memberXP}>{member.total_points} XP</Text>
+                      {hasActions(member) && (
+                        <MaterialCommunityIcons name="dots-horizontal" size={18} color={colors.textSecondary} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {ranked.length > 3 && (
+                  <TouchableOpacity
+                    style={styles.showMoreRow}
+                    onPress={() => setMembersExpanded((v) => !v)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.showMoreText}>
+                      {membersExpanded ? 'Weniger anzeigen' : `+${ranked.length - 3} weitere`}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name={membersExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={16}
+                      color={colors.accentBlue}
+                    />
+                  </TouchableOpacity>
+                )}
+                {ranked.length === 0 && (
+                  <Text style={styles.emptyText}>Noch keine Mitglieder.</Text>
+                )}
+              </>
+            ) : (
+              <PaywallCard
+                title="Team-Ranking im Abo"
+                message="Punkte-Ranking und erweiterte Team-Statistiken sind nur mit einem aktiven Abo verfügbar."
+                onPressCta={() => navigation.navigate('Paywall')}
+              />
+            )}
+          </View>
+
+          {/* ── 4. Trainer-Aktionen ── */}
           {isCoach && (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Trainer-Aktionen</Text>
-              <View style={styles.coachActionRow}>
+            <View style={styles.card}>
+              <Text style={styles.cardSectionLabel}>Trainer-Aktionen</Text>
+
+              <View style={styles.coachGrid}>
                 <TouchableOpacity
-                  style={styles.coachActionBtn}
+                  style={styles.coachGridBtn}
                   onPress={() => setAttendanceVisible(true)}
                   activeOpacity={0.8}
                 >
-                  <MaterialCommunityIcons name="account-check-outline" size={20} color={colors.accentBlue} />
-                  <Text style={styles.coachActionLabel}>Anwesenheit</Text>
+                  <MaterialCommunityIcons name="account-check-outline" size={22} color={colors.accentBlue} />
+                  <Text style={styles.coachGridLabel}>Anwesenheit</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.coachActionBtn}
+                  style={styles.coachGridBtn}
                   onPress={() => {
                     setAnnouncementDraft(announcement?.message ?? '');
                     setAnnouncementDuration(mapExpiresAtToDuration(announcement?.expires_at ?? null));
@@ -255,21 +403,22 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
                   }}
                   activeOpacity={0.8}
                 >
-                  <MaterialCommunityIcons name="bullhorn-outline" size={20} color={colors.accentBlue} />
-                  <Text style={styles.coachActionLabel}>Ankündigung</Text>
+                  <MaterialCommunityIcons name="bullhorn-outline" size={22} color={colors.accentBlue} />
+                  <Text style={styles.coachGridLabel}>Ankündigung</Text>
                 </TouchableOpacity>
               </View>
+
               <TouchableOpacity
-                style={[styles.coachActionBtnWide, scheduleEditorOpen && styles.coachActionBtnActive]}
+                style={[styles.coachFullBtn, scheduleEditorOpen && styles.coachFullBtnActive]}
                 onPress={() => setScheduleEditorOpen((v) => !v)}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons
                   name="calendar-edit"
                   size={20}
-                  color={scheduleEditorOpen ? colors.headerTextPrimary : colors.accentBlue}
+                  color={scheduleEditorOpen ? '#fff' : colors.text}
                 />
-                <Text style={[styles.coachActionLabel, scheduleEditorOpen && styles.coachActionLabelActive]}>
+                <Text style={[styles.coachFullBtnLabel, scheduleEditorOpen && styles.coachFullBtnLabelActive]}>
                   Stundenplan bearbeiten
                 </Text>
               </TouchableOpacity>
@@ -283,125 +432,168 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
                 />
               )}
 
-              {entitlement?.tier === 'studio' && (
-                <View style={styles.inviteCard}>
-                  <View style={styles.inviteCardHeader}>
-                    <Text style={styles.inviteCardLabel}>Einladungscode</Text>
-                    <Text style={styles.seatCounter}>
-                      {entitlement.usedSeats} / {entitlement.includedSeats + entitlement.extraSeats} Plätze belegt
-                    </Text>
-                  </View>
-                  {inviteCode !== null ? (
-                    <>
-                      <Text style={styles.inviteCodeText}>{inviteCode}</Text>
-                      <Text style={styles.inviteCodeHint}>Gültig für 7 Tage</Text>
-                      <View style={styles.inviteCardActions}>
-                        <TouchableOpacity
-                          style={styles.inviteCardBtn}
-                          onPress={() => {
-                            void Share.share({ message: `Tritt unserem Team bei! Gib diesen Code in der Kombat App ein: ${inviteCode}` });
-                          }}
-                          activeOpacity={0.8}
-                        >
-                          <MaterialCommunityIcons name="share-outline" size={18} color={colors.accentBlue} />
-                          <Text style={styles.inviteCardBtnLabel}>Teilen</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.inviteCardBtn}
-                          onPress={() => { void createInvite(studioId); }}
-                          disabled={inviteLoading}
-                          activeOpacity={0.8}
-                        >
-                          <MaterialCommunityIcons name="refresh" size={18} color={colors.accentBlue} />
-                          <Text style={styles.inviteCardBtnLabel}>Neu erstellen</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  ) : (
+              <TouchableOpacity
+                style={styles.coachFullBtnDark}
+                onPress={() => setSparringSheetVisible(true)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="sword-cross" size={20} color="#fff" />
+                <Text style={styles.coachFullBtnDarkLabel}>Offenes Sparring planen</Text>
+              </TouchableOpacity>
+
+              {/* Address editing (inline, appears when pencil tapped in hero) */}
+              {addressEditing && (
+                <View style={styles.addressEditArea}>
+                  <TextInput
+                    style={styles.addressInput}
+                    value={addressDraft}
+                    onChangeText={setAddressDraft}
+                    placeholder="Straße, Hausnummer, Stadt"
+                    placeholderTextColor={colors.textSecondary}
+                    autoFocus
+                  />
+                  <View style={styles.addressBtnRow}>
                     <TouchableOpacity
-                      style={styles.inviteGenerateBtn}
-                      onPress={() => { void createInvite(studioId); }}
-                      disabled={inviteLoading}
+                      style={styles.addressCancelBtn}
+                      onPress={() => setAddressEditing(false)}
                       activeOpacity={0.8}
                     >
-                      {inviteLoading ? (
-                        <ActivityIndicator size="small" color={colors.accentBlue} />
+                      <Text style={styles.addressCancelLabel}>Abbrechen</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.addressSaveBtn,
+                        (addressSaving || addressDraft.trim().length === 0) && styles.addressSaveBtnDisabled,
+                      ]}
+                      onPress={() => { void handleSaveAddress(); }}
+                      disabled={addressSaving || addressDraft.trim().length === 0}
+                      activeOpacity={0.8}
+                    >
+                      {addressSaving ? (
+                        <ActivityIndicator size="small" color={colors.card} />
                       ) : (
-                        <>
-                          <MaterialCommunityIcons name="key-outline" size={18} color={colors.accentBlue} />
-                          <Text style={styles.inviteGenerateBtnLabel}>Einladungscode erstellen</Text>
-                        </>
+                        <Text style={styles.addressSaveLabel}>Speichern</Text>
                       )}
                     </TouchableOpacity>
-                  )}
-                  {inviteError !== null && <Text style={styles.inviteErrorText}>{inviteError}</Text>}
+                  </View>
                 </View>
               )}
 
-              {isCoach && (
-                <TouchableOpacity
-                  style={styles.sparringBtn}
-                  onPress={() => setSparringSheetVisible(true)}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="boxing-glove" size={20} color={colors.accentBlue} />
-                  <Text style={styles.sparringBtnText}>Sparring planen</Text>
-                </TouchableOpacity>
+              {/* Geplante Sparrings (Coach-Liste) */}
+              {studioSparrings.length > 0 && (
+                <View style={styles.plannedSparrings}>
+                  <Text style={styles.plannedSparringsLabel}>Geplante Sparrings</Text>
+                  {studioSparrings.map((s) => {
+                    const d = new Date(s.scheduled_at);
+                    const dateStr = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                    const timeStr = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    return (
+                      <View key={s.id} style={styles.plannedSparringRow}>
+                        <View style={styles.plannedSparringInfo}>
+                          <Text style={styles.plannedSparringTitle} numberOfLines={1}>{s.title}</Text>
+                          <Text style={styles.plannedSparringMeta}>
+                            {dateStr} · {timeStr} · {s.signup_count}/{s.max_slots} Angemeldet
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleCancelSparring(s.id, s.title)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <MaterialCommunityIcons name="close-circle-outline" size={20} color={colors.deleteRed} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
               )}
             </View>
           )}
 
-          {/* Pending nominations */}
+          {/* ── 5. Offene Nominierungen ── */}
           {pendingNominations.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Offene Nominierungen</Text>
-              <View style={styles.nominationList}>
-                {pendingNominations.map((nom) => (
-                  <NominationCard
-                    key={nom.id}
-                    nomination={nom}
-                    loading={nominationLoading === nom.id}
-                    onConfirm={() => { void handleNominationAction(nom, 'confirm'); }}
-                    onReject={() => { void handleNominationAction(nom, 'reject'); }}
-                  />
-                ))}
-              </View>
+            <View style={styles.card}>
+              <Text style={styles.cardSectionLabel}>Offene Nominierungen</Text>
+              {pendingNominations.map((nom) => (
+                <NominationCard
+                  key={nom.id}
+                  nomination={nom}
+                  loading={nominationLoading === nom.id}
+                  onConfirm={() => { void handleNominationAction(nom, 'confirm'); }}
+                  onReject={() => { void handleNominationAction(nom, 'reject'); }}
+                />
+              ))}
             </View>
           )}
 
-          {/* Ranking */}
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Ranking</Text>
-            {entitlement.hasAccess ? (
-              <View style={styles.rankingCard}>
-                {ranked.map((member, idx) => (
-                  <TeamMemberRow
-                    key={member.id}
-                    rank={idx + 1}
-                    member={member}
-                    isCurrentUser={member.id === user?.id}
-                    hasActions={hasActions(member)}
-                    weightKg={member.show_weight_in_group !== false ? (teamWeights[member.id] ?? null) : null}
-                    onActionPress={() => setActionTarget(member)}
-                  />
-                ))}
-                {ranked.length === 0 && (
-                  <Text style={styles.emptyText}>Noch keine Mitglieder.</Text>
-                )}
-              </View>
-            ) : (
-              <PaywallCard
-                title="Team-Ranking im Abo"
-                message="Punkte-Ranking und erweiterte Team-Statistiken sind nur mit einem aktiven Abo verfügbar."
-                onPressCta={() => navigation.navigate('Paywall')}
-              />
-            )}
-          </View>
+          {/* ── 6. Einladungscode ── */}
+          {isCoach && entitlement.tier === 'studio' && (
+            <View style={styles.card}>
+              <Text style={styles.cardSectionLabel}>Einladungscode</Text>
+              {inviteCode !== null ? (
+                <>
+                  <View style={styles.inviteCodeRow}>
+                    <Text style={styles.inviteCodeText}>{inviteCode}</Text>
+                    <TouchableOpacity
+                      style={styles.inviteCopyBtn}
+                      onPress={() => {
+                        void Share.share({
+                          message: `Tritt unserem Team bei! Gib diesen Code in der Kombat App ein: ${inviteCode}`,
+                        });
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <MaterialCommunityIcons name="content-copy" size={16} color={colors.accentBlue} />
+                      <Text style={styles.inviteCopyLabel}>Kopieren</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={styles.inviteValidText}>Gültig für 7 Tage</Text>
+                  {totalSeats > 0 && (
+                    <>
+                      <Text style={styles.inviteCapacityText}>
+                        {entitlement.usedSeats} von {totalSeats} Plätzen belegt · {freeSeats} frei
+                      </Text>
+                      <View style={styles.capacityTrack}>
+                        <View style={[styles.capacityFill, { flex: entitlement.usedSeats }]} />
+                        <View style={[styles.capacityEmpty, { flex: Math.max(0, totalSeats - entitlement.usedSeats) }]} />
+                      </View>
+                    </>
+                  )}
+                  <TouchableOpacity
+                    style={styles.inviteRefreshBtn}
+                    onPress={() => { void createInvite(studioId); }}
+                    disabled={inviteLoading}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialCommunityIcons name="refresh" size={16} color={colors.textSecondary} />
+                    <Text style={styles.inviteRefreshLabel}>Neu erstellen</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={styles.inviteGenerateBtn}
+                  onPress={() => { void createInvite(studioId); }}
+                  disabled={inviteLoading}
+                  activeOpacity={0.8}
+                >
+                  {inviteLoading ? (
+                    <ActivityIndicator size="small" color={colors.accentBlue} />
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="key-outline" size={18} color={colors.accentBlue} />
+                      <Text style={styles.inviteGenerateLabel}>Einladungscode erstellen</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+              {inviteError !== null && <Text style={styles.inviteErrorText}>{inviteError}</Text>}
+            </View>
+          )}
 
+          <View style={styles.bottomPad} />
         </ScrollView>
       )}
 
-      {/* Attendance sheet */}
+      {/* ── Attendance Sheet ── */}
       <AttendanceSheet
         visible={attendanceVisible}
         members={ranked}
@@ -412,7 +604,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
         onClose={() => setAttendanceVisible(false)}
       />
 
-      {/* Announcement modal */}
+      {/* ── Announcement Modal ── */}
       <Modal
         visible={announcementVisible}
         transparent
@@ -471,7 +663,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
               activeOpacity={0.8}
             >
               {announcementPosting ? (
-                <ActivityIndicator size="small" color={colors.headerTextPrimary} />
+                <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Text style={styles.postBtnLabel}>Veröffentlichen</Text>
               )}
@@ -480,7 +672,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Action sheet */}
+      {/* ── Action Sheet ── */}
       <Modal
         visible={actionTarget !== null}
         transparent
@@ -515,16 +707,14 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
         </View>
       </Modal>
 
-      {/* Sparring sheet */}
+      {/* ── Sparring Sheet ── */}
       <CreateSparringSheet
         visible={sparringSheetVisible}
         studioId={route.params.studioId}
         onClose={() => setSparringSheetVisible(false)}
         onCreate={async (params) => {
           const { error } = await createSparring(params);
-          if (error !== null) {
-            Alert.alert('Fehler', error);
-          }
+          if (error !== null) Alert.alert('Fehler', error);
         }}
       />
     </SafeAreaView>
@@ -534,33 +724,367 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
 
-  // Header
-  header: { backgroundColor: colors.dark, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: colors.headerCard,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+  // ── Hero ──
+  hero: {
+    backgroundColor: colors.dark,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
   },
-  teamName: { fontSize: 26, fontWeight: '700', color: colors.headerTextPrimary, marginBottom: 4 },
-  teamMeta: { fontSize: 13, color: colors.headerTextSecondary, fontWeight: '400' },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  heroName: {
+    fontSize: 22,
+    fontWeight: '500',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  heroAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  heroAddress: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    flex: 1,
+  },
+  heroAddressAdd: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.4)',
+    marginBottom: 16,
+    textDecorationLine: 'underline',
+  },
+  pillRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  pill: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    gap: 2,
+  },
+  pillValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  pillLabel: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+  },
 
   loader: { marginTop: 48 },
   scroll: { flex: 1 },
-  content: { paddingTop: 24, paddingBottom: 48, gap: 24 },
+  content: { paddingTop: 16, paddingHorizontal: 16, paddingBottom: 48, gap: 16 },
 
-  section: { gap: 10, paddingHorizontal: 16 },
-  sectionLabel: {
-    fontSize: 12, fontWeight: '700', color: colors.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.6,
+  // ── Nächstes Sparring ──
+  sparringCard: {
+    backgroundColor: colors.accentBlue,
+    borderRadius: 14,
+    padding: 16,
+    gap: 8,
   },
-  nominationList: { gap: 10 },
-  rankingCard: {
-    backgroundColor: colors.card, borderRadius: 16, overflow: 'hidden',
+  sparringCardEyebrow: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  sparringCardTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  sparringCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sparringCardMetaText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  signupBadge: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  signupBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  progressTrack: {
+    flexDirection: 'row',
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  progressFill: {
+    backgroundColor: '#fff',
+    borderRadius: 2,
+  },
+
+  // ── Cards ──
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    gap: 12,
+  },
+  cardSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+
+  // ── Members ──
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  memberRowBorder: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  memberAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  memberInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  memberName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  memberRole: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  memberXP: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  showMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.accentBlue,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+
+  // ── Coach Actions ──
+  coachGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  coachGridBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  coachGridLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.accentBlue,
+  },
+  coachFullBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  coachFullBtnActive: {
+    backgroundColor: colors.dark,
+    borderColor: colors.dark,
+  },
+  coachFullBtnLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  coachFullBtnLabelActive: {
+    color: '#fff',
+  },
+  coachFullBtnDark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: colors.dark,
+  },
+  coachFullBtnDarkLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+
+  // ── Planned Sparrings (coach list) ──
+  plannedSparrings: { gap: 8 },
+  plannedSparringsLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  plannedSparringRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  plannedSparringInfo: { flex: 1, gap: 2 },
+  plannedSparringTitle: { fontSize: 13, fontWeight: '600', color: colors.text },
+  plannedSparringMeta: { fontSize: 11, color: colors.textSecondary },
+
+  // ── Address Edit ──
+  addressEditArea: { gap: 8 },
+  addressInput: {
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: colors.text,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addressBtnRow: { flexDirection: 'row', gap: 8 },
+  addressCancelBtn: {
+    flex: 1, height: 40, borderRadius: 10,
     borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
   },
-  emptyText: { fontSize: 14, color: colors.textSecondary, padding: 16, textAlign: 'center' },
+  addressCancelLabel: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  addressSaveBtn: {
+    flex: 1, height: 40, borderRadius: 10,
+    backgroundColor: colors.accentBlue,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  addressSaveBtnDisabled: { opacity: 0.5 },
+  addressSaveLabel: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  // Action sheet
+  // ── Invite Code ──
+  inviteCodeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inviteCodeText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.accentBlue,
+    letterSpacing: 3,
+    fontVariant: ['tabular-nums'],
+  },
+  inviteCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  inviteCopyLabel: { fontSize: 13, fontWeight: '600', color: colors.accentBlue },
+  inviteValidText: { fontSize: 12, color: colors.textSecondary },
+  inviteCapacityText: { fontSize: 12, color: colors.textSecondary },
+  capacityTrack: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+    backgroundColor: colors.border,
+  },
+  capacityFill: { backgroundColor: colors.accentBlue },
+  capacityEmpty: { backgroundColor: 'transparent' },
+  inviteRefreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+  },
+  inviteRefreshLabel: { fontSize: 12, color: colors.textSecondary },
+  inviteGenerateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, height: 44, borderRadius: 10,
+    backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border,
+  },
+  inviteGenerateLabel: { fontSize: 14, fontWeight: '600', color: colors.accentBlue },
+  inviteErrorText: { fontSize: 12, color: colors.deleteRed },
+
+  // ── Modals ──
   overlay: { flex: 1, justifyContent: 'flex-end' },
   backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   sheet: {
@@ -581,30 +1105,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', marginTop: 4,
   },
   sheetCancelLabel: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },
-
-  // Coach actions
-  coachActionRow: { flexDirection: 'row', gap: 12 },
-  coachActionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, height: 48, borderRadius: 14,
-    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
-  },
-  coachActionLabel: { fontSize: 14, fontWeight: '600', color: colors.accentBlue },
-  coachActionBtnWide: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  coachActionBtnActive: { backgroundColor: colors.dark, borderColor: colors.dark },
-  coachActionLabelActive: { color: colors.headerTextPrimary },
-
-  // Announcement modal
   announcementHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12,
   },
@@ -618,126 +1118,20 @@ const styles = StyleSheet.create({
   durationLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
   durationRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   durationChip: {
-    height: 40,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 40, paddingHorizontal: 16, borderRadius: 18,
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.background,
+    alignItems: 'center', justifyContent: 'center',
   },
-  durationChipActive: {
-    backgroundColor: colors.dark,
-    borderColor: colors.dark,
-  },
+  durationChipActive: { backgroundColor: colors.dark, borderColor: colors.dark },
   durationChipLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
-  durationChipLabelActive: { color: colors.headerTextPrimary },
+  durationChipLabelActive: { color: '#fff' },
   charCount: { fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginTop: 4 },
   postBtn: {
     height: 52, borderRadius: 14, backgroundColor: colors.dark,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
   postBtnDisabled: { opacity: 0.4 },
-  postBtnLabel: { fontSize: 15, fontWeight: '700', color: colors.headerTextPrimary },
+  postBtnLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
 
-  // Invite code card
-  inviteCard: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    gap: 8,
-    marginTop: 8,
-  },
-  inviteCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  inviteCardLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  seatCounter: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  inviteCodeText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.accentBlue,
-    letterSpacing: 4,
-  },
-  inviteCodeHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: -4,
-  },
-  inviteCardActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  inviteCardBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  inviteCardBtnLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.accentBlue,
-  },
-  inviteGenerateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginTop: 4,
-  },
-  inviteGenerateBtnLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.accentBlue,
-  },
-  inviteErrorText: {
-    fontSize: 12,
-    color: colors.deleteRed,
-    marginTop: 4,
-  },
-
-  // Sparring button
-  sparringBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.accentBlueSoft,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginTop: 16,
-  },
-  sparringBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.accentBlue,
-  },
+  bottomPad: { height: 32 },
 });

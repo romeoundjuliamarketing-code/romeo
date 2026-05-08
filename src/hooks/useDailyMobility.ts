@@ -64,6 +64,7 @@ export function useDailyMobility(): UseDailyMobilityResult {
         duration_min: 14,
         title: 'Hüfte & Mobilität',
         category: 'Recovery',
+        training_type: 'mobilitaet',
       }),
       supabase.rpc('add_workout_points', {
         p_user_id: user.id,

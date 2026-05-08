@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Dimensions, Platform } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, useWindowDimensions, Platform, ScrollView } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { colors } from '../../theme/colors';
 import type { WeightEntry } from '../../hooks/useWeight';
@@ -18,6 +18,8 @@ function toKW(dateStr: string): string {
 
 const CARD_RADIUS = 16;
 const CHART_PADDING = 16;
+// Fixed pixel budget per data point — wide enough that labels never overlap
+const PER_POINT_WIDTH = 72;
 
 const cardShadow = Platform.select({
   ios: {
@@ -30,15 +32,18 @@ const cardShadow = Platform.select({
 });
 
 export default function WeightChartCard({ history }: Props): React.ReactElement | null {
-  // Only show when there are at least 2 data points
+  const { width: windowWidth } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+
   if (history.length < 2) return null;
 
-  // Show last 12 weeks at most
-  const visible = history.slice(-12);
-  const weights = visible.map((e) => e.weightKg);
-  const labels = visible.map((e) => toKW(e.weekStart));
+  const weights = history.map((e) => e.weightKg);
+  const labels  = history.map((e) => toKW(e.weekStart));
 
-  const chartWidth = Dimensions.get('window').width - 32 - CHART_PADDING * 2;
+  // Available width inside the card (screen - outer padding - card padding)
+  const innerWidth = Math.min(windowWidth, 600) - 32 - CHART_PADDING * 2;
+  // Chart is at least wide enough to fill the card; grows with more data points
+  const chartWidth = Math.max(PER_POINT_WIDTH * history.length, innerWidth);
 
   const minWeight = Math.min(...weights);
   const maxWeight = Math.max(...weights);
@@ -48,43 +53,50 @@ export default function WeightChartCard({ history }: Props): React.ReactElement 
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Gewichtsverlauf</Text>
-      <Text style={styles.subtitle}>Letzte {visible.length} Einträge · kg</Text>
-      <LineChart
-        data={{
-          labels,
-          datasets: [{ data: weights }],
-        }}
-        width={chartWidth}
-        height={180}
-        yAxisSuffix=" kg"
-        fromZero={false}
-        chartConfig={{
-          backgroundColor: '#FFFFFF',
-          backgroundGradientFrom: '#FFFFFF',
-          backgroundGradientTo: '#FFFFFF',
-          decimalPlaces: 1,
-          color: () => colors.accentBlue,
-          labelColor: () => colors.inactive,
-          propsForDots: {
-            r: '4',
-            strokeWidth: '2',
-            stroke: colors.accentBlue,
-          },
-          propsForBackgroundLines: {
-            stroke: colors.border,
-            strokeDasharray: '4',
-          },
-        }}
-        bezier
-        style={styles.chart}
-        yLabelsOffset={8}
-        segments={4}
-        // Keep y-axis range tight around actual data
-        fromNumber={yMax}
-        // @ts-expect-error react-native-chart-kit doesn't expose yMin/yMax in types
-        yMin={yMin}
-        yMax={yMax}
-      />
+      <Text style={styles.subtitle}>{history.length} Einträge · kg · seitlich scrollen</Text>
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        // Scroll to the most recent (rightmost) entry once content is laid out
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+      >
+        <LineChart
+          data={{
+            labels,
+            datasets: [{ data: weights }],
+          }}
+          width={chartWidth}
+          height={180}
+          yAxisSuffix=" kg"
+          fromZero={false}
+          chartConfig={{
+            backgroundColor: '#FFFFFF',
+            backgroundGradientFrom: '#FFFFFF',
+            backgroundGradientTo: '#FFFFFF',
+            decimalPlaces: 1,
+            color: () => colors.accentBlue,
+            labelColor: () => colors.inactive,
+            propsForDots: {
+              r: '4',
+              strokeWidth: '2',
+              stroke: colors.accentBlue,
+            },
+            propsForBackgroundLines: {
+              stroke: colors.border,
+              strokeDasharray: '4',
+            },
+          }}
+          bezier
+          style={styles.chart}
+          yLabelsOffset={8}
+          segments={4}
+          fromNumber={yMax}
+          // @ts-expect-error react-native-chart-kit doesn't expose yMin/yMax in types
+          yMin={yMin}
+          yMax={yMax}
+        />
+      </ScrollView>
     </View>
   );
 }
