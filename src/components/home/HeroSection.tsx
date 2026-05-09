@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import StudioTrainingCard from './StudioTrainingCard';
 import DailyStretchCard from './DailyStretchCard';
@@ -29,10 +29,10 @@ type Props = {
   onDeleteAnnouncement: () => void;
   completedDayIndices: number[];
   streak: number;
-  todaySession: StudioSchedule | null;
-  isParticipating: boolean;
-  onParticipate: () => void;
-  onCancel: () => void;
+  todaySessions: StudioSchedule[];
+  isSessionParticipating: (sessionId: string, date: string) => boolean;
+  onSessionParticipate: (session: StudioSchedule) => void;
+  onSessionCancel: (session: StudioSchedule) => void;
   stretchDone: boolean;
   stretchUrgent: boolean;
   onStretch: () => void;
@@ -48,10 +48,10 @@ export default function HeroSection({
   onDeleteAnnouncement,
   completedDayIndices,
   streak,
-  todaySession,
-  isParticipating,
-  onParticipate,
-  onCancel,
+  todaySessions,
+  isSessionParticipating,
+  onSessionParticipate,
+  onSessionCancel,
   stretchDone,
   stretchUrgent,
   onStretch,
@@ -60,6 +60,10 @@ export default function HeroSection({
   onMobility,
 }: Props) {
   const routineType = todayRoutineType();
+  const [expanded, setExpanded] = useState(false);
+  const todayDate = new Date().toISOString().split('T')[0];
+  const firstSession = todaySessions[0] ?? null;
+  const extraSessions = todaySessions.slice(1);
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'Guten Morgen' : now.getHours() < 18 ? 'Guten Tag' : 'Guten Abend';
   const todayIndex = (now.getDay() + 6) % 7;
@@ -151,14 +155,40 @@ export default function HeroSection({
         </View>
       )}
 
-      {/* ── Studio session ── */}
+      {/* ── Studio sessions ── */}
       <StudioTrainingCard
         dark
-        session={todaySession}
-        participating={isParticipating}
-        onParticipate={onParticipate}
-        onCancel={onCancel}
+        session={firstSession}
+        participating={firstSession !== null && isSessionParticipating(firstSession.id, todayDate)}
+        onParticipate={() => { if (firstSession !== null) onSessionParticipate(firstSession); }}
+        onCancel={() => { if (firstSession !== null) onSessionCancel(firstSession); }}
       />
+      {extraSessions.length > 0 && (
+        <>
+          <TouchableOpacity style={styles.expandBtn} onPress={() => setExpanded((e) => !e)} activeOpacity={0.7}>
+            <Text style={styles.expandText}>
+              {expanded
+                ? 'Weniger anzeigen'
+                : `+${extraSessions.length} weitere Einheit${extraSessions.length > 1 ? 'en' : ''}`}
+            </Text>
+            <Ionicons
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.headerTextSecondary}
+            />
+          </TouchableOpacity>
+          {expanded && extraSessions.map((session) => (
+            <StudioTrainingCard
+              key={session.id}
+              dark
+              session={session}
+              participating={isSessionParticipating(session.id, todayDate)}
+              onParticipate={() => onSessionParticipate(session)}
+              onCancel={() => onSessionCancel(session)}
+            />
+          ))}
+        </>
+      )}
 
       {/* ── Daily routine (alternates daily: stretch / mobility) ── */}
       {routineType === 'stretch' ? (
@@ -357,6 +387,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.headerTextPrimary,
     lineHeight: 22,
+  },
+  expandBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+  },
+  expandText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.headerTextSecondary,
   },
 
 });

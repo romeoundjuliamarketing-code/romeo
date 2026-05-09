@@ -29,6 +29,7 @@ import { useWeight } from '../hooks/useWeight';
 import ConfettiOverlay from '../components/ernaehrung/ConfettiOverlay';
 import { useEntitlement } from '../hooks/useEntitlement';
 import type { RootStackParamList } from '../navigation/types';
+import type { StudioSchedule } from '../types/database.types';
 
 const WEIGHT_DISMISSED_KEY = 'weight_checkin_dismissed';
 
@@ -96,28 +97,22 @@ export default function HomeScreen() {
     focusTrigger,
   );
 
-  // First active session of the day shown in the hero card
-  const todaySession = schedule.length > 0 ? schedule[0] : null;
   const todaySessionDate = new Date().toISOString().split('T')[0];
-  const heroParticipating =
-    todaySession !== null && isParticipating(todaySession.id, todaySessionDate);
 
-  async function handleHeroParticipate(): Promise<void> {
-    if (todaySession === null) return;
+  async function handleSessionParticipate(session: StudioSchedule): Promise<void> {
     await participate(
-      todaySession.id,
+      session.id,
       todaySessionDate,
-      todaySession.points_per_30min,
-      todaySession.duration_min,
-      todaySession.training_name,
-      todaySession.training_type,
+      session.points_per_30min,
+      session.duration_min,
+      session.training_name,
+      session.training_type,
     );
     refetchStats();
   }
 
-  async function handleHeroCancel(): Promise<void> {
-    if (todaySession === null) return;
-    await cancelParticipation(todaySession.id, todaySessionDate);
+  async function handleSessionCancel(session: StudioSchedule): Promise<void> {
+    await cancelParticipation(session.id, todaySessionDate);
     refetchStats();
   }
 
@@ -142,10 +137,10 @@ export default function HomeScreen() {
           onDeleteAnnouncement={() => { void deleteAnnouncement(); }}
           completedDayIndices={completedDayIndices}
           streak={streak}
-          todaySession={todaySession}
-          isParticipating={heroParticipating}
-          onParticipate={handleHeroParticipate}
-          onCancel={handleHeroCancel}
+          todaySessions={schedule}
+          isSessionParticipating={isParticipating}
+          onSessionParticipate={(s) => { void handleSessionParticipate(s); }}
+          onSessionCancel={(s) => { void handleSessionCancel(s); }}
           stretchDone={stretchDone}
           stretchUrgent={stretchUrgent}
           onStretch={() => { void logStretch().then(refetchStats); }}
