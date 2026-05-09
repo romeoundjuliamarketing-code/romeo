@@ -14,15 +14,16 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import type { CreateSparringParams } from '../../hooks/useSparringActions';
+import type { CreateSparringInput } from '../../hooks/useSparringActions';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 
 interface Props {
   visible: boolean;
-  studioId: string;
+  studioId?: string;
+  mode?: 'coach' | 'user';
   onClose: () => void;
-  onCreate: (params: CreateSparringParams) => Promise<void>;
+  onCreate: (params: CreateSparringInput) => Promise<void>;
 }
 
 function nextDay18h(): Date {
@@ -32,7 +33,7 @@ function nextDay18h(): Date {
   return d;
 }
 
-export default function CreateSparringSheet({ visible, studioId, onClose, onCreate }: Props) {
+export default function CreateSparringSheet({ visible, studioId, mode = 'coach', onClose, onCreate }: Props) {
   const [title, setTitle] = useState('');
   const [discipline, setDiscipline] = useState(DISCIPLINES[0]);
   const [scheduledAt, setScheduledAt] = useState<Date>(nextDay18h);
@@ -42,6 +43,8 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
   const [maxSlots, setMaxSlots] = useState('10');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [address, setAddress] = useState('');
+  const isUserMode = mode === 'user';
 
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -52,33 +55,41 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
   }
 
   async function handleCreate(): Promise<void> {
-    if (title.trim().length === 0) {
-      Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
-      return;
-    }
-    const dur = parseInt(durationMin, 10);
-    const slots = parseInt(maxSlots, 10);
-    if (isNaN(dur) || dur < 1) {
-      Alert.alert('Ungültige Dauer', 'Bitte gib eine gültige Dauer in Minuten ein.');
-      return;
-    }
-    if (isNaN(slots) || slots < 1) {
-      Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
-      return;
+    if (isUserMode) {
+      if (address.trim().length === 0) {
+        Alert.alert('Ort fehlt', 'Bitte gib einen Ort oder eine Adresse ein.');
+        return;
+      }
+    } else {
+      if (title.trim().length === 0) {
+        Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
+        return;
+      }
+      const dur = parseInt(durationMin, 10);
+      const slots = parseInt(maxSlots, 10);
+      if (isNaN(dur) || dur < 1) {
+        Alert.alert('Ungültige Dauer', 'Bitte gib eine gültige Dauer in Minuten ein.');
+        return;
+      }
+      if (isNaN(slots) || slots < 1) {
+        Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+        return;
+      }
     }
 
+    const dur = isUserMode ? 90 : parseInt(durationMin, 10);
+    const slots = isUserMode ? 10 : parseInt(maxSlots, 10);
+    const resolvedTitle = isUserMode ? `${discipline} – Sparring` : title.trim();
+
+    const params: CreateSparringInput = isUserMode
+      ? { address: address.trim(), title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes }
+      : { studioId: studioId!, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes };
+
     setLoading(true);
-    await onCreate({
-      studioId,
-      title: title.trim(),
-      discipline,
-      scheduledAt: scheduledAt.toISOString(),
-      durationMin: dur,
-      maxSlots: slots,
-      notes,
-    });
+    await onCreate(params);
     setLoading(false);
     setTitle('');
+    setAddress('');
     setDiscipline(DISCIPLINES[0]);
     setNotes('');
     setDurationMin('90');
@@ -101,14 +112,31 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
 
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <Text style={styles.label}>Titel</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="z.B. Offenes Boxsparring"
-            placeholderTextColor={colors.textSecondary}
-          />
+          {!isUserMode && (
+            <>
+              <Text style={styles.label}>Titel</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="z.B. Offenes Boxsparring"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </>
+          )}
+
+          {isUserMode && (
+            <>
+              <Text style={styles.label}>Ort</Text>
+              <TextInput
+                style={styles.input}
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Adresse oder Ort eingeben"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </>
+          )}
 
           <Text style={styles.label}>Kampfsport</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -168,28 +196,30 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
             />
           )}
 
-          <View style={styles.twoCol}>
-            <View style={styles.colItem}>
-              <Text style={styles.label}>Dauer (Min.)</Text>
-              <TextInput
-                style={styles.input}
-                value={durationMin}
-                onChangeText={setDurationMin}
-                keyboardType="numeric"
-                placeholderTextColor={colors.textSecondary}
-              />
+          {!isUserMode && (
+            <View style={styles.twoCol}>
+              <View style={styles.colItem}>
+                <Text style={styles.label}>Dauer (Min.)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={durationMin}
+                  onChangeText={setDurationMin}
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+              <View style={styles.colItem}>
+                <Text style={styles.label}>Max. Plätze</Text>
+                <TextInput
+                  style={styles.input}
+                  value={maxSlots}
+                  onChangeText={setMaxSlots}
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
             </View>
-            <View style={styles.colItem}>
-              <Text style={styles.label}>Max. Plätze</Text>
-              <TextInput
-                style={styles.input}
-                value={maxSlots}
-                onChangeText={setMaxSlots}
-                keyboardType="numeric"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-          </View>
+          )}
 
           <Text style={styles.label}>Hinweise (optional)</Text>
           <TextInput
