@@ -3,20 +3,32 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { geocodeAddress } from '../utils/geocoding';
 
-export interface CreateSparringParams {
-  studioId: string;
-  title: string;
-  discipline: string;
-  scheduledAt: string;
-  durationMin: number;
-  maxSlots: number;
-  notes: string;
-}
+export type CreateSparringInput =
+  | {
+      studioId: string;
+      address?: never;
+      title: string;
+      discipline: string;
+      scheduledAt: string;
+      durationMin: number;
+      maxSlots: number;
+      notes: string;
+    }
+  | {
+      address: string;
+      studioId?: never;
+      title: string;
+      discipline: string;
+      scheduledAt: string;
+      durationMin: number;
+      maxSlots: number;
+      notes: string;
+    };
 
 export function useSparringActions(): {
   signUp: (sparringId: string) => Promise<{ error: string | null }>;
   cancelSignup: (sparringId: string) => Promise<{ error: string | null }>;
-  createSparring: (params: CreateSparringParams) => Promise<{ error: string | null }>;
+  createSparring: (params: CreateSparringInput) => Promise<{ error: string | null }>;
   deactivateSparring: (sparringId: string) => Promise<{ error: string | null }>;
 } {
   const { user } = useAuth();
@@ -39,36 +51,53 @@ export function useSparringActions(): {
     return { error: error?.message ?? null };
   }, [user]);
 
-  const createSparring = useCallback(async (params: CreateSparringParams): Promise<{ error: string | null }> => {
+  const createSparring = useCallback(async (params: CreateSparringInput): Promise<{ error: string | null }> => {
     if (user === null) return { error: 'Nicht eingeloggt' };
 
-    const { data: studio, error: studioError } = await supabase
-      .from('studios')
-      .select('address, lat, lng')
-      .eq('id', params.studioId)
-      .single();
+    let resolvedAddress: string;
+    let studioId: string | null = null;
+    let lat: number | null = null;
+    let lng: number | null = null;
 
-    if (studioError !== null || studio === null) {
-      return { error: 'Studio nicht gefunden.' };
-    }
-    if (studio.address === null || studio.address.trim().length === 0) {
-      return { error: 'Das Studio hat noch keine Adresse hinterlegt. Bitte zuerst die Studio-Adresse setzen.' };
-    }
+    if (params.studioId !== undefined) {
+      // Coach flow: fetch address from studio
+      const { data: studio, error: studioError } = await supabase
+        .from('studios')
+        .select('address, lat, lng')
+        .eq('id', params.studioId)
+        .single();
 
-    let lat = studio.lat;
-    let lng = studio.lng;
-    if (lat === null || lng === null) {
-      const coords = await geocodeAddress(studio.address);
+      if (studioError !== null || studio === null) {
+        return { error: 'Studio nicht gefunden.' };
+      }
+      if (studio.address === null || studio.address.trim().length === 0) {
+        return { error: 'Das Studio hat noch keine Adresse hinterlegt. Bitte zuerst die Studio-Adresse setzen.' };
+      }
+
+      resolvedAddress = studio.address;
+      studioId = params.studioId;
+      lat = studio.lat;
+      lng = studio.lng;
+
+      if (lat === null || lng === null) {
+        const coords = await geocodeAddress(resolvedAddress);
+        lat = coords?.lat ?? null;
+        lng = coords?.lng ?? null;
+      }
+    } else {
+      // User flow: geocode provided address directly
+      resolvedAddress = params.address;
+      const coords = await geocodeAddress(resolvedAddress);
       lat = coords?.lat ?? null;
       lng = coords?.lng ?? null;
     }
 
     const { error } = await supabase.from('open_sparrings').insert({
-      studio_id: params.studioId,
+      studio_id: studioId,
       created_by: user.id,
       title: params.title,
       discipline: params.discipline,
-      address: studio.address,
+      address: resolvedAddress,
       lat,
       lng,
       scheduled_at: params.scheduledAt,
