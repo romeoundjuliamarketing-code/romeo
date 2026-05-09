@@ -5,7 +5,7 @@ import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 
 export interface SparringWithMeta {
   id: string;
-  studio_id: string;
+  studio_id: string | null;
   created_by: string;
   title: string;
   discipline: string;
@@ -67,7 +67,7 @@ export function useOpenSparrings(refetchTrigger = 0): {
         countMap[s.sparring_id] = (countMap[s.sparring_id] ?? 0) + 1;
       }
 
-      type StudioJoin = { name: string; city: string };
+      type StudioJoin = { name: string; city: string } | null;
 
       const result: SparringWithMeta[] = (rows ?? []).map((r) => {
         const studio = r.studios as StudioJoin;
@@ -86,8 +86,8 @@ export function useOpenSparrings(refetchTrigger = 0): {
           notes: r.notes,
           is_active: r.is_active,
           created_at: r.created_at,
-          studio_name: studio.name,
-          studio_city: studio.city,
+          studio_name: studio?.name ?? 'Privat',
+          studio_city: studio?.city ?? '',
           signup_count: countMap[r.id] ?? 0,
           is_signed_up: signedUpIds.has(r.id),
         };
