@@ -230,7 +230,7 @@ export type Database = {
       open_sparrings: {
         Row: {
           id: string
-          studio_id: string
+          studio_id: string | null
           created_by: string
           title: string
           discipline: string
@@ -246,7 +246,7 @@ export type Database = {
         }
         Insert: {
           id?: string
-          studio_id: string
+          studio_id?: string | null
           created_by: string
           title: string
           discipline: string
@@ -262,7 +262,7 @@ export type Database = {
         }
         Update: {
           id?: string
-          studio_id?: string
+          studio_id?: string | null
           created_by?: string
           title?: string
           discipline?: string
@@ -839,6 +839,17 @@ export type Database = {
       deactivate_sparring: {
         Args: { p_id: string }
         Returns: undefined
+      }
+      log_daily_activity: {
+        Args: {
+          p_user_id: string
+          p_date: string
+          p_title: string
+          p_training_type: string
+          p_points: number
+          p_duration_min: number
+        }
+        Returns: Json
       }
     }
     Enums: {
