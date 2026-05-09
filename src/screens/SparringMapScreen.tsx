@@ -137,7 +137,7 @@ export default function SparringMapScreen({ navigation }: Props) {
       />
 
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { bottom: insets.bottom + 16 }]}
         onPress={() => setCreateSheetVisible(true)}
         activeOpacity={0.85}
       >
@@ -208,7 +208,6 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 32,
     right: 16,
     flexDirection: 'row',
     alignItems: 'center',
