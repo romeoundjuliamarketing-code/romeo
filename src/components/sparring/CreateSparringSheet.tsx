@@ -18,13 +18,21 @@ import type { CreateSparringInput } from '../../hooks/useSparringActions';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 
-interface Props {
-  visible: boolean;
-  studioId?: string;
-  mode?: 'coach' | 'user';
-  onClose: () => void;
-  onCreate: (params: CreateSparringInput) => Promise<void>;
-}
+type Props =
+  | {
+      visible: boolean;
+      mode?: 'coach';
+      studioId: string;
+      onClose: () => void;
+      onCreate: (params: CreateSparringInput) => Promise<void>;
+    }
+  | {
+      visible: boolean;
+      mode: 'user';
+      studioId?: never;
+      onClose: () => void;
+      onCreate: (params: CreateSparringInput) => Promise<void>;
+    };
 
 function nextDay18h(): Date {
   const d = new Date();
@@ -33,7 +41,12 @@ function nextDay18h(): Date {
   return d;
 }
 
-export default function CreateSparringSheet({ visible, studioId, mode = 'coach', onClose, onCreate }: Props) {
+export default function CreateSparringSheet(props: Props) {
+  const { visible, onClose, onCreate } = props;
+  const mode = props.mode ?? 'coach';
+  const studioId = 'studioId' in props ? props.studioId : undefined;
+  const isUserMode = mode === 'user';
+
   const [title, setTitle] = useState('');
   const [discipline, setDiscipline] = useState(DISCIPLINES[0]);
   const [scheduledAt, setScheduledAt] = useState<Date>(nextDay18h);
@@ -44,7 +57,6 @@ export default function CreateSparringSheet({ visible, studioId, mode = 'coach',
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [address, setAddress] = useState('');
-  const isUserMode = mode === 'user';
 
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -83,7 +95,7 @@ export default function CreateSparringSheet({ visible, studioId, mode = 'coach',
 
     const params: CreateSparringInput = isUserMode
       ? { address: address.trim(), title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes }
-      : { studioId: studioId!, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes };
+      : { studioId: studioId as string, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes };
 
     setLoading(true);
     await onCreate(params);
