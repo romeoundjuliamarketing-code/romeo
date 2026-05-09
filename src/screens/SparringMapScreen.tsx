@@ -1,33 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../navigation/types';
+import * as Location from 'expo-location';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useOpenSparrings } from '../hooks/useOpenSparrings';
 import { useSparringActions } from '../hooks/useSparringActions';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
+import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
 
-const INITIAL_REGION = {
+const FALLBACK_REGION = {
   latitude: 48.14,
   longitude: 11.58,
   latitudeDelta: 8,
   longitudeDelta: 8,
 };
 
-type Props = NativeStackScreenProps<RootStackParamList, 'SparringMap'>;
+interface NavProp {
+  goBack(): void;
+  canGoBack(): boolean;
+}
+
+type Props = { navigation: NavProp };
 
 export default function SparringMapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { sparrings, refetch } = useOpenSparrings();
-  const { signUp, cancelSignup, deactivateSparring } = useSparringActions();
+  const { signUp, cancelSignup, createSparring, deactivateSparring } = useSparringActions();
   const [selected, setSelected] = useState<SparringWithMeta | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [region, setRegion] = useState(FALLBACK_REGION);
+  const [createSheetVisible, setCreateSheetVisible] = useState(false);
+
+  useEffect(() => {
+    Location.requestForegroundPermissionsAsync().then(({ status }) => {
+      if (status !== 'granted') return;
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
+        ({ coords }) => {
+          setRegion({
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            latitudeDelta: 2,
+            longitudeDelta: 2,
+          });
+        },
+      );
+    });
+  }, []);
 
   const withCoords = sparrings.filter((s) => s.lat !== null && s.lng !== null);
 
@@ -74,7 +97,9 @@ export default function SparringMapScreen({ navigation }: Props) {
       <MapView
         provider={PROVIDER_DEFAULT}
         style={styles.map}
-        initialRegion={INITIAL_REGION}
+        region={region}
+        onRegionChangeComplete={setRegion}
+        showsUserLocation
       >
         {withCoords.map((s) => (
           <Marker
@@ -88,9 +113,11 @@ export default function SparringMapScreen({ navigation }: Props) {
       </MapView>
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-        <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="close" size={22} color={colors.text} />
-        </TouchableOpacity>
+        {navigation.canGoBack() && (
+          <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="close" size={22} color={colors.text} />
+          </TouchableOpacity>
+        )}
         <View style={styles.countBadge}>
           <Text style={styles.countText}>
             {sparrings.length === 0
@@ -107,6 +134,29 @@ export default function SparringMapScreen({ navigation }: Props) {
         onToggleSignup={handleToggleSignup}
         onDeactivate={handleDeactivate}
         loading={actionLoading}
+      />
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => setCreateSheetVisible(true)}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add-circle-outline" size={22} color={colors.card} />
+        <Text style={styles.fabText}>Sparring anmelden</Text>
+      </TouchableOpacity>
+
+      <CreateSparringSheet
+        visible={createSheetVisible}
+        mode="user"
+        onClose={() => setCreateSheetVisible(false)}
+        onCreate={async (params) => {
+          const { error } = await createSparring(params);
+          if (error !== null) {
+            Alert.alert('Fehler', error);
+            return;
+          }
+          refetch();
+        }}
       />
     </View>
   );
@@ -155,5 +205,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.accentBlue,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    gap: 8,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  fabText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.card,
   },
 });
