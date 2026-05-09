@@ -13,8 +13,6 @@ import WorkoutCategoryRows from '../components/training/WorkoutCategoryRows';
 import WeeklyVolumeCard from '../components/training/WeeklyVolumeCard';
 import WorkoutStartSheet from '../components/training/WorkoutStartSheet';
 import ExtraTab from '../components/training/ExtraTab';
-import SparringMapCard from '../components/sparring/SparringMapCard';
-import { useOpenSparrings } from '../hooks/useOpenSparrings';
 import type { StudioSchedule } from '../types/database.types';
 
 type TabKey = 'workouts' | 'plan';
@@ -70,7 +68,6 @@ export default function TrainingScreen(): React.ReactElement {
   }, []));
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { sparrings } = useOpenSparrings(focusTrigger);
   const { profile } = useProfile(focusTrigger);
   const { schedule: fullSchedule, loading: scheduleLoading } = useSchedule(undefined, profile?.studio_id ?? null);
   const todaySchedule = fullSchedule.filter((s) => s.day_of_week === todayDow);
@@ -154,10 +151,6 @@ export default function TrainingScreen(): React.ReactElement {
                 studioLoading={scheduleLoading}
                 todayDow={todayDow}
                 hasStudio={profile?.studio_id !== null && profile?.studio_id !== undefined}
-              />
-              <SparringMapCard
-                sparrings={sparrings}
-                onPress={() => navigation.navigate('SparringMap')}
               />
             </>
           )}
