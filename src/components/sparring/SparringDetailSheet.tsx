@@ -8,8 +8,12 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
+import type { RootStackParamList } from '../../navigation/types';
+import SparringParticipantsList from './SparringParticipantsList';
 
 interface Props {
   sparring: SparringWithMeta | null;
@@ -37,6 +41,18 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
   const slotsLeft = sparring.max_slots - sparring.signup_count;
   const isFull = slotsLeft <= 0;
   const isCreator = currentUserId !== null && sparring.created_by === currentUserId;
+
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  function handlePressProfile(userId: string): void {
+    if (sparring === null) return;
+    onClose();
+    navigation.navigate('PublicProfile', {
+      userId,
+      sparringId:          sparring.id,
+      sparringScheduledAt: sparring.scheduled_at,
+    });
+  }
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
@@ -85,6 +101,13 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
         {sparring.notes !== null && sparring.notes.length > 0 && (
           <Text style={styles.notes}>{sparring.notes}</Text>
         )}
+
+        <SparringParticipantsList
+          sparringId={sparring.id}
+          currentUserId={currentUserId}
+          sparringScheduledAt={sparring.scheduled_at}
+          onPressProfile={handlePressProfile}
+        />
 
         <TouchableOpacity
           style={[
