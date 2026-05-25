@@ -107,7 +107,35 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
           currentUserId={currentUserId}
           sparringScheduledAt={sparring.scheduled_at}
           onPressProfile={handlePressProfile}
+          onPressChat={isCreator ? (userId, name) => {
+            onClose();
+            navigation.navigate('SparringChat', {
+              sparringId:      sparring.id,
+              otherUserId:     userId,
+              otherUserName:   name,
+              organizerUserId: sparring.created_by,
+            });
+          } : undefined}
         />
+
+        {currentUserId !== null && currentUserId !== sparring.created_by && sparring.is_signed_up === true && (
+          <TouchableOpacity
+            style={styles.chatBtn}
+            activeOpacity={0.8}
+            onPress={() => {
+              onClose();
+              navigation.navigate('SparringChat', {
+                sparringId:      sparring.id,
+                otherUserId:     sparring.created_by,
+                otherUserName:   'Organisator',
+                organizerUserId: sparring.created_by,
+              });
+            }}
+          >
+            <Ionicons name="chatbubble-outline" size={18} color={colors.accentBlue} />
+            <Text style={styles.chatBtnText}>Schreibe an Organisator</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={[
@@ -241,5 +269,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.deleteRed,
+  },
+  chatBtn: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    gap:             8,
+    paddingVertical: 16,
+    borderTopWidth:  1,
+    borderTopColor:  colors.border,
+    marginTop:       8,
+  },
+  chatBtnText: {
+    fontSize:   14,
+    fontWeight: '600',
+    color:      colors.accentBlue,
   },
 });
