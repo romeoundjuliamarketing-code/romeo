@@ -32,6 +32,11 @@ export type RootStackParamList = {
   AttendanceHistory: undefined;
   WorkoutHistory: undefined;
   SparringMap: undefined;
+  PublicProfile: {
+    userId:              string;
+    sparringId:          string;
+    sparringScheduledAt: string;
+  };
   Timer: {
     workoutTitle: string;
     exercises: Exercise[];
