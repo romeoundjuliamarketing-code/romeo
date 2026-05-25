@@ -76,6 +76,11 @@ export default function CreateSparringSheet(props: Props) {
         Alert.alert('Ort fehlt', 'Bitte gib einen Ort oder eine Adresse ein.');
         return;
       }
+      const slotsUser = parseInt(maxSlots, 10);
+      if (isNaN(slotsUser) || slotsUser < 1) {
+        Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+        return;
+      }
     } else {
       if (title.trim().length === 0) {
         Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
@@ -94,7 +99,7 @@ export default function CreateSparringSheet(props: Props) {
     }
 
     const dur = isUserMode ? 90 : parseInt(durationMin, 10);
-    const slots = isUserMode ? 10 : parseInt(maxSlots, 10);
+    const slots = parseInt(maxSlots, 10);
     const resolvedTitle = isUserMode ? `${discipline} – Sparring` : title.trim();
 
     const params: CreateSparringInput = isUserMode
@@ -199,6 +204,19 @@ export default function CreateSparringSheet(props: Props) {
                   </TouchableOpacity>
                 </View>
               )}
+            </>
+          )}
+
+          {isUserMode && (
+            <>
+              <Text style={styles.label}>Max. Plätze</Text>
+              <TextInput
+                style={styles.input}
+                value={maxSlots}
+                onChangeText={setMaxSlots}
+                keyboardType="numeric"
+                placeholderTextColor={colors.textSecondary}
+              />
             </>
           )}
 
