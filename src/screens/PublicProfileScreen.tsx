@@ -48,10 +48,17 @@ const REPORT_OPTIONS: { value: ReportReason; label: string }[] = [
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
+const GENDER_LABEL: Record<string, string> = {
+  male:   'Männlich',
+  female: 'Weiblich',
+  other:  'Divers',
+};
+
 interface PublicProfile {
   name:              string | null;
   age_years:         number | null;
   avatar_url:        string | null;
+  gender:            string | null;
   disciplines:       string[];
   show_fight_record: boolean;
   show_stats:        boolean;
@@ -102,7 +109,7 @@ export default function PublicProfileScreen(): React.ReactElement {
 
     void supabase
       .from('profiles')
-      .select('name, age_years, avatar_url, disciplines, show_fight_record, show_stats')
+      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, show_stats')
       .eq('id', userId)
       .single()
       .then(({ data }) => {
@@ -112,6 +119,7 @@ export default function PublicProfileScreen(): React.ReactElement {
             name:              data.name,
             age_years:         data.age_years,
             avatar_url:        data.avatar_url,
+            gender:            data.gender ?? null,
             disciplines:       (data.disciplines as string[]) ?? [],
             show_fight_record: (data.show_fight_record as boolean) ?? true,
             show_stats:        (data.show_stats as boolean) ?? true,
@@ -221,10 +229,17 @@ export default function PublicProfileScreen(): React.ReactElement {
         {/* Name */}
         <Text style={styles.name}>{profile?.name ?? 'Unbekannt'}</Text>
 
-        {/* Age — always visible */}
-        {profile?.age_years !== null && profile?.age_years !== undefined && (
-          <Text style={styles.meta}>{profile.age_years} Jahre</Text>
-        )}
+        {/* Age + gender — always visible */}
+        {(profile?.age_years !== null && profile?.age_years !== undefined) || (profile?.gender !== null && profile?.gender !== undefined) ? (
+          <Text style={styles.meta}>
+            {[
+              profile?.age_years !== null && profile?.age_years !== undefined ? `${profile.age_years} Jahre` : null,
+              profile?.gender !== null && profile?.gender !== undefined && GENDER_LABEL[profile.gender] !== undefined
+                ? GENDER_LABEL[profile.gender]
+                : null,
+            ].filter(Boolean).join(' · ')}
+          </Text>
+        ) : null}
 
         {/* Average rating — always visible */}
         <View style={styles.ratingRow}>

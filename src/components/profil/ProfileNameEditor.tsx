@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { isValidName } from '../onboarding/StepName';
 
 interface ProfileNameEditorProps {
   name: string | null;
@@ -17,21 +18,26 @@ interface ProfileNameEditorProps {
 
 export default function ProfileNameEditor({ name, onSave }: ProfileNameEditorProps) {
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [draft,   setDraft]   = useState('');
+  const [saving,  setSaving]  = useState(false);
+  const [nameErr, setNameErr] = useState(false);
 
   function startEdit(): void {
     setDraft(name ?? '');
+    setNameErr(false);
     setEditing(true);
   }
 
   function cancel(): void {
+    setNameErr(false);
     setEditing(false);
   }
 
   async function save(): Promise<void> {
     const trimmed = draft.trim();
     if (trimmed.length === 0) return;
+    if (!isValidName(trimmed)) { setNameErr(true); return; }
+    setNameErr(false);
     setSaving(true);
     await onSave(trimmed);
     setSaving(false);
@@ -40,11 +46,12 @@ export default function ProfileNameEditor({ name, onSave }: ProfileNameEditorPro
 
   if (editing) {
     return (
-      <View style={styles.editRow}>
+      <View style={styles.editWrapper}>
+        <View style={styles.editRow}>
         <TextInput
-          style={styles.input}
+          style={[styles.input, nameErr && styles.inputError]}
           value={draft}
-          onChangeText={setDraft}
+          onChangeText={(v) => { setDraft(v); setNameErr(false); }}
           autoFocus
           returnKeyType="done"
           onSubmitEditing={save}
@@ -62,6 +69,12 @@ export default function ProfileNameEditor({ name, onSave }: ProfileNameEditorPro
             <MaterialCommunityIcons name="check" size={20} color={colors.accentBlue} />
           )}
         </TouchableOpacity>
+        </View>
+        {nameErr && (
+          <Text style={styles.errorText}>
+            Nur Buchstaben, Leerzeichen und Bindestrich erlaubt
+          </Text>
+        )}
       </View>
     );
   }
@@ -95,11 +108,14 @@ const styles = StyleSheet.create({
   pencilButton: {
     padding: 4,
   },
+  editWrapper: {
+    marginTop: 16,
+    gap: 4,
+  },
   editRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 16,
   },
   input: {
     flex: 1,
@@ -110,6 +126,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1.5,
     borderBottomColor: colors.accentBlue,
     paddingVertical: 2,
+  },
+  inputError: {
+    borderBottomColor: colors.deleteRed,
+  },
+  errorText: {
+    fontSize: 12,
+    color: colors.deleteRed,
+    fontWeight: '500',
   },
   actionButton: {
     padding: 4,

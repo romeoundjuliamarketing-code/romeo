@@ -22,7 +22,7 @@ import { useAuth } from '../context/AuthContext';
 import { useStudioInvite } from '../hooks/useStudioInvite';
 import { useStudio } from '../hooks/useStudio';
 import MascotBubble from '../components/onboarding/MascotBubble';
-import StepName from '../components/onboarding/StepName';
+import StepName, { isValidName } from '../components/onboarding/StepName';
 import StepGender from '../components/onboarding/StepGender';
 import StepAge from '../components/onboarding/StepAge';
 import StepWeight from '../components/onboarding/StepWeight';
@@ -165,7 +165,7 @@ export default function OnboardingScreen() {
   const canContinue = (): boolean => {
     if (isWelcome) return true;
     switch (currentStep!.id) {
-      case 'name':        return name.trim().length > 0;
+      case 'name':        return isValidName(name);
       case 'gender':      return gender !== null;
       case 'age':         return age !== null;
       case 'weight':      return true;
