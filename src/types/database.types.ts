@@ -390,6 +390,58 @@ export type Database = {
           },
         ]
       }
+      sparring_messages: {
+        Row: {
+          id:           string
+          sparring_id:  string
+          sender_id:    string
+          recipient_id: string
+          content:      string
+          read_at:      string | null
+          created_at:   string
+        }
+        Insert: {
+          id?:          string
+          sparring_id:  string
+          sender_id:    string
+          recipient_id: string
+          content:      string
+          read_at?:     string | null
+          created_at?:  string
+        }
+        Update: {
+          id?:          string
+          sparring_id?: string
+          sender_id?:   string
+          recipient_id?: string
+          content?:     string
+          read_at?:     string | null
+          created_at?:  string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_messages_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_messages_sender_id_fkey'
+            columns: ['sender_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_messages_recipient_id_fkey'
+            columns: ['recipient_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       user_reports: {
         Row: {
           id:               string
@@ -1027,6 +1079,8 @@ export type SparringRatingInsert = Database['public']['Tables']['sparring_rating
 export type UserReport = Database['public']['Tables']['user_reports']['Row']
 export type UserReportInsert = Database['public']['Tables']['user_reports']['Insert']
 export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+export type SparringMessage = Database['public']['Tables']['sparring_messages']['Row']
+export type SparringMessageInsert = Database['public']['Tables']['sparring_messages']['Insert']
 
 // Nomination enriched with display data (computed in hook)
 export interface CoachNominationDetails {
