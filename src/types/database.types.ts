@@ -36,6 +36,9 @@ export type Database = {
           total_points: number
           training_frequency: string | null
           training_since: string | null
+          expo_push_token: string | null
+          show_fight_record: boolean
+          show_stats: boolean
         }
         Insert: {
           age_years?: number | null
@@ -63,6 +66,9 @@ export type Database = {
           total_points?: number
           training_frequency?: string | null
           training_since?: string | null
+          expo_push_token?: string | null
+          show_fight_record?: boolean
+          show_stats?: boolean
         }
         Update: {
           age_years?: number | null
@@ -90,6 +96,9 @@ export type Database = {
           total_points?: number
           training_frequency?: string | null
           training_since?: string | null
+          expo_push_token?: string | null
+          show_fight_record?: boolean
+          show_stats?: boolean
         }
         Relationships: [
           {
@@ -328,6 +337,88 @@ export type Database = {
             referencedColumns: ['id']
           },
         ]
+      }
+      sparring_ratings: {
+        Row: {
+          id:            string
+          rater_id:      string
+          rated_user_id: string
+          sparring_id:   string
+          stars:         number
+          comment:       string
+          created_at:    string
+        }
+        Insert: {
+          id?:           string
+          rater_id:      string
+          rated_user_id: string
+          sparring_id:   string
+          stars:         number
+          comment:       string
+          created_at?:   string
+        }
+        Update: {
+          id?:           string
+          rater_id?:     string
+          rated_user_id?: string
+          sparring_id?:  string
+          stars?:        number
+          comment?:      string
+          created_at?:   string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_ratings_rater_id_fkey'
+            columns: ['rater_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_ratings_rated_user_id_fkey'
+            columns: ['rated_user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_ratings_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      user_reports: {
+        Row: {
+          id:               string
+          reporter_id:      string
+          reported_user_id: string
+          sparring_id:      string
+          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          details:          string | null
+          created_at:       string
+        }
+        Insert: {
+          id?:              string
+          reporter_id:      string
+          reported_user_id: string
+          sparring_id:      string
+          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          details?:         string | null
+          created_at?:      string
+        }
+        Update: {
+          id?:              string
+          reporter_id?:     string
+          reported_user_id?: string
+          sparring_id?:     string
+          reason?:          'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          details?:         string | null
+          created_at?:      string
+        }
+        Relationships: []
       }
       subscriptions: {
         Row: {
@@ -930,6 +1021,12 @@ export type FightRecordInsert = Database['public']['Tables']['fight_records']['I
 
 export type NominationType = 'promote' | 'demote'
 export type NominationStatus = 'pending' | 'confirmed' | 'rejected'
+
+export type SparringRating = Database['public']['Tables']['sparring_ratings']['Row']
+export type SparringRatingInsert = Database['public']['Tables']['sparring_ratings']['Insert']
+export type UserReport = Database['public']['Tables']['user_reports']['Row']
+export type UserReportInsert = Database['public']['Tables']['user_reports']['Insert']
+export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
 
 // Nomination enriched with display data (computed in hook)
 export interface CoachNominationDetails {
