@@ -5,10 +5,11 @@ import { colors } from '../../theme/colors';
 import type { FightRecord } from '../../hooks/useFightRecord';
 
 type FightRecordCardProps = {
-  fights:   FightRecord[];
-  loading:  boolean;
-  onAdd:    () => void;
-  onDelete: (id: string) => Promise<void>;
+  fights:    FightRecord[];
+  loading:   boolean;
+  onAdd?:    () => void;
+  onDelete?: (id: string) => Promise<void>;
+  readOnly?: boolean;
 };
 
 const RESULT_CONFIG: Record<'win' | 'loss' | 'draw', { label: string; bg: string; textColor: string }> = {
@@ -38,13 +39,14 @@ const METHOD_LABEL: Record<string, string> = {
   decision:   'PTS',
 };
 
-export default function FightRecordCard({ fights, loading, onAdd, onDelete }: FightRecordCardProps): React.ReactElement {
+export default function FightRecordCard({ fights, loading, onAdd, onDelete, readOnly }: FightRecordCardProps): React.ReactElement {
   const wins   = fights.filter((f) => f.result === 'win').length;
   const losses = fights.filter((f) => f.result === 'loss').length;
   const draws  = fights.filter((f) => f.result === 'draw').length;
   const kos    = fights.filter((f) => f.method === 'ko' || f.method === 'tko').length;
 
   function handleDelete(id: string): void {
+    if (readOnly === true || onDelete === undefined) return;
     Alert.alert(
       'Kampf löschen',
       'Diesen Eintrag wirklich löschen?',
@@ -59,13 +61,15 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete }: Fi
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>Kampfrekord</Text>
-        <TouchableOpacity
-          onPress={onAdd}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <MaterialCommunityIcons name="plus-circle-outline" size={24} color={colors.accentBlue} />
-        </TouchableOpacity>
+        {readOnly !== true && onAdd !== undefined && (
+          <TouchableOpacity
+            onPress={onAdd}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <MaterialCommunityIcons name="plus-circle-outline" size={24} color={colors.accentBlue} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {fights.length > 0 && (
@@ -117,13 +121,15 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete }: Fi
                   <Text style={styles.fightMeta}>{meta}</Text>
                 )}
               </View>
-              <TouchableOpacity
-                onPress={() => handleDelete(fight.id)}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.inactive} />
-              </TouchableOpacity>
+              {readOnly !== true && onDelete !== undefined && (
+                <TouchableOpacity
+                  onPress={() => handleDelete(fight.id)}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.inactive} />
+                </TouchableOpacity>
+              )}
             </View>
           );
         })
