@@ -26,12 +26,14 @@ import { useProfile } from '../hooks/useProfile';
 import { useAnnouncement } from '../hooks/useAnnouncement';
 import { useWaterTracking } from '../hooks/useWaterTracking';
 import { useWeight } from '../hooks/useWeight';
+import { useNotifications } from '../hooks/useNotifications';
 import ConfettiOverlay from '../components/ernaehrung/ConfettiOverlay';
 import { useEntitlement } from '../hooks/useEntitlement';
 import type { RootStackParamList } from '../navigation/types';
 import type { StudioSchedule } from '../types/database.types';
 
 const WEIGHT_DISMISSED_KEY = 'weight_checkin_dismissed';
+const PREWORKOUT_KEY = 'preworkout_enabled';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -60,6 +62,7 @@ export default function HomeScreen() {
   // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
   const todayDow = (new Date().getDay() + 6) % 7;
   const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
+  const { scheduleTrainingReminders } = useNotifications();
   const { isParticipating, participate, cancelParticipation } = useParticipation();
   const { isDone: stretchDone, isUrgent: stretchUrgent, logStretch } = useDailyStretch();
   const { isDone: mobilityDone, isUrgent: mobilityUrgent, logMobility } = useDailyMobility();
@@ -80,6 +83,15 @@ export default function HomeScreen() {
 
     void maybeShow();
   }, [weightLoading, isNewWeek]);
+
+  useEffect(() => {
+    if (schedule.length > 0) {
+      void (async () => {
+        const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
+        await scheduleTrainingReminders(schedule, stored === 'true');
+      })();
+    }
+  }, [schedule, scheduleTrainingReminders]);
 
   async function handleWeightSubmit(kg: number): Promise<void> {
     setShowWeightModal(false);
@@ -109,11 +121,17 @@ export default function HomeScreen() {
       session.training_type,
     );
     refetchStats();
+    // Re-schedule notifications so only confirmed sessions get reminders
+    const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
+    await scheduleTrainingReminders(schedule, stored === 'true');
   }
 
   async function handleSessionCancel(session: StudioSchedule): Promise<void> {
     await cancelParticipation(session.id, todaySessionDate);
     refetchStats();
+    // Remove reminders for the cancelled session
+    const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
+    await scheduleTrainingReminders(schedule, stored === 'true');
   }
 
   const STATS: StatEntry[] = [

@@ -57,27 +57,16 @@ export function useDailyStretch(): UseDailyStretchResult {
     setIsDone(true);
     await AsyncStorage.setItem(key, 'true');
 
-    // Persist workout log and credit profile points atomically
-    const [stretchLog, stretchPoints] = await Promise.all([
-      supabase.from('workout_logs').insert({
-        user_id: user.id,
-        date: today,
-        source: 'manual',
-        completed: true,
-        points: STRETCH_POINTS,
-        duration_min: 15,
-        title: 'Tägliches Dehnen',
-        category: 'Recovery',
-        training_type: 'mobilitaet',
-      }),
-      supabase.rpc('add_workout_points', {
-        p_user_id: user.id,
-        p_date: today,
-        p_points: STRETCH_POINTS,
-      }),
-    ]);
-    if (stretchLog.error !== null) { reportNetworkError(stretchLog.error); }
-    else if (stretchPoints.error !== null) { reportNetworkError(stretchPoints.error); }
+    const { data, error } = await supabase.rpc('log_daily_activity', {
+      p_user_id:      user.id,
+      p_date:         today,
+      p_title:        'Tägliches Dehnen',
+      p_training_type: 'mobilitaet',
+      p_points:       STRETCH_POINTS,
+      p_duration_min: 15,
+    });
+    if (error !== null) { reportNetworkError(error); }
+    else if (typeof data === 'object' && data !== null && 'error' in data) { reportNetworkError(new Error(String((data as Record<string, unknown>).error))); }
     else { reportNetworkSuccess(); }
   }, [user, isDone]);
 

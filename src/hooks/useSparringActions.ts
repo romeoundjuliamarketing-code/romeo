@@ -16,6 +16,9 @@ export type CreateSparringInput =
     }
   | {
       address: string;
+      /** Pre-resolved coordinates from map picker — skips geocoding when set */
+      lat?: number;
+      lng?: number;
       studioId?: never;
       title: string;
       discipline: string;
@@ -85,11 +88,16 @@ export function useSparringActions(): {
         lng = coords?.lng ?? null;
       }
     } else {
-      // User flow: geocode provided address directly
+      // User flow: use pre-resolved coords from map picker, or geocode the typed address
       resolvedAddress = params.address;
-      const coords = await geocodeAddress(resolvedAddress);
-      lat = coords?.lat ?? null;
-      lng = coords?.lng ?? null;
+      if (params.lat !== undefined && params.lng !== undefined) {
+        lat = params.lat;
+        lng = params.lng;
+      } else {
+        const coords = await geocodeAddress(resolvedAddress);
+        lat = coords?.lat ?? null;
+        lng = coords?.lng ?? null;
+      }
     }
 
     const { error } = await supabase.from('open_sparrings').insert({

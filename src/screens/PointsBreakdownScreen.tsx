@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,8 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useWorkoutStats } from '../hooks/useWorkoutStats';
+import { SUPERCATEGORIES } from '../data/disciplines';
+import type { SupercategoryKey } from '../data/disciplines';
 
 // ── Config ─────────────────────────────────────────────────────────────────────
 
@@ -23,20 +25,22 @@ const R_OUTER = 110;
 const R_INNER = 68;
 const GAP_DEG = 2.5;
 
-const CATEGORIES: { key: string; label: string }[] = [
-  { key: 'schlagkraft',  label: 'Schlagkraft' },
-  { key: 'trittkraft',   label: 'Trittkraft' },
-  { key: 'ausdauer',     label: 'Ausdauer' },
-  { key: 'schulter',     label: 'Schulter' },
-  { key: 'nackenhals',   label: 'Nacken & Hals' },
-  { key: 'griffkraft',   label: 'Griffkraft' },
-  { key: 'beinarbeit',   label: 'Beinarbeit' },
-  { key: 'koordination', label: 'Koordination' },
-  { key: 'mobilitaet',   label: 'Mobilität' },
-  { key: 'bjj',          label: 'BJJ' },
-  { key: 'k1',           label: 'K1' },
-  { key: 'mma',          label: 'MMA' },
-  { key: 'ringen',       label: 'Ringen' },
+interface CategoryEntry { key: string; label: string; supercategory: SupercategoryKey }
+
+const CATEGORIES: CategoryEntry[] = [
+  { key: 'schlagkraft',  label: 'Schlagkraft',   supercategory: 'striking'  },
+  { key: 'trittkraft',   label: 'Trittkraft',    supercategory: 'striking'  },
+  { key: 'beinarbeit',   label: 'Beinarbeit',    supercategory: 'striking'  },
+  { key: 'koordination', label: 'Koordination',  supercategory: 'striking'  },
+  { key: 'k1',           label: 'K1',            supercategory: 'striking'  },
+  { key: 'mma',          label: 'MMA',           supercategory: 'striking'  },
+  { key: 'ausdauer',     label: 'Ausdauer',      supercategory: 'ausdauer'  },
+  { key: 'schulter',     label: 'Schulter',      supercategory: 'kraft'     },
+  { key: 'nackenhals',   label: 'Nacken & Hals', supercategory: 'kraft'     },
+  { key: 'griffkraft',   label: 'Griffkraft',    supercategory: 'kraft'     },
+  { key: 'mobilitaet',   label: 'Mobilität',     supercategory: 'mobility'  },
+  { key: 'bjj',          label: 'BJJ',           supercategory: 'grappling' },
+  { key: 'ringen',       label: 'Ringen',        supercategory: 'grappling' },
 ];
 
 // Evenly spaced blues from #E8F4FD (light) to #0A2B6B (dark)
@@ -52,7 +56,8 @@ function makePalette(count: number): string[] {
   });
 }
 
-const PALETTE = makePalette(CATEGORIES.length);
+const PALETTE       = makePalette(CATEGORIES.length);
+const SUPER_PALETTE = makePalette(SUPERCATEGORIES.length);
 
 // ── SVG helpers ────────────────────────────────────────────────────────────────
 
@@ -88,6 +93,7 @@ function segmentPath(
 export default function PointsBreakdownScreen(): React.ReactElement {
   const navigation = useNavigation();
   const { trainingTypePoints, loading } = useWorkoutStats();
+  const [detailliert, setDetailliert] = useState(false);
 
   const withColor = CATEGORIES.map((cat, i) => ({
     ...cat,
@@ -96,12 +102,27 @@ export default function PointsBreakdownScreen(): React.ReactElement {
   }));
 
   const visible = withColor.filter((c) => c.pts > 0);
-  const total   = visible.reduce((sum, c) => sum + c.pts, 0);
-  const maxPts  = Math.max(1, ...visible.map((c) => c.pts));
+
+  // Supercategory grouping
+  const supercatRows = SUPERCATEGORIES.map((sc, i) => {
+    const cats = visible.filter((c) => c.supercategory === sc.key);
+    return {
+      key: sc.key,
+      label: sc.label,
+      pts: cats.reduce((sum, c) => sum + c.pts, 0),
+      color: SUPER_PALETTE[i],
+      categories: cats,
+    };
+  }).filter((sc) => sc.pts > 0);
+
+  // Active dataset depends on detailliert toggle
+  const activeRows = detailliert ? visible : supercatRows;
+  const total  = activeRows.reduce((sum, c) => sum + c.pts, 0);
+  const maxPts = Math.max(1, ...activeRows.map((c) => c.pts));
 
   // Build donut segments
   let cursor = 0;
-  const segments = visible.map((c) => {
+  const segments = activeRows.map((c) => {
     const sweep = total > 0 ? (c.pts / total) * 360 : 0;
     const path  = segmentPath(CX, CY, R_OUTER, R_INNER, cursor, sweep);
     cursor += sweep;
@@ -151,27 +172,43 @@ export default function PointsBreakdownScreen(): React.ReactElement {
             </View>
           </View>
 
+          {/* ── Detailliert toggle ── */}
+          {visible.length > 0 && (
+            <TouchableOpacity
+              style={styles.toggleRow}
+              onPress={() => setDetailliert((v) => !v)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={detailliert ? 'checkbox' : 'square-outline'}
+                size={20}
+                color={detailliert ? colors.accentBlue : colors.inactive}
+              />
+              <Text style={styles.toggleLabel}>Detailliert</Text>
+            </TouchableOpacity>
+          )}
+
           {/* ── List ── */}
           {visible.length === 0 ? (
             <Text style={styles.empty}>Noch keine Punkte erfasst.</Text>
           ) : (
             <View style={styles.card}>
-              {visible.map((cat) => {
-                const barPct = Math.max(2, Math.round((cat.pts / maxPts) * 100));
+              {activeRows.map((row) => {
+                const barPct = Math.max(2, Math.round((row.pts / maxPts) * 100));
                 return (
-                  <View key={cat.key} style={styles.row}>
-                    <View style={[styles.dot, { backgroundColor: cat.color }]} />
-                    <Text style={styles.rowLabel}>{cat.label}</Text>
+                  <View key={row.key} style={styles.row}>
+                    <View style={[styles.dot, { backgroundColor: row.color }]} />
+                    <Text style={styles.rowLabel}>{row.label}</Text>
                     <View style={styles.barTrack}>
                       <View
                         style={[
                           styles.barFill,
-                          { width: `${barPct}%` as `${number}%`, backgroundColor: cat.color },
+                          { width: `${barPct}%` as `${number}%`, backgroundColor: row.color },
                         ]}
                       />
                     </View>
                     <Text style={styles.rowXP}>
-                      {cat.pts}
+                      {row.pts}
                       <Text style={styles.rowUnit}> XP</Text>
                     </Text>
                   </View>
@@ -253,6 +290,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.inactive,
     marginTop: 2,
+  },
+
+  // Detailliert toggle
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+  },
+  toggleLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.text,
   },
 
   // List

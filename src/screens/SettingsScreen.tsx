@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Switch,
-  TouchableOpacity, Alert, ActivityIndicator,
+  TouchableOpacity, Alert, ActivityIndicator, Linking,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,7 +13,11 @@ import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useProfile } from '../hooks/useProfile';
 import { useEntitlement } from '../hooks/useEntitlement';
+import { useSchedule } from '../hooks/useSchedule';
+import { useNotifications } from '../hooks/useNotifications';
 import { supabase } from '../lib/supabase';
+
+const PREWORKOUT_KEY = 'preworkout_enabled';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -34,14 +41,17 @@ function SettingsRow({
 }
 
 function ToggleRow({
-  icon, label, value, onToggle,
+  icon, label, subtitle, value, onToggle,
 }: {
-  icon: string; label: string; value: boolean; onToggle: (v: boolean) => void;
+  icon: string; label: string; subtitle?: string; value: boolean; onToggle: (v: boolean) => void;
 }): React.ReactElement {
   return (
     <View style={styles.row}>
       <MaterialCommunityIcons name={icon as 'eye'} size={20} color={colors.text} />
-      <Text style={[styles.rowLabel, styles.rowLabelFlex]}>{label}</Text>
+      <View style={styles.rowLabelWrap}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        {subtitle !== undefined && <Text style={styles.rowSubtitle}>{subtitle}</Text>}
+      </View>
       <Switch
         value={value}
         onValueChange={onToggle}
@@ -52,6 +62,40 @@ function ToggleRow({
   );
 }
 
+// ─── Debug ────────────────────────────────────────────────────────────────────
+
+// Fires all notification types at 10-second intervals for simulator testing
+async function scheduleTestNotifications(): Promise<void> {
+  const all = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    all
+      .filter((n) => n.identifier.startsWith('test-'))
+      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
+  );
+
+  // Pre-workout values based on 75 kg fallback for testing
+  const testItems: Array<{ id: string; title: string; body: string; delaySec: number }> = [
+    { id: 'test-water-1',  delaySec: 10,  title: 'Wasser trinken',                  body: 'Wasser trinken — dein Körper dankt es dir.' },
+    { id: 'test-water-2',  delaySec: 20,  title: 'Wasser trinken',                  body: 'Hydration-Check: Wann hast du zuletzt getrunken?' },
+    { id: 'test-water-3',  delaySec: 30,  title: 'Wasser trinken',                  body: 'Trink jetzt — warte nicht bis du Durst hast.' },
+    { id: 'test-weight',   delaySec: 40,  title: 'Wöchentliches Gewichts-Check-in', body: 'Wöchentliches Wiegen — nur eine Zahl, aber sie zeigt den Trend.' },
+    { id: 'test-pw-4h',    delaySec: 50,  title: 'Heute Training: Ernährung',       body: 'Jetzt vollständig essen — letzte Mahlzeit mit Fetten und Ballaststoffen. Danach nur noch leichte Kost.' },
+    { id: 'test-pw-2h',    delaySec: 60,  title: 'Trainingszeit nähert sich',       body: 'Leichte Mahlzeit: ~90 g Kohlenhydrate + ~26 g Protein. Z.B. Reis + Hühnchen.' },
+    { id: 'test-pw-1h',    delaySec: 70,  title: '1 Stunde bis Training',           body: 'Kleiner Snack: ~38 g schnelle Carbs (Banane, Reiswaffel). Dazu 450 ml Wasser mit einer Prise Salz.' },
+    { id: 'test-pw-30min', delaySec: 80,  title: '30 Minuten',                      body: 'Kein Essen mehr. Equipment packen, kurz dehnen, mental einstimmen.' },
+    { id: 'test-training', delaySec: 90,  title: 'Training in 1 Stunde',            body: 'Dein Training startet bald — vergiss nicht, dich anzumelden und deine Punkte abzuholen!' },
+  ];
+
+  for (const item of testItems) {
+    const date = new Date(Date.now() + item.delaySec * 1000);
+    await Notifications.scheduleNotificationAsync({
+      identifier: item.id,
+      content: { title: item.title, body: item.body },
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date },
+    });
+  }
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SettingsScreen(): React.ReactElement {
@@ -59,8 +103,27 @@ export default function SettingsScreen(): React.ReactElement {
   const { user, signOut } = useAuth();
   const { profile, updateProfile } = useProfile();
   const { entitlement } = useEntitlement();
-  const [resetting, setResetting]       = useState(false);
+  const [resetting, setResetting]             = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [notifGranted, setNotifGranted]       = useState(false);
+  const [preWorkoutEnabled, setPreWorkoutEnabled] = useState(false);
+
+  // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
+  const todayDow = (new Date().getDay() + 6) % 7;
+  const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
+  const { scheduleTrainingReminders } = useNotifications();
+
+  useEffect(() => {
+    void Notifications.getPermissionsAsync().then(({ status }) => {
+      setNotifGranted(status === 'granted');
+    });
+  }, []);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(PREWORKOUT_KEY).then((v) => {
+      setPreWorkoutEnabled(v === 'true');
+    });
+  }, []);
 
   async function handlePasswordReset(): Promise<void> {
     if (user?.email == null) return;
@@ -108,6 +171,12 @@ export default function SettingsScreen(): React.ReactElement {
     ]);
   }
 
+  async function handlePreWorkoutToggle(value: boolean): Promise<void> {
+    setPreWorkoutEnabled(value);
+    await AsyncStorage.setItem(PREWORKOUT_KEY, value ? 'true' : 'false');
+    await scheduleTrainingReminders(schedule, value);
+  }
+
   async function togglePrivacy(field: 'show_weight_in_group' | 'show_points_in_group' | 'show_fitness_in_group', value: boolean): Promise<void> {
     await updateProfile({ [field]: value });
   }
@@ -134,6 +203,27 @@ export default function SettingsScreen(): React.ReactElement {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* ── Benachrichtigungen ── */}
+        <SectionHeader title="Benachrichtigungen" />
+        <SettingsRow
+          icon="bell-outline"
+          label="Benachrichtigungen"
+          value={notifGranted ? 'Aktiviert' : 'Deaktiviert'}
+          onPress={() => { void Linking.openSettings(); }}
+        />
+
+        {/* ── Training ── */}
+        <SectionHeader title="Training" />
+        <View style={styles.card}>
+          <ToggleRow
+            icon="run-fast"
+            label="Vorbereitung vor Training"
+            subtitle="Erinnerungen 4h, 2h, 1h und 30 Min vor jeder Session"
+            value={preWorkoutEnabled}
+            onToggle={(v) => { void handlePreWorkoutToggle(v); }}
+          />
+        </View>
 
         {/* ── Konto ── */}
         <SectionHeader title="Konto" />
@@ -231,6 +321,12 @@ export default function SettingsScreen(): React.ReactElement {
             label="Abo ändern"
             onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Paywall'); }}
           />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="bell-ring-outline"
+            label="Alle Notifications testen (10 s)"
+            onPress={() => { void scheduleTestNotifications(); }}
+          />
         </View>
 
         <View style={styles.bottomPad} />
@@ -285,7 +381,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowLabel: { fontSize: 15, fontWeight: '500', color: colors.text },
-  rowLabelFlex: { flex: 1 },
+  rowLabelWrap: { flex: 1 },
+  rowSubtitle: { fontSize: 12, color: colors.inactive, marginTop: 2 },
   rowLabelDanger: { color: colors.deleteRed },
   rowValue: { fontSize: 14, color: colors.inactive, fontWeight: '400', marginRight: 4 },
 

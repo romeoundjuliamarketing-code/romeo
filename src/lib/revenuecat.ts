@@ -7,6 +7,6 @@ export function configureRevenueCat(): void {
   Purchases.configure({ apiKey: API_KEY });
 }
 
-export function loginRevenueCat(userId: string): void {
-  void Purchases.logIn(userId);
+export async function loginRevenueCat(userId: string): Promise<void> {
+  await Purchases.logIn(userId);
 }

@@ -1,6 +1,31 @@
 import type { Workout } from './workouts';
 import type { FitnessGroup } from '../hooks/useFitnessRatings';
 
+// ─── Supercategories ──────────────────────────────────────────────────────────
+
+export type SupercategoryKey = 'striking' | 'ausdauer' | 'kraft' | 'mobility' | 'grappling';
+
+export interface Supercategory {
+  key: SupercategoryKey;
+  label: string;
+  groups: FitnessGroup[];
+}
+
+export const SUPERCATEGORIES: Supercategory[] = [
+  { key: 'striking',  label: 'Striking',  groups: ['schlagkraft', 'trittkraft', 'beinarbeit', 'koordination'] },
+  { key: 'ausdauer',  label: 'Ausdauer',  groups: ['ausdauer'] },
+  { key: 'kraft',     label: 'Kraft',     groups: ['schulter', 'nackenhals', 'griffkraft'] },
+  { key: 'mobility',  label: 'Mobility',  groups: ['mobilitaet'] },
+  { key: 'grappling', label: 'Grappling', groups: ['partnertraining'] },
+];
+
+export function getSupercategoryForGroup(group: FitnessGroup): SupercategoryKey | null {
+  for (const sc of SUPERCATEGORIES) {
+    if ((sc.groups as string[]).includes(group)) return sc.key;
+  }
+  return null;
+}
+
 // All supported disciplines
 export type Discipline = 'Boxen' | 'Kickboxen' | 'MMA' | 'BJJ' | 'Wrestling';
 

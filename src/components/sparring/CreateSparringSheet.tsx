@@ -15,6 +15,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { CreateSparringInput } from '../../hooks/useSparringActions';
+import LocationPickerModal from './LocationPickerModal';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 
@@ -57,6 +58,9 @@ export default function CreateSparringSheet(props: Props) {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [address, setAddress] = useState('');
+  // Coordinates from map picker — set when user picks a location on the map
+  const [pickedCoord, setPickedCoord] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationPickerVisible, setLocationPickerVisible] = useState(false);
 
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -94,7 +98,16 @@ export default function CreateSparringSheet(props: Props) {
     const resolvedTitle = isUserMode ? `${discipline} – Sparring` : title.trim();
 
     const params: CreateSparringInput = isUserMode
-      ? { address: address.trim(), title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes }
+      ? {
+          address: address.trim(),
+          ...(pickedCoord !== null ? { lat: pickedCoord.lat, lng: pickedCoord.lng } : {}),
+          title: resolvedTitle,
+          discipline,
+          scheduledAt: scheduledAt.toISOString(),
+          durationMin: dur,
+          maxSlots: slots,
+          notes,
+        }
       : { studioId: studioId as string, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes };
 
     setLoading(true);
@@ -102,6 +115,7 @@ export default function CreateSparringSheet(props: Props) {
     setLoading(false);
     setTitle('');
     setAddress('');
+    setPickedCoord(null);
     setDiscipline(DISCIPLINES[0]);
     setNotes('');
     setDurationMin('90');
@@ -112,6 +126,15 @@ export default function CreateSparringSheet(props: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <LocationPickerModal
+        visible={locationPickerVisible}
+        onClose={() => setLocationPickerVisible(false)}
+        onConfirm={(lat, lng, displayAddress) => {
+          setPickedCoord({ lat, lng });
+          setAddress(displayAddress);
+          setLocationPickerVisible(false);
+        }}
+      />
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.sheet}>
         <View style={styles.handle} />
@@ -140,13 +163,42 @@ export default function CreateSparringSheet(props: Props) {
           {isUserMode && (
             <>
               <Text style={styles.label}>Ort</Text>
-              <TextInput
-                style={styles.input}
-                value={address}
-                onChangeText={setAddress}
-                placeholder="Adresse oder Ort eingeben"
-                placeholderTextColor={colors.textSecondary}
-              />
+              <View style={styles.locationRow}>
+                <TextInput
+                  style={[styles.input, styles.locationInput]}
+                  value={address}
+                  onChangeText={(t) => {
+                    setAddress(t);
+                    // Manual edit clears the map-picked coordinates
+                    if (pickedCoord !== null) setPickedCoord(null);
+                  }}
+                  placeholder="Adresse eingeben"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <TouchableOpacity
+                  style={styles.mapPickBtn}
+                  onPress={() => setLocationPickerVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="map-outline"
+                    size={18}
+                    color={pickedCoord !== null ? colors.card : colors.accentBlue}
+                  />
+                </TouchableOpacity>
+              </View>
+              {pickedCoord !== null && (
+                <View style={styles.pickedBadge}>
+                  <Ionicons name="location" size={13} color={colors.accentBlue} />
+                  <Text style={styles.pickedBadgeText} numberOfLines={1}>{address}</Text>
+                  <TouchableOpacity
+                    onPress={() => { setPickedCoord(null); setAddress(''); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              )}
             </>
           )}
 
@@ -368,5 +420,40 @@ const styles = StyleSheet.create({
   },
   bottomPad: {
     height: 16,
+  },
+
+  // Location row
+  locationRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  locationInput: {
+    flex: 1,
+  },
+  mapPickBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.accentBlue,
+    backgroundColor: colors.accentBlueSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: colors.accentBlueSoft,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pickedBadgeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.accentBlue,
   },
 });

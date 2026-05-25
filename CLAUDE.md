@@ -268,18 +268,35 @@ Immer einhalten:
 - Keine Tests für reine UI-Screens – Fokus auf Logik und Hooks.
 
 ## Obsidian Vault
-Vault-Pfad: /Users/romeogeorgiadis/Library/Mobile Documents/com~apple~CloudDocs/Dokumente/ObsidianVault/Sparr/
-Kein MCP — direkt mit Read/Edit/Write auf den Vault-Pfad zugreifen.
+Vault-Pfad: /Users/romeogeorgiadis/Documents/Obsidian Vault/
+Sparr-Pfad: /Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/
+System-Datei: /Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/_VAULT_SYSTEM.md
+Kein MCP — direkt mit Bash (VM-Pfad: /sessions/busy-keen-ride/mnt/obsidian/) auf den Vault zugreifen.
+
 ### Pflichtregeln
 
-Prüfe zuerst ob die Ziel-Note existiert (Read), dann append mit Edit — sonst Write.
+Vor jedem Vault-Update: _VAULT_SYSTEM.md lesen um zu wissen was wohin gehört.
+Prüfe zuerst ob die Ziel-Note existiert (Read via Bash), dann append — sonst neu anlegen.
 Lege fehlende Ordner automatisch an (mkdir -p via Bash).
-Dateinamen IMMER exakt wie unten angegeben — keine Abweichungen.
 Niemals eine bestehende Note überschreiben — immer append.
+Keine täglichen Logs mehr — direkt in thematische Dateien schreiben.
+
+### Thematische Dateien (kein täglicher Log)
+
+- Funktionen.md — neue oder geänderte Features
+- Abo-System.md — RevenueCat, Preise, Apple-Status
+- App-Store.md — Versionen, Submissions, Review-Status
+- Architektur.md — Tech-Stack, DB, Navigation, Designsystem
+- Offene-Punkte.md — Bugs, Tech Debt, offene TODOs
+- Archiv/ — alte Logs, verworfene Ideen
+
+### Update-Pflicht nach jeder Session
+
+Neues Feature → Funktionen.md | Abo/Preis-Änderung → Abo-System.md | App eingereicht → App-Store.md | Bug entdeckt → Offene-Punkte.md
 
 ### Dev-Log
 Wann: Nach jeder Session oder nach einer bedeutenden Änderung.
-Dateiname: Dev-Log/YYYY-MM-DD.md (heutiges Datum, ISO-Format)
+Dateiname: 02 Projekte/Sparr/Dev-Log/YYYY-MM-DD.md (heutiges Datum, ISO-Format)
 Exaktes Format:
 markdown# Dev-Log – 2026-04-27
 

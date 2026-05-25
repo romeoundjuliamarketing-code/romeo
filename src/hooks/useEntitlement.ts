@@ -48,7 +48,7 @@ export function useEntitlement(refetchTrigger = 0): {
 
     setLoading(true);
 
-    loginRevenueCat(user.id);
+    await loginRevenueCat(user.id);
 
     const [rcInfo, supaResult] = await Promise.all([
       Purchases.getCustomerInfo().catch(() => null),

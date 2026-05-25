@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import type { FitnessGroup } from './useFitnessRatings';
 
 export type TrainingTimeRange = '7d' | '30d' | '90d' | '12m' | 'all';
 
@@ -8,6 +9,7 @@ export interface CategoryMinutes {
   key: string;
   label: string;
   minutes: number;
+  groupKey: FitnessGroup | null;
 }
 
 export interface TrainingTimeStats {
@@ -47,24 +49,52 @@ function getRangeDays(range: Exclude<TrainingTimeRange, 'all'>): number {
   }
 }
 
+const CATEGORY_LABEL: Record<string, string> = {
+  schlagkraft: 'Schlagkraft',
+  trittkraft: 'Trittkraft',
+  ausdauer: 'Ausdauer',
+  schulter: 'Schulter',
+  nackenhals: 'Nacken und Hals',
+  griffkraft: 'Griffkraft',
+  beinarbeit: 'Beinarbeit',
+  koordination: 'Koordination',
+  mobilitaet: 'Mobilität',
+  partnertraining: 'Partnertraining',
+  eigene: 'Eigene',
+};
+
+// Maps training_type values to FitnessGroup (mirrors useFitnessRatings)
+const TRAINING_TYPE_TO_GROUP: Record<string, FitnessGroup> = {
+  schlagkraft:        'schlagkraft',
+  trittkraft:         'trittkraft',
+  koordination:       'koordination',
+  ausdauer:           'ausdauer',
+  beinarbeit:         'beinarbeit',
+  schulter:           'schulter',
+  nackenhals:         'nackenhals',
+  griffkraft:         'griffkraft',
+  mobilitaet:         'mobilitaet',
+  partnertraining:    'partnertraining',
+  'K1':               'schlagkraft',
+  'Boxen':            'schlagkraft',
+  'BJJ':              'koordination',
+  'MMA':              'schlagkraft',
+  'Plyometrik':       'schlagkraft',
+  'Kraft & Ausdauer': 'schulter',
+  'Gym':              'schulter',
+  'Kettlebell':       'schulter',
+  'Intervallläufe':   'ausdauer',
+  'Sprints':          'ausdauer',
+  'Seilspringen':     'ausdauer',
+  'Joggen':           'ausdauer',
+  'Schwimmen':        'ausdauer',
+  'Dehnen':           'mobilitaet',
+  'Yoga':             'mobilitaet',
+};
+
 function categoryLabel(trainingType: string | null): string {
   if (trainingType === null) return 'Sonstiges';
-
-  const map: Record<string, string> = {
-    schlagkraft: 'Schlagkraft',
-    trittkraft: 'Trittkraft',
-    ausdauer: 'Ausdauer',
-    schulter: 'Schulter',
-    nackenhals: 'Nacken und Hals',
-    griffkraft: 'Griffkraft',
-    beinarbeit: 'Beinarbeit',
-    koordination: 'Koordination',
-    mobilitaet: 'Mobilität',
-    partnertraining: 'Partnertraining',
-    eigene: 'Eigene',
-  };
-
-  return map[trainingType] ?? trainingType;
+  return CATEGORY_LABEL[trainingType] ?? trainingType;
 }
 
 function calculateAveragePerWeek(totalMinutes: number, days: number): number {
@@ -150,8 +180,8 @@ export function useTrainingTimeStats(range: TrainingTimeRange, refetchTrigger = 
           totalMinutes += duration;
           sessionCount += 1;
 
-          const label = categoryLabel(row.training_type);
-          categorySums.set(label, (categorySums.get(label) ?? 0) + duration);
+          const rawKey = row.training_type ?? 'sonstiges';
+          categorySums.set(rawKey, (categorySums.get(rawKey) ?? 0) + duration);
         }
 
         if (previousStart !== null && previousEnd !== null && rowDate >= previousStart && rowDate <= previousEnd) {
@@ -160,9 +190,13 @@ export function useTrainingTimeStats(range: TrainingTimeRange, refetchTrigger = 
       }
 
       const categories: CategoryMinutes[] = Array.from(categorySums.entries())
-        .map(([label, minutes]) => ({ key: label, label, minutes }))
-        .sort((a, b) => b.minutes - a.minutes)
-        .slice(0, 5);
+        .map(([rawKey, minutes]) => ({
+          key: rawKey,
+          label: categoryLabel(rawKey),
+          minutes,
+          groupKey: TRAINING_TYPE_TO_GROUP[rawKey] ?? null,
+        }))
+        .sort((a, b) => b.minutes - a.minutes);
 
       const daysForAverage = (() => {
         if (rangeDays !== null) return rangeDays;
