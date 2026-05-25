@@ -13,6 +13,7 @@ import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
 import WorkoutHistoryScreen from '../screens/WorkoutHistoryScreen';
 import SparringMapScreen from '../screens/SparringMapScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
+import SparringChatScreen from '../screens/SparringChatScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -45,6 +46,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         options={{ presentation: 'fullScreenModal' }}
       />
       <AppStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <AppStack.Screen name="SparringChat" component={SparringChatScreen} />
       <AppStack.Screen name="Workout"  component={WorkoutScreen}  />
       <AppStack.Screen name="Timer"    component={TimerScreen}    />
     </AppStack.Navigator>

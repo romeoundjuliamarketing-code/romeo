@@ -37,6 +37,12 @@ export type RootStackParamList = {
     sparringId:          string;
     sparringScheduledAt: string;
   };
+  SparringChat: {
+    sparringId:        string;
+    otherUserId:       string;
+    otherUserName:     string;
+    organizerUserId:   string;
+  };
   Timer: {
     workoutTitle: string;
     exercises: Exercise[];
