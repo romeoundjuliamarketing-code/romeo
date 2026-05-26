@@ -182,7 +182,7 @@ export default function HomeScreen() {
             />
           </View>
 
-          <RecommendedWorkoutCard refetchTrigger={focusTrigger} />
+          {/* <RecommendedWorkoutCard refetchTrigger={focusTrigger} /> */}
 
           {entitlement.hasAccess ? (
             <>

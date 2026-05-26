@@ -3,7 +3,7 @@ module.exports = {
     name: "Sparr",
     slug: "sparr",
     scheme: "sparr",
-    version: "1.0.9",
+    version: "1.1.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
