@@ -183,8 +183,6 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* <RecommendedWorkoutCard refetchTrigger={focusTrigger} /> */}
-
           {entitlement.hasAccess ? (
             <>
               <Text style={styles.sectionTitle}>Deine Stats</Text>

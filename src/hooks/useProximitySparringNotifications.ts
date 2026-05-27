@@ -42,13 +42,19 @@ async function checkProximitySparrings(): Promise<void> {
 
   // 4. Load radius preference
   const rawRadius = await AsyncStorage.getItem(PROXIMITY_RADIUS_KEY);
-  const radiusKm  = rawRadius !== null ? parseInt(rawRadius, 10) : DEFAULT_RADIUS_KM;
+  const parsed   = rawRadius !== null ? parseInt(rawRadius, 10) : DEFAULT_RADIUS_KM;
+  const radiusKm = Number.isNaN(parsed) ? DEFAULT_RADIUS_KM : parsed;
 
   // 5. Load already-notified map and prune expired entries
-  const rawNotified              = await AsyncStorage.getItem(NOTIFIED_KEY);
-  const notifiedMap: NotifiedMap = rawNotified !== null
-    ? (JSON.parse(rawNotified) as NotifiedMap)
-    : {};
+  const rawNotified            = await AsyncStorage.getItem(NOTIFIED_KEY);
+  let notifiedMap: NotifiedMap = {};
+  if (rawNotified !== null) {
+    try {
+      notifiedMap = JSON.parse(rawNotified) as NotifiedMap;
+    } catch {
+      // corrupt AsyncStorage value — start with empty map
+    }
+  }
   const now             = Date.now();
   const pruned: NotifiedMap = {};
   for (const [id, ts] of Object.entries(notifiedMap)) {
@@ -57,7 +63,7 @@ async function checkProximitySparrings(): Promise<void> {
 
   // 6. Fetch upcoming open sparrings with coordinates
   type StudioJoin = { name: string } | null;
-  const { data: rows } = await supabase
+  const { data: rows, error: rowsError } = await supabase
     .from('open_sparrings')
     .select('id, title, lat, lng, scheduled_at, studios!studio_id(name)')
     .eq('is_active', true)
@@ -65,20 +71,20 @@ async function checkProximitySparrings(): Promise<void> {
     .not('lat', 'is', null)
     .not('lng', 'is', null);
 
-  if (rows === null || rows.length === 0) {
+  if (rowsError !== null || rows === null || rows.length === 0) {
     await AsyncStorage.setItem(NOTIFIED_KEY, JSON.stringify(pruned));
     return;
   }
 
-  // 7. Filter sparrings within radius that haven't been notified yet
-  const toNotify = rows.filter((r) => {
-    if (pruned[r.id] !== undefined) return false;
-    return haversineKm(latitude, longitude, r.lat as number, r.lng as number) <= radiusKm;
-  });
+  // 7. Filter sparrings within radius that haven't been notified yet; carry distance to avoid double-call
+  const toNotify = rows
+    .filter((r) => pruned[r.id] === undefined)
+    .map((r) => ({ ...r, dist: haversineKm(latitude, longitude, r.lat as number, r.lng as number) }))
+    .filter((r) => r.dist <= radiusKm);
 
   // 8. Fire local notifications
   for (const sparring of toNotify) {
-    const dist    = haversineKm(latitude, longitude, sparring.lat as number, sparring.lng as number);
+    const dist    = sparring.dist;
     const distStr = dist < 1
       ? `${Math.round(dist * 1000)} m`
       : `${dist.toFixed(1)} km`;
@@ -87,15 +93,19 @@ async function checkProximitySparrings(): Promise<void> {
     const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
     const studio  = (sparring.studios as StudioJoin)?.name ?? 'Privat';
 
-    await Notifications.scheduleNotificationAsync({
-      identifier: `proximity-${sparring.id}`,
-      content: {
-        title: 'Sparring in deiner Nähe',
-        body:  `${sparring.title} · ${distStr} entfernt · ${studio}, ${dateStr} ${timeStr}`,
-      },
-      trigger: null,
-    });
-
+    try {
+      await Notifications.scheduleNotificationAsync({
+        identifier: `proximity-${sparring.id}`,
+        content: {
+          title: 'Sparring in deiner Nähe',
+          body:  `${sparring.title} · ${distStr} entfernt · ${studio}, ${dateStr} ${timeStr}`,
+        },
+        trigger: null,
+      });
+    } catch {
+      // Scheduling failed — skip this entry, do not mark as notified
+      continue;
+    }
     pruned[sparring.id] = new Date().toISOString();
   }
 
