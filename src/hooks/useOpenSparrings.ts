@@ -18,6 +18,7 @@ export interface SparringWithMeta {
   notes: string | null;
   is_active: boolean;
   is_featured: boolean;
+  is_at_studio: boolean;
   created_at: string;
   studio_name: string;
   studio_city: string;
@@ -87,6 +88,7 @@ export function useOpenSparrings(refetchTrigger = 0): {
           notes: r.notes,
           is_active: r.is_active,
           is_featured: r.is_featured ?? false,
+          is_at_studio: r.is_at_studio ?? false,
           created_at: r.created_at,
           studio_name: studio?.name ?? 'Privat',
           studio_city: studio?.city ?? '',
