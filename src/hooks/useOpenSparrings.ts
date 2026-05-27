@@ -17,6 +17,7 @@ export interface SparringWithMeta {
   max_slots: number;
   notes: string | null;
   is_active: boolean;
+  is_featured: boolean;
   created_at: string;
   studio_name: string;
   studio_city: string;
@@ -85,6 +86,7 @@ export function useOpenSparrings(refetchTrigger = 0): {
           max_slots: r.max_slots,
           notes: r.notes,
           is_active: r.is_active,
+          is_featured: r.is_featured ?? false,
           created_at: r.created_at,
           studio_name: studio?.name ?? 'Privat',
           studio_city: studio?.city ?? '',

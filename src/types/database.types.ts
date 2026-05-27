@@ -251,6 +251,7 @@ export type Database = {
           max_slots: number
           notes: string | null
           is_active: boolean
+          is_featured: boolean
           created_at: string
         }
         Insert: {
@@ -267,6 +268,7 @@ export type Database = {
           max_slots?: number
           notes?: string | null
           is_active?: boolean
+          is_featured?: boolean
           created_at?: string
         }
         Update: {
@@ -283,6 +285,7 @@ export type Database = {
           max_slots?: number
           notes?: string | null
           is_active?: boolean
+          is_featured?: boolean
           created_at?: string
         }
         Relationships: [
