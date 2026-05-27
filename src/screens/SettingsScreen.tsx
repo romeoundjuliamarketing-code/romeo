@@ -16,8 +16,11 @@ import { useEntitlement } from '../hooks/useEntitlement';
 import { useSchedule } from '../hooks/useSchedule';
 import { useNotifications } from '../hooks/useNotifications';
 import { supabase } from '../lib/supabase';
+import { PROXIMITY_RADIUS_KEY } from '../hooks/useProximitySparringNotifications';
 
 const PREWORKOUT_KEY = 'preworkout_enabled';
+const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
+type RadiusOption = typeof RADIUS_OPTIONS[number];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -107,6 +110,7 @@ export default function SettingsScreen(): React.ReactElement {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [notifGranted, setNotifGranted]       = useState(false);
   const [preWorkoutEnabled, setPreWorkoutEnabled] = useState(false);
+  const [radiusKm, setRadiusKm] = useState<RadiusOption>(30);
 
   // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
   const todayDow = (new Date().getDay() + 6) % 7;
@@ -122,6 +126,12 @@ export default function SettingsScreen(): React.ReactElement {
   useEffect(() => {
     void AsyncStorage.getItem(PREWORKOUT_KEY).then((v) => {
       setPreWorkoutEnabled(v === 'true');
+    });
+  }, []);
+
+  useEffect(() => {
+    void AsyncStorage.getItem(PROXIMITY_RADIUS_KEY).then((v) => {
+      if (v !== null) setRadiusKm(parseInt(v, 10) as RadiusOption);
     });
   }, []);
 
@@ -171,6 +181,23 @@ export default function SettingsScreen(): React.ReactElement {
     ]);
   }
 
+  function handleRadiusPick(): void {
+    Alert.alert(
+      'Umkreis fuer Sparring-Benachrichtigungen',
+      'Benachrichtige mich wenn ein Sparring in diesem Umkreis stattfindet:',
+      [
+        ...RADIUS_OPTIONS.map((km) => ({
+          text: `${km} km${km === radiusKm ? '  (aktiv)' : ''}`,
+          onPress: () => {
+            setRadiusKm(km);
+            void AsyncStorage.setItem(PROXIMITY_RADIUS_KEY, String(km));
+          },
+        })),
+        { text: 'Abbrechen', style: 'cancel' as const },
+      ],
+    );
+  }
+
   async function handlePreWorkoutToggle(value: boolean): Promise<void> {
     setPreWorkoutEnabled(value);
     await AsyncStorage.setItem(PREWORKOUT_KEY, value ? 'true' : 'false');
@@ -206,12 +233,21 @@ export default function SettingsScreen(): React.ReactElement {
 
         {/* ── Benachrichtigungen ── */}
         <SectionHeader title="Benachrichtigungen" />
-        <SettingsRow
-          icon="bell-outline"
-          label="Benachrichtigungen"
-          value={notifGranted ? 'Aktiviert' : 'Deaktiviert'}
-          onPress={() => { void Linking.openSettings(); }}
-        />
+        <View style={styles.card}>
+          <SettingsRow
+            icon="bell-outline"
+            label="Benachrichtigungen"
+            value={notifGranted ? 'Aktiviert' : 'Deaktiviert'}
+            onPress={() => { void Linking.openSettings(); }}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="map-marker-radius-outline"
+            label="Sparring-Umkreis"
+            value={`${radiusKm} km`}
+            onPress={handleRadiusPick}
+          />
+        </View>
 
         {/* ── Training ── */}
         <SectionHeader title="Training" />
