@@ -252,6 +252,7 @@ export type Database = {
           notes: string | null
           is_active: boolean
           is_featured: boolean
+          is_at_studio: boolean
           created_at: string
         }
         Insert: {
@@ -269,6 +270,7 @@ export type Database = {
           notes?: string | null
           is_active?: boolean
           is_featured?: boolean
+          is_at_studio?: boolean
           created_at?: string
         }
         Update: {
@@ -286,6 +288,7 @@ export type Database = {
           notes?: string | null
           is_active?: boolean
           is_featured?: boolean
+          is_at_studio?: boolean
           created_at?: string
         }
         Relationships: [
@@ -985,6 +988,17 @@ export type Database = {
       deactivate_sparring: {
         Args: { p_id: string }
         Returns: undefined
+      }
+      get_subscribed_studios: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          name: string
+          city: string
+          address: string | null
+          lat: number
+          lng: number
+        }[]
       }
       log_daily_activity: {
         Args: {
