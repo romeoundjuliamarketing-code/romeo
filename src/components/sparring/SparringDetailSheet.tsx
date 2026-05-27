@@ -99,13 +99,11 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.sheet}>
 
-        {/* Handle bar */}
-        <View style={styles.handleRow}>
-          <View style={styles.handle} />
-        </View>
-
-        {/* Hero banner — color follows time window */}
+        {/* Hero banner — color follows time window; handle sits inside */}
         <View style={[styles.banner, { backgroundColor: bannerColor }]}>
+          <View style={styles.handleRow}>
+            <View style={styles.handle} />
+          </View>
           <TouchableOpacity
             style={styles.bannerClose}
             onPress={onClose}
@@ -250,23 +248,22 @@ const styles = StyleSheet.create({
   handleRow: {
     alignItems:   'center',
     paddingTop:   12,
-    paddingBottom: 8,
+    paddingBottom: 4,
   },
   handle: {
     width:           36,
     height:          4,
     borderRadius:    2,
-    backgroundColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.45)',
   },
   banner: {
-    height:           112,
     paddingHorizontal: 24,
     paddingBottom:    20,
     justifyContent:   'flex-end',
   },
   bannerClose: {
     position:        'absolute',
-    top:             0,
+    top:             8,
     right:           16,
     width:           36,
     height:          36,
