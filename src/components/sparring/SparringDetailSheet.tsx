@@ -67,6 +67,13 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
           </TouchableOpacity>
         </View>
 
+        {sparring.is_featured && (
+          <View style={styles.featuredBadge}>
+            <Ionicons name="checkmark-circle" size={14} color={colors.accentBlue} />
+            <Text style={styles.featuredBadgeText}>Sparr Pick</Text>
+          </View>
+        )}
+
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{sparring.discipline}</Text>
         </View>
@@ -202,6 +209,23 @@ const styles = StyleSheet.create({
     color: colors.text,
     flex: 1,
     lineHeight: 26,
+  },
+  featuredBadge: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    alignSelf:        'flex-start',
+    gap:              5,
+    backgroundColor:  colors.accentBlueSoft,
+    borderRadius:     8,
+    paddingHorizontal: 10,
+    paddingVertical:   4,
+    borderWidth:      1,
+    borderColor:      colors.accentBlue,
+  },
+  featuredBadgeText: {
+    fontSize:   13,
+    fontWeight: '700',
+    color:      colors.accentBlue,
   },
   badge: {
     alignSelf: 'flex-start',

@@ -61,16 +61,21 @@ function SparringMarker({ window: tw }: { window: 'jetzt' | 'demnaechst' | 'bald
   );
 }
 
-// Official Sparr-Sparring marker — shows the app logo
+// Official Sparr-Sparring marker — shows the app logo + "Sparr Pick" label
 function FeaturedMarker(): React.ReactElement {
   return (
-    <View style={styles.featuredMarkerBase}>
-      <Image
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        source={require('../../assets/logo-home.png')}
-        style={styles.featuredLogo}
-        resizeMode="contain"
-      />
+    <View style={styles.featuredMarkerWrapper}>
+      <View style={styles.featuredMarkerBase}>
+        <Image
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          source={require('../../assets/logo-home.png')}
+          style={styles.featuredLogo}
+          resizeMode="contain"
+        />
+      </View>
+      <View style={styles.featuredLabel}>
+        <Text style={styles.featuredLabelText}>Sparr Pick</Text>
+      </View>
     </View>
   );
 }
@@ -362,6 +367,10 @@ const styles = StyleSheet.create({
   markerJetzt:      { backgroundColor: colors.deleteRed },
   markerDemnaechst: { backgroundColor: ORANGE_COLOR },
   markerBald:       { backgroundColor: colors.accentBlue },
+  featuredMarkerWrapper: {
+    alignItems: 'center',
+    gap:        4,
+  },
   featuredMarkerBase: {
     width:           48,
     height:          48,
@@ -379,6 +388,18 @@ const styles = StyleSheet.create({
   featuredLogo: {
     width:  32,
     height: 32,
+  },
+  featuredLabel: {
+    backgroundColor:  colors.accentBlue,
+    borderRadius:     8,
+    paddingHorizontal: 6,
+    paddingVertical:   2,
+  },
+  featuredLabelText: {
+    fontSize:   10,
+    fontWeight: '700',
+    color:      colors.card,
+    letterSpacing: 0.3,
   },
   zoomSliderOuter: {
     position:        'absolute',
