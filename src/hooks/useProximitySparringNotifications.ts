@@ -90,7 +90,7 @@ async function checkProximitySparrings(): Promise<void> {
     await Notifications.scheduleNotificationAsync({
       identifier: `proximity-${sparring.id}`,
       content: {
-        title: 'Sparring in deiner Naehe',
+        title: 'Sparring in deiner Nähe',
         body:  `${sparring.title} · ${distStr} entfernt · ${studio}, ${dateStr} ${timeStr}`,
       },
       trigger: null,

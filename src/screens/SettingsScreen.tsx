@@ -183,7 +183,7 @@ export default function SettingsScreen(): React.ReactElement {
 
   function handleRadiusPick(): void {
     Alert.alert(
-      'Umkreis fuer Sparring-Benachrichtigungen',
+      'Umkreis für Sparring-Benachrichtigungen',
       'Benachrichtige mich wenn ein Sparring in diesem Umkreis stattfindet:',
       [
         ...RADIUS_OPTIONS.map((km) => ({
