@@ -8,11 +8,17 @@ import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useOpenSparrings } from '../hooks/useOpenSparrings';
 import { useSparringActions } from '../hooks/useSparringActions';
+import { useStudio } from '../hooks/useStudio';
+import { useStudioAddress } from '../hooks/useStudioAddress';
+import { useStudioMapMarkers } from '../hooks/useStudioMapMarkers';
+import type { StudioMapMarker } from '../hooks/useStudioMapMarkers';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
+import StudioMapDetailSheet from '../components/sparring/StudioMapDetailSheet';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
 
 const ORANGE_COLOR = '#F5820A'; // Demnächst-Marker
+const STUDIO_GREEN = '#22C55E'; // Studio-Sparring am eigenen Standort
 
 const FALLBACK_REGION = {
   latitude: 48.14,
@@ -80,6 +86,24 @@ function FeaturedMarker(): React.ReactElement {
   );
 }
 
+// Studio location marker for Studios mode
+function StudioMarker(): React.ReactElement {
+  return (
+    <View style={styles.studioMarkerBase}>
+      <Ionicons name="business" size={20} color={colors.card} />
+    </View>
+  );
+}
+
+// Studio-hosted sparring at own location — always green
+function AtStudioMarker(): React.ReactElement {
+  return (
+    <View style={[styles.markerBase, styles.markerAtStudio]}>
+      <Ionicons name="shield-checkmark" size={18} color={colors.card} />
+    </View>
+  );
+}
+
 const FILTER_TABS: Array<{ key: Exclude<TimeFilter, 'all'>; label: string }> = [
   { key: 'jetzt',      label: 'Jetzt' },
   { key: 'demnaechst', label: 'Demnächst' },
@@ -96,6 +120,26 @@ export default function SparringMapScreen({ navigation }: Props) {
   const [region, setRegion] = useState(FALLBACK_REGION);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [mode, setMode] = useState<'sparrings' | 'studios'>('sparrings');
+  const [selectedStudio, setSelectedStudio] = useState<StudioMapMarker | null>(null);
+
+  const { currentStudio } = useStudio();
+  const { address: studioAddress, lat: studioLat, lng: studioLng } = useStudioAddress(
+    currentStudio?.id ?? '',
+  );
+  const { studios: studioMarkers } = useStudioMapMarkers();
+
+  const coachStudio =
+    currentStudio !== null &&
+    studioAddress !== null &&
+    studioAddress.trim().length > 0
+      ? {
+          id: currentStudio.id,
+          address: studioAddress,
+          lat: studioLat,
+          lng: studioLng,
+        }
+      : null;
 
   useEffect(() => {
     Location.requestForegroundPermissionsAsync().then(({ status }) => {
@@ -195,7 +239,8 @@ export default function SparringMapScreen({ navigation }: Props) {
         onRegionChangeComplete={setRegion}
         showsUserLocation
       >
-        {filtered.map((s) => (
+        {/* Sparring markers */}
+        {mode === 'sparrings' && filtered.map((s) => (
           <Marker
             key={s.id}
             coordinate={{ latitude: s.lat!, longitude: s.lng! }}
@@ -204,8 +249,22 @@ export default function SparringMapScreen({ navigation }: Props) {
           >
             {s.is_featured
               ? <FeaturedMarker />
-              : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
+              : s.is_at_studio
+                ? <AtStudioMarker />
+                : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
             }
+          </Marker>
+        ))}
+
+        {/* Studio markers */}
+        {mode === 'studios' && studioMarkers.map((st) => (
+          <Marker
+            key={st.id}
+            coordinate={{ latitude: st.lat, longitude: st.lng }}
+            onPress={() => setSelectedStudio(st)}
+            tracksViewChanges={false}
+          >
+            <StudioMarker />
           </Marker>
         ))}
       </MapView>
@@ -224,36 +283,61 @@ export default function SparringMapScreen({ navigation }: Props) {
       </View>
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-        {/* X resets active filter; dimmed when no filter is active */}
-        <TouchableOpacity
-          style={[styles.closeBtn, timeFilter === 'all' && styles.closeBtnDimmed]}
-          onPress={() => setTimeFilter('all')}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="close" size={22} color={colors.text} />
-        </TouchableOpacity>
-
-        {/* Segmented time-window filter */}
-        <View style={styles.segmentGroup}>
-          {FILTER_TABS.map((tab) => {
-            const count = sparrings.filter(
-              (s) => getTimeWindow(s.scheduled_at) === tab.key,
-            ).length;
-            const isActive = timeFilter === tab.key;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.segment, isActive && styles.segmentActive]}
-                onPress={() => setTimeFilter(tab.key)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
-                  {`${tab.label} (${count})`}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* Mode switch — always visible */}
+        <View style={styles.modeSwitchRow}>
+          <TouchableOpacity
+            style={[styles.modeBtn, mode === 'sparrings' && styles.modeBtnActive]}
+            onPress={() => setMode('sparrings')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modeBtnText, mode === 'sparrings' && styles.modeBtnTextActive]}>
+              Sparrings
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.modeBtn, mode === 'studios' && styles.modeBtnActive]}
+            onPress={() => setMode('studios')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.modeBtnText, mode === 'studios' && styles.modeBtnTextActive]}>
+              Studios
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Time filter — only in Sparrings mode */}
+        {mode === 'sparrings' && (
+          <View style={styles.filterRow}>
+            <TouchableOpacity
+              style={[styles.closeBtn, timeFilter === 'all' && styles.closeBtnDimmed]}
+              onPress={() => setTimeFilter('all')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={22} color={colors.text} />
+            </TouchableOpacity>
+
+            <View style={styles.segmentGroup}>
+              {FILTER_TABS.map((tab) => {
+                const count = sparrings.filter(
+                  (s) => getTimeWindow(s.scheduled_at) === tab.key,
+                ).length;
+                const isActive = timeFilter === tab.key;
+                return (
+                  <TouchableOpacity
+                    key={tab.key}
+                    style={[styles.segment, isActive && styles.segmentActive]}
+                    onPress={() => setTimeFilter(tab.key)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
+                      {`${tab.label} (${count})`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
       </View>
 
       <SparringDetailSheet
@@ -265,18 +349,21 @@ export default function SparringMapScreen({ navigation }: Props) {
         loading={actionLoading}
       />
 
-      <TouchableOpacity
-        style={[styles.fab, { bottom: insets.bottom + 16 }]}
-        onPress={() => setCreateSheetVisible(true)}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add-circle-outline" size={22} color={colors.card} />
-        <Text style={styles.fabText}>Sparring anmelden</Text>
-      </TouchableOpacity>
+      {mode === 'sparrings' && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: insets.bottom + 16 }]}
+          onPress={() => setCreateSheetVisible(true)}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add-circle-outline" size={22} color={colors.card} />
+          <Text style={styles.fabText}>Sparring anmelden</Text>
+        </TouchableOpacity>
+      )}
 
       <CreateSparringSheet
         visible={createSheetVisible}
         mode="user"
+        coachStudio={coachStudio}
         onClose={() => setCreateSheetVisible(false)}
         onCreate={async (params) => {
           const { error } = await createSparring(params);
@@ -286,6 +373,11 @@ export default function SparringMapScreen({ navigation }: Props) {
           }
           refetch();
         }}
+      />
+
+      <StudioMapDetailSheet
+        studio={selectedStudio}
+        onClose={() => setSelectedStudio(null)}
       />
     </View>
   );
@@ -303,10 +395,10 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     paddingHorizontal: 16,
-    gap: 12,
+    gap: 0,
   },
   closeBtn: {
     width: 40,
@@ -455,5 +547,61 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.card,
+  },
+  // ── Mode switch ─────────────────────────────────────────────────────────
+  modeSwitchRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 4,
+    height: 40,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    alignSelf: 'center',
+  },
+  modeBtn: {
+    paddingHorizontal: 20,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeBtnActive: {
+    backgroundColor: colors.accentBlue,
+  },
+  modeBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  modeBtnTextActive: {
+    color: colors.card,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  // ── Studio marker ────────────────────────────────────────────────────────
+  studioMarkerBase: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.card,
+  },
+  // ── At-studio sparring marker ────────────────────────────────────────────
+  markerAtStudio: {
+    backgroundColor: STUDIO_GREEN,
   },
 });
