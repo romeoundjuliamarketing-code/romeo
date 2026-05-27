@@ -19,11 +19,19 @@ import LocationPickerModal from './LocationPickerModal';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 
+type CoachStudioInfo = {
+  id: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
+};
+
 type Props =
   | {
       visible: boolean;
       mode?: 'coach';
       studioId: string;
+      coachStudio?: never;
       onClose: () => void;
       onCreate: (params: CreateSparringInput) => Promise<void>;
     }
@@ -31,6 +39,8 @@ type Props =
       visible: boolean;
       mode: 'user';
       studioId?: never;
+      /** When provided, shows the "Am Studio-Standort" checkbox for coaches */
+      coachStudio?: CoachStudioInfo | null;
       onClose: () => void;
       onCreate: (params: CreateSparringInput) => Promise<void>;
     };
@@ -47,6 +57,12 @@ export default function CreateSparringSheet(props: Props) {
   const mode = props.mode ?? 'coach';
   const studioId = 'studioId' in props ? props.studioId : undefined;
   const isUserMode = mode === 'user';
+
+  const coachStudio = 'coachStudio' in props ? props.coachStudio : null;
+  const showAtStudioCheckbox =
+    isUserMode && coachStudio !== null && coachStudio !== undefined && coachStudio.address.trim().length > 0;
+
+  const [isAtStudio, setIsAtStudio] = useState(false);
 
   const [title, setTitle] = useState('');
   const [discipline, setDiscipline] = useState(DISCIPLINES[0]);
@@ -68,6 +84,23 @@ export default function CreateSparringSheet(props: Props) {
 
   function formatTime(d: Date): string {
     return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function handleToggleAtStudio(): void {
+    if (coachStudio === null || coachStudio === undefined) return;
+    const next = !isAtStudio;
+    setIsAtStudio(next);
+    if (next) {
+      setAddress(coachStudio.address);
+      setPickedCoord(
+        coachStudio.lat !== null && coachStudio.lng !== null
+          ? { lat: coachStudio.lat, lng: coachStudio.lng }
+          : null,
+      );
+    } else {
+      setAddress('');
+      setPickedCoord(null);
+    }
   }
 
   async function handleCreate(): Promise<void> {
@@ -106,6 +139,9 @@ export default function CreateSparringSheet(props: Props) {
       ? {
           address: address.trim(),
           ...(pickedCoord !== null ? { lat: pickedCoord.lat, lng: pickedCoord.lng } : {}),
+          ...(isAtStudio && coachStudio !== null && coachStudio !== undefined
+            ? { isAtStudio: true as const, atStudioId: coachStudio.id }
+            : {}),
           title: resolvedTitle,
           discipline,
           scheduledAt: scheduledAt.toISOString(),
@@ -121,6 +157,7 @@ export default function CreateSparringSheet(props: Props) {
     setTitle('');
     setAddress('');
     setPickedCoord(null);
+    setIsAtStudio(false);
     setDiscipline(DISCIPLINES[0]);
     setNotes('');
     setDurationMin('90');
@@ -170,9 +207,11 @@ export default function CreateSparringSheet(props: Props) {
               <Text style={styles.label}>Ort</Text>
               <View style={styles.locationRow}>
                 <TextInput
-                  style={[styles.input, styles.locationInput]}
+                  style={[styles.input, styles.locationInput, isAtStudio && styles.inputDisabled]}
                   value={address}
+                  editable={!isAtStudio}
                   onChangeText={(t) => {
+                    if (isAtStudio) return;
                     setAddress(t);
                     // Manual edit clears the map-picked coordinates
                     if (pickedCoord !== null) setPickedCoord(null);
@@ -181,8 +220,8 @@ export default function CreateSparringSheet(props: Props) {
                   placeholderTextColor={colors.textSecondary}
                 />
                 <TouchableOpacity
-                  style={styles.mapPickBtn}
-                  onPress={() => setLocationPickerVisible(true)}
+                  style={[styles.mapPickBtn, isAtStudio && styles.mapPickBtnDisabled]}
+                  onPress={() => { if (!isAtStudio) setLocationPickerVisible(true); }}
                   activeOpacity={0.8}
                 >
                   <Ionicons
@@ -205,6 +244,19 @@ export default function CreateSparringSheet(props: Props) {
                 </View>
               )}
             </>
+          )}
+
+          {showAtStudioCheckbox && (
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={handleToggleAtStudio}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, isAtStudio && styles.checkboxChecked]}>
+                {isAtStudio && <Ionicons name="checkmark" size={14} color={colors.card} />}
+              </View>
+              <Text style={styles.checkboxLabel}>Am Studio-Standort</Text>
+            </TouchableOpacity>
           )}
 
           {isUserMode && (
@@ -473,5 +525,37 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     color: colors.accentBlue,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.accentBlue,
+    borderColor: colors.accentBlue,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  inputDisabled: {
+    opacity: 0.5,
+  },
+  mapPickBtnDisabled: {
+    opacity: 0.35,
   },
 });
