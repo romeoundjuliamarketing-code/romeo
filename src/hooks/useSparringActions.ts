@@ -20,6 +20,10 @@ export type CreateSparringInput =
       lat?: number;
       lng?: number;
       studioId?: never;
+      /** true when a coach registers this sparring at their own studio location */
+      isAtStudio?: boolean;
+      /** studio_id to link — required when isAtStudio = true */
+      atStudioId?: string;
       title: string;
       discipline: string;
       scheduledAt: string;
@@ -101,7 +105,8 @@ export function useSparringActions(): {
     }
 
     const { error } = await supabase.from('open_sparrings').insert({
-      studio_id: studioId,
+      studio_id: params.studioId !== undefined ? studioId : (params.isAtStudio === true ? (params.atStudioId ?? null) : null),
+      is_at_studio: params.studioId !== undefined ? true : (params.isAtStudio === true),
       created_by: user.id,
       title: params.title,
       discipline: params.discipline,
