@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -8,21 +8,23 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import type { RootStackParamList } from '../../navigation/types';
 import SparringParticipantsList from './SparringParticipantsList';
+import MapBoostSheet from './MapBoostSheet';
 
 interface Props {
-  sparring: SparringWithMeta | null;
-  currentUserId: string | null;
-  onClose: () => void;
-  onToggleSignup: () => Promise<void>;
-  onDeactivate: () => void;
-  loading: boolean;
+  sparring:         SparringWithMeta | null;
+  currentUserId:    string | null;
+  onClose:          () => void;
+  onToggleSignup:   () => Promise<void>;
+  onDeactivate:     () => void;
+  onBoostActivated?: () => void;
+  loading:          boolean;
 }
 
 // Banner color follows time-window (today=red, this week=orange, later=blue)
@@ -50,7 +52,9 @@ function formatDateTime(iso: string): string {
   return `${date}, ${time} Uhr`;
 }
 
-export default function SparringDetailSheet({ sparring, currentUserId, onClose, onToggleSignup, onDeactivate, loading }: Props) {
+export default function SparringDetailSheet({ sparring, currentUserId, onClose, onToggleSignup, onDeactivate, onBoostActivated, loading }: Props) {
+  const [boostSheetVisible, setBoostSheetVisible] = useState(false);
+
   if (sparring === null) return null;
 
   const slotsLeft  = sparring.max_slots - sparring.signup_count;
@@ -221,12 +225,36 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
 
           {isCreator && (
             <TouchableOpacity
+              style={styles.boostBtn}
+              onPress={() => setBoostSheetVisible(true)}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
+              <Text style={styles.boostBtnText}>Karten-Boost</Text>
+            </TouchableOpacity>
+          )}
+
+          {isCreator && (
+            <TouchableOpacity
               style={styles.btnDeactivate}
               onPress={onDeactivate}
               disabled={loading}
             >
               <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
             </TouchableOpacity>
+          )}
+
+          {isCreator && boostSheetVisible && (
+            <MapBoostSheet
+              sparringId={sparring.id}
+              visible={boostSheetVisible}
+              onClose={() => setBoostSheetVisible(false)}
+              onBoostActivated={() => {
+                setBoostSheetVisible(false);
+                onBoostActivated?.();
+              }}
+            />
           )}
         </View>
       </View>
@@ -386,6 +414,22 @@ const styles = StyleSheet.create({
     fontSize:   16,
     fontWeight: '700',
     color:      colors.card,
+  },
+  boostBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
+    gap:             8,
+    borderRadius:    14,
+    height:          44,
+    borderWidth:     1,
+    borderColor:     colors.accentBlue,
+    backgroundColor: colors.accentBlueSoft,
+  },
+  boostBtnText: {
+    fontSize:   15,
+    fontWeight: '600',
+    color:      colors.accentBlue,
   },
   btnDeactivate: {
     borderRadius:   14,

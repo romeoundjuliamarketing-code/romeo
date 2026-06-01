@@ -667,6 +667,48 @@ export type Database = {
         }
         Relationships: []
       }
+      map_boosts: {
+        Row: {
+          id:           string
+          user_id:      string
+          sparring_id:  string
+          activated_at: string
+          expires_at:   string
+          is_active:    boolean
+        }
+        Insert: {
+          id?:           string
+          user_id:       string
+          sparring_id:   string
+          activated_at?: string
+          expires_at:    string
+          is_active?:    boolean
+        }
+        Update: {
+          id?:           string
+          user_id?:      string
+          sparring_id?:  string
+          activated_at?: string
+          expires_at?:   string
+          is_active?:    boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'map_boosts_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'map_boosts_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       water_logs: {
         Row: {
           id: string
@@ -1010,6 +1052,22 @@ export type Database = {
           p_duration_min: number
         }
         Returns: Json
+      }
+      activate_map_boost: {
+        Args: {
+          p_sparring_id:   string
+          p_user_id:       string
+          p_duration_days?: number
+        }
+        Returns: Json
+      }
+      get_my_boost_status: {
+        Args: { p_sparring_id: string }
+        Returns: {
+          is_active:      boolean
+          expires_at:     string | null
+          days_remaining: number | null
+        }[]
       }
     }
     Enums: {
