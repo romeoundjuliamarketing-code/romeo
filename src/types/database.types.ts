@@ -39,6 +39,7 @@ export type Database = {
           expo_push_token: string | null
           show_fight_record: boolean
           show_stats: boolean
+          profile_code: string
         }
         Insert: {
           age_years?: number | null
@@ -69,6 +70,7 @@ export type Database = {
           expo_push_token?: string | null
           show_fight_record?: boolean
           show_stats?: boolean
+          profile_code?: string
         }
         Update: {
           age_years?: number | null
@@ -99,6 +101,7 @@ export type Database = {
           expo_push_token?: string | null
           show_fight_record?: boolean
           show_stats?: boolean
+          profile_code?: string
         }
         Relationships: [
           {
