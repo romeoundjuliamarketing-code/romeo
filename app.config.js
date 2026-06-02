@@ -3,7 +3,7 @@ module.exports = {
     name: "Sparr",
     slug: "sparr",
     scheme: "sparr",
-    version: "1.1.1",
+    version: "1.2.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -20,6 +20,8 @@ module.exports = {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
           "Sparr zeigt dir Sparring-Partner in deiner Nähe.",
+        NSPhotoLibraryUsageDescription:
+          "Sparr verwendet deine Fotos, um Bilder im Sparring-Chat zu senden.",
       },
       entitlements: {
         "com.apple.security.application-groups": ["group.com.kombat.app"],
