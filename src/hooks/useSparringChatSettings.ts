@@ -37,11 +37,13 @@ export function useSparringChatSettings(
   const toggleMedia = useCallback(async () => {
     if (!isOrganizer || user === null) return;
     const next = !mediaEnabled;
-    setMediaEnabled(next);
-    await supabase
+    const { error } = await supabase
       .from('sparring_chat_settings')
       .update({ media_enabled: next })
       .eq('sparring_id', sparringId);
+    if (error === null) {
+      setMediaEnabled(next);
+    }
   }, [isOrganizer, mediaEnabled, sparringId, user]);
 
   return { mediaEnabled, loading, toggleMedia };
