@@ -72,7 +72,7 @@ export default function ProfileNameEditor({ name, onSave }: ProfileNameEditorPro
         </View>
         {nameErr && (
           <Text style={styles.errorText}>
-            Nur Buchstaben, Leerzeichen und Bindestrich erlaubt
+            Bitte gib deinen echten Namen ein
           </Text>
         )}
       </View>
