@@ -1239,10 +1239,12 @@ export type UserReportInsert = Database['public']['Tables']['user_reports']['Ins
 export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
 export type SparringMessage = Database['public']['Tables']['sparring_messages']['Row']
 export type SparringMessageInsert = Database['public']['Tables']['sparring_messages']['Insert']
-export type SparringGroupMessage       = Database['public']['Tables']['sparring_group_messages']['Row']
-export type SparringGroupMessageInsert = Database['public']['Tables']['sparring_group_messages']['Insert']
-export type SparringChatSettings       = Database['public']['Tables']['sparring_chat_settings']['Row']
-export type SparringChatReads          = Database['public']['Tables']['sparring_chat_reads']['Row']
+export type SparringGroupMessage        = Database['public']['Tables']['sparring_group_messages']['Row']
+export type SparringGroupMessageInsert  = Database['public']['Tables']['sparring_group_messages']['Insert']
+export type SparringChatSettings        = Database['public']['Tables']['sparring_chat_settings']['Row']
+export type SparringChatSettingsInsert  = Database['public']['Tables']['sparring_chat_settings']['Insert']
+export type SparringChatReads           = Database['public']['Tables']['sparring_chat_reads']['Row']
+export type SparringChatReadsInsert     = Database['public']['Tables']['sparring_chat_reads']['Insert']
 
 // Nomination enriched with display data (computed in hook)
 export interface CoachNominationDetails {
