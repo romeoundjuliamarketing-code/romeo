@@ -40,7 +40,7 @@ export default function GroupMessageBubble({ message, isOwn }: Props) {
 const styles = StyleSheet.create({
   row: {
     paddingHorizontal: 16,
-    paddingVertical:    4,
+    paddingVertical:    8,
     alignItems:         'flex-start',
   },
   rowOwn: {
@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth:      '75%',
     borderRadius:  16,
-    padding:       12,
+    padding:       16,
     shadowColor:   colors.dark,
     shadowOffset:  { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -65,13 +65,13 @@ const styles = StyleSheet.create({
     fontSize:     12,
     fontWeight:   '600',
     color:        colors.accentBlue,
-    marginBottom:  4,
+    marginBottom:  8,
   },
   image: {
     width:        220,
     height:       160,
     borderRadius: 8,
-    marginBottom:  4,
+    marginBottom:  8,
   },
   content: {
     fontSize:  15,
@@ -84,10 +84,10 @@ const styles = StyleSheet.create({
   time: {
     fontSize:  11,
     color:     colors.textSecondary,
-    marginTop:  4,
+    marginTop:  8,
     alignSelf: 'flex-end',
   },
   timeOwn: {
-    color: 'rgba(255,255,255,0.7)',
+    color: colors.headerTextSecondary,
   },
 });
