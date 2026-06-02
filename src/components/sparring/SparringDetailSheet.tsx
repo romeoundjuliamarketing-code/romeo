@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
+  Animated,
+  Dimensions,
+  ScrollView,
   PanResponder,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,17 +22,20 @@ import SparringParticipantsList from './SparringParticipantsList';
 import MapBoostSheet from './MapBoostSheet';
 
 interface Props {
-  sparring:         SparringWithMeta | null;
-  currentUserId:    string | null;
-  onClose:          () => void;
-  onToggleSignup:   () => Promise<void>;
-  onDeactivate:     () => void;
+  sparring:          SparringWithMeta | null;
+  currentUserId:     string | null;
+  onClose:           () => void;
+  onToggleSignup:    () => Promise<void>;
+  onDeactivate:      () => void;
   onBoostActivated?: () => void;
-  loading:          boolean;
+  loading:           boolean;
 }
 
-// Banner color follows time-window (today=red, this week=orange, later=blue)
-// Featured sparrings always get accentBlue
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const SNAP_HALF    = SCREEN_HEIGHT * 0.42; // shows bottom 50%
+const SNAP_FULL    = 0;
+const SNAP_DISMISS = SCREEN_HEIGHT;
+
 function getBannerColor(scheduledAt: string, isFeatured: boolean): string {
   if (isFeatured) return colors.accentBlue;
   const today = new Date();
@@ -37,210 +43,273 @@ function getBannerColor(scheduledAt: string, isFeatured: boolean): string {
   const day = new Date(scheduledAt);
   day.setHours(0, 0, 0, 0);
   const diff = Math.round((day.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (diff === 0) return '#D94A4A'; // deleteRed equivalent
-  if (diff <= 7) return '#F5820A';
+  if (diff === 0) return colors.deleteRed;
+  if (diff <= 7) return colors.sparringsOrange;
   return colors.accentBlue;
 }
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
-  const date = d.toLocaleDateString('de-DE', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-  });
+  const date = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
   const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   return `${date}, ${time} Uhr`;
 }
 
-export default function SparringDetailSheet({ sparring, currentUserId, onClose, onToggleSignup, onDeactivate, onBoostActivated, loading }: Props) {
+export default function SparringDetailSheet({
+  sparring, currentUserId, onClose, onToggleSignup, onDeactivate, onBoostActivated, loading,
+}: Props) {
   const [boostSheetVisible, setBoostSheetVisible] = useState(false);
-  const dragStartY = useRef(0);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const panResponder = useRef(PanResponder.create({
+  const translateY  = useRef(new Animated.Value(SNAP_DISMISS)).current;
+  const currentSnap = useRef(SNAP_HALF);
+  const scrollYRef  = useRef(0);
+
+  // Animate in when a sparring is selected
+  useEffect(() => {
+    if (sparring !== null) {
+      translateY.setValue(SNAP_DISMISS);
+      currentSnap.current = SNAP_HALF;
+      Animated.spring(translateY, {
+        toValue: SNAP_HALF,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }).start();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sparring?.id]);
+
+  function dismiss(): void {
+    Animated.timing(translateY, {
+      toValue: SNAP_DISMISS,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => onClose());
+  }
+
+  function snapToFull(): void {
+    currentSnap.current = SNAP_FULL;
+    Animated.spring(translateY, { toValue: SNAP_FULL, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  }
+
+  function snapToHalf(): void {
+    currentSnap.current = SNAP_HALF;
+    Animated.spring(translateY, { toValue: SNAP_HALF, useNativeDriver: true, tension: 65, friction: 11 }).start();
+  }
+
+  // PanResponder on the banner/handle — controls expand + dismiss
+  const handlePan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onPanResponderGrant: (_, gs) => { dragStartY.current = gs.y0; },
+    onPanResponderMove: (_, gs) => {
+      translateY.setValue(Math.max(SNAP_FULL, currentSnap.current + gs.dy));
+    },
     onPanResponderRelease: (_, gs) => {
-      if (gs.dy > 80) onClose();
+      if (gs.dy > 80 || gs.vy > 0.5) {
+        dismiss();
+      } else if (gs.dy < -60 || gs.vy < -0.5) {
+        snapToFull();
+      } else {
+        // Snap to closest point
+        const projected = currentSnap.current + gs.dy;
+        if (projected < SNAP_HALF * 0.5) snapToFull(); else snapToHalf();
+      }
+    },
+  })).current;
+
+  // PanResponder on content wrapper — dismisses when scroll is at top + drag down
+  const contentPan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gs) => scrollYRef.current <= 1 && gs.dy > 8,
+    onMoveShouldSetPanResponderCapture: (_, gs) => scrollYRef.current <= 1 && gs.dy > 8,
+    onPanResponderMove: (_, gs) => {
+      if (gs.dy > 0) translateY.setValue(currentSnap.current + gs.dy);
+    },
+    onPanResponderRelease: (_, gs) => {
+      if (gs.dy > 80 || gs.vy > 0.5) {
+        dismiss();
+      } else {
+        Animated.spring(translateY, {
+          toValue: currentSnap.current,
+          useNativeDriver: true,
+          tension: 65,
+          friction: 11,
+        }).start();
+      }
     },
   })).current;
 
   if (sparring === null) return null;
 
-  const slotsLeft  = sparring.max_slots - sparring.signup_count;
-  const isFull     = slotsLeft <= 0;
-  const isCreator  = currentUserId !== null && sparring.created_by === currentUserId;
+  const slotsLeft   = sparring.max_slots - sparring.signup_count;
+  const isFull      = slotsLeft <= 0;
+  const isCreator   = currentUserId !== null && sparring.created_by === currentUserId;
   const bannerColor = getBannerColor(sparring.scheduled_at, sparring.is_featured);
-  const fillPct    = `${Math.min(100, Math.round((sparring.signup_count / sparring.max_slots) * 100))}%` as const;
+  const fillPct     = `${Math.min(100, Math.round((sparring.signup_count / sparring.max_slots) * 100))}%` as const;
 
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // sparring is guaranteed non-null here (guarded above)
+  const s = sparring;
 
   function handlePressProfile(userId: string): void {
-    if (sparring === null) return;
-    onClose();
+    dismiss();
     navigation.navigate('PublicProfile', {
       userId,
-      sparringId:          sparring.id,
-      sparringScheduledAt: sparring.scheduled_at,
+      sparringId:          s.id,
+      sparringScheduledAt: s.scheduled_at,
     });
   }
 
   function handleSignupPress(): void {
-    if (sparring === null) return;
-    if (sparring.is_signed_up) {
-      Alert.alert(
-        'Abmelden',
-        `Möchtest du dich von „${sparring.title}" abmelden?`,
-        [
-          { text: 'Zurück', style: 'cancel' },
-          { text: 'Abmelden', style: 'destructive', onPress: () => { void onToggleSignup(); } },
-        ],
-      );
+    if (s.is_signed_up) {
+      Alert.alert('Abmelden', `Möchtest du dich von „${s.title}" abmelden?`, [
+        { text: 'Zurück', style: 'cancel' },
+        { text: 'Abmelden', style: 'destructive', onPress: () => { void onToggleSignup(); } },
+      ]);
     } else {
-      Alert.alert(
-        'Anmelden',
-        `Möchtest du dich für „${sparring.title}" anmelden?`,
-        [
-          { text: 'Abbrechen', style: 'cancel' },
-          { text: 'Anmelden', onPress: () => { void onToggleSignup(); } },
-        ],
-      );
+      Alert.alert('Anmelden', `Möchtest du dich für „${s.title}" anmelden?`, [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Anmelden', onPress: () => { void onToggleSignup(); } },
+      ]);
     }
   }
 
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible animationType="none" transparent onRequestClose={dismiss}>
       <View style={styles.container}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <View style={styles.sheet}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={dismiss} />
 
-          {/* Hero banner — color follows time window; handle sits inside */}
-          <View style={[styles.banner, { backgroundColor: bannerColor }]}>
-            <View style={styles.handleRow} {...panResponder.panHandlers}>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+
+          {/* Banner + handle — drag here to expand or dismiss */}
+          <View style={[styles.banner, { backgroundColor: bannerColor }]} {...handlePan.panHandlers}>
+            <View style={styles.handleRow}>
               <View style={styles.handle} />
             </View>
-          <TouchableOpacity
-            style={styles.bannerClose}
-            onPress={onClose}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="close" size={22} color={colors.card} />
-          </TouchableOpacity>
-          <Text style={styles.bannerTitle} numberOfLines={2}>{sparring.title}</Text>
-        </View>
+            <TouchableOpacity
+              style={styles.bannerClose}
+              onPress={dismiss}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={22} color={colors.card} />
+            </TouchableOpacity>
+            <Text style={styles.bannerTitle} numberOfLines={2}>{sparring.title}</Text>
+          </View>
 
-        {/* Scrollable content below banner */}
-        <View style={styles.content}>
-
-          {/* Badges row */}
-          <View style={styles.badgesRow}>
-            {sparring.is_featured && (
-              <View style={styles.featuredBadge}>
-                <Ionicons name="checkmark-circle" size={14} color={colors.accentBlue} />
-                <Text style={styles.featuredBadgeText}>Sparr Pick</Text>
+          {/* Content — drag down at top also dismisses */}
+          <View style={styles.contentWrapper} {...contentPan.panHandlers}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.content}
+              scrollEventThrottle={16}
+              onScroll={(e) => { scrollYRef.current = e.nativeEvent.contentOffset.y; }}
+              bounces={false}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.badgesRow}>
+                {sparring.is_featured && (
+                  <View style={styles.featuredBadge}>
+                    <Ionicons name="checkmark-circle" size={14} color={colors.accentBlue} />
+                    <Text style={styles.featuredBadgeText}>Sparr Pick</Text>
+                  </View>
+                )}
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{sparring.discipline}</Text>
+                </View>
               </View>
-            )}
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{sparring.discipline}</Text>
-            </View>
-          </View>
 
-          <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.infoText}>
-              {sparring.studio_name} · {sparring.address}
-            </Text>
-          </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{sparring.studio_name} · {sparring.address}</Text>
+              </View>
 
-          <View style={styles.infoRow}>
-            <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.infoText}>{formatDateTime(sparring.scheduled_at)}</Text>
-          </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{formatDateTime(sparring.scheduled_at)}</Text>
+              </View>
 
-          <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.infoText}>{sparring.duration_min} Minuten</Text>
-          </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{sparring.duration_min} Minuten</Text>
+              </View>
 
-          <View style={styles.infoRow}>
-            <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.infoText}>
-              {sparring.signup_count}/{sparring.max_slots} Angemeldet
-              {!isFull && (
-                <Text style={styles.slotsLeft}>{`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}</Text>
+              <View style={styles.infoRow}>
+                <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>
+                  {sparring.signup_count}/{sparring.max_slots} Angemeldet
+                  {!isFull && (
+                    <Text style={styles.slotsLeft}>{`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}</Text>
+                  )}
+                </Text>
+              </View>
+
+              <View style={styles.slotsBar}>
+                <View style={[styles.slotsBarFill, isFull && styles.slotsBarFull, { width: fillPct }]} />
+              </View>
+
+              {sparring.notes !== null && sparring.notes.length > 0 && (
+                <Text style={styles.notes}>{sparring.notes}</Text>
               )}
-            </Text>
+
+              <SparringParticipantsList
+                sparringId={sparring.id}
+                currentUserId={currentUserId}
+                sparringScheduledAt={sparring.scheduled_at}
+                onPressProfile={handlePressProfile}
+              />
+
+              <TouchableOpacity
+                style={[
+                  styles.btn,
+                  sparring.is_signed_up && styles.btnCancel,
+                  isFull && !sparring.is_signed_up && styles.btnDisabled,
+                ]}
+                onPress={handleSignupPress}
+                disabled={loading || (isFull && !sparring.is_signed_up)}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.card} />
+                ) : (
+                  <Text style={styles.btnText}>
+                    {sparring.is_signed_up ? 'Abmelden' : isFull ? 'Ausgebucht' : 'Anmelden'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {isCreator && (
+                <TouchableOpacity
+                  style={styles.boostBtn}
+                  onPress={() => setBoostSheetVisible(true)}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
+                  <Text style={styles.boostBtnText}>Karten-Boost</Text>
+                </TouchableOpacity>
+              )}
+
+              {isCreator && (
+                <TouchableOpacity
+                  style={styles.btnDeactivate}
+                  onPress={onDeactivate}
+                  disabled={loading}
+                >
+                  <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
           </View>
+        </Animated.View>
 
-          {/* Slots progress bar */}
-          <View style={styles.slotsBar}>
-            <View style={[styles.slotsBarFill, isFull && styles.slotsBarFull, { width: fillPct }]} />
-          </View>
-
-          {sparring.notes !== null && sparring.notes.length > 0 && (
-            <Text style={styles.notes}>{sparring.notes}</Text>
-          )}
-
-          <SparringParticipantsList
+        {isCreator && boostSheetVisible && (
+          <MapBoostSheet
             sparringId={sparring.id}
-            currentUserId={currentUserId}
-            sparringScheduledAt={sparring.scheduled_at}
-            onPressProfile={handlePressProfile}
+            visible={boostSheetVisible}
+            onClose={() => setBoostSheetVisible(false)}
+            onBoostActivated={() => {
+              setBoostSheetVisible(false);
+              onBoostActivated?.();
+            }}
           />
-
-          <TouchableOpacity
-            style={[
-              styles.btn,
-              sparring.is_signed_up && styles.btnCancel,
-              isFull && !sparring.is_signed_up && styles.btnDisabled,
-            ]}
-            onPress={handleSignupPress}
-            disabled={loading || (isFull && !sparring.is_signed_up)}
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.card} />
-            ) : (
-              <Text style={styles.btnText}>
-                {sparring.is_signed_up ? 'Abmelden' : isFull ? 'Ausgebucht' : 'Anmelden'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {isCreator && (
-            <TouchableOpacity
-              style={styles.boostBtn}
-              onPress={() => setBoostSheetVisible(true)}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
-              <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
-              <Text style={styles.boostBtnText}>Karten-Boost</Text>
-            </TouchableOpacity>
-          )}
-
-          {isCreator && (
-            <TouchableOpacity
-              style={styles.btnDeactivate}
-              onPress={onDeactivate}
-              disabled={loading}
-            >
-              <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
-            </TouchableOpacity>
-          )}
-
-          {isCreator && boostSheetVisible && (
-            <MapBoostSheet
-              sparringId={sparring.id}
-              visible={boostSheetVisible}
-              onClose={() => setBoostSheetVisible(false)}
-              onBoostActivated={() => {
-                setBoostSheetVisible(false);
-                onBoostActivated?.();
-              }}
-            />
-          )}
-          </View>
-        </View>
+        )}
       </View>
     </Modal>
   );
@@ -248,7 +317,7 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex:           1,
     justifyContent: 'flex-end',
   },
   backdrop: {
@@ -256,6 +325,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
+    height:               SCREEN_HEIGHT * 0.92,
     backgroundColor:      colors.card,
     borderTopLeftRadius:  24,
     borderTopRightRadius: 24,
@@ -274,17 +344,17 @@ const styles = StyleSheet.create({
   },
   banner: {
     paddingHorizontal: 24,
-    paddingBottom:    20,
-    justifyContent:   'flex-end',
+    paddingBottom:     20,
+    justifyContent:    'flex-end',
   },
   bannerClose: {
-    position:        'absolute',
-    top:             8,
-    right:           16,
-    width:           36,
-    height:          36,
-    alignItems:      'center',
-    justifyContent:  'center',
+    position:       'absolute',
+    top:            8,
+    right:          16,
+    width:          36,
+    height:         36,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
   bannerTitle: {
     fontSize:   22,
@@ -292,10 +362,16 @@ const styles = StyleSheet.create({
     color:      colors.card,
     lineHeight: 28,
   },
+  contentWrapper: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
   content: {
     padding:       24,
     paddingTop:    16,
-    paddingBottom: 40,
+    paddingBottom: 48,
     gap:           14,
   },
   badgesRow: {
@@ -364,12 +440,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.deleteRed,
   },
   notes: {
-    fontSize:        14,
-    color:           colors.text,
-    lineHeight:      20,
-    paddingTop:      4,
-    borderTopWidth:  1,
-    borderTopColor:  colors.border,
+    fontSize:       14,
+    color:          colors.text,
+    lineHeight:     20,
+    paddingTop:     4,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   btn: {
     backgroundColor: colors.accentBlue,
