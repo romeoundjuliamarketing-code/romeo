@@ -58,6 +58,7 @@ export function useSparringGroupChat(
       sender_id:   row.sender_id,
       content:     row.content,
       image_url:   row.image_url,
+      is_system:   row.is_system,
       created_at:  row.created_at,
       senderName:  nameMap.get(row.sender_id) ?? null,
     }));

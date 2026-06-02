@@ -13,6 +13,16 @@ function formatTime(iso: string): string {
 }
 
 export default function GroupMessageBubble({ message, isOwn }: Props) {
+  if (message.is_system) {
+    return (
+      <View style={styles.systemRow}>
+        <View style={styles.systemChip}>
+          <Text style={styles.systemText}>{message.content}</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.row, isOwn && styles.rowOwn]}>
       <View style={[styles.bubble, isOwn ? styles.bubbleOwn : styles.bubbleOther]}>
@@ -89,5 +99,21 @@ const styles = StyleSheet.create({
   },
   timeOwn: {
     color: colors.headerTextSecondary,
+  },
+  systemRow: {
+    alignItems:      'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  systemChip: {
+    backgroundColor:   colors.border,
+    borderRadius:      12,
+    paddingHorizontal: 12,
+    paddingVertical:   4,
+  },
+  systemText: {
+    fontSize:  12,
+    color:     colors.textSecondary,
+    textAlign: 'center',
   },
 });

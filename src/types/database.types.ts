@@ -481,6 +481,7 @@ export type Database = {
           sender_id:   string
           content:     string | null
           image_url:   string | null
+          is_system:   boolean
           created_at:  string
         }
         Insert: {
@@ -489,6 +490,7 @@ export type Database = {
           sender_id:   string
           content?:    string | null
           image_url?:  string | null
+          is_system?:  boolean
           created_at?: string
         }
         Update: {
@@ -497,6 +499,7 @@ export type Database = {
           sender_id?:   string
           content?:     string | null
           image_url?:   string | null
+          is_system?:   boolean
           created_at?:  string
         }
         Relationships: [

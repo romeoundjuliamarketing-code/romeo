@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -19,13 +19,29 @@ import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-n
 import { colors } from '../theme/colors';
 import { useSparringGroupChat } from '../hooks/useSparringGroupChat';
 import { useSparringChatSettings } from '../hooks/useSparringChatSettings';
+import { useSparringActions } from '../hooks/useSparringActions';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import GroupMessageBubble from '../components/chat/GroupMessageBubble';
 import ChatImagePicker from '../components/chat/ChatImagePicker';
-import { useAuth } from '../context/AuthContext';
+import SparringChatInfoBanner from '../components/chat/SparringChatInfoBanner';
+import SparringChatParticipantBar from '../components/chat/SparringChatParticipantBar';
+import type { Participant } from '../components/chat/SparringChatParticipantBar';
 import type { RootStackParamList } from '../navigation/types';
 import type { GroupMessageWithSender } from '../hooks/useSparringGroupChat';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SparringGroupChat'>;
+
+function getCountdown(iso: string): string {
+  const now   = new Date();
+  const event = new Date(iso);
+  const diff  = Math.floor((event.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const time  = event.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  if (event < now)  return 'Bereits vorbei';
+  if (diff === 0)   return `Heute · ${time} Uhr`;
+  if (diff === 1)   return `Morgen · ${time} Uhr`;
+  return `In ${diff} Tagen · ${time} Uhr`;
+}
 
 export default function SparringGroupChatScreen() {
   const insets     = useSafeAreaInsets();
@@ -39,16 +55,54 @@ export default function SparringGroupChatScreen() {
     useSparringGroupChat(sparringId, scheduledAt, durationMin);
   const { mediaEnabled, toggleMedia } =
     useSparringChatSettings(sparringId, isOrganizer);
+  const { signUp, cancelSignup } = useSparringActions();
 
   const [inputText,       setInputText]       = useState('');
   const [settingsVisible, setSettingsVisible] = useState(false);
   const listRef = useRef<FlatList<GroupMessageWithSender>>(null);
 
-  function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString('de-DE', {
-      weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric',
-    });
-  }
+  // Sparring info + participants
+  const [sparringInfo, setSparringInfo] = useState<{
+    address: string; signupCount: number; maxSlots: number;
+  } | null>(null);
+  const [participants,   setParticipants]   = useState<Participant[]>([]);
+  const [isSignedUp,     setIsSignedUp]     = useState(false);
+  const [signupLoading,  setSignupLoading]  = useState(false);
+
+  const loadDetails = useCallback(async () => {
+    const [sparringRes, signupsRes] = await Promise.all([
+      supabase
+        .from('open_sparrings')
+        .select('address, max_slots')
+        .eq('id', sparringId)
+        .single(),
+      supabase
+        .from('sparring_signups')
+        .select('user_id, profiles!user_id(name, avatar_url)')
+        .eq('sparring_id', sparringId),
+    ]);
+
+    if (sparringRes.data !== null) {
+      setSparringInfo({
+        address:     sparringRes.data.address,
+        signupCount: signupsRes.data?.length ?? 0,
+        maxSlots:    sparringRes.data.max_slots,
+      });
+    }
+
+    if (signupsRes.data !== null) {
+      type ProfileJoin = { name: string | null; avatar_url: string | null } | null;
+      const ps: Participant[] = signupsRes.data.map((row) => ({
+        id:        row.user_id,
+        name:      (row.profiles as ProfileJoin)?.name ?? null,
+        avatarUrl: (row.profiles as ProfileJoin)?.avatar_url ?? null,
+      }));
+      setParticipants(ps);
+      setIsSignedUp(ps.some((p) => p.id === user?.id));
+    }
+  }, [sparringId, user?.id]);
+
+  useEffect(() => { void loadDetails(); }, [loadDetails]);
 
   useEffect(() => {
     if (sendError !== null) {
@@ -56,12 +110,28 @@ export default function SparringGroupChatScreen() {
     }
   }, [sendError, clearSendError]);
 
+  async function handleToggleSignup() {
+    if (signupLoading) return;
+    setSignupLoading(true);
+    if (isSignedUp) {
+      await cancelSignup(sparringId);
+    } else {
+      await signUp(sparringId);
+    }
+    await loadDetails();
+    setSignupLoading(false);
+  }
+
   async function handleSend() {
     const text = inputText.trim();
     if (text.length === 0 || sending) return;
     setInputText('');
     await sendText(text);
   }
+
+  const isFull = sparringInfo !== null
+    ? sparringInfo.signupCount >= sparringInfo.maxSlots
+    : false;
 
   return (
     <KeyboardAvoidingView
@@ -76,19 +146,27 @@ export default function SparringGroupChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{sparringTitle}</Text>
-          <Text style={styles.headerSub}>{formatDate(scheduledAt)}</Text>
+          <Text style={styles.headerSub}>
+            {getCountdown(scheduledAt)}
+          </Text>
         </View>
         {isOrganizer ? (
-          <TouchableOpacity
-            onPress={() => setSettingsVisible(true)}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
+          <TouchableOpacity onPress={() => setSettingsVisible(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="settings-outline" size={22} color={colors.text} />
           </TouchableOpacity>
         ) : (
           <View style={styles.headerSpacer} />
         )}
       </View>
+
+      {/* Info banner: address + slots */}
+      {sparringInfo !== null && (
+        <SparringChatInfoBanner
+          address={sparringInfo.address}
+          signupCount={sparringInfo.signupCount}
+          maxSlots={sparringInfo.maxSlots}
+        />
+      )}
 
       {/* Messages */}
       {loading ? (
@@ -109,7 +187,18 @@ export default function SparringGroupChatScreen() {
         />
       )}
 
-      {/* Read-only banner or input */}
+      {/* Participant bar + Ich bin dabei (only when not organizer + active sparring) */}
+      {!isOrganizer && !isReadOnly && (
+        <SparringChatParticipantBar
+          participants={participants}
+          isSignedUp={isSignedUp}
+          loading={signupLoading}
+          isFull={isFull}
+          onToggle={() => { void handleToggleSignup(); }}
+        />
+      )}
+
+      {/* Read-only banner or input row */}
       {isReadOnly ? (
         <View style={[styles.readOnlyBanner, { paddingBottom: insets.bottom + 8 }]}>
           <Text style={styles.readOnlyText}>Dieses Sparring hat stattgefunden.</Text>
@@ -202,8 +291,8 @@ const styles = StyleSheet.create({
     color:      colors.text,
   },
   headerSub: {
-    fontSize: 12,
-    color:    colors.textSecondary,
+    fontSize:   12,
+    color:      colors.textSecondary,
   },
   headerSpacer: {
     width: 24,
