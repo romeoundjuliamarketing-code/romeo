@@ -104,7 +104,7 @@ export function useSparringChatList(): UseSparringChatList {
       .map((s) => {
         const last     = lastMsgs.get(s.id) ?? null;
         const unread   = unreadMap.get(s.id) ?? 0;
-        const lastText = last?.content ?? (last?.image_url != null ? 'Bild' : null);
+        const lastText = last?.content ?? (last !== null && last.image_url !== null ? 'Bild' : null);
         return {
           sparringId:      s.id,
           sparringTitle:   s.title,
