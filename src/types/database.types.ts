@@ -448,6 +448,89 @@ export type Database = {
           },
         ]
       }
+      sparring_chat_settings: {
+        Row: {
+          sparring_id:   string
+          media_enabled: boolean
+        }
+        Insert: {
+          sparring_id:    string
+          media_enabled?: boolean
+        }
+        Update: {
+          sparring_id?:   string
+          media_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_chat_settings_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: true
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sparring_group_messages: {
+        Row: {
+          id:          string
+          sparring_id: string
+          sender_id:   string
+          content:     string | null
+          image_url:   string | null
+          created_at:  string
+        }
+        Insert: {
+          id?:         string
+          sparring_id: string
+          sender_id:   string
+          content?:    string | null
+          image_url?:  string | null
+          created_at?: string
+        }
+        Update: {
+          id?:          string
+          sparring_id?: string
+          sender_id?:   string
+          content?:     string | null
+          image_url?:   string | null
+          created_at?:  string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_group_messages_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_group_messages_sender_id_fkey'
+            columns: ['sender_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sparring_chat_reads: {
+        Row: {
+          user_id:      string
+          sparring_id:  string
+          last_read_at: string
+        }
+        Insert: {
+          user_id:       string
+          sparring_id:   string
+          last_read_at?: string
+        }
+        Update: {
+          user_id?:      string
+          sparring_id?:  string
+          last_read_at?: string
+        }
+        Relationships: []
+      }
       user_reports: {
         Row: {
           id:               string
@@ -1156,6 +1239,10 @@ export type UserReportInsert = Database['public']['Tables']['user_reports']['Ins
 export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
 export type SparringMessage = Database['public']['Tables']['sparring_messages']['Row']
 export type SparringMessageInsert = Database['public']['Tables']['sparring_messages']['Insert']
+export type SparringGroupMessage       = Database['public']['Tables']['sparring_group_messages']['Row']
+export type SparringGroupMessageInsert = Database['public']['Tables']['sparring_group_messages']['Insert']
+export type SparringChatSettings       = Database['public']['Tables']['sparring_chat_settings']['Row']
+export type SparringChatReads          = Database['public']['Tables']['sparring_chat_reads']['Row']
 
 // Nomination enriched with display data (computed in hook)
 export interface CoachNominationDetails {
