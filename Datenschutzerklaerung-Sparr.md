@@ -26,7 +26,7 @@ Bei der Nutzung von Sparr erheben wir folgende personenbezogene Daten:
 - **Kaufhistorie:** Abonnementstatus (Individual oder Studio), Zahlungszeitraum
 - **Nutzungsdaten:** App-Interaktionen, Einstellungen, Teamzugehörigkeit
 
-Wir erheben **keine** Standortdaten, keine Kontakte und keine Daten aus anderen Apps.
+Wir erheben **keine** Kontakte und keine Daten aus anderen Apps. **Standortdaten** (ungefährer Standort) werden nur erhoben wenn du die Sparring-Partner-Karte nutzt und der App explizit Zugriff erteilt hast. Standortdaten werden nicht dauerhaft gespeichert.
 
 ---
 
@@ -60,8 +60,12 @@ Für die Verwaltung von In-App-Käufen nutzen wir RevenueCat Inc. RevenueCat erh
 Weitere Informationen: [revenuecat.com/privacy](https://www.revenuecat.com/privacy)
 
 ### Apple App Store
-Zahlungen für Abonnements werden ausschließlich über Apple In-App Purchase abgewickelt. Wir erhalten keine vollständigen Zahlungsdaten. Es gelten die Datenschutzbestimmungen von Apple.
+Zahlungen für Abonnements auf iOS werden über Apple In-App Purchase abgewickelt. Wir erhalten keine vollständigen Zahlungsdaten. Es gelten die Datenschutzbestimmungen von Apple.
 Weitere Informationen: [apple.com/legal/privacy](https://www.apple.com/legal/privacy/)
+
+### Google Play Store
+Zahlungen für Abonnements auf Android werden über Google Play Billing abgewickelt. Wir erhalten keine vollständigen Zahlungsdaten. Es gelten die Datenschutzbestimmungen von Google.
+Weitere Informationen: [policies.google.com/privacy](https://policies.google.com/privacy)
 
 ---
 

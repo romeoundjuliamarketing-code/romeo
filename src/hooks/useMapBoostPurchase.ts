@@ -27,7 +27,7 @@ const DEFAULT_STATUS: BoostStatus = {
   daysRemaining: null,
 };
 
-const BOOST_OFFERING_ID = 'map_boost';
+const BOOST_OFFERING_ID = 'map-boost';
 const POLL_RETRIES      = 5;
 const POLL_DELAY_MS     = 2000;
 

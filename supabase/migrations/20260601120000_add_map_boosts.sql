@@ -12,8 +12,8 @@ CREATE TABLE map_boosts (
 );
 
 CREATE INDEX map_boosts_sparring_active_idx
-  ON map_boosts (sparring_id)
-  WHERE is_active = true AND expires_at > now();
+  ON map_boosts (sparring_id, expires_at)
+  WHERE is_active = true;
 
 ALTER TABLE map_boosts ENABLE ROW LEVEL SECURITY;
 

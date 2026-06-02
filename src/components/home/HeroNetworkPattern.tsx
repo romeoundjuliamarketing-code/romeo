@@ -8,6 +8,7 @@ const EXCLUSION_R    = 68;   // empty zone around streak number
 const OCTAGON_R      = 78;   // octagon sits just outside exclusion zone
 const OCTAGON_N      = 8;
 const PATTERN_ZONE   = 0.38; // fraction of hero height used for the pattern
+const GLOW_BLEED     = 30;   // max glow radius — SVG viewport extends this far below the node zone
 
 // Poisson-disk parameters
 const MIN_DIST  = 52;  // minimum px between any two random nodes
@@ -206,7 +207,7 @@ export default function HeroNetworkPattern({ height, exclusionCenter = null }: P
 
   return (
     <View style={[StyleSheet.absoluteFillObject, styles.container]} pointerEvents="none">
-      <Svg width={W} height={zoneHeight}>
+      <Svg width={W} height={zoneHeight + GLOW_BLEED}>
         <Defs>
           <RadialGradient id="nodeGlow" cx="50%" cy="50%" r="50%" gradientUnits="objectBoundingBox">
             <Stop offset="0%"   stopColor="#4A90D9" stopOpacity={0.18} />

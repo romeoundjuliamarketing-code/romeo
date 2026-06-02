@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Alert,
+  PanResponder,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -54,6 +55,15 @@ function formatDateTime(iso: string): string {
 
 export default function SparringDetailSheet({ sparring, currentUserId, onClose, onToggleSignup, onDeactivate, onBoostActivated, loading }: Props) {
   const [boostSheetVisible, setBoostSheetVisible] = useState(false);
+  const dragStartY = useRef(0);
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onPanResponderGrant: (_, gs) => { dragStartY.current = gs.y0; },
+    onPanResponderRelease: (_, gs) => {
+      if (gs.dy > 80) onClose();
+    },
+  })).current;
 
   if (sparring === null) return null;
 
@@ -100,14 +110,15 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
 
   return (
     <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-      <View style={styles.sheet}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.sheet}>
 
-        {/* Hero banner — color follows time window; handle sits inside */}
-        <View style={[styles.banner, { backgroundColor: bannerColor }]}>
-          <View style={styles.handleRow}>
-            <View style={styles.handle} />
-          </View>
+          {/* Hero banner — color follows time window; handle sits inside */}
+          <View style={[styles.banner, { backgroundColor: bannerColor }]}>
+            <View style={styles.handleRow} {...panResponder.panHandlers}>
+              <View style={styles.handle} />
+            </View>
           <TouchableOpacity
             style={styles.bannerClose}
             onPress={onClose}
@@ -175,35 +186,7 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
             currentUserId={currentUserId}
             sparringScheduledAt={sparring.scheduled_at}
             onPressProfile={handlePressProfile}
-            onPressChat={isCreator ? (userId, name) => {
-              onClose();
-              navigation.navigate('SparringChat', {
-                sparringId:      sparring.id,
-                otherUserId:     userId,
-                otherUserName:   name,
-                organizerUserId: sparring.created_by,
-              });
-            } : undefined}
           />
-
-          {currentUserId !== null && currentUserId !== sparring.created_by && sparring.is_signed_up === true && (
-            <TouchableOpacity
-              style={styles.chatBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                onClose();
-                navigation.navigate('SparringChat', {
-                  sparringId:      sparring.id,
-                  otherUserId:     sparring.created_by,
-                  otherUserName:   'Organisator',
-                  organizerUserId: sparring.created_by,
-                });
-              }}
-            >
-              <Ionicons name="chatbubble-outline" size={18} color={colors.accentBlue} />
-              <Text style={styles.chatBtnText}>Schreibe an Organisator</Text>
-            </TouchableOpacity>
-          )}
 
           <TouchableOpacity
             style={[
@@ -256,6 +239,7 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
               }}
             />
           )}
+          </View>
         </View>
       </View>
     </Modal>
@@ -263,19 +247,23 @@ export default function SparringDetailSheet({ sparring, currentUserId, onClose, 
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  container: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
-    backgroundColor:    colors.card,
+    backgroundColor:      colors.card,
     borderTopLeftRadius:  24,
     borderTopRightRadius: 24,
-    overflow:           'hidden',
+    overflow:             'hidden',
   },
   handleRow: {
-    alignItems:   'center',
-    paddingTop:   12,
+    alignItems:    'center',
+    paddingTop:    12,
     paddingBottom: 4,
   },
   handle: {
@@ -382,19 +370,6 @@ const styles = StyleSheet.create({
     paddingTop:      4,
     borderTopWidth:  1,
     borderTopColor:  colors.border,
-  },
-  chatBtn: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            8,
-    paddingVertical: 16,
-    borderTopWidth:  1,
-    borderTopColor:  colors.border,
-  },
-  chatBtnText: {
-    fontSize:   14,
-    fontWeight: '600',
-    color:      colors.accentBlue,
   },
   btn: {
     backgroundColor: colors.accentBlue,

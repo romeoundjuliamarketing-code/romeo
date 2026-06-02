@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { colors } from '../../theme/colors';
 
@@ -23,7 +22,6 @@ interface Props {
   currentUserId:       string | null;
   sparringScheduledAt: string;
   onPressProfile:      (userId: string) => void;
-  onPressChat?:        (userId: string, name: string) => void;
 }
 
 // Derive up-to-2-letter initials from a display name
@@ -41,7 +39,6 @@ export default function SparringParticipantsList({
   sparringId,
   currentUserId,
   onPressProfile,
-  onPressChat,
 }: Props): React.ReactElement | null {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -97,13 +94,7 @@ export default function SparringParticipantsList({
           key={p.userId}
           style={styles.row}
           activeOpacity={0.7}
-          onPress={() => {
-            if (onPressChat !== undefined) {
-              onPressChat(p.userId, p.name ?? 'Unbekannt');
-            } else {
-              onPressProfile(p.userId);
-            }
-          }}
+          onPress={() => { onPressProfile(p.userId); }}
         >
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{getInitials(p.name)}</Text>
@@ -116,9 +107,6 @@ export default function SparringParticipantsList({
               </View>
             )}
           </View>
-          {onPressChat !== undefined && (
-            <Ionicons name="chatbubble-outline" size={18} color={colors.accentBlue} />
-          )}
         </TouchableOpacity>
       ))}
     </View>

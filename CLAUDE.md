@@ -176,6 +176,23 @@ Coaches können den Studio-Stundenplan direkt in der App bearbeiten:
 - Im `coachEditMode` zeigt der Plan immer `studioSchedule` (nicht den persönlichen Plan)
 - Änderungen triggern `onStudioRefetch()` → `useSchedule.refetch()` in `TrainingScreen`
 
+### Karten (Maps)
+
+Kein Google Maps — kein API Key vorhanden und nicht gewünscht.
+
+- **iOS**: `react-native-maps` + Apple Maps (`PROVIDER_DEFAULT`) — kein Key nötig
+- **Android**: `@maplibre/maplibre-react-native` + OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`)
+- Plattform-Split via `.ios.tsx` / `.android.tsx` Dateinamen — Metro wählt automatisch die richtige Datei
+- TypeScript-Stub `ComponentName.tsx` (ohne Platform-Suffix) nötig damit `tsc` den Import auflösen kann
+
+**Kritisch für Android (v11+):** MapLibre `<Map>` OHNE `androidView`-Prop rendern — der Standard ist seit v11 `GLSurfaceView` und stabil.
+`androidView="texture"` NICHT verwenden — TextureView verursacht SIGSEGV-Crashes (Fatal signal 11 im Thread TextureViewRend) auf vielen Android-Geräten.
+
+```tsx
+// Richtig:
+<Map mapStyle={MAP_STYLE} style={styles.map} androidView="texture">
+```
+
 ---
 
 # Projektregeln

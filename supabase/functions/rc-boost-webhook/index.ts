@@ -8,7 +8,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const BOOST_PRODUCT_ID   = 'sparr_map_boost_30d';
+const BOOST_PRODUCT_ID   = 'com.deinebundle.sparr.mapbadge_30d';
 const BOOST_DURATION_DAYS = 30;
 
 // RC webhook payload shapes (minimal — only fields we consume).

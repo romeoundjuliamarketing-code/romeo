@@ -3,7 +3,7 @@ module.exports = {
     name: "Sparr",
     slug: "sparr",
     scheme: "sparr",
-    version: "1.1.0",
+    version: "1.1.1",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -26,6 +26,7 @@ module.exports = {
       },
     },
     android: {
+      package: "com.kombat.app",
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/android-icon-foreground.png",
@@ -39,6 +40,7 @@ module.exports = {
     },
     assetBundlePatterns: ["assets/**"],
     plugins: [
+      "@maplibre/maplibre-react-native",
       "expo-notifications",
       "expo-secure-store",
       "@react-native-community/datetimepicker",

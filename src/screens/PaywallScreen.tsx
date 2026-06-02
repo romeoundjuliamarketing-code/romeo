@@ -53,6 +53,12 @@ function findPackageFuzzy(
   return undefined;
 }
 
+// Returns true when the package has a free-trial introductory offer (price === 0).
+function hasFreeTrial(pkg: PurchasesPackage | undefined): boolean {
+  if (pkg === undefined) return false;
+  return pkg.product.introPrice !== null && pkg.product.introPrice?.price === 0;
+}
+
 type PlanCardProps = {
   title: string;
   subtitle: string;
@@ -60,6 +66,7 @@ type PlanCardProps = {
   details: string[];
   loading?: boolean;
   highlighted?: boolean;
+  hasTrialOffer?: boolean;
   onPress: () => void;
 };
 
@@ -70,13 +77,14 @@ function PlanCard({
   details,
   loading = false,
   highlighted = false,
+  hasTrialOffer = false,
   onPress,
 }: PlanCardProps): React.ReactElement {
   return (
     <View style={[styles.planCard, highlighted && styles.planCardHighlighted]}>
       <Text style={styles.planTitle}>{title}</Text>
       <Text style={styles.planSubtitle}>{subtitle}</Text>
-      <Text style={styles.planPrice}>{price}</Text>
+      <Text style={styles.planPrice}>{hasTrialOffer ? 'Kostenlos' : price}</Text>
 
       <View style={styles.detailList}>
         {details.map((item) => (
@@ -97,10 +105,14 @@ function PlanCard({
           <ActivityIndicator size="small" color={highlighted ? colors.card : colors.accentBlue} />
         ) : (
           <Text style={[styles.planButtonLabel, highlighted && styles.planButtonLabelHighlighted]}>
-            Abo auswählen
+            {hasTrialOffer ? 'Kostenlos starten' : 'Abo auswählen'}
           </Text>
         )}
       </TouchableOpacity>
+
+      {hasTrialOffer && (
+        <Text style={styles.trialNote}>Danach {price} — jederzeit kündbar.</Text>
+      )}
     </View>
   );
 }
@@ -199,6 +211,8 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
 
   const indPkg = packages[PACKAGE_IDS.individual[billingCycle]] ?? findPackageFuzzy(packages, 'individual', billingCycle);
   const studioPkg = packages[PACKAGE_IDS.studio[billingCycle]] ?? findPackageFuzzy(packages, 'studio', billingCycle);
+  // Trial is available when at least one package carries a free introductory offer.
+  const trialAvailable = hasFreeTrial(indPkg) || hasFreeTrial(studioPkg);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -212,9 +226,13 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-        <Text style={styles.title}>Alle Premium-Funktionen freischalten</Text>
+        <Text style={styles.title}>
+          {trialAvailable ? '7 Tage kostenlos testen' : 'Alle Premium-Funktionen freischalten'}
+        </Text>
         <Text style={styles.subtitle}>
-          Punkte, Stats und Team-Ranking sind im Abo enthalten.
+          {trialAvailable
+            ? 'Starte heute gratis. Kein Risiko — jederzeit kündbar.'
+            : 'Punkte, Stats und Team-Ranking sind im Abo enthalten.'}
         </Text>
 
         <View style={styles.cycleCard}>
@@ -255,6 +273,7 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
                 'Monatlich kündbar',
               ]}
               loading={pendingPlan === 'individual'}
+              hasTrialOffer={hasFreeTrial(indPkg)}
               onPress={() => { void handlePlanSelect('individual'); }}
             />
 
@@ -269,13 +288,16 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
               ]}
               highlighted
               loading={pendingPlan === 'studio'}
+              hasTrialOffer={hasFreeTrial(studioPkg)}
               onPress={() => { void handlePlanSelect('studio'); }}
             />
           </>
         )}
 
         <Text style={styles.legalNote}>
-          Das Abo verlängert sich automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende der aktuellen Laufzeit gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.
+          {trialAvailable
+            ? 'Der Testzeitraum startet sofort und endet nach 7 Tagen. Danach verlängert sich das Abo automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.'
+            : 'Das Abo verlängert sich automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende der aktuellen Laufzeit gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.'}
         </Text>
 
         <View style={styles.legalLinks}>
@@ -452,6 +474,13 @@ const styles = StyleSheet.create({
   },
   planButtonLabelHighlighted: {
     color: colors.card,
+  },
+  trialNote: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.inactive,
+    textAlign: 'center',
+    marginTop: 4,
   },
   legalNote: {
     fontSize: 12,
