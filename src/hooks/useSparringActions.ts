@@ -104,21 +104,34 @@ export function useSparringActions(): {
       }
     }
 
-    const { error } = await supabase.from('open_sparrings').insert({
-      studio_id: params.studioId !== undefined ? studioId : (params.isAtStudio === true ? (params.atStudioId ?? null) : null),
-      is_at_studio: params.studioId !== undefined ? true : (params.isAtStudio === true),
-      created_by: user.id,
-      title: params.title,
-      discipline: params.discipline,
-      address: resolvedAddress,
-      lat,
-      lng,
-      scheduled_at: params.scheduledAt,
-      duration_min: params.durationMin,
-      max_slots: params.maxSlots,
-      notes: params.notes.trim() || null,
-    });
-    return { error: error?.message ?? null };
+    const { data: newSparring, error } = await supabase
+      .from('open_sparrings')
+      .insert({
+        studio_id:    params.studioId !== undefined ? studioId : (params.isAtStudio === true ? (params.atStudioId ?? null) : null),
+        is_at_studio: params.studioId !== undefined ? true : (params.isAtStudio === true),
+        created_by:   user.id,
+        title:        params.title,
+        discipline:   params.discipline,
+        address:      resolvedAddress,
+        lat,
+        lng,
+        scheduled_at: params.scheduledAt,
+        duration_min: params.durationMin,
+        max_slots:    params.maxSlots,
+        notes:        params.notes.trim() || null,
+      })
+      .select('id')
+      .single();
+
+    if (error !== null || newSparring === null) {
+      return { error: error?.message ?? 'Sparring konnte nicht erstellt werden.' };
+    }
+
+    await supabase
+      .from('sparring_chat_settings')
+      .insert({ sparring_id: newSparring.id });
+
+    return { error: null };
   }, [user]);
 
   const deactivateSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
