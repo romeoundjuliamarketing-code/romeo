@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useOpenSparrings } from '../hooks/useOpenSparrings';
@@ -10,12 +12,14 @@ import { useStudio } from '../hooks/useStudio';
 import { useStudioAddress } from '../hooks/useStudioAddress';
 import { useStudioMapMarkers } from '../hooks/useStudioMapMarkers';
 import type { StudioMapMarker } from '../hooks/useStudioMapMarkers';
+import { useSparringChatList } from '../hooks/useSparringChatList';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import StudioMapDetailSheet from '../components/sparring/StudioMapDetailSheet';
 import SparringMapView from '../components/sparring/SparringMapView';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
+import type { RootStackParamList } from '../navigation/types';
 
 interface NavProp {
   goBack(): void;
@@ -37,6 +41,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const { user } = useAuth();
   const { sparrings, refetch } = useOpenSparrings();
   const { signUp, cancelSignup, createSparring, deactivateSparring } = useSparringActions();
+  const navigation  = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { totalUnread } = useSparringChatList();
   const [selected, setSelected]             = useState<SparringWithMeta | null>(null);
   const [actionLoading, setActionLoading]   = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
@@ -113,6 +119,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         mode={mode}
         onSparringPress={setSelected}
         onStudioPress={setSelectedStudio}
+        totalUnread={totalUnread}
+        onChatPress={() => navigation.navigate('SparringChatList')}
       />
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
