@@ -127,9 +127,14 @@ export function useSparringActions(): {
       return { error: error?.message ?? 'Sparring konnte nicht erstellt werden.' };
     }
 
-    await supabase
+    const { error: settingsError } = await supabase
       .from('sparring_chat_settings')
       .insert({ sparring_id: newSparring.id });
+
+    if (settingsError !== null) {
+      await supabase.from('open_sparrings').delete().eq('id', newSparring.id);
+      return { error: settingsError.message };
+    }
 
     return { error: null };
   }, [user]);
