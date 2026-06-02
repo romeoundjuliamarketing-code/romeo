@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -50,15 +50,17 @@ export default function SparringGroupChatScreen() {
     });
   }
 
+  useEffect(() => {
+    if (sendError !== null) {
+      Alert.alert('Fehler', sendError, [{ text: 'OK', onPress: clearSendError }]);
+    }
+  }, [sendError, clearSendError]);
+
   async function handleSend() {
     const text = inputText.trim();
     if (text.length === 0 || sending) return;
     setInputText('');
     await sendText(text);
-  }
-
-  if (sendError !== null) {
-    Alert.alert('Fehler', sendError, [{ text: 'OK', onPress: clearSendError }]);
   }
 
   return (

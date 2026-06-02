@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -24,8 +24,14 @@ export default function SparringChatListScreen() {
   const navigation = useNavigation<Nav>();
   const { chats, loading } = useSparringChatList();
 
-  const active   = chats.filter((c) => new Date(c.scheduledAt).getTime() + c.durationMin * 60_000 >= Date.now());
-  const archived = chats.filter((c) => new Date(c.scheduledAt).getTime() + c.durationMin * 60_000 < Date.now());
+  const active = useMemo(
+    () => chats.filter((c) => new Date(c.scheduledAt).getTime() + c.durationMin * 60_000 >= Date.now()),
+    [chats],
+  );
+  const archived = useMemo(
+    () => chats.filter((c) => new Date(c.scheduledAt).getTime() + c.durationMin * 60_000 < Date.now()),
+    [chats],
+  );
 
   function openChat(item: SparringChatEntry) {
     navigation.navigate('SparringGroupChat', {
