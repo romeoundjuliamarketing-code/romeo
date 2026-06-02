@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, PanResponder, StyleSheet, Text, Image, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Map,
   Camera,
@@ -84,6 +85,7 @@ export default function SparringMapView({
   onChatPress,
 }: SparringMapViewProps) {
   const cameraRef     = useRef<CameraRef>(null);
+  const insets = useSafeAreaInsets();
   const [thumbY, setThumbY]       = useState(INITIAL_THUMB);
   const gestureStartY = useRef(INITIAL_THUMB);
   const thumbYRef     = useRef(INITIAL_THUMB);
@@ -174,7 +176,7 @@ export default function SparringMapView({
       </View>
 
       {mode === 'sparrings' && (
-        <TouchableOpacity style={styles.chatBtn} onPress={onChatPress} activeOpacity={0.85}>
+        <TouchableOpacity style={[styles.chatBtn, { bottom: insets.bottom + 16 }]} onPress={onChatPress} activeOpacity={0.85}>
           <Ionicons name="chatbubbles-outline" size={22} color={colors.card} />
           {totalUnread > 0 && (
             <View style={styles.chatBtnBadge}>

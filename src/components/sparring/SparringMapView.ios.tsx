@@ -3,6 +3,7 @@ import { View, PanResponder, StyleSheet, Image, Text, TouchableOpacity } from 'r
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { getTimeWindow } from '../../utils/sparringTimeWindow';
 import type { SparringMapViewProps } from './SparringMapView.types';
@@ -79,6 +80,7 @@ export default function SparringMapView({
   totalUnread,
   onChatPress,
 }: SparringMapViewProps) {
+  const insets = useSafeAreaInsets();
   const [region, setRegion] = useState(FALLBACK_REGION);
   const [thumbY, setThumbY] = useState(INITIAL_THUMB);
   const gestureStartY       = useRef(INITIAL_THUMB);
@@ -171,7 +173,7 @@ export default function SparringMapView({
       </View>
 
       {mode === 'sparrings' && (
-        <TouchableOpacity style={styles.chatBtn} onPress={onChatPress} activeOpacity={0.85}>
+        <TouchableOpacity style={[styles.chatBtn, { bottom: insets.bottom + 16 }]} onPress={onChatPress} activeOpacity={0.85}>
           <Ionicons name="chatbubbles-outline" size={22} color={colors.card} />
           {totalUnread > 0 && (
             <View style={styles.chatBtnBadge}>
