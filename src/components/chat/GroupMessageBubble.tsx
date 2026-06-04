@@ -12,7 +12,7 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function GroupMessageBubble({ message, isOwn }: Props) {
+function GroupMessageBubble({ message, isOwn }: Props) {
   if (message.is_system) {
     return (
       <View style={styles.systemRow}>
@@ -46,6 +46,8 @@ export default function GroupMessageBubble({ message, isOwn }: Props) {
     </View>
   );
 }
+
+export default React.memo(GroupMessageBubble);
 
 const styles = StyleSheet.create({
   row: {

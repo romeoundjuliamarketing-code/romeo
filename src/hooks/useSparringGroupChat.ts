@@ -15,7 +15,7 @@ export interface UseSparringGroupChat {
   sending:        boolean;
   isReadOnly:     boolean;
   sendError:      string | null;
-  sendText:       (content: string) => Promise<void>;
+  sendText:       (content: string) => Promise<{ error: string | null }>;
   sendImage:      (localUri: string) => Promise<void>;
   markRead:       () => Promise<void>;
   clearSendError: () => void;
@@ -35,7 +35,8 @@ export function useSparringGroupChat(
   const [loading,    setLoading]    = useState(true);
   const [sending,    setSending]    = useState(false);
   const [sendError,  setSendError]  = useState<string | null>(null);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const channelRef      = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const senderNamesRef  = useRef<Map<string, string | null>>(new Map());
 
   const isReadOnly = computeIsReadOnly(scheduledAt, durationMin);
 
@@ -51,6 +52,7 @@ export function useSparringGroupChat(
       ? await supabase.from('profiles').select('id, name').in('id', senderIds)
       : { data: [] };
     const nameMap = new Map((profiles ?? []).map((p) => [p.id, p.name]));
+    for (const [id, name] of nameMap) senderNamesRef.current.set(id, name);
 
     const enriched: GroupMessageWithSender[] = (rows ?? []).map((row) => ({
       id:          row.id,
@@ -83,8 +85,27 @@ export function useSparringGroupChat(
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'sparring_group_messages', filter: `sparring_id=eq.${sparringId}` },
-        async () => {
-          await loadMessages();
+        async (payload) => {
+          const newRow = payload.new as unknown as SparringGroupMessage;
+          if (!newRow?.id) return;
+
+          let senderName: string | null = null;
+          if (senderNamesRef.current.has(newRow.sender_id)) {
+            senderName = senderNamesRef.current.get(newRow.sender_id) ?? null;
+          } else {
+            const { data } = await supabase
+              .from('profiles')
+              .select('name')
+              .eq('id', newRow.sender_id)
+              .single();
+            senderName = data?.name ?? null;
+            senderNamesRef.current.set(newRow.sender_id, senderName);
+          }
+
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newRow.id)) return prev;
+            return [...prev, { ...newRow, senderName }];
+          });
           await markRead();
         },
       )
@@ -99,17 +120,29 @@ export function useSparringGroupChat(
 
   const clearSendError = useCallback(() => setSendError(null), []);
 
-  const sendText = useCallback(async (content: string) => {
-    if (user === null || isReadOnly) return;
+  const sendText = useCallback(async (content: string): Promise<{ error: string | null }> => {
+    if (user === null || isReadOnly) return { error: null };
     setSending(true);
     setSendError(null);
-    const { error } = await supabase.from('sparring_group_messages').insert({
-      sparring_id: sparringId,
-      sender_id:   user.id,
-      content,
-    });
-    if (error !== null) setSendError(error.message);
+    const { data: newRow, error } = await supabase
+      .from('sparring_group_messages')
+      .insert({ sparring_id: sparringId, sender_id: user.id, content })
+      .select('*')
+      .single();
+    if (error !== null) {
+      setSendError(error.message);
+      setSending(false);
+      return { error: error.message };
+    }
+    if (newRow !== null) {
+      const senderName = senderNamesRef.current.get(user.id) ?? null;
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === newRow.id)) return prev;
+        return [...prev, { ...newRow, senderName }];
+      });
+    }
     setSending(false);
+    return { error: null };
   }, [isReadOnly, sparringId, user]);
 
   const sendImage = useCallback(async (localUri: string) => {

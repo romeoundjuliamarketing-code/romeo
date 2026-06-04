@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, PanResponder, StyleSheet, Image, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, View, PanResponder, StyleSheet, Image, Text, TouchableOpacity } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -95,23 +95,26 @@ export default function SparringMapView({
   totalUnread,
   onChatPress,
 }: SparringMapViewProps) {
-  const insets = useSafeAreaInsets();
-  const [region, setRegion] = useState(FALLBACK_REGION);
-  const [thumbY, setThumbY] = useState(INITIAL_THUMB);
-  const gestureStartY       = useRef(INITIAL_THUMB);
-  const thumbYRef           = useRef(INITIAL_THUMB);
+  const insets           = useSafeAreaInsets();
+  const mapRef           = useRef<MapView>(null);
+  const currentRegionRef = useRef(FALLBACK_REGION);
+  const thumbAnim        = useRef(new Animated.Value(INITIAL_THUMB)).current;
+  const gestureStartY    = useRef(INITIAL_THUMB);
+  const thumbYRef        = useRef(INITIAL_THUMB);
 
   useEffect(() => {
     Location.requestForegroundPermissionsAsync().then(({ status }) => {
       if (status !== 'granted') return;
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
         ({ coords }) => {
-          setRegion({
+          const r = {
             latitude: coords.latitude,
             longitude: coords.longitude,
             latitudeDelta: 2,
             longitudeDelta: 2,
-          });
+          };
+          currentRegionRef.current = r;
+          mapRef.current?.animateToRegion(r, 500);
         },
       );
     });
@@ -127,26 +130,34 @@ export default function SparringMapView({
       onPanResponderMove: (_evt, gs) => {
         const next = Math.max(0, Math.min(TRACK_HEIGHT, gestureStartY.current + gs.dy));
         thumbYRef.current = next;
-        setThumbY(next);
+        thumbAnim.setValue(next);
         const t     = next / TRACK_HEIGHT;
         const delta = Math.exp(LOG_MIN + t * (LOG_MAX - LOG_MIN));
-        setRegion((r) => ({ ...r, latitudeDelta: delta, longitudeDelta: delta }));
+        const { latitude, longitude } = currentRegionRef.current;
+        mapRef.current?.animateToRegion(
+          { latitude, longitude, latitudeDelta: delta, longitudeDelta: delta },
+          0,
+        );
       },
     }),
   ).current;
 
+  const sortedSparrings = useMemo(
+    () => [...sparrings].sort((a, b) => Number(a.is_featured) - Number(b.is_featured)),
+    [sparrings],
+  );
+
   return (
     <View style={styles.root}>
       <MapView
+        ref={mapRef}
         provider={PROVIDER_DEFAULT}
         style={styles.map}
-        region={region}
-        onRegionChangeComplete={setRegion}
+        initialRegion={FALLBACK_REGION}
+        onRegionChangeComplete={(r) => { currentRegionRef.current = r; }}
         showsUserLocation
       >
-        {mode === 'sparrings' && [...sparrings]
-          .sort((a, b) => Number(a.is_featured) - Number(b.is_featured))
-          .map((s) => (
+        {mode === 'sparrings' && sortedSparrings.map((s) => (
             <Marker
               key={s.id}
               coordinate={{ latitude: s.lat!, longitude: s.lng! }}
@@ -191,8 +202,8 @@ export default function SparringMapView({
         <Ionicons name="add" size={16} color={colors.textSecondary} />
         <View style={[styles.zoomTrackWrapper, { height: TRACK_HEIGHT + THUMB_SIZE }]}>
           <View style={styles.zoomTrack} />
-          <View
-            style={[styles.zoomThumb, { top: thumbY - THUMB_SIZE / 2 }]}
+          <Animated.View
+            style={[styles.zoomThumb, { top: Animated.subtract(thumbAnim, THUMB_SIZE / 2) }]}
             {...panResponder.panHandlers}
           />
         </View>

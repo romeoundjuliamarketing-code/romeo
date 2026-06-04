@@ -59,7 +59,8 @@ export default function SparringGroupChatScreen() {
 
   const [inputText,       setInputText]       = useState('');
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const listRef = useRef<FlatList<GroupMessageWithSender>>(null);
+  const listRef         = useRef<FlatList<GroupMessageWithSender>>(null);
+  const isNearBottomRef = useRef(true);
 
   // Sparring info + participants
   const [sparringInfo, setSparringInfo] = useState<{
@@ -125,8 +126,9 @@ export default function SparringGroupChatScreen() {
   async function handleSend() {
     const text = inputText.trim();
     if (text.length === 0 || sending) return;
-    setInputText('');
-    await sendText(text);
+    isNearBottomRef.current = true;
+    const { error } = await sendText(text);
+    if (error === null) setInputText('');
   }
 
   const isFull = sparringInfo !== null
@@ -183,7 +185,17 @@ export default function SparringGroupChatScreen() {
             />
           )}
           contentContainerStyle={styles.messageList}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+          onScroll={(e) => {
+            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+            isNearBottomRef.current =
+              contentSize.height - contentOffset.y - layoutMeasurement.height < 80;
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={() => {
+            if (isNearBottomRef.current) {
+              listRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
         />
       )}
 

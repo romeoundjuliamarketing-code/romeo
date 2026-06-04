@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, PanResponder, StyleSheet, Text, Image, TouchableOpacity } from 'react-native';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { Animated, View, PanResponder, StyleSheet, Text, Image, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Map,
@@ -100,8 +100,8 @@ export default function SparringMapView({
   onChatPress,
 }: SparringMapViewProps) {
   const cameraRef     = useRef<CameraRef>(null);
-  const insets = useSafeAreaInsets();
-  const [thumbY, setThumbY]       = useState(INITIAL_THUMB);
+  const insets        = useSafeAreaInsets();
+  const thumbAnim     = useRef(new Animated.Value(INITIAL_THUMB)).current;
   const gestureStartY = useRef(INITIAL_THUMB);
   const thumbYRef     = useRef(INITIAL_THUMB);
 
@@ -133,13 +133,18 @@ export default function SparringMapView({
       onPanResponderMove: (_evt, gs) => {
         const next = Math.max(0, Math.min(TRACK_HEIGHT, gestureStartY.current + gs.dy));
         thumbYRef.current = next;
-        setThumbY(next);
+        thumbAnim.setValue(next);
         const t       = next / TRACK_HEIGHT; // 0=top=zoomed in, 1=bottom=zoomed out
         const newZoom = MAX_ZOOM - t * (MAX_ZOOM - MIN_ZOOM);
         cameraRef.current?.zoomTo(newZoom, { duration: 0 });
       },
     }),
   ).current;
+
+  const sortedSparrings = useMemo(
+    () => [...sparrings].sort((a, b) => Number(a.is_featured) - Number(b.is_featured)),
+    [sparrings],
+  );
 
   return (
     <View style={styles.root}>
@@ -150,9 +155,7 @@ export default function SparringMapView({
         />
         <UserLocation />
 
-        {mode === 'sparrings' && [...sparrings]
-          .sort((a, b) => Number(a.is_featured) - Number(b.is_featured))
-          .map((s) => (
+        {mode === 'sparrings' && sortedSparrings.map((s) => (
             <Marker
               key={s.id}
               lngLat={[s.lng!, s.lat!]}
@@ -192,8 +195,8 @@ export default function SparringMapView({
         <Ionicons name="add" size={16} color={colors.textSecondary} />
         <View style={[styles.zoomTrackWrapper, { height: TRACK_HEIGHT + THUMB_SIZE }]}>
           <View style={styles.zoomTrack} />
-          <View
-            style={[styles.zoomThumb, { top: thumbY - THUMB_SIZE / 2 }]}
+          <Animated.View
+            style={[styles.zoomThumb, { top: Animated.subtract(thumbAnim, THUMB_SIZE / 2) }]}
             {...panResponder.panHandlers}
           />
         </View>

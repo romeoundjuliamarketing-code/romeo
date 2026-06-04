@@ -68,10 +68,26 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         }
       : null;
 
-  const withCoords = sparrings.filter((s) => s.lat !== null && s.lng !== null);
-  const filtered   = timeFilter === 'all'
-    ? withCoords
-    : withCoords.filter((s) => getTimeWindow(s.scheduled_at) === timeFilter);
+  const withCoords = useMemo(
+    () => sparrings.filter((s) => s.lat !== null && s.lng !== null),
+    [sparrings],
+  );
+
+  const filtered = useMemo(
+    () => timeFilter === 'all'
+      ? withCoords
+      : withCoords.filter((s) => getTimeWindow(s.scheduled_at) === timeFilter),
+    [withCoords, timeFilter],
+  );
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const s of withCoords) {
+      const w = getTimeWindow(s.scheduled_at);
+      counts[w] = (counts[w] ?? 0) + 1;
+    }
+    return counts;
+  }, [withCoords]);
 
   const coveredStudioIds = useMemo(
     () => new Set(
@@ -150,7 +166,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
           <View style={styles.segmentGroup}>
             {FILTER_TABS.map((tab) => {
-              const count    = withCoords.filter((s) => getTimeWindow(s.scheduled_at) === tab.key).length;
+              const count    = tabCounts[tab.key] ?? 0;
               const isActive = timeFilter === tab.key;
               return (
                 <TouchableOpacity
