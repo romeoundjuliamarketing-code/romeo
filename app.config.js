@@ -1,9 +1,36 @@
+const { withAndroidManifest } = require('@expo/config-plugins');
+
+function withGeoIntentQuery(config) {
+  return withAndroidManifest(config, (c) => {
+    const manifest = c.modResults.manifest;
+    if (!manifest.queries) manifest.queries = [];
+    const alreadyAdded = manifest.queries.some((q) =>
+      q?.intent?.some((i) => i?.data?.some((d) => d?.['$']?.['android:scheme'] === 'geo'))
+    );
+    if (!alreadyAdded) {
+      manifest.queries.push({
+        intent: [{
+          action: [{ '$': { 'android:name': 'android.intent.action.VIEW' } }],
+          data:   [{ '$': { 'android:scheme': 'geo' } }],
+        }],
+      });
+    }
+    return c;
+  });
+}
+
 module.exports = {
   expo: {
     name: "Sparr",
     slug: "sparr",
     scheme: "sparr",
-    version: "1.2.0",
+    version: "1.2.1",
+    updates: {
+      url: "https://u.expo.dev/9811826e-5835-47ff-9c96-8fb7a14cdab3",
+    },
+    runtimeVersion: {
+      policy: "appVersion",
+    },
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -43,6 +70,7 @@ module.exports = {
     assetBundlePatterns: ["assets/**"],
     plugins: [
       "@maplibre/maplibre-react-native",
+      withGeoIntentQuery,
       "expo-notifications",
       "expo-secure-store",
       "@react-native-community/datetimepicker",

@@ -271,12 +271,13 @@ const styles = StyleSheet.create({
     borderColor: colors.card,
   },
   studioSparringWrapper: {
-    position: 'relative',
+    width: 44,
+    height: 42,
   },
   studioBadgeCorner: {
     position: 'absolute',
-    bottom: -2,
-    right: -4,
+    bottom: 0,
+    right: 0,
     width: 18,
     height: 18,
     borderRadius: 9,
