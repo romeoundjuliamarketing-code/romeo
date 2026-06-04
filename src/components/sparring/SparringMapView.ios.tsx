@@ -57,10 +57,24 @@ function StudioMarker() {
   );
 }
 
-function AtStudioMarker() {
+function SparringAtStudioMarker({ window: tw }: { window: 'jetzt' | 'demnaechst' | 'bald' }) {
+  const { iconStyle, icon, size } = MARKER_CONFIGS[tw];
   return (
-    <View style={[styles.markerBase, styles.markerAtStudio]}>
-      <Ionicons name="shield-checkmark" size={18} color={colors.card} />
+    <View style={styles.studioSparringWrapper}>
+      <View style={[styles.markerBase, styles[iconStyle]]}>
+        <Ionicons name={icon} size={size} color={colors.card} />
+      </View>
+      <View style={styles.studioBadgeCorner}>
+        <Ionicons name="business" size={9} color={colors.card} />
+      </View>
+    </View>
+  );
+}
+
+function StudioDotMarker() {
+  return (
+    <View style={styles.studioDotBase}>
+      <Ionicons name="business" size={14} color={colors.card} />
     </View>
   );
 }
@@ -74,6 +88,7 @@ const INITIAL_THUMB = TRACK_HEIGHT / 2;
 export default function SparringMapView({
   sparrings,
   studioMarkers,
+  sparringModeStudios,
   mode,
   onSparringPress,
   onStudioPress,
@@ -142,11 +157,23 @@ export default function SparringMapView({
               {s.is_featured
                 ? <FeaturedMarker isAtStudio={s.is_at_studio} />
                 : s.is_at_studio
-                  ? <AtStudioMarker />
+                  ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
                   : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
               }
             </Marker>
           ))}
+
+        {mode === 'sparrings' && sparringModeStudios.map((st) => (
+          <Marker
+            key={`dot-${st.id}`}
+            coordinate={{ latitude: st.lat, longitude: st.lng }}
+            onPress={() => onStudioPress(st)}
+            tracksViewChanges={false}
+            zIndex={0}
+          >
+            <StudioDotMarker />
+          </Marker>
+        ))}
 
         {mode === 'studios' && studioMarkers.map((st) => (
           <Marker
@@ -250,6 +277,34 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     borderWidth: 2,
     borderColor: colors.card,
+  },
+  studioSparringWrapper: {
+    position: 'relative',
+  },
+  studioBadgeCorner: {
+    position: 'absolute',
+    bottom: -2,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.studioGreen,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.card,
+  },
+  studioDotBase: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 3,
   },
   zoomSliderOuter: {
     position: 'absolute',

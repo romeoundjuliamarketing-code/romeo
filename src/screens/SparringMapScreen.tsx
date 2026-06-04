@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -73,6 +73,20 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     ? withCoords
     : withCoords.filter((s) => getTimeWindow(s.scheduled_at) === timeFilter);
 
+  const coveredStudioIds = useMemo(
+    () => new Set(
+      filtered
+        .filter((s) => s.is_at_studio && s.studio_id !== null)
+        .map((s) => s.studio_id as string),
+    ),
+    [filtered],
+  );
+
+  const sparringModeStudios = useMemo(
+    () => studioMarkers.filter((st) => !coveredStudioIds.has(st.id)),
+    [studioMarkers, coveredStudioIds],
+  );
+
   async function handleToggleSignup(): Promise<void> {
     if (selected === null) return;
     setActionLoading(true);
@@ -116,6 +130,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       <SparringMapView
         sparrings={filtered}
         studioMarkers={studioMarkers}
+        sparringModeStudios={sparringModeStudios}
         mode={mode}
         onSparringPress={setSelected}
         onStudioPress={setSelectedStudio}
@@ -135,7 +150,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
           <View style={styles.segmentGroup}>
             {FILTER_TABS.map((tab) => {
-              const count    = sparrings.filter((s) => getTimeWindow(s.scheduled_at) === tab.key).length;
+              const count    = withCoords.filter((s) => getTimeWindow(s.scheduled_at) === tab.key).length;
               const isActive = timeFilter === tab.key;
               return (
                 <TouchableOpacity
