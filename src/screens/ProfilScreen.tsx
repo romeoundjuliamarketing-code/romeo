@@ -24,6 +24,8 @@ import AvatarPicker from '../components/profil/AvatarPicker';
 import ProfileNameEditor from '../components/profil/ProfileNameEditor';
 import DisciplinePickerCard from '../components/profil/DisciplinePickerCard';
 import PaywallCard from '../components/common/PaywallCard';
+import MyRequestsCard from '../components/profil/MyRequestsCard';
+import { VerificationSection } from '../components/profil/VerificationSection';
 import type { Discipline } from '../data/disciplines';
 import { useWorkoutStats } from '../hooks/useWorkoutStats';
 import { useFightRecord } from '../hooks/useFightRecord';
@@ -370,6 +372,9 @@ export default function ProfilScreen() {
 
         </View>
 
+        {/* ── Meine Anfragen ── */}
+        <MyRequestsCard refetchTrigger={focusTrigger} />
+
         {entitlement.hasAccess ? (
           <>
             {/* ── Kampfrekord ── */}
@@ -438,6 +443,9 @@ export default function ProfilScreen() {
           />
         )}
         </View>
+
+        {/* ── Verifizierung ── */}
+        <VerificationSection refetchTrigger={focusTrigger} />
       </ScrollView>
 
       {/* Height input modal */}
@@ -641,7 +649,7 @@ const styles = StyleSheet.create({
 
   // Profile header card
   profileCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: CARD_RADIUS,
     padding: 16,
     marginBottom: 16,
@@ -670,7 +678,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: CARD_RADIUS,
     padding: 16,
     width: '47.5%',
@@ -769,13 +777,13 @@ const styles = StyleSheet.create({
   },
   stanceChipActive:     { backgroundColor: colors.accentBlue, borderColor: colors.accentBlue },
   stanceChipText:       { fontSize: 14, fontWeight: '600', color: colors.text },
-  stanceChipTextActive: { color: '#FFFFFF' },
+  stanceChipTextActive: { color: colors.card },
 
   // Weight modal
   weightOverlay: { flex: 1, justifyContent: 'flex-end' },
   weightBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
   weightSheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -820,6 +828,6 @@ const styles = StyleSheet.create({
   weightSaveBtnLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.card,
   },
 });
