@@ -24,6 +24,7 @@ import { supabase } from '../lib/supabase';
 import { useSparringRatings } from '../hooks/useSparringRatings';
 import { useUserReport }      from '../hooks/useUserReport';
 import FightRecordCard        from '../components/profil/FightRecordCard';
+import { useAuth }            from '../context/AuthContext';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -55,13 +56,20 @@ const GENDER_LABEL: Record<string, string> = {
 };
 
 interface PublicProfile {
-  name:              string | null;
-  age_years:         number | null;
-  avatar_url:        string | null;
-  gender:            string | null;
-  disciplines:       string[];
-  show_fight_record: boolean;
-  show_stats:        boolean;
+  name:               string | null;
+  age_years:          number | null;
+  avatar_url:         string | null;
+  gender:             string | null;
+  disciplines:        string[];
+  show_fight_record:  boolean;
+  show_stats:         boolean;
+  coach_verified_at:  string | null;
+  studio_id:          string | null;
+}
+
+interface CurrentUserCoachInfo {
+  is_coach:  boolean;
+  studio_id: string | null;
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
@@ -74,8 +82,18 @@ export default function PublicProfileScreen(): React.ReactElement {
   const { params }  = useRoute<RoutePropT>();
   const { userId, sparringId, sparringScheduledAt } = params;
 
+  const { user } = useAuth();
+  const currentUserId = user?.id ?? null;
+
   const [profile,        setProfile]        = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+
+  // Current user's coach/studio info (for vouch button visibility)
+  const [currentUserCoach, setCurrentUserCoach] = useState<CurrentUserCoachInfo | null>(null);
+
+  // Vouch state
+  const [vouching, setVouching] = useState(false);
+  const [vouched,  setVouched]  = useState(false);
 
   // Rating
   const [ratingTrigger, setRatingTrigger] = useState(0);
@@ -109,7 +127,7 @@ export default function PublicProfileScreen(): React.ReactElement {
 
     void supabase
       .from('profiles')
-      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, show_stats')
+      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, show_stats, coach_verified_at, studio_id')
       .eq('id', userId)
       .single()
       .then(({ data }) => {
@@ -123,6 +141,8 @@ export default function PublicProfileScreen(): React.ReactElement {
             disciplines:       (data.disciplines as string[]) ?? [],
             show_fight_record: (data.show_fight_record as boolean) ?? true,
             show_stats:        (data.show_stats as boolean) ?? true,
+            coach_verified_at: data.coach_verified_at ?? null,
+            studio_id:         data.studio_id ?? null,
           });
         }
         setProfileLoading(false);
@@ -148,6 +168,31 @@ export default function PublicProfileScreen(): React.ReactElement {
         }
       });
     return () => { cancelled = true; };
+  }, [userId]);
+
+  // Load current user's coach/studio status for vouch button visibility
+  useEffect(() => {
+    if (currentUserId === null) return;
+    let cancelled = false;
+    void supabase
+      .from('profiles')
+      .select('is_coach, studio_id')
+      .eq('id', currentUserId)
+      .single()
+      .then(({ data }) => {
+        if (cancelled || data === null) return;
+        setCurrentUserCoach({ is_coach: data.is_coach, studio_id: data.studio_id ?? null });
+      });
+    return () => { cancelled = true; };
+  }, [currentUserId]);
+
+  // ── Vouch handler ────────────────────────────────────────────────────────────
+
+  const handleVouch = useCallback(async () => {
+    setVouching(true);
+    const { error } = await supabase.rpc('verify_member', { p_user_id: userId });
+    setVouching(false);
+    if (error === null) setVouched(true);
   }, [userId]);
 
   // ── Rating handlers ─────────────────────────────────────────────────────────
@@ -188,6 +233,19 @@ export default function PublicProfileScreen(): React.ReactElement {
 
   const canRateNow = canRate(sparringScheduledAt) && existingRating === null;
 
+  // Show vouch button only when current user is a coach in the same studio as the viewed user,
+  // not viewing their own profile, and the viewed user is not already verified.
+  const canVouch =
+    currentUserCoach !== null &&
+    currentUserCoach.is_coach === true &&
+    currentUserCoach.studio_id !== null &&
+    currentUserCoach.studio_id === profile?.studio_id &&
+    currentUserId !== userId &&
+    (profile?.coach_verified_at === null || profile?.coach_verified_at === undefined);
+
+  // Show the verified badge if the viewed user is coach-verified or was just vouched in this session.
+  const isVerified = (profile?.coach_verified_at !== null && profile?.coach_verified_at !== undefined) || vouched;
+
   if (profileLoading) {
     return (
       <SafeAreaView style={styles.loadingContainer} edges={['top']}>
@@ -226,8 +284,13 @@ export default function PublicProfileScreen(): React.ReactElement {
           <Text style={styles.avatarInitials}>{initials}</Text>
         </View>
 
-        {/* Name */}
-        <Text style={styles.name}>{profile?.name ?? 'Unbekannt'}</Text>
+        {/* Name with optional verified badge */}
+        <View style={styles.nameRow}>
+          <Text style={styles.name}>{profile?.name ?? 'Unbekannt'}</Text>
+          {isVerified && (
+            <Ionicons name="checkmark-circle" size={22} color={colors.accentBlue} />
+          )}
+        </View>
 
         {/* Age + gender — always visible */}
         {(profile?.age_years !== null && profile?.age_years !== undefined) || (profile?.gender !== null && profile?.gender !== undefined) ? (
@@ -286,6 +349,26 @@ export default function PublicProfileScreen(): React.ReactElement {
             onPress={() => setRatingModalVisible(true)}
           >
             <Text style={styles.rateBtnText}>Jetzt bewerten</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Vouch button — only visible to coaches in the same studio */}
+        {canVouch && !vouched && (
+          <TouchableOpacity
+            style={styles.vouchButton}
+            onPress={() => { void handleVouch(); }}
+            disabled={vouching}
+            activeOpacity={0.8}
+          >
+            {vouching
+              ? <ActivityIndicator size="small" color={colors.headerTextPrimary} />
+              : (
+                <>
+                  <Ionicons name="shield-checkmark-outline" size={18} color={colors.headerTextPrimary} />
+                  <Text style={styles.vouchText}>Als echtes Mitglied bestätigen</Text>
+                </>
+              )
+            }
           </TouchableOpacity>
         )}
 
@@ -675,5 +758,26 @@ const styles = StyleSheet.create({
     fontSize:   16,
     fontWeight: '600',
     color:      colors.text,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           6,
+  },
+  vouchButton: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'center',
+    gap:               8,
+    height:            48,
+    borderRadius:      12,
+    backgroundColor:   colors.headerBg,
+    alignSelf:         'stretch',
+    marginTop:         8,
+  },
+  vouchText: {
+    color:      colors.headerTextPrimary,
+    fontSize:   14,
+    fontWeight: '700',
   },
 });
