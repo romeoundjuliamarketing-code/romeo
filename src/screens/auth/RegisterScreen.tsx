@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthStackParamList } from '../../navigation/types';
+import TurnstileWidget from '../../components/auth/TurnstileWidget';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
@@ -30,6 +31,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const handleRegister = async () => {
     if (!email.trim() || !password) {
       setError('Bitte alle Felder ausfullen.');
@@ -43,9 +45,13 @@ export default function RegisterScreen() {
       setError('Passworter stimmen nicht uberein.');
       return;
     }
+    if (captchaToken === null) {
+      setError('Bitte bestätige, dass du kein Roboter bist.');
+      return;
+    }
     setError(null);
     setLoading(true);
-    const { error: authError } = await signUp(email.trim(), password);
+    const { error: authError } = await signUp(email.trim(), password, captchaToken);
     setLoading(false);
     if (authError) {
       console.error('[RegisterScreen] signUp error:', authError.message, authError.status);
@@ -148,6 +154,8 @@ export default function RegisterScreen() {
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
+
+            <TurnstileWidget onToken={setCaptchaToken} />
 
             {/* Registrieren-Button */}
             <TouchableOpacity
