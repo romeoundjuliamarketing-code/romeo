@@ -40,6 +40,13 @@ export type Database = {
           show_fight_record: boolean
           show_stats: boolean
           profile_code: string
+          address: string | null
+          address_lat: number | null
+          address_lng: number | null
+          phone: string | null
+          phone_verified_at: string | null
+          coach_verified_at: string | null
+          coach_verified_by: string | null
         }
         Insert: {
           age_years?: number | null
@@ -71,6 +78,13 @@ export type Database = {
           show_fight_record?: boolean
           show_stats?: boolean
           profile_code?: string
+          address?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          coach_verified_at?: string | null
+          coach_verified_by?: string | null
         }
         Update: {
           age_years?: number | null
@@ -102,6 +116,13 @@ export type Database = {
           show_fight_record?: boolean
           show_stats?: boolean
           profile_code?: string
+          address?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          coach_verified_at?: string | null
+          coach_verified_by?: string | null
         }
         Relationships: [
           {
@@ -963,6 +984,212 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          id:         string
+          user_id:    string
+          type:       string
+          title:      string
+          body:       string
+          data:       Record<string, unknown>
+          read_at:    string | null
+          created_at: string
+        }
+        Insert: {
+          id?:        string
+          user_id:    string
+          type:       string
+          title:      string
+          body:       string
+          data?:      Record<string, unknown>
+          read_at?:   string | null
+          created_at?: string
+        }
+        Update: {
+          id?:        string
+          user_id?:   string
+          type?:      string
+          title?:     string
+          body?:      string
+          data?:      Record<string, unknown>
+          read_at?:   string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      studio_membership_plans: {
+        Row: {
+          id:               string
+          studio_id:        string
+          name:             string
+          price_cents:      number
+          billing_interval: 'monthly' | 'yearly'
+          min_term_months:  number
+          description:      string | null
+          is_active:        boolean
+          created_at:       string
+        }
+        Insert: {
+          id?:               string
+          studio_id:         string
+          name:              string
+          price_cents:       number
+          billing_interval?: 'monthly' | 'yearly'
+          min_term_months?:  number
+          description?:      string | null
+          is_active?:        boolean
+          created_at?:       string
+        }
+        Update: {
+          id?:               string
+          studio_id?:        string
+          name?:             string
+          price_cents?:      number
+          billing_interval?: 'monthly' | 'yearly'
+          min_term_months?:  number
+          description?:      string | null
+          is_active?:        boolean
+          created_at?:       string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'studio_membership_plans_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      studio_member_contracts: {
+        Row: {
+          id:                        string
+          user_id:                   string
+          studio_id:                 string
+          plan_id:                   string
+          plan_name_snapshot:        string
+          price_cents_snapshot:      number
+          billing_interval_snapshot: string
+          min_term_months_snapshot:  number
+          status:                    'pending' | 'active' | 'cancellation_requested' | 'ended' | 'declined'
+          signed_at:                 string
+          start_date:                string | null
+          cancel_requested_at:       string | null
+          ended_at:                  string | null
+          created_at:                string
+          updated_at:                string
+          responded_by:              string | null
+        }
+        Insert: {
+          id?:                        string
+          user_id:                    string
+          studio_id:                  string
+          plan_id:                    string
+          plan_name_snapshot:         string
+          price_cents_snapshot:       number
+          billing_interval_snapshot:  string
+          min_term_months_snapshot:   number
+          status?:                    'pending' | 'active' | 'cancellation_requested' | 'ended' | 'declined'
+          signed_at?:                 string
+          start_date?:                string | null
+          cancel_requested_at?:       string | null
+          ended_at?:                  string | null
+          created_at?:                string
+          updated_at?:                string
+          responded_by?:              string | null
+        }
+        Update: {
+          id?:                        string
+          user_id?:                   string
+          studio_id?:                 string
+          plan_id?:                   string
+          plan_name_snapshot?:        string
+          price_cents_snapshot?:      number
+          billing_interval_snapshot?: string
+          min_term_months_snapshot?:  number
+          status?:                    'pending' | 'active' | 'cancellation_requested' | 'ended' | 'declined'
+          signed_at?:                 string
+          start_date?:                string | null
+          cancel_requested_at?:       string | null
+          ended_at?:                  string | null
+          created_at?:                string
+          updated_at?:                string
+          responded_by?:              string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'studio_member_contracts_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'studio_member_contracts_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'studio_membership_plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      trial_bookings: {
+        Row: {
+          id: string
+          user_id: string
+          studio_id: string
+          schedule_id: string | null
+          requested_date: string
+          note: string | null
+          status: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          created_at: string
+          updated_at: string
+          responded_at: string | null
+          responded_by: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          studio_id: string
+          schedule_id?: string | null
+          requested_date: string
+          note?: string | null
+          status?: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          created_at?: string
+          updated_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          studio_id?: string
+          schedule_id?: string | null
+          requested_date?: string
+          note?: string | null
+          status?: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          created_at?: string
+          updated_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'trial_bookings_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'trial_bookings_schedule_id_fkey'
+            columns: ['schedule_id']
+            isOneToOne: false
+            referencedRelation: 'studio_schedule'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       studio_schedule: {
         Row: {
           coach_name: string | null
@@ -1158,6 +1385,69 @@ export type Database = {
           days_remaining: number | null
         }[]
       }
+      request_trial_booking: {
+        Args: {
+          p_studio_id:   string
+          p_schedule_id: string | null
+          p_date:        string
+          p_note:        string | null
+        }
+        Returns: string
+      }
+      respond_trial_booking: {
+        Args: {
+          p_id:      string
+          p_confirm: boolean
+        }
+        Returns: undefined
+      }
+      mark_all_notifications_read: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
+      sign_membership: {
+        Args: { p_plan_id: string }
+        Returns: string
+      }
+      respond_membership_request: {
+        Args: { p_id: string; p_confirm: boolean }
+        Returns: undefined
+      }
+      request_membership_cancellation: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
+      confirm_membership_end: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
+      get_my_chat_list: {
+        Args: Record<string, never>
+        Returns: {
+          sparring_id:       string
+          sparring_title:    string
+          scheduled_at:      string
+          duration_min:      number
+          is_organizer:      boolean
+          last_message_text: string | null
+          last_message_at:   string | null
+          unread_count:      number
+        }[]
+      }
+      get_my_verification: {
+        Args: Record<string, never>
+        Returns: {
+          email_verified: boolean
+          address_verified: boolean
+          studio_verified: boolean
+          coach_vouched: boolean
+          phone_verified: boolean
+        }
+      }
+      verify_member: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1251,6 +1541,57 @@ export type SparringChatSettings        = Database['public']['Tables']['sparring
 export type SparringChatSettingsInsert  = Database['public']['Tables']['sparring_chat_settings']['Insert']
 export type SparringChatReads           = Database['public']['Tables']['sparring_chat_reads']['Row']
 export type SparringChatReadsInsert     = Database['public']['Tables']['sparring_chat_reads']['Insert']
+
+export type TrialBooking = Database['public']['Tables']['trial_bookings']['Row']
+export type TrialBookingInsert = Database['public']['Tables']['trial_bookings']['Insert']
+export type TrialBookingStatus = 'pending' | 'confirmed' | 'declined' | 'cancelled'
+
+// Trial booking enriched with studio name (for user-facing lists)
+export interface TrialBookingWithStudio extends TrialBooking {
+  studio_name: string
+  studio_city: string
+}
+
+// Trial booking enriched with user display name (for staff-facing lists)
+export interface TrialBookingWithUser extends TrialBooking {
+  user_name: string | null
+}
+
+// In-app notification (named AppNotification to avoid collision with DOM/Expo types)
+export type AppNotification = Database['public']['Tables']['notifications']['Row']
+export type AppNotificationInsert = Database['public']['Tables']['notifications']['Insert']
+
+// Membership plan convenience types
+export type MembershipPlan = Database['public']['Tables']['studio_membership_plans']['Row']
+export type MembershipPlanInsert = Database['public']['Tables']['studio_membership_plans']['Insert']
+
+// Contract status union
+export type MembershipContractStatus =
+  | 'pending'
+  | 'active'
+  | 'cancellation_requested'
+  | 'ended'
+  | 'declined'
+
+// Contract convenience types
+export type MembershipContract = Database['public']['Tables']['studio_member_contracts']['Row']
+export type MembershipContractInsert = Database['public']['Tables']['studio_member_contracts']['Insert']
+
+// Contract enriched with studio info (for user-facing lists)
+export interface MembershipContractWithStudio extends MembershipContract {
+  studio_name: string
+  studio_city: string
+}
+
+// Contract enriched with user info (for staff-facing lists)
+export interface MembershipContractWithUser extends MembershipContract {
+  user_name: string | null
+}
+
+// Contract enriched with plan info (optional joined read)
+export interface MembershipContractWithPlan extends MembershipContract {
+  plan: MembershipPlan | null
+}
 
 // Nomination enriched with display data (computed in hook)
 export interface CoachNominationDetails {
