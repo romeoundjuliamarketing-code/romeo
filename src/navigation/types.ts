@@ -3,6 +3,7 @@ import type { Exercise, Workout } from '../data/workouts';
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  VerifyEmail: { email: string };
 };
 
 export type RootStackParamList = {
@@ -37,6 +38,7 @@ export type RootStackParamList = {
     sparringId:          string;
     sparringScheduledAt: string;
   };
+  StudioDetail: { studioId: string };
   SparringChatList: undefined;
   SparringGroupChat: {
     sparringId:    string;
@@ -51,4 +53,5 @@ export type RootStackParamList = {
     earnedPoints?: number;
     category?: Workout['category'];
   };
+  Notifications: undefined;
 };
