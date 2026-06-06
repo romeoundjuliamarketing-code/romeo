@@ -30,8 +30,6 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-
   const handleRegister = async () => {
     if (!email.trim() || !password) {
       setError('Bitte alle Felder ausfullen.');
@@ -57,28 +55,9 @@ export default function RegisterScreen() {
         setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
       }
     } else {
-      setSuccess(true);
+      navigation.navigate('VerifyEmail', { email: email.trim() });
     }
   };
-
-  if (success) {
-    return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.successContainer}>
-          <View style={styles.successIcon}>
-            <Ionicons name="checkmark" size={40} color={colors.headerTextPrimary} />
-          </View>
-          <Text style={styles.successTitle}>Fast geschafft!</Text>
-          <Text style={styles.successText}>
-            Wir haben dir eine Bestatigungs-E-Mail geschickt. Bitte bestatige deine E-Mail-Adresse und melde dich danach an.
-          </Text>
-          <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Login')} activeOpacity={0.8}>
-            <Text style={styles.buttonText}>Zur Anmeldung</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -285,7 +264,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#C0392B',
+    color: colors.deleteRed,
     flex: 1,
   },
 
@@ -322,37 +301,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.accentBlue,
     fontWeight: '600',
-  },
-
-  // Success state
-  successContainer: {
-    flex: 1,
-    backgroundColor: colors.headerBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  successIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: colors.accentBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
-  successTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.headerTextPrimary,
-    marginBottom: 16,
-    letterSpacing: -0.5,
-  },
-  successText: {
-    fontSize: 15,
-    color: colors.headerTextSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 40,
   },
 });
