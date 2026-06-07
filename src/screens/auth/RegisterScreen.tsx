@@ -32,6 +32,14 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Turnstile tokens are single-use; bump this to remount the widget for a fresh token.
+  const [captchaKey, setCaptchaKey] = useState(0);
+
+  const resetCaptcha = () => {
+    setCaptchaToken(null);
+    setCaptchaKey(k => k + 1);
+  };
+
   const handleRegister = async () => {
     if (!email.trim() || !password) {
       setError('Bitte alle Felder ausfullen.');
@@ -60,6 +68,7 @@ export default function RegisterScreen() {
       } else {
         setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
       }
+      resetCaptcha();
     } else {
       navigation.navigate('VerifyEmail', { email: email.trim() });
     }
@@ -155,7 +164,7 @@ export default function RegisterScreen() {
               </View>
             )}
 
-            <TurnstileWidget onToken={setCaptchaToken} />
+            <TurnstileWidget key={captchaKey} onToken={setCaptchaToken} />
 
             {/* Registrieren-Button */}
             <TouchableOpacity

@@ -17,6 +17,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import type { AuthStackParamList } from '../../navigation/types';
+import TurnstileWidget from '../../components/auth/TurnstileWidget';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -29,17 +30,32 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  // Turnstile tokens are single-use; bump this to remount the widget for a fresh token.
+  const [captchaKey, setCaptchaKey] = useState(0);
+
+  const resetCaptcha = () => {
+    setCaptchaToken(null);
+    setCaptchaKey(k => k + 1);
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
       setError('Bitte E-Mail und Passwort eingeben.');
       return;
     }
+    if (captchaToken === null) {
+      setError('Bitte bestätige, dass du kein Roboter bist.');
+      return;
+    }
     setError(null);
     setLoading(true);
-    const { error: authError } = await signIn(email.trim(), password);
+    const { error: authError } = await signIn(email.trim(), password, captchaToken);
     setLoading(false);
-    if (authError) setError('E-Mail oder Passwort falsch.');
+    if (authError) {
+      setError('E-Mail oder Passwort falsch.');
+      resetCaptcha();
+    }
     // On success, session change in AuthContext triggers navigation automatically
   };
 
@@ -111,6 +127,8 @@ export default function LoginScreen() {
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
+
+            <TurnstileWidget key={captchaKey} onToken={setCaptchaToken} />
 
             {/* Anmelden-Button */}
             <TouchableOpacity
@@ -223,7 +241,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#C0392B',
+    color: colors.deleteRed,
     flex: 1,
   },
 

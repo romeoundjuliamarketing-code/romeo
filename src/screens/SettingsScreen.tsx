@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, Switch,
-  TouchableOpacity, Alert, ActivityIndicator, Linking,
+  TouchableOpacity, Alert, ActivityIndicator, Linking, Modal,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
@@ -17,6 +17,7 @@ import { useSchedule } from '../hooks/useSchedule';
 import { useNotifications } from '../hooks/useNotifications';
 import { supabase } from '../lib/supabase';
 import { PROXIMITY_RADIUS_KEY } from '../hooks/useProximitySparringNotifications';
+import TurnstileWidget from '../components/auth/TurnstileWidget';
 
 const PREWORKOUT_KEY = 'preworkout_enabled';
 const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
@@ -59,7 +60,7 @@ function ToggleRow({
         value={value}
         onValueChange={onToggle}
         trackColor={{ false: colors.border, true: colors.accentBlue }}
-        thumbColor="#FFFFFF"
+        thumbColor={colors.card}
       />
     </View>
   );
@@ -107,6 +108,9 @@ export default function SettingsScreen(): React.ReactElement {
   const { profile, updateProfile } = useProfile();
   const { entitlement } = useEntitlement();
   const [resetting, setResetting]             = useState(false);
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  // Turnstile tokens are single-use; bump to remount the widget for a fresh token.
+  const [captchaKey, setCaptchaKey]           = useState(0);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [notifGranted, setNotifGranted]       = useState(false);
   const [preWorkoutEnabled, setPreWorkoutEnabled] = useState(false);
@@ -135,11 +139,25 @@ export default function SettingsScreen(): React.ReactElement {
     });
   }, []);
 
-  async function handlePasswordReset(): Promise<void> {
+  function openPasswordReset(): void {
+    if (user?.email == null) return;
+    setCaptchaKey(k => k + 1);
+    setResetModalVisible(true);
+  }
+
+  function closePasswordReset(): void {
+    setResetModalVisible(false);
+    setResetting(false);
+  }
+
+  // Called once Turnstile returns a token; captcha is required because Supabase
+  // gates resetPasswordForEmail when bot protection is enabled.
+  async function handlePasswordReset(captchaToken: string): Promise<void> {
     if (user?.email == null) return;
     setResetting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email);
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { captchaToken });
     setResetting(false);
+    setResetModalVisible(false);
     if (error !== null) {
       Alert.alert('Fehler', error.message);
     } else {
@@ -271,7 +289,7 @@ export default function SettingsScreen(): React.ReactElement {
             onPress={() => {}}
           />
           <View style={styles.divider} />
-          <TouchableOpacity style={styles.row} onPress={() => { void handlePasswordReset(); }} activeOpacity={0.7} disabled={resetting}>
+          <TouchableOpacity style={styles.row} onPress={openPasswordReset} activeOpacity={0.7} disabled={resetting}>
             <MaterialCommunityIcons name="lock-reset" size={20} color={colors.text} />
             <Text style={styles.rowLabel}>Passwort zurücksetzen</Text>
             {resetting
@@ -367,6 +385,34 @@ export default function SettingsScreen(): React.ReactElement {
 
         <View style={styles.bottomPad} />
       </ScrollView>
+
+      {/* Passwort-Reset: Sicherheitsprüfung (Turnstile) vor dem Versand */}
+      <Modal
+        visible={resetModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closePasswordReset}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Sicherheitsprüfung</Text>
+            <Text style={styles.modalText}>
+              Bitte bestätige kurz, dass du kein Roboter bist. Danach senden wir dir den Link zum Zurücksetzen.
+            </Text>
+            {resetting
+              ? <ActivityIndicator color={colors.accentBlue} style={styles.modalSpinner} />
+              : (
+                <TurnstileWidget
+                  key={captchaKey}
+                  onToken={(t) => { void handlePasswordReset(t); }}
+                />
+              )}
+            <TouchableOpacity style={styles.modalCancel} onPress={closePasswordReset} activeOpacity={0.7}>
+              <Text style={styles.modalCancelText}>Abbrechen</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -375,6 +421,42 @@ export default function SettingsScreen(): React.ReactElement {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
+
+  // Passwort-Reset-Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: colors.mapOverlay,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 24,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  modalText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  modalSpinner: {
+    marginVertical: 24,
+  },
+  modalCancel: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.accentBlue,
+  },
 
   header: {
     flexDirection: 'row',
@@ -403,7 +485,7 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: 16,
     overflow: 'hidden',
   },
