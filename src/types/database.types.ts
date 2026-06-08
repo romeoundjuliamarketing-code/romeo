@@ -13,17 +13,22 @@ export type Database = {
         Row: {
           age_years: number | null
           avatar_url: string | null
+          bio: string | null
           created_at: string
           credits: number
           disciplines: string[]
           email: string | null
           gender: string | null
           height_cm: number | null
+          hometown: string | null
           id: string
+          instagram_url: string | null
           is_coach: boolean
           last_training_date: string | null
           membership_type: string
           name: string | null
+          nationality: string | null
+          nickname: string | null
           onboarding_completed: boolean
           show_fitness_in_group: boolean
           show_points_in_group: boolean
@@ -36,21 +41,28 @@ export type Database = {
           total_points: number
           training_frequency: string | null
           training_since: string | null
+          weight_class: string | null
+          weight_kg: number | null
         }
         Insert: {
           age_years?: number | null
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           credits?: number
           disciplines?: string[]
           email?: string | null
           gender?: string | null
           height_cm?: number | null
+          hometown?: string | null
           id: string
+          instagram_url?: string | null
           is_coach?: boolean
           last_training_date?: string | null
           membership_type?: string
           name?: string | null
+          nationality?: string | null
+          nickname?: string | null
           onboarding_completed?: boolean
           show_fitness_in_group?: boolean
           show_points_in_group?: boolean
@@ -63,21 +75,28 @@ export type Database = {
           total_points?: number
           training_frequency?: string | null
           training_since?: string | null
+          weight_class?: string | null
+          weight_kg?: number | null
         }
         Update: {
           age_years?: number | null
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           credits?: number
           disciplines?: string[]
           email?: string | null
           gender?: string | null
           height_cm?: number | null
+          hometown?: string | null
           id?: string
+          instagram_url?: string | null
           is_coach?: boolean
           last_training_date?: string | null
           membership_type?: string
           name?: string | null
+          nationality?: string | null
+          nickname?: string | null
           onboarding_completed?: boolean
           show_fitness_in_group?: boolean
           show_points_in_group?: boolean
@@ -90,6 +109,8 @@ export type Database = {
           total_points?: number
           training_frequency?: string | null
           training_since?: string | null
+          weight_class?: string | null
+          weight_kg?: number | null
         }
         Relationships: [
           {
@@ -620,6 +641,7 @@ export type Database = {
           opponent_name: string | null
           organization:  string | null
           fight_date:    string | null
+          is_amateur:    boolean
           created_at:    string
         }
         Insert: {
@@ -630,6 +652,7 @@ export type Database = {
           opponent_name?: string | null
           organization?:  string | null
           fight_date?:    string | null
+          is_amateur?:    boolean
           created_at?:    string
         }
         Update: {
@@ -638,6 +661,7 @@ export type Database = {
           opponent_name?: string | null
           organization?:  string | null
           fight_date?:    string | null
+          is_amateur?:    boolean
         }
         Relationships: []
       }
