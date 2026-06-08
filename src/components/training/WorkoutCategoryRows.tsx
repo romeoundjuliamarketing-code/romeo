@@ -10,7 +10,8 @@ import workouts from '../../data/workouts';
 import type { Workout } from '../../data/workouts';
 import { colors } from '../../theme/colors';
 import type { RootStackParamList } from '../../navigation/types';
-import { getRelevantWorkoutCategories } from '../../data/disciplines';
+import { getRelevantWorkoutCategories, SUPERCATEGORIES } from '../../data/disciplines';
+import type { Supercategory } from '../../data/disciplines';
 import { useCustomWorkouts } from '../../hooks/useCustomWorkouts';
 import { useFavorites } from '../../hooks/useFavorites';
 import { useCompletedWorkoutIds } from '../../hooks/useCompletedWorkoutIds';
@@ -45,7 +46,13 @@ const ALL_CATEGORIES: CategoryEntry[] = [
   { key: 'partnertraining', label: 'Partnertraining' },
 ];
 
-const ROTATION_KEYS = [...ALL_CATEGORIES.map((c) => c.key), 'eigene', 'favoriten'];
+const SUPER_PREFIX = 'sc_';
+const ROTATION_KEYS = [
+  ...SUPERCATEGORIES.map((sc) => `${SUPER_PREFIX}${sc.key}`),
+  ...ALL_CATEGORIES.map((c) => c.key),
+  'eigene',
+  'favoriten',
+];
 
 interface Props {
   disciplines: string[];
@@ -134,6 +141,7 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
   const relevantKeys = getRelevantWorkoutCategories(disciplines);
   const CATEGORIES = ALL_CATEGORIES.filter((c) => relevantKeys.includes(c.key));
 
+  const [openSuper, setOpenSuper] = useState<string | null>(null);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [sheetVisible, setSheetVisible] = useState(false);
 
@@ -145,27 +153,48 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
     Object.fromEntries(ROTATION_KEYS.map((k) => [k, new Animated.Value(0)])),
   ).current;
 
-  function toggle(key: string): void {
+  function animate(key: string, toValue: number): void {
+    Animated.timing(rotations[key], {
+      toValue,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  function toggleSuper(scKey: string): void {
+    const willOpen = openSuper !== scKey;
+
+    LayoutAnimation.configureNext(
+      LayoutAnimation.create(260, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity),
+    );
+
+    // Close open category when changing supercategory
+    if (openCategory !== null) {
+      animate(openCategory, 0);
+      setOpenCategory(null);
+    }
+
+    // Collapse previous supercategory
+    if (openSuper !== null && openSuper !== scKey) {
+      animate(`${SUPER_PREFIX}${openSuper}`, 0);
+    }
+
+    animate(`${SUPER_PREFIX}${scKey}`, willOpen ? 1 : 0);
+    setOpenSuper(willOpen ? scKey : null);
+  }
+
+  function toggleCategory(key: string): void {
     const willOpen = openCategory !== key;
 
     LayoutAnimation.configureNext(
       LayoutAnimation.create(260, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity),
     );
 
-    Animated.timing(rotations[key], {
-      toValue: willOpen ? 1 : 0,
-      duration: 260,
-      useNativeDriver: true,
-    }).start();
-
     if (openCategory !== null && openCategory !== key) {
-      Animated.timing(rotations[openCategory], {
-        toValue: 0,
-        duration: 260,
-        useNativeDriver: true,
-      }).start();
+      animate(openCategory, 0);
     }
 
+    animate(key, willOpen ? 1 : 0);
     setOpenCategory(willOpen ? key : null);
   }
 
@@ -214,7 +243,7 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
         <View style={styles.card}>
           <TouchableOpacity
             style={styles.cardHeader}
-            onPress={() => toggle('favoriten')}
+            onPress={() => toggleCategory('favoriten')}
             activeOpacity={0.7}
           >
             <View style={styles.headerInfo}>
@@ -270,71 +299,101 @@ export default function WorkoutCategoryRows({ disciplines }: Props): React.React
         isOpen={openCategory === 'eigene'}
         rotation={rotations['eigene']}
         customWorkouts={customWorkouts}
-        onToggle={() => toggle('eigene')}
+        onToggle={() => toggleCategory('eigene')}
         onAdd={() => setSheetVisible(true)}
         onDelete={handleDeleteCustom}
         onStart={handleStartCustom}
       />
 
-      {/* ── Standard-Kategorien ── */}
-      {CATEGORIES.map(({ key, label }) => {
-        const categoryWorkouts = workouts.filter((w) => w.category === key);
-        const isOpen = openCategory === key;
-        const chevronRotate = rotations[key].interpolate({
+      {/* ── Supercategories ── */}
+      {SUPERCATEGORIES.filter((sc) =>
+        sc.groups.some((g) => relevantKeys.includes(g as Workout['category'])),
+      ).map((sc: Supercategory) => {
+        const scIsOpen = openSuper === sc.key;
+        const scChevron = rotations[`${SUPER_PREFIX}${sc.key}`].interpolate({
           inputRange: [0, 1],
           outputRange: ['0deg', '180deg'],
         });
+        const scCategories = CATEGORIES.filter((c) =>
+          (sc.groups as string[]).includes(c.key),
+        );
 
         return (
-          <View key={key} style={styles.card}>
-            <TouchableOpacity style={styles.cardHeader} onPress={() => toggle(key)} activeOpacity={0.7}>
+          <View key={sc.key} style={styles.card}>
+            <TouchableOpacity style={styles.cardHeader} onPress={() => toggleSuper(sc.key)} activeOpacity={0.7}>
               <View style={styles.headerInfo}>
-                <Text style={styles.categoryLabel}>{label}</Text>
+                <Text style={styles.categoryLabel}>{sc.label}</Text>
               </View>
-              <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+              <Animated.View style={{ transform: [{ rotate: scChevron }] }}>
                 <Ionicons name="chevron-down" size={16} color={colors.headerTextSecondary} />
               </Animated.View>
             </TouchableOpacity>
 
-            {isOpen && (
-              <View style={styles.workoutList}>
-                {categoryWorkouts.map((workout) => (
-                  <TouchableOpacity
-                    key={workout.id}
-                    style={styles.workoutCard}
-                    activeOpacity={0.7}
-                    onPress={() => navigateToWorkout(workout)}
-                  >
-                    {completedTitles.has(workout.title) && (
-                      <Ionicons name="checkmark-circle" size={18} color={colors.accentBlue} style={styles.doneCheck} />
-                    )}
-                    <View style={styles.workoutInfo}>
-                      <View style={styles.titleRow}>
-                        <View style={[styles.difficultyDot, { backgroundColor: difficultyColor(workout.difficulty) }]} />
-                        <Text style={[styles.workoutTitle, styles.titleFlex]}>{workout.title}</Text>
-                      </View>
-                      <Text style={styles.workoutSubtitle}>{workout.subtitle}</Text>
-                      <Text style={styles.workoutMeta}>
-                        {workout.durationMin} Min
-                        {workout.maxPoints !== undefined
-                          ? `  ·  max. ${workout.maxPoints} Pts`
-                          : `  ·  ${workout.pointsPerUnit} Pts / 30 Min`}
-                      </Text>
+            {scIsOpen && (
+              <View style={styles.subCategoryList}>
+                {scCategories.map(({ key, label }) => {
+                  const catWorkouts = workouts.filter((w) => w.category === key);
+                  const catIsOpen = openCategory === key;
+                  const catChevron = rotations[key].interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '180deg'],
+                  });
+
+                  return (
+                    <View key={key} style={styles.subCard}>
+                      <TouchableOpacity style={styles.cardHeader} onPress={() => toggleCategory(key)} activeOpacity={0.7}>
+                        <View style={styles.headerInfo}>
+                          <Text style={styles.subCategoryLabel}>{label}</Text>
+                        </View>
+                        <Animated.View style={{ transform: [{ rotate: catChevron }] }}>
+                          <Ionicons name="chevron-down" size={16} color={colors.headerTextSecondary} />
+                        </Animated.View>
+                      </TouchableOpacity>
+
+                      {catIsOpen && (
+                        <View style={styles.workoutList}>
+                          {catWorkouts.map((workout) => (
+                            <TouchableOpacity
+                              key={workout.id}
+                              style={styles.workoutCard}
+                              activeOpacity={0.7}
+                              onPress={() => navigateToWorkout(workout)}
+                            >
+                              {completedTitles.has(workout.title) && (
+                                <Ionicons name="checkmark-circle" size={18} color={colors.accentBlue} style={styles.doneCheck} />
+                              )}
+                              <View style={styles.workoutInfo}>
+                                <View style={styles.titleRow}>
+                                  <View style={[styles.difficultyDot, { backgroundColor: difficultyColor(workout.difficulty) }]} />
+                                  <Text style={[styles.workoutTitle, styles.titleFlex]}>{workout.title}</Text>
+                                </View>
+                                <Text style={styles.workoutSubtitle}>{workout.subtitle}</Text>
+                                <Text style={styles.workoutMeta}>
+                                  {workout.durationMin} Min
+                                  {workout.maxPoints !== undefined
+                                    ? `  ·  max. ${workout.maxPoints} Pts`
+                                    : `  ·  ${workout.pointsPerUnit} Pts / 30 Min`}
+                                </Text>
+                              </View>
+                              <TouchableOpacity
+                                onPress={() => { void toggleFavorite(workout.id); }}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                activeOpacity={0.7}
+                              >
+                                <Ionicons
+                                  name={isFavorite(workout.id) ? 'heart' : 'heart-outline'}
+                                  size={18}
+                                  color={isFavorite(workout.id) ? colors.accentBlue : colors.headerTextSecondary}
+                                />
+                              </TouchableOpacity>
+                              <Ionicons name="chevron-forward" size={16} color={colors.headerTextSecondary} />
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      )}
                     </View>
-                    <TouchableOpacity
-                      onPress={() => { void toggleFavorite(workout.id); }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons
-                        name={isFavorite(workout.id) ? 'heart' : 'heart-outline'}
-                        size={18}
-                        color={isFavorite(workout.id) ? colors.accentBlue : colors.headerTextSecondary}
-                      />
-                    </TouchableOpacity>
-                    <Ionicons name="chevron-forward" size={16} color={colors.headerTextSecondary} />
-                  </TouchableOpacity>
-                ))}
+                  );
+                })}
               </View>
             )}
           </View>
@@ -379,6 +438,25 @@ const styles = StyleSheet.create({
     color: colors.headerTextPrimary,
   },
   chevron: { marginLeft: 8 },
+
+  subCategoryList: {
+    gap: 8,
+  },
+
+  subCard: {
+    backgroundColor: colors.headerCard,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.headerBorder,
+  },
+
+  subCategoryLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.headerTextPrimary,
+  },
 
   workoutList: { gap: 12 },
 

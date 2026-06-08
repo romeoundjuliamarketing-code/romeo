@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, Dimensions } from 'react-native';
+import { Animated, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { colors } from '../../theme/colors';
-
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 const PARTICLE_COUNT = 28;
 const FALL_DURATION_MIN  = 1_400; // ms
@@ -35,11 +33,11 @@ interface ParticleData {
   animR: Animated.Value;
 }
 
-function makeParticles(): ParticleData[] {
+function makeParticles(screenW: number): ParticleData[] {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
     const duration = FALL_DURATION_MIN + Math.random() * (FALL_DURATION_MAX - FALL_DURATION_MIN);
     return {
-      startX:    Math.random() * SCREEN_W,
+      startX:    Math.random() * screenW,
       driftX:    (Math.random() - 0.5) * 130,
       width:     6  + Math.random() * 7,
       height:    10 + Math.random() * 10,
@@ -61,7 +59,8 @@ interface ConfettiOverlayProps {
 }
 
 export default function ConfettiOverlay({ visible, onComplete }: ConfettiOverlayProps) {
-  const particlesRef = useRef<ParticleData[]>(makeParticles());
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const particlesRef = useRef<ParticleData[]>(makeParticles(screenW));
 
   useEffect(() => {
     if (!visible) return;
@@ -82,7 +81,7 @@ export default function ConfettiOverlay({ visible, onComplete }: ConfettiOverlay
       Animated.parallel([
         // Fall down
         Animated.timing(p.animY, {
-          toValue:        SCREEN_H + 80,
+          toValue:        screenH + 80,
           duration:       p.duration,
           delay:          p.delay,
           useNativeDriver: true,

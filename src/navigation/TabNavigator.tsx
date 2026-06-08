@@ -7,17 +7,17 @@ import { colors } from '../theme/colors';
 import HomeScreen from '../screens/HomeScreen';
 import TrainingScreen from '../screens/TrainingScreen';
 import ProfilScreen from '../screens/ProfilScreen';
-import ErnährungScreen from '../screens/ErnaehrungScreen';
+import SparringMapScreen from '../screens/SparringMapScreen';
 
 const Tab = createBottomTabNavigator();
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TAB_CONFIG: Record<string, { active: IoniconName; inactive: IoniconName; label: string }> = {
-  Home:      { active: 'home', inactive: 'home-outline', label: 'Home' },
-  Training:  { active: 'barbell', inactive: 'barbell-outline', label: 'Training' },
-  Ernährung: { active: 'nutrition', inactive: 'nutrition-outline', label: 'Ernährung' },
-  Profil:    { active: 'person', inactive: 'person-outline', label: 'Profil' },
+  Home:     { active: 'home', inactive: 'home-outline', label: 'Home' },
+  Training: { active: 'barbell', inactive: 'barbell-outline', label: 'Training' },
+  Sparring: { active: 'map', inactive: 'map-outline', label: 'Sparring' },
+  Profil:   { active: 'person', inactive: 'person-outline', label: 'Profil' },
 };
 
 // ─── Persistent animated values (module-level so they survive re-renders) ─────
@@ -25,14 +25,14 @@ const TAB_CONFIG: Record<string, { active: IoniconName; inactive: IoniconName; l
 const ICON_SCALES: Record<string, Animated.Value> = {
   Home: new Animated.Value(1.2),
   Training: new Animated.Value(1),
-  Ernährung: new Animated.Value(1),
+  Sparring: new Animated.Value(1),
   Profil: new Animated.Value(1),
 };
 
 const INDICATOR_SCALES: Record<string, Animated.Value> = {
   Home: new Animated.Value(1),
   Training: new Animated.Value(0),
-  Ernährung: new Animated.Value(0),
+  Sparring: new Animated.Value(0),
   Profil: new Animated.Value(0),
 };
 
@@ -125,7 +125,7 @@ export default function TabNavigator() {
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Training" component={TrainingScreen} options={{ headerShown: false }} />
-      <Tab.Screen name="Ernährung" component={ErnährungScreen} />
+      <Tab.Screen name="Sparring" component={SparringMapScreen} />
       <Tab.Screen name="Profil" component={ProfilScreen} />
     </Tab.Navigator>
   );

@@ -14,16 +14,36 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import type { CreateSparringParams } from '../../hooks/useSparringActions';
+import type { CreateSparringInput } from '../../hooks/useSparringActions';
+import LocationPickerModal from './LocationPickerModal';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 
-interface Props {
-  visible: boolean;
-  studioId: string;
-  onClose: () => void;
-  onCreate: (params: CreateSparringParams) => Promise<void>;
-}
+type CoachStudioInfo = {
+  id: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
+};
+
+type Props =
+  | {
+      visible: boolean;
+      mode?: 'coach';
+      studioId: string;
+      coachStudio?: never;
+      onClose: () => void;
+      onCreate: (params: CreateSparringInput) => Promise<void>;
+    }
+  | {
+      visible: boolean;
+      mode: 'user';
+      studioId?: never;
+      /** When provided, shows the "Am Studio-Standort" checkbox for coaches */
+      coachStudio?: CoachStudioInfo | null;
+      onClose: () => void;
+      onCreate: (params: CreateSparringInput) => Promise<void>;
+    };
 
 function nextDay18h(): Date {
   const d = new Date();
@@ -32,10 +52,20 @@ function nextDay18h(): Date {
   return d;
 }
 
-export default function CreateSparringSheet({ visible, studioId, onClose, onCreate }: Props) {
+export default function CreateSparringSheet(props: Props) {
+  const { visible, onClose, onCreate } = props;
+  const mode = props.mode ?? 'coach';
+  const studioId = 'studioId' in props ? props.studioId : undefined;
+  const isUserMode = mode === 'user';
+
+  const coachStudio = 'coachStudio' in props ? props.coachStudio : null;
+  const showAtStudioCheckbox =
+    isUserMode && coachStudio !== null && coachStudio !== undefined && coachStudio.address.trim().length > 0;
+
+  const [isAtStudio, setIsAtStudio] = useState(false);
+
   const [title, setTitle] = useState('');
   const [discipline, setDiscipline] = useState(DISCIPLINES[0]);
-  const [address, setAddress] = useState('');
   const [scheduledAt, setScheduledAt] = useState<Date>(nextDay18h);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
@@ -43,6 +73,10 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
   const [maxSlots, setMaxSlots] = useState('10');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [address, setAddress] = useState('');
+  // Coordinates from map picker — set when user picks a location on the map
+  const [pickedCoord, setPickedCoord] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationPickerVisible, setLocationPickerVisible] = useState(false);
 
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -52,40 +86,78 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
     return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 
+  function handleToggleAtStudio(): void {
+    if (coachStudio === null || coachStudio === undefined) return;
+    const next = !isAtStudio;
+    setIsAtStudio(next);
+    if (next) {
+      setAddress(coachStudio.address);
+      setPickedCoord(
+        coachStudio.lat !== null && coachStudio.lng !== null
+          ? { lat: coachStudio.lat, lng: coachStudio.lng }
+          : null,
+      );
+    } else {
+      setAddress('');
+      setPickedCoord(null);
+    }
+  }
+
   async function handleCreate(): Promise<void> {
-    if (title.trim().length === 0) {
-      Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
-      return;
-    }
-    if (address.trim().length === 0) {
-      Alert.alert('Adresse fehlt', 'Bitte gib die Adresse des Sparrings ein.');
-      return;
-    }
-    const dur = parseInt(durationMin, 10);
-    const slots = parseInt(maxSlots, 10);
-    if (isNaN(dur) || dur < 1) {
-      Alert.alert('Ungültige Dauer', 'Bitte gib eine gültige Dauer in Minuten ein.');
-      return;
-    }
-    if (isNaN(slots) || slots < 1) {
-      Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
-      return;
+    if (isUserMode) {
+      if (address.trim().length === 0) {
+        Alert.alert('Ort fehlt', 'Bitte gib einen Ort oder eine Adresse ein.');
+        return;
+      }
+      const slotsUser = parseInt(maxSlots, 10);
+      if (isNaN(slotsUser) || slotsUser < 1) {
+        Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+        return;
+      }
+    } else {
+      if (title.trim().length === 0) {
+        Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
+        return;
+      }
+      const dur = parseInt(durationMin, 10);
+      const slots = parseInt(maxSlots, 10);
+      if (isNaN(dur) || dur < 1) {
+        Alert.alert('Ungültige Dauer', 'Bitte gib eine gültige Dauer in Minuten ein.');
+        return;
+      }
+      if (isNaN(slots) || slots < 1) {
+        Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+        return;
+      }
     }
 
+    const dur = isUserMode ? 90 : parseInt(durationMin, 10);
+    const slots = parseInt(maxSlots, 10);
+    const resolvedTitle = isUserMode ? `${discipline} – Sparring` : title.trim();
+
+    const params: CreateSparringInput = isUserMode
+      ? {
+          address: address.trim(),
+          ...(pickedCoord !== null ? { lat: pickedCoord.lat, lng: pickedCoord.lng } : {}),
+          ...(isAtStudio && coachStudio !== null && coachStudio !== undefined
+            ? { isAtStudio: true as const, atStudioId: coachStudio.id }
+            : {}),
+          title: resolvedTitle,
+          discipline,
+          scheduledAt: scheduledAt.toISOString(),
+          durationMin: dur,
+          maxSlots: slots,
+          notes,
+        }
+      : { studioId: studioId as string, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes };
+
     setLoading(true);
-    await onCreate({
-      studioId,
-      title: title.trim(),
-      discipline,
-      address: address.trim(),
-      scheduledAt: scheduledAt.toISOString(),
-      durationMin: dur,
-      maxSlots: slots,
-      notes,
-    });
+    await onCreate(params);
     setLoading(false);
     setTitle('');
     setAddress('');
+    setPickedCoord(null);
+    setIsAtStudio(false);
     setDiscipline(DISCIPLINES[0]);
     setNotes('');
     setDurationMin('90');
@@ -96,6 +168,15 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <LocationPickerModal
+        visible={locationPickerVisible}
+        onClose={() => setLocationPickerVisible(false)}
+        onConfirm={(lat, lng, displayAddress) => {
+          setPickedCoord({ lat, lng });
+          setAddress(displayAddress);
+          setLocationPickerVisible(false);
+        }}
+      />
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <View style={styles.sheet}>
         <View style={styles.handle} />
@@ -108,14 +189,88 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
 
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-          <Text style={styles.label}>Titel</Text>
-          <TextInput
-            style={styles.input}
-            value={title}
-            onChangeText={setTitle}
-            placeholder="z.B. Offenes Boxsparring"
-            placeholderTextColor={colors.textSecondary}
-          />
+          {!isUserMode && (
+            <>
+              <Text style={styles.label}>Titel</Text>
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="z.B. Offenes Boxsparring"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </>
+          )}
+
+          {isUserMode && (
+            <>
+              <Text style={styles.label}>Ort</Text>
+              <View style={styles.locationRow}>
+                <TextInput
+                  style={[styles.input, styles.locationInput, isAtStudio && styles.inputDisabled]}
+                  value={address}
+                  editable={!isAtStudio}
+                  onChangeText={(t) => {
+                    if (isAtStudio) return;
+                    setAddress(t);
+                    // Manual edit clears the map-picked coordinates
+                    if (pickedCoord !== null) setPickedCoord(null);
+                  }}
+                  placeholder="Adresse eingeben"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <TouchableOpacity
+                  style={[styles.mapPickBtn, isAtStudio && styles.mapPickBtnDisabled]}
+                  onPress={() => { if (!isAtStudio) setLocationPickerVisible(true); }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons
+                    name="map-outline"
+                    size={18}
+                    color={pickedCoord !== null ? colors.card : colors.accentBlue}
+                  />
+                </TouchableOpacity>
+              </View>
+              {pickedCoord !== null && (
+                <View style={styles.pickedBadge}>
+                  <Ionicons name="location" size={13} color={colors.accentBlue} />
+                  <Text style={styles.pickedBadgeText} numberOfLines={1}>{address}</Text>
+                  <TouchableOpacity
+                    onPress={() => { setPickedCoord(null); setAddress(''); }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </>
+          )}
+
+          {showAtStudioCheckbox && (
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              onPress={handleToggleAtStudio}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, isAtStudio && styles.checkboxChecked]}>
+                {isAtStudio && <Ionicons name="checkmark" size={14} color={colors.card} />}
+              </View>
+              <Text style={styles.checkboxLabel}>Am Studio-Standort</Text>
+            </TouchableOpacity>
+          )}
+
+          {isUserMode && (
+            <>
+              <Text style={styles.label}>Max. Plätze</Text>
+              <TextInput
+                style={styles.input}
+                value={maxSlots}
+                onChangeText={setMaxSlots}
+                keyboardType="numeric"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </>
+          )}
 
           <Text style={styles.label}>Kampfsport</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -133,15 +288,6 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
               ))}
             </View>
           </ScrollView>
-
-          <Text style={styles.label}>Adresse</Text>
-          <TextInput
-            style={styles.input}
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Straße, Hausnummer, Stadt"
-            placeholderTextColor={colors.textSecondary}
-          />
 
           <Text style={styles.label}>Datum</Text>
           <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
@@ -184,28 +330,30 @@ export default function CreateSparringSheet({ visible, studioId, onClose, onCrea
             />
           )}
 
-          <View style={styles.twoCol}>
-            <View style={styles.colItem}>
-              <Text style={styles.label}>Dauer (Min.)</Text>
-              <TextInput
-                style={styles.input}
-                value={durationMin}
-                onChangeText={setDurationMin}
-                keyboardType="numeric"
-                placeholderTextColor={colors.textSecondary}
-              />
+          {!isUserMode && (
+            <View style={styles.twoCol}>
+              <View style={styles.colItem}>
+                <Text style={styles.label}>Dauer (Min.)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={durationMin}
+                  onChangeText={setDurationMin}
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
+              <View style={styles.colItem}>
+                <Text style={styles.label}>Max. Plätze</Text>
+                <TextInput
+                  style={styles.input}
+                  value={maxSlots}
+                  onChangeText={setMaxSlots}
+                  keyboardType="numeric"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              </View>
             </View>
-            <View style={styles.colItem}>
-              <Text style={styles.label}>Max. Plätze</Text>
-              <TextInput
-                style={styles.input}
-                value={maxSlots}
-                onChangeText={setMaxSlots}
-                keyboardType="numeric"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-          </View>
+          )}
 
           <Text style={styles.label}>Hinweise (optional)</Text>
           <TextInput
@@ -342,5 +490,72 @@ const styles = StyleSheet.create({
   },
   bottomPad: {
     height: 16,
+  },
+
+  // Location row
+  locationRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  locationInput: {
+    flex: 1,
+  },
+  mapPickBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.accentBlue,
+    backgroundColor: colors.accentBlueSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: colors.accentBlueSoft,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  pickedBadgeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.accentBlue,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: colors.accentBlue,
+    borderColor: colors.accentBlue,
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  inputDisabled: {
+    opacity: 0.5,
+  },
+  mapPickBtnDisabled: {
+    opacity: 0.35,
   },
 });

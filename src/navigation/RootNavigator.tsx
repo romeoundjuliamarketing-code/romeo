@@ -9,10 +9,18 @@ import SettingsScreen from '../screens/SettingsScreen';
 import PaywallScreen from '../screens/PaywallScreen';
 import WeightHistoryScreen from '../screens/WeightHistoryScreen';
 import PointsBreakdownScreen from '../screens/PointsBreakdownScreen';
+import AttendanceHistoryScreen from '../screens/AttendanceHistoryScreen';
+import WorkoutHistoryScreen from '../screens/WorkoutHistoryScreen';
 import SparringMapScreen from '../screens/SparringMapScreen';
+import PublicProfileScreen from '../screens/PublicProfileScreen';
+import SparringChatListScreen  from '../screens/SparringChatListScreen';
+import SparringGroupChatScreen from '../screens/SparringGroupChatScreen';
+import StudioDetailScreen from '../screens/StudioDetailScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
@@ -34,13 +42,28 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen name="Paywall" component={PaywallScreen} />
       <AppStack.Screen name="WeightHistory"    component={WeightHistoryScreen}    />
       <AppStack.Screen name="PointsBreakdown" component={PointsBreakdownScreen} />
+      <AppStack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
+      <AppStack.Screen name="WorkoutHistory" component={WorkoutHistoryScreen} />
       <AppStack.Screen
         name="SparringMap"
         component={SparringMapScreen}
         options={{ presentation: 'fullScreenModal' }}
       />
+      <AppStack.Screen name="PublicProfile" component={PublicProfileScreen} />
+      <AppStack.Screen name="SparringChatList"  component={SparringChatListScreen}  />
+      <AppStack.Screen name="SparringGroupChat" component={SparringGroupChatScreen} />
+      <AppStack.Screen
+        name="StudioDetail"
+        component={StudioDetailScreen}
+        options={{ presentation: 'modal' }}
+      />
       <AppStack.Screen name="Workout"  component={WorkoutScreen}  />
       <AppStack.Screen name="Timer"    component={TimerScreen}    />
+      <AppStack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ presentation: 'modal' }}
+      />
     </AppStack.Navigator>
   );
 }
@@ -48,8 +71,9 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
 function AuthNavigator() {
   return (
     <AuthStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
-      <AuthStack.Screen name="Login"    component={LoginScreen}    />
-      <AuthStack.Screen name="Register" component={RegisterScreen} />
+      <AuthStack.Screen name="Login"       component={LoginScreen}       />
+      <AuthStack.Screen name="Register"    component={RegisterScreen}    />
+      <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
     </AuthStack.Navigator>
   );
 }

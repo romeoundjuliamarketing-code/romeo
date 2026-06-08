@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  StrikeForce
+//  Kombat
 //
 //  Created by Romeo Georgiadis on 27.03.26.
 //

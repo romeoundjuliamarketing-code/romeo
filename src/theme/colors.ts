@@ -43,8 +43,10 @@ export const colors = {
   catPartnertraining:    '#4A7C59',
 
   // ── Semantic status ───────────────────────────────────────────────────────
-  deleteRed:       '#D94A4A',
-  difficultyGreen: '#52C41A',
+  deleteRed:        '#D94A4A',
+  difficultyGreen:  '#52C41A',
+  sparringsOrange:  '#F5820A', // Demnächst-Marker auf der Sparring-Karte
+  studioGreen:      '#22C55E', // Am-Studio-Marker auf der Sparring-Karte
 
   // ── Donut chart segments ───────────────────────────────────────────────────
   chartK1:    '#0A0A0A',

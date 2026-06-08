@@ -22,8 +22,8 @@ const PEEK_OFFSET   = 152;
 // Vertical center of penguin's head within the image (approx. top 28%)
 const HEAD_FROM_TOP = Math.round(PENGUIN_H * 0.28);
 
-const BOTTLE_BODY_HEIGHT = 92;
-const BOTTLE_BODY_WIDTH  = 56;
+const BOTTLE_BODY_HEIGHT = 88;
+const BOTTLE_BODY_WIDTH  = 34;
 const GOAL_TEXT_DIVISOR  = 1000;
 
 const MESSAGES = [
@@ -210,9 +210,20 @@ export default function WaterBottleCard({
       {/* Card — above penguin (zIndex 1) */}
       <View style={styles.card}>
         <View style={styles.bottleWrap}>
-          <View style={styles.bottleNeck} />
+          {/* Screw cap */}
+          <View style={styles.bottleCap} />
+          {/* Neck connector */}
+          <View style={styles.bottleNeckConnector} />
+          {/* Shoulder — wider rectangle transitions cap to body */}
+          <View style={styles.bottleShoulder} />
+          {/* Body */}
           <View style={styles.bottleBody}>
+            {/* Animated fill — fill rises from the bottom */}
             <Animated.View style={[styles.bottleFill, animatedFillStyle]} />
+            {/* Shine stripe — sits above the fill */}
+            <View style={styles.bottleShine} />
+            {/* Bottom ring — vacuum-insulated look */}
+            <View style={styles.bottleRing} />
           </View>
         </View>
 
@@ -340,35 +351,68 @@ const styles = StyleSheet.create({
     borderRightColor: colors.card,
   },
   bottleWrap: {
-    width: 60,
-    height: 110,
+    width: 52,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'flex-end',
   },
-  bottleNeck: {
+  bottleCap: {
     width: 20,
-    height: 14,
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    backgroundColor: colors.textSecondary,
-    marginBottom: 4,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.dark,
+    marginBottom: 0,
+  },
+  bottleNeckConnector: {
+    width: 16,
+    height: 6,
+    backgroundColor: colors.dark,
+  },
+  bottleShoulder: {
+    width: 30,
+    height: 8,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
+    backgroundColor: colors.dark,
+    opacity: 0.75,
   },
   bottleBody: {
     width: BOTTLE_BODY_WIDTH,
     height: BOTTLE_BODY_HEIGHT,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 6,
-    borderBottomRightRadius: 6,
-    backgroundColor: colors.darkMuted,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 0.75,
+    borderColor: colors.border,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
   bottleFill: {
     width: '100%',
     backgroundColor: colors.accentBlue,
+    borderTopLeftRadius: 6,
+    borderTopRightRadius: 6,
+  },
+  bottleShine: {
+    position: 'absolute',
+    top: 8,
+    left: 6,
+    width: 3,
+    height: 44,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  bottleRing: {
+    position: 'absolute',
+    bottom: 0,
+    left: 2,
+    right: 2,
+    height: 4,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+    backgroundColor: colors.darkMuted,
   },
   content: {
     flex: 1,

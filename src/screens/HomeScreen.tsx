@@ -13,7 +13,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import HeroSection from '../components/home/HeroSection';
-import RecommendedWorkoutCard from '../components/home/RecommendedWorkoutCard';
 import WaterBottleCard from '../components/home/WaterBottleCard';
 import WeightCheckInModal from '../components/home/WeightCheckInModal';
 import PaywallCard from '../components/common/PaywallCard';
@@ -26,11 +25,15 @@ import { useProfile } from '../hooks/useProfile';
 import { useAnnouncement } from '../hooks/useAnnouncement';
 import { useWaterTracking } from '../hooks/useWaterTracking';
 import { useWeight } from '../hooks/useWeight';
+import { useNotifications } from '../hooks/useNotifications';
+import { useProximitySparringNotifications } from '../hooks/useProximitySparringNotifications';
 import ConfettiOverlay from '../components/ernaehrung/ConfettiOverlay';
 import { useEntitlement } from '../hooks/useEntitlement';
 import type { RootStackParamList } from '../navigation/types';
+import type { StudioSchedule } from '../types/database.types';
 
 const WEIGHT_DISMISSED_KEY = 'weight_checkin_dismissed';
+const PREWORKOUT_KEY = 'preworkout_enabled';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,6 +62,8 @@ export default function HomeScreen() {
   // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
   const todayDow = (new Date().getDay() + 6) % 7;
   const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
+  const { scheduleTrainingReminders } = useNotifications();
+  useProximitySparringNotifications();
   const { isParticipating, participate, cancelParticipation } = useParticipation();
   const { isDone: stretchDone, isUrgent: stretchUrgent, logStretch } = useDailyStretch();
   const { isDone: mobilityDone, isUrgent: mobilityUrgent, logMobility } = useDailyMobility();
@@ -80,6 +85,15 @@ export default function HomeScreen() {
     void maybeShow();
   }, [weightLoading, isNewWeek]);
 
+  useEffect(() => {
+    if (schedule.length > 0) {
+      void (async () => {
+        const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
+        await scheduleTrainingReminders(schedule, stored === 'true');
+      })();
+    }
+  }, [schedule, scheduleTrainingReminders]);
+
   async function handleWeightSubmit(kg: number): Promise<void> {
     setShowWeightModal(false);
     await logWeight(kg);
@@ -96,29 +110,29 @@ export default function HomeScreen() {
     focusTrigger,
   );
 
-  // First active session of the day shown in the hero card
-  const todaySession = schedule.length > 0 ? schedule[0] : null;
   const todaySessionDate = new Date().toISOString().split('T')[0];
-  const heroParticipating =
-    todaySession !== null && isParticipating(todaySession.id, todaySessionDate);
 
-  async function handleHeroParticipate(): Promise<void> {
-    if (todaySession === null) return;
+  async function handleSessionParticipate(session: StudioSchedule): Promise<void> {
     await participate(
-      todaySession.id,
+      session.id,
       todaySessionDate,
-      todaySession.points_per_30min,
-      todaySession.duration_min,
-      todaySession.training_name,
-      todaySession.training_type,
+      session.points_per_30min,
+      session.duration_min,
+      session.training_name,
+      session.training_type,
     );
     refetchStats();
+    // Re-schedule notifications so only confirmed sessions get reminders
+    const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
+    await scheduleTrainingReminders(schedule, stored === 'true');
   }
 
-  async function handleHeroCancel(): Promise<void> {
-    if (todaySession === null) return;
-    await cancelParticipation(todaySession.id, todaySessionDate);
+  async function handleSessionCancel(session: StudioSchedule): Promise<void> {
+    await cancelParticipation(session.id, todaySessionDate);
     refetchStats();
+    // Remove reminders for the cancelled session
+    const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
+    await scheduleTrainingReminders(schedule, stored === 'true');
   }
 
   const STATS: StatEntry[] = [
@@ -132,9 +146,9 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.content}>
         <HeroSection
           name={profile?.name ?? null}
           announcement={announcement}
@@ -142,10 +156,10 @@ export default function HomeScreen() {
           onDeleteAnnouncement={() => { void deleteAnnouncement(); }}
           completedDayIndices={completedDayIndices}
           streak={streak}
-          todaySession={todaySession}
-          isParticipating={heroParticipating}
-          onParticipate={handleHeroParticipate}
-          onCancel={handleHeroCancel}
+          todaySessions={schedule}
+          isSessionParticipating={isParticipating}
+          onSessionParticipate={(s) => { void handleSessionParticipate(s); }}
+          onSessionCancel={(s) => { void handleSessionCancel(s); }}
           stretchDone={stretchDone}
           stretchUrgent={stretchUrgent}
           onStretch={() => { void logStretch().then(refetchStats); }}
@@ -168,8 +182,6 @@ export default function HomeScreen() {
               focusTrigger={focusTrigger}
             />
           </View>
-
-          <RecommendedWorkoutCard refetchTrigger={focusTrigger} />
 
           {entitlement.hasAccess ? (
             <>
@@ -198,6 +210,7 @@ export default function HomeScreen() {
             />
           )}
 
+        </View>
         </View>
       </ScrollView>
 
@@ -230,6 +243,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 32,
+    maxWidth: 600,
+    alignSelf: 'center',
+    width: '100%',
   },
 
   // Light section below the dark hero
@@ -247,6 +263,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: colors.text,
+    marginTop: 8,
     marginBottom: 16,
   },
   waterCardWrap: {
@@ -257,7 +274,7 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 16,
     marginBottom: 24,
   },
   statCard: {
@@ -291,7 +308,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.inactive,
     fontWeight: '500',
-    marginBottom: 4,
   },
   statLabel: {
     fontSize: 13,

@@ -43,6 +43,17 @@ export type Database = {
           training_since: string | null
           weight_class: string | null
           weight_kg: number | null
+          expo_push_token: string | null
+          show_fight_record: boolean
+          show_stats: boolean
+          profile_code: string
+          address: string | null
+          address_lat: number | null
+          address_lng: number | null
+          phone: string | null
+          phone_verified_at: string | null
+          coach_verified_at: string | null
+          coach_verified_by: string | null
         }
         Insert: {
           age_years?: number | null
@@ -77,6 +88,17 @@ export type Database = {
           training_since?: string | null
           weight_class?: string | null
           weight_kg?: number | null
+          expo_push_token?: string | null
+          show_fight_record?: boolean
+          show_stats?: boolean
+          profile_code?: string
+          address?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          coach_verified_at?: string | null
+          coach_verified_by?: string | null
         }
         Update: {
           age_years?: number | null
@@ -111,6 +133,17 @@ export type Database = {
           training_since?: string | null
           weight_class?: string | null
           weight_kg?: number | null
+          expo_push_token?: string | null
+          show_fight_record?: boolean
+          show_stats?: boolean
+          profile_code?: string
+          address?: string | null
+          address_lat?: number | null
+          address_lng?: number | null
+          phone?: string | null
+          phone_verified_at?: string | null
+          coach_verified_at?: string | null
+          coach_verified_by?: string | null
         }
         Relationships: [
           {
@@ -221,6 +254,8 @@ export type Database = {
           city: string
           created_at: string
           id: string
+          lat: number | null
+          lng: number | null
           name: string
           owner_user_id: string | null
         }
@@ -229,6 +264,8 @@ export type Database = {
           city: string
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           name: string
           owner_user_id?: string | null
         }
@@ -237,6 +274,8 @@ export type Database = {
           city?: string
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           name?: string
           owner_user_id?: string | null
         }
@@ -245,7 +284,7 @@ export type Database = {
       open_sparrings: {
         Row: {
           id: string
-          studio_id: string
+          studio_id: string | null
           created_by: string
           title: string
           discipline: string
@@ -257,11 +296,13 @@ export type Database = {
           max_slots: number
           notes: string | null
           is_active: boolean
+          is_featured: boolean
+          is_at_studio: boolean
           created_at: string
         }
         Insert: {
           id?: string
-          studio_id: string
+          studio_id?: string | null
           created_by: string
           title: string
           discipline: string
@@ -273,11 +314,13 @@ export type Database = {
           max_slots?: number
           notes?: string | null
           is_active?: boolean
+          is_featured?: boolean
+          is_at_studio?: boolean
           created_at?: string
         }
         Update: {
           id?: string
-          studio_id?: string
+          studio_id?: string | null
           created_by?: string
           title?: string
           discipline?: string
@@ -289,6 +332,8 @@ export type Database = {
           max_slots?: number
           notes?: string | null
           is_active?: boolean
+          is_featured?: boolean
+          is_at_studio?: boolean
           created_at?: string
         }
         Relationships: [
@@ -343,6 +388,226 @@ export type Database = {
             referencedColumns: ['id']
           },
         ]
+      }
+      sparring_ratings: {
+        Row: {
+          id:            string
+          rater_id:      string
+          rated_user_id: string
+          sparring_id:   string
+          stars:         number
+          comment:       string
+          created_at:    string
+        }
+        Insert: {
+          id?:           string
+          rater_id:      string
+          rated_user_id: string
+          sparring_id:   string
+          stars:         number
+          comment:       string
+          created_at?:   string
+        }
+        Update: {
+          id?:           string
+          rater_id?:     string
+          rated_user_id?: string
+          sparring_id?:  string
+          stars?:        number
+          comment?:      string
+          created_at?:   string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_ratings_rater_id_fkey'
+            columns: ['rater_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_ratings_rated_user_id_fkey'
+            columns: ['rated_user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_ratings_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sparring_messages: {
+        Row: {
+          id:           string
+          sparring_id:  string
+          sender_id:    string
+          recipient_id: string
+          content:      string
+          read_at:      string | null
+          created_at:   string
+        }
+        Insert: {
+          id?:          string
+          sparring_id:  string
+          sender_id:    string
+          recipient_id: string
+          content:      string
+          read_at?:     string | null
+          created_at?:  string
+        }
+        Update: {
+          id?:          string
+          sparring_id?: string
+          sender_id?:   string
+          recipient_id?: string
+          content?:     string
+          read_at?:     string | null
+          created_at?:  string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_messages_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_messages_sender_id_fkey'
+            columns: ['sender_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_messages_recipient_id_fkey'
+            columns: ['recipient_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sparring_chat_settings: {
+        Row: {
+          sparring_id:   string
+          media_enabled: boolean
+        }
+        Insert: {
+          sparring_id:    string
+          media_enabled?: boolean
+        }
+        Update: {
+          sparring_id?:   string
+          media_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_chat_settings_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: true
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sparring_group_messages: {
+        Row: {
+          id:          string
+          sparring_id: string
+          sender_id:   string
+          content:     string | null
+          image_url:   string | null
+          is_system:   boolean
+          created_at:  string
+        }
+        Insert: {
+          id?:         string
+          sparring_id: string
+          sender_id:   string
+          content?:    string | null
+          image_url?:  string | null
+          is_system?:  boolean
+          created_at?: string
+        }
+        Update: {
+          id?:          string
+          sparring_id?: string
+          sender_id?:   string
+          content?:     string | null
+          image_url?:   string | null
+          is_system?:   boolean
+          created_at?:  string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'sparring_group_messages_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'sparring_group_messages_sender_id_fkey'
+            columns: ['sender_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      sparring_chat_reads: {
+        Row: {
+          user_id:      string
+          sparring_id:  string
+          last_read_at: string
+        }
+        Insert: {
+          user_id:       string
+          sparring_id:   string
+          last_read_at?: string
+        }
+        Update: {
+          user_id?:      string
+          sparring_id?:  string
+          last_read_at?: string
+        }
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          id:               string
+          reporter_id:      string
+          reported_user_id: string
+          sparring_id:      string
+          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          details:          string | null
+          created_at:       string
+        }
+        Insert: {
+          id?:              string
+          reporter_id:      string
+          reported_user_id: string
+          sparring_id:      string
+          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          details?:         string | null
+          created_at?:      string
+        }
+        Update: {
+          id?:              string
+          reporter_id?:     string
+          reported_user_id?: string
+          sparring_id?:     string
+          reason?:          'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          details?:         string | null
+          created_at?:      string
+        }
+        Relationships: []
       }
       subscriptions: {
         Row: {
@@ -533,6 +798,48 @@ export type Database = {
         }
         Relationships: []
       }
+      map_boosts: {
+        Row: {
+          id:           string
+          user_id:      string
+          sparring_id:  string
+          activated_at: string
+          expires_at:   string
+          is_active:    boolean
+        }
+        Insert: {
+          id?:           string
+          user_id:       string
+          sparring_id:   string
+          activated_at?: string
+          expires_at:    string
+          is_active?:    boolean
+        }
+        Update: {
+          id?:           string
+          user_id?:      string
+          sparring_id?:  string
+          activated_at?: string
+          expires_at?:   string
+          is_active?:    boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'map_boosts_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'map_boosts_sparring_id_fkey'
+            columns: ['sparring_id']
+            isOneToOne: false
+            referencedRelation: 'open_sparrings'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       water_logs: {
         Row: {
           id: string
@@ -701,6 +1008,212 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          id:         string
+          user_id:    string
+          type:       string
+          title:      string
+          body:       string
+          data:       Record<string, unknown>
+          read_at:    string | null
+          created_at: string
+        }
+        Insert: {
+          id?:        string
+          user_id:    string
+          type:       string
+          title:      string
+          body:       string
+          data?:      Record<string, unknown>
+          read_at?:   string | null
+          created_at?: string
+        }
+        Update: {
+          id?:        string
+          user_id?:   string
+          type?:      string
+          title?:     string
+          body?:      string
+          data?:      Record<string, unknown>
+          read_at?:   string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      studio_membership_plans: {
+        Row: {
+          id:               string
+          studio_id:        string
+          name:             string
+          price_cents:      number
+          billing_interval: 'monthly' | 'yearly'
+          min_term_months:  number
+          description:      string | null
+          is_active:        boolean
+          created_at:       string
+        }
+        Insert: {
+          id?:               string
+          studio_id:         string
+          name:              string
+          price_cents:       number
+          billing_interval?: 'monthly' | 'yearly'
+          min_term_months?:  number
+          description?:      string | null
+          is_active?:        boolean
+          created_at?:       string
+        }
+        Update: {
+          id?:               string
+          studio_id?:        string
+          name?:             string
+          price_cents?:      number
+          billing_interval?: 'monthly' | 'yearly'
+          min_term_months?:  number
+          description?:      string | null
+          is_active?:        boolean
+          created_at?:       string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'studio_membership_plans_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      studio_member_contracts: {
+        Row: {
+          id:                        string
+          user_id:                   string
+          studio_id:                 string
+          plan_id:                   string
+          plan_name_snapshot:        string
+          price_cents_snapshot:      number
+          billing_interval_snapshot: string
+          min_term_months_snapshot:  number
+          status:                    'pending' | 'active' | 'cancellation_requested' | 'ended' | 'declined'
+          signed_at:                 string
+          start_date:                string | null
+          cancel_requested_at:       string | null
+          ended_at:                  string | null
+          created_at:                string
+          updated_at:                string
+          responded_by:              string | null
+        }
+        Insert: {
+          id?:                        string
+          user_id:                    string
+          studio_id:                  string
+          plan_id:                    string
+          plan_name_snapshot:         string
+          price_cents_snapshot:       number
+          billing_interval_snapshot:  string
+          min_term_months_snapshot:   number
+          status?:                    'pending' | 'active' | 'cancellation_requested' | 'ended' | 'declined'
+          signed_at?:                 string
+          start_date?:                string | null
+          cancel_requested_at?:       string | null
+          ended_at?:                  string | null
+          created_at?:                string
+          updated_at?:                string
+          responded_by?:              string | null
+        }
+        Update: {
+          id?:                        string
+          user_id?:                   string
+          studio_id?:                 string
+          plan_id?:                   string
+          plan_name_snapshot?:        string
+          price_cents_snapshot?:      number
+          billing_interval_snapshot?: string
+          min_term_months_snapshot?:  number
+          status?:                    'pending' | 'active' | 'cancellation_requested' | 'ended' | 'declined'
+          signed_at?:                 string
+          start_date?:                string | null
+          cancel_requested_at?:       string | null
+          ended_at?:                  string | null
+          created_at?:                string
+          updated_at?:                string
+          responded_by?:              string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'studio_member_contracts_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'studio_member_contracts_plan_id_fkey'
+            columns: ['plan_id']
+            isOneToOne: false
+            referencedRelation: 'studio_membership_plans'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      trial_bookings: {
+        Row: {
+          id: string
+          user_id: string
+          studio_id: string
+          schedule_id: string | null
+          requested_date: string
+          note: string | null
+          status: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          created_at: string
+          updated_at: string
+          responded_at: string | null
+          responded_by: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          studio_id: string
+          schedule_id?: string | null
+          requested_date: string
+          note?: string | null
+          status?: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          created_at?: string
+          updated_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          studio_id?: string
+          schedule_id?: string | null
+          requested_date?: string
+          note?: string | null
+          status?: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          created_at?: string
+          updated_at?: string
+          responded_at?: string | null
+          responded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'trial_bookings_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'trial_bookings_schedule_id_fkey'
+            columns: ['schedule_id']
+            isOneToOne: false
+            referencedRelation: 'studio_schedule'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       studio_schedule: {
         Row: {
           coach_name: string | null
@@ -854,6 +1367,111 @@ export type Database = {
         Args: Record<string, never>
         Returns: undefined
       }
+      deactivate_sparring: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      get_subscribed_studios: {
+        Args: Record<string, never>
+        Returns: {
+          id: string
+          name: string
+          city: string
+          address: string | null
+          lat: number
+          lng: number
+        }[]
+      }
+      log_daily_activity: {
+        Args: {
+          p_user_id: string
+          p_date: string
+          p_title: string
+          p_training_type: string
+          p_points: number
+          p_duration_min: number
+        }
+        Returns: Json
+      }
+      activate_map_boost: {
+        Args: {
+          p_sparring_id:   string
+          p_user_id:       string
+          p_duration_days?: number
+        }
+        Returns: Json
+      }
+      get_my_boost_status: {
+        Args: { p_sparring_id: string }
+        Returns: {
+          is_active:      boolean
+          expires_at:     string | null
+          days_remaining: number | null
+        }[]
+      }
+      request_trial_booking: {
+        Args: {
+          p_studio_id:   string
+          p_schedule_id: string | null
+          p_date:        string
+          p_note:        string | null
+        }
+        Returns: string
+      }
+      respond_trial_booking: {
+        Args: {
+          p_id:      string
+          p_confirm: boolean
+        }
+        Returns: undefined
+      }
+      mark_all_notifications_read: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
+      sign_membership: {
+        Args: { p_plan_id: string }
+        Returns: string
+      }
+      respond_membership_request: {
+        Args: { p_id: string; p_confirm: boolean }
+        Returns: undefined
+      }
+      request_membership_cancellation: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
+      confirm_membership_end: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
+      get_my_chat_list: {
+        Args: Record<string, never>
+        Returns: {
+          sparring_id:       string
+          sparring_title:    string
+          scheduled_at:      string
+          duration_min:      number
+          is_organizer:      boolean
+          last_message_text: string | null
+          last_message_at:   string | null
+          unread_count:      number
+        }[]
+      }
+      get_my_verification: {
+        Args: Record<string, never>
+        Returns: {
+          email_verified: boolean
+          address_verified: boolean
+          studio_verified: boolean
+          coach_vouched: boolean
+          phone_verified: boolean
+        }
+      }
+      verify_member: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never
@@ -933,6 +1551,71 @@ export type FightRecordInsert = Database['public']['Tables']['fight_records']['I
 
 export type NominationType = 'promote' | 'demote'
 export type NominationStatus = 'pending' | 'confirmed' | 'rejected'
+
+export type SparringRating = Database['public']['Tables']['sparring_ratings']['Row']
+export type SparringRatingInsert = Database['public']['Tables']['sparring_ratings']['Insert']
+export type UserReport = Database['public']['Tables']['user_reports']['Row']
+export type UserReportInsert = Database['public']['Tables']['user_reports']['Insert']
+export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+export type SparringMessage = Database['public']['Tables']['sparring_messages']['Row']
+export type SparringMessageInsert = Database['public']['Tables']['sparring_messages']['Insert']
+export type SparringGroupMessage        = Database['public']['Tables']['sparring_group_messages']['Row']
+export type SparringGroupMessageInsert  = Database['public']['Tables']['sparring_group_messages']['Insert']
+export type SparringChatSettings        = Database['public']['Tables']['sparring_chat_settings']['Row']
+export type SparringChatSettingsInsert  = Database['public']['Tables']['sparring_chat_settings']['Insert']
+export type SparringChatReads           = Database['public']['Tables']['sparring_chat_reads']['Row']
+export type SparringChatReadsInsert     = Database['public']['Tables']['sparring_chat_reads']['Insert']
+
+export type TrialBooking = Database['public']['Tables']['trial_bookings']['Row']
+export type TrialBookingInsert = Database['public']['Tables']['trial_bookings']['Insert']
+export type TrialBookingStatus = 'pending' | 'confirmed' | 'declined' | 'cancelled'
+
+// Trial booking enriched with studio name (for user-facing lists)
+export interface TrialBookingWithStudio extends TrialBooking {
+  studio_name: string
+  studio_city: string
+}
+
+// Trial booking enriched with user display name (for staff-facing lists)
+export interface TrialBookingWithUser extends TrialBooking {
+  user_name: string | null
+}
+
+// In-app notification (named AppNotification to avoid collision with DOM/Expo types)
+export type AppNotification = Database['public']['Tables']['notifications']['Row']
+export type AppNotificationInsert = Database['public']['Tables']['notifications']['Insert']
+
+// Membership plan convenience types
+export type MembershipPlan = Database['public']['Tables']['studio_membership_plans']['Row']
+export type MembershipPlanInsert = Database['public']['Tables']['studio_membership_plans']['Insert']
+
+// Contract status union
+export type MembershipContractStatus =
+  | 'pending'
+  | 'active'
+  | 'cancellation_requested'
+  | 'ended'
+  | 'declined'
+
+// Contract convenience types
+export type MembershipContract = Database['public']['Tables']['studio_member_contracts']['Row']
+export type MembershipContractInsert = Database['public']['Tables']['studio_member_contracts']['Insert']
+
+// Contract enriched with studio info (for user-facing lists)
+export interface MembershipContractWithStudio extends MembershipContract {
+  studio_name: string
+  studio_city: string
+}
+
+// Contract enriched with user info (for staff-facing lists)
+export interface MembershipContractWithUser extends MembershipContract {
+  user_name: string | null
+}
+
+// Contract enriched with plan info (optional joined read)
+export interface MembershipContractWithPlan extends MembershipContract {
+  plan: MembershipPlan | null
+}
 
 // Nomination enriched with display data (computed in hook)
 export interface CoachNominationDetails {

@@ -5,7 +5,7 @@ import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 
 export interface SparringWithMeta {
   id: string;
-  studio_id: string;
+  studio_id: string | null;
   created_by: string;
   title: string;
   discipline: string;
@@ -17,6 +17,8 @@ export interface SparringWithMeta {
   max_slots: number;
   notes: string | null;
   is_active: boolean;
+  is_featured: boolean;
+  is_at_studio: boolean;
   created_at: string;
   studio_name: string;
   studio_city: string;
@@ -56,18 +58,29 @@ export function useOpenSparrings(refetchTrigger = 0): {
         return;
       }
 
-      const [{ data: mySignups }, { data: allSignups }] = await Promise.all([
+      const sparringIds = (rows ?? []).map((r) => r.id);
+
+      const [{ data: mySignups }, { data: allSignups }, { data: activeBoosts }] = await Promise.all([
         supabase.from('sparring_signups').select('sparring_id').eq('user_id', user.id),
         supabase.from('sparring_signups').select('sparring_id'),
+        sparringIds.length > 0
+          ? supabase
+              .from('map_boosts')
+              .select('sparring_id')
+              .eq('is_active', true)
+              .gt('expires_at', now)
+              .in('sparring_id', sparringIds)
+          : Promise.resolve({ data: [] as Array<{ sparring_id: string }>, error: null }),
       ]);
 
       const signedUpIds = new Set((mySignups ?? []).map((s) => s.sparring_id));
+      const boostedIds  = new Set((activeBoosts ?? []).map((b) => b.sparring_id));
       const countMap: Record<string, number> = {};
       for (const s of allSignups ?? []) {
         countMap[s.sparring_id] = (countMap[s.sparring_id] ?? 0) + 1;
       }
 
-      type StudioJoin = { name: string; city: string };
+      type StudioJoin = { name: string; city: string } | null;
 
       const result: SparringWithMeta[] = (rows ?? []).map((r) => {
         const studio = r.studios as StudioJoin;
@@ -85,9 +98,11 @@ export function useOpenSparrings(refetchTrigger = 0): {
           max_slots: r.max_slots,
           notes: r.notes,
           is_active: r.is_active,
+          is_featured: (r.is_featured ?? false) || boostedIds.has(r.id),
+          is_at_studio: r.is_at_studio ?? false,
           created_at: r.created_at,
-          studio_name: studio.name,
-          studio_city: studio.city,
+          studio_name: studio?.name ?? 'Privat',
+          studio_city: studio?.city ?? '',
           signup_count: countMap[r.id] ?? 0,
           is_signed_up: signedUpIds.has(r.id),
         };

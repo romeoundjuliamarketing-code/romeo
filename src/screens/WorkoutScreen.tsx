@@ -23,17 +23,19 @@ const ROUNDS = 3;
 
 function getCategoryLabel(category: Props['route']['params']['category']): string {
   const map: Record<string, string> = {
-    schlagkraft:     'Schlagkraft',
-    trittkraft:      'Trittkraft',
-    ausdauer:        'Ausdauer',
-    schulter:        'Schulter',
-    nackenhals:      'Nacken und Hals',
-    griffkraft:      'Griffkraft',
-    beinarbeit:      'Beinarbeit',
-    koordination:    'Koordination',
-    mobilitaet:      'Mobilität',
-    partnertraining: 'Partnertraining',
-    eigene:          'Eigene',
+    schlagkraft:  'Schlagkraft',
+    trittkraft:   'Trittkraft',
+    ausdauer:     'Ausdauer',
+    schulter:     'Schulter',
+    nackenhals:   'Nacken & Hals',
+    griffkraft:   'Griffkraft',
+    beinarbeit:   'Beinarbeit',
+    koordination: 'Koordination',
+    mobilitaet:   'Mobilität',
+    bjj:          'BJJ',
+    k1:           'K1',
+    mma:          'MMA',
+    ringen:       'Ringen',
   };
   return map[category] ?? category;
 }

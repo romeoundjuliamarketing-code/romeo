@@ -31,7 +31,6 @@ function computeCanConfirm(
   teamCoaches: Profile[],
 ): boolean {
   if (nom.votes.some((v) => v.voter_id === userId)) return false; // already voted
-  if (nom.nominator_id === userId) return false; // nominator cannot confirm own nomination
 
   if (nom.type === 'promote') {
     // Coaches in the team excluding the nominee

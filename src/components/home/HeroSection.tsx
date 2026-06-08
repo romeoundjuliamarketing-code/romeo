@@ -1,6 +1,11 @@
-import React, { useMemo } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useMemo, useState } from 'react';
+import { View, Text, Image, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager, Dimensions, type LayoutChangeEvent } from 'react-native';
+import HeroNetworkPattern from './HeroNetworkPattern';
+
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import StudioTrainingCard from './StudioTrainingCard';
 import DailyStretchCard from './DailyStretchCard';
@@ -29,10 +34,10 @@ type Props = {
   onDeleteAnnouncement: () => void;
   completedDayIndices: number[];
   streak: number;
-  todaySession: StudioSchedule | null;
-  isParticipating: boolean;
-  onParticipate: () => void;
-  onCancel: () => void;
+  todaySessions: StudioSchedule[];
+  isSessionParticipating: (sessionId: string, date: string) => boolean;
+  onSessionParticipate: (session: StudioSchedule) => void;
+  onSessionCancel: (session: StudioSchedule) => void;
   stretchDone: boolean;
   stretchUrgent: boolean;
   onStretch: () => void;
@@ -48,10 +53,10 @@ export default function HeroSection({
   onDeleteAnnouncement,
   completedDayIndices,
   streak,
-  todaySession,
-  isParticipating,
-  onParticipate,
-  onCancel,
+  todaySessions,
+  isSessionParticipating,
+  onSessionParticipate,
+  onSessionCancel,
   stretchDone,
   stretchUrgent,
   onStretch,
@@ -60,6 +65,16 @@ export default function HeroSection({
   onMobility,
 }: Props) {
   const routineType = todayRoutineType();
+  const [expanded, setExpanded] = useState(false);
+  const [heroHeight, setHeroHeight] = useState(0);
+  const [streakCenter, setStreakCenter] = useState<{ x: number; y: number } | null>(null);
+  const onHeroLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setHeroHeight(h);
+  };
+  const todayDate = new Date().toISOString().split('T')[0];
+  const firstSession = todaySessions[0] ?? null;
+  const extraSessions = todaySessions.slice(1);
   const now = new Date();
   const greeting = now.getHours() < 12 ? 'Guten Morgen' : now.getHours() < 18 ? 'Guten Tag' : 'Guten Abend';
   const todayIndex = (now.getDay() + 6) % 7;
@@ -79,7 +94,8 @@ export default function HeroSection({
   }, [completedDayIndices]);
 
   return (
-    <View style={styles.hero}>
+    <View style={styles.hero} onLayout={onHeroLayout}>
+      <HeroNetworkPattern height={heroHeight} exclusionCenter={streakCenter} />
 
       {/* ── Header: greeting left, logo centered ── */}
       <View style={styles.header}>
@@ -98,7 +114,13 @@ export default function HeroSection({
       </View>
 
       {/* ── Streak ── */}
-      <View style={styles.streakWrap}>
+      <View
+        style={styles.streakWrap}
+        onLayout={(e) => {
+          const { y, height } = e.nativeEvent.layout;
+          setStreakCenter({ x: Dimensions.get('window').width / 2, y: y + height / 2 });
+        }}
+      >
         <Text style={styles.streakValue}>{streak}</Text>
         <Text style={styles.streakLabel}>Tage hintereinander</Text>
       </View>
@@ -151,14 +173,52 @@ export default function HeroSection({
         </View>
       )}
 
-      {/* ── Studio session ── */}
-      <StudioTrainingCard
-        dark
-        session={todaySession}
-        participating={isParticipating}
-        onParticipate={onParticipate}
-        onCancel={onCancel}
-      />
+      {/* ── Studio sessions ── */}
+      <View>
+        <StudioTrainingCard
+          dark
+          session={firstSession}
+          participating={firstSession !== null && isSessionParticipating(firstSession.id, todayDate)}
+          onParticipate={() => { if (firstSession !== null) onSessionParticipate(firstSession); }}
+          onCancel={() => { if (firstSession !== null) onSessionCancel(firstSession); }}
+        />
+        {extraSessions.length > 0 && !expanded && (
+          <TouchableOpacity
+            style={styles.alleSehenBtn}
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setExpanded(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.alleSehenText}>Alle sehen</Text>
+            <Ionicons name="chevron-down" size={15} color={colors.headerTextSecondary} />
+          </TouchableOpacity>
+        )}
+        {expanded && extraSessions.map((session) => (
+          <StudioTrainingCard
+            key={session.id}
+            dark
+            session={session}
+            participating={isSessionParticipating(session.id, todayDate)}
+            onParticipate={() => onSessionParticipate(session)}
+            onCancel={() => onSessionCancel(session)}
+          />
+        ))}
+        {expanded && (
+          <TouchableOpacity
+            style={styles.alleSehenBtn}
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setExpanded(false);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.alleSehenText}>Weniger</Text>
+            <Ionicons name="chevron-up" size={15} color={colors.headerTextSecondary} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* ── Daily routine (alternates daily: stretch / mobility) ── */}
       {routineType === 'stretch' ? (
@@ -190,6 +250,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
+    overflow: 'hidden',
   },
 
   // Header
@@ -357,6 +418,26 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.headerTextPrimary,
     lineHeight: 22,
+  },
+  alleSehenBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: -10,
+    marginBottom: 16,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.headerBorder,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  alleSehenText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.headerTextSecondary,
   },
 
 });

@@ -13,7 +13,7 @@ interface PaywallCardProps {
 export default function PaywallCard({
   title,
   message,
-  ctaLabel = 'Abo ansehen',
+  ctaLabel = 'Jetzt kostenlos starten',
   onPressCta,
 }: PaywallCardProps): React.ReactElement {
   return (

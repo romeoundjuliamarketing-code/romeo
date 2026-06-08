@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SharedGroupPreferences from 'react-native-shared-group-preferences';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
@@ -8,6 +9,24 @@ import type { HydrationMode } from '../types/hydration';
 const HYDRATION_MODE_KEY = 'hydration_mode_v1';
 const DEFAULT_WATER_GOAL_ML = 3150;
 const WATER_GOAL_POINTS = 5;
+
+const APP_GROUP = 'group.com.kombat.app';
+
+async function syncToWidget(amountMl: number, goalMl: number): Promise<void> {
+  // Write current water state to the shared App Group container.
+  // The iOS widget reads from this same container.
+  try {
+    await SharedGroupPreferences.setItem('water_amount_ml', amountMl, APP_GROUP);
+    await SharedGroupPreferences.setItem('water_goal_ml', goalMl, APP_GROUP);
+    await SharedGroupPreferences.setItem(
+      'water_date',
+      new Date().toISOString().split('T')[0],
+      APP_GROUP,
+    );
+  } catch {
+    // Widget sync is best-effort — never block the main flow
+  }
+}
 
 function todayIso(): string {
   return new Date().toISOString().split('T')[0];
@@ -117,6 +136,54 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
         setAmountMl(data?.amount_ml ?? 0);
         setHydrationModeState(mode);
         setGoalMl(dynamicGoalMl);
+        void syncToWidget(data?.amount_ml ?? 0, dynamicGoalMl);
+
+        // Sync water that was added via the widget while the app was closed
+        try {
+          const rawPending = await SharedGroupPreferences.getItem(
+            'water_pending_sync_ml',
+            APP_GROUP,
+          );
+          const pendingMl = typeof rawPending === 'number' && rawPending > 0 ? rawPending : 0;
+
+          if (pendingMl > 0 && user !== null) {
+            // The widget already wrote the correct total — use it as source of truth
+            const rawWidget = await SharedGroupPreferences.getItem('water_amount_ml', APP_GROUP);
+            const widgetTotal =
+              typeof rawWidget === 'number' && rawWidget > 0
+                ? rawWidget
+                : (data?.amount_ml ?? 0) + pendingMl;
+
+            // Only sync if the widget value is higher than what Supabase has
+            if (widgetTotal > (data?.amount_ml ?? 0)) {
+              await supabase.from('water_logs').upsert(
+                { user_id: user.id, date: today, amount_ml: widgetTotal },
+                { onConflict: 'user_id,date' },
+              );
+
+              // Award goal points if goal was crossed via widget
+              const prevAmount = data?.amount_ml ?? 0;
+              if (prevAmount < dynamicGoalMl && widgetTotal >= dynamicGoalMl) {
+                await supabase.rpc('add_workout_points', {
+                  p_user_id: user.id,
+                  p_date: today,
+                  p_points: WATER_GOAL_POINTS,
+                });
+                onGoalReached?.();
+              }
+
+              if (!cancelled) {
+                setAmountMl(widgetTotal);
+              }
+            }
+
+            // Clear the pending flag regardless
+            await SharedGroupPreferences.setItem('water_pending_sync_ml', 0, APP_GROUP);
+          }
+        } catch {
+          // Widget sync is best-effort — never block the main flow
+        }
+
         setLoading(false);
       }
     }
@@ -204,6 +271,7 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
     }
 
     setAmountMl(nextAmount);
+    await syncToWidget(nextAmount, goalMl);
     setLoading(false);
   }, [goalMl, onGoalReached, user]);
 

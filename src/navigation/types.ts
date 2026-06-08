@@ -3,6 +3,7 @@ import type { Exercise, Workout } from '../data/workouts';
 export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
+  VerifyEmail: { email: string };
 };
 
 export type RootStackParamList = {
@@ -29,11 +30,22 @@ export type RootStackParamList = {
   Paywall: undefined;
   WeightHistory: undefined;
   PointsBreakdown: undefined;
+  AttendanceHistory: undefined;
+  WorkoutHistory: undefined;
   SparringMap: undefined;
   PublicProfile: {
     userId:               string;
     sparringId?:          string;
     sparringScheduledAt?: string;
+  };
+  StudioDetail: { studioId: string };
+  SparringChatList: undefined;
+  SparringGroupChat: {
+    sparringId:    string;
+    sparringTitle: string;
+    scheduledAt:   string;
+    durationMin:   number;
+    isOrganizer:   boolean;
   };
   Timer: {
     workoutTitle: string;
@@ -41,4 +53,5 @@ export type RootStackParamList = {
     earnedPoints?: number;
     category?: Workout['category'];
   };
+  Notifications: undefined;
 };

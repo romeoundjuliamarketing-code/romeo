@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +21,8 @@ type BillingCycle = 'monthly' | 'yearly';
 
 type PlanKey = 'individual' | 'studio';
 
+// Primary product ID lookup — must match App Store Connect product identifiers exactly.
+// If these differ in RC, the fuzzy-fallback below picks up the right package anyway.
 const PACKAGE_IDS: Record<PlanKey, Record<BillingCycle, string>> = {
   individual: {
     monthly: 'sparr_individual_monthly',
@@ -31,6 +34,31 @@ const PACKAGE_IDS: Record<PlanKey, Record<BillingCycle, string>> = {
   },
 };
 
+// Fuzzy-fallback: find a package by matching plan + cycle keywords in
+// both the RC package identifier and the App Store product identifier.
+function findPackageFuzzy(
+  pkgs: Partial<Record<string, PurchasesPackage>>,
+  plan: PlanKey,
+  cycle: BillingCycle
+): PurchasesPackage | undefined {
+  const cycleKw = cycle === 'monthly' ? 'month' : 'year';
+  for (const pkg of Object.values(pkgs)) {
+    if (pkg === undefined) continue;
+    const prodId = pkg.product.identifier.toLowerCase();
+    const rcId = pkg.identifier.toLowerCase();
+    const matchesPlan = prodId.includes(plan) || rcId.includes(plan);
+    const matchesCycle = prodId.includes(cycleKw) || rcId.includes(cycleKw);
+    if (matchesPlan && matchesCycle) return pkg;
+  }
+  return undefined;
+}
+
+// Returns true when the package has a free-trial introductory offer (price === 0).
+function hasFreeTrial(pkg: PurchasesPackage | undefined): boolean {
+  if (pkg === undefined) return false;
+  return pkg.product.introPrice !== null && pkg.product.introPrice?.price === 0;
+}
+
 type PlanCardProps = {
   title: string;
   subtitle: string;
@@ -38,6 +66,7 @@ type PlanCardProps = {
   details: string[];
   loading?: boolean;
   highlighted?: boolean;
+  hasTrialOffer?: boolean;
   onPress: () => void;
 };
 
@@ -48,13 +77,14 @@ function PlanCard({
   details,
   loading = false,
   highlighted = false,
+  hasTrialOffer = false,
   onPress,
 }: PlanCardProps): React.ReactElement {
   return (
     <View style={[styles.planCard, highlighted && styles.planCardHighlighted]}>
       <Text style={styles.planTitle}>{title}</Text>
       <Text style={styles.planSubtitle}>{subtitle}</Text>
-      <Text style={styles.planPrice}>{price}</Text>
+      <Text style={styles.planPrice}>{hasTrialOffer ? 'Kostenlos' : price}</Text>
 
       <View style={styles.detailList}>
         {details.map((item) => (
@@ -75,10 +105,14 @@ function PlanCard({
           <ActivityIndicator size="small" color={highlighted ? colors.card : colors.accentBlue} />
         ) : (
           <Text style={[styles.planButtonLabel, highlighted && styles.planButtonLabelHighlighted]}>
-            Abo auswählen
+            {hasTrialOffer ? 'Kostenlos starten' : 'Abo auswählen'}
           </Text>
         )}
       </TouchableOpacity>
+
+      {hasTrialOffer && (
+        <Text style={styles.trialNote}>Danach {price} — jederzeit kündbar.</Text>
+      )}
     </View>
   );
 }
@@ -100,13 +134,43 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
       try {
         const offerings = await Purchases.getOfferings();
         const current = offerings.current;
-        if (current === null) return;
+
+        // Debug: log all available offerings and packages
+        console.log('[Paywall] offerings.current:', current?.identifier ?? 'null');
+        const allKeys = Object.keys(offerings.all);
+        console.log('[Paywall] offerings.all keys:', allKeys);
+
+        // Use current offering first; fall back to any available offering
+        const source = current ?? (allKeys.length > 0 ? offerings.all[allKeys[0]] : null);
+        if (source === null || source === undefined) {
+          console.log('[Paywall] No offerings available at all.');
+          Alert.alert(
+            'RC Debug: keine Offerings',
+            `offerings.current: ${current?.identifier ?? 'null'}\nofferings.all keys: [${allKeys.join(', ')}]\n\nIn RevenueCat Dashboard ein "current" Offering anlegen und Pakete verknüpfen.`,
+          );
+          return;
+        }
+
         const map: Partial<Record<string, PurchasesPackage>> = {};
-        for (const pkg of current.availablePackages) {
+        for (const pkg of source.availablePackages) {
+          console.log('[Paywall] package id:', pkg.identifier, '| product id:', pkg.product.identifier);
+          // Map by both App Store product ID and RC package identifier for maximum compatibility
+          map[pkg.product.identifier] = pkg;
           map[pkg.identifier] = pkg;
         }
+
+        if (Object.keys(map).length === 0) {
+          const allIds = source.availablePackages.map((p) => `rc=${p.identifier} / store=${p.product.identifier}`).join('\n');
+          console.log('[Paywall] No packages found. Raw list:\n' + allIds);
+          Alert.alert(
+            'RC Debug: keine Pakete',
+            `Offering "${source.identifier}" hat ${source.availablePackages.length} Pakete.\n\n${allIds || 'Leer'}`,
+          );
+        }
+
         setPackages(map);
-      } catch {
+      } catch (err) {
+        console.log('[Paywall] loadOfferings error:', err);
         // offerings unavailable (e.g. simulator without StoreKit config)
       } finally {
         setOfferingsLoading(false);
@@ -117,10 +181,12 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
 
   async function handlePlanSelect(plan: PlanKey): Promise<void> {
     const pkgId = PACKAGE_IDS[plan][billingCycle];
-    const pkg = packages[pkgId];
+    // Try exact match first, then fuzzy fallback
+    const pkg = packages[pkgId] ?? findPackageFuzzy(packages, plan, billingCycle);
 
     if (pkg === undefined) {
-      Alert.alert('Fehler', 'Dieses Abo-Paket ist derzeit nicht verfügbar.');
+      const available = Object.keys(packages).join(', ') || 'keine';
+      Alert.alert('Fehler', `Paket nicht gefunden.\n\nVerfügbar: ${available}`);
       return;
     }
 
@@ -143,8 +209,10 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
     }
   }
 
-  const indPkg = packages[PACKAGE_IDS.individual[billingCycle]];
-  const studioPkg = packages[PACKAGE_IDS.studio[billingCycle]];
+  const indPkg = packages[PACKAGE_IDS.individual[billingCycle]] ?? findPackageFuzzy(packages, 'individual', billingCycle);
+  const studioPkg = packages[PACKAGE_IDS.studio[billingCycle]] ?? findPackageFuzzy(packages, 'studio', billingCycle);
+  // Trial is available when at least one package carries a free introductory offer.
+  const trialAvailable = hasFreeTrial(indPkg) || hasFreeTrial(studioPkg);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -156,10 +224,15 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
         <View style={styles.backBtn} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Alle Premium-Funktionen freischalten</Text>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
+        <Text style={styles.title}>
+          {trialAvailable ? '7 Tage kostenlos testen' : 'Alle Premium-Funktionen freischalten'}
+        </Text>
         <Text style={styles.subtitle}>
-          Punkte, Stats und Team-Ranking sind im Abo enthalten.
+          {trialAvailable
+            ? 'Starte heute gratis. Kein Risiko — jederzeit kündbar.'
+            : 'Punkte, Stats und Team-Ranking sind im Abo enthalten.'}
         </Text>
 
         <View style={styles.cycleCard}>
@@ -200,6 +273,7 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
                 'Monatlich kündbar',
               ]}
               loading={pendingPlan === 'individual'}
+              hasTrialOffer={hasFreeTrial(indPkg)}
               onPress={() => { void handlePlanSelect('individual'); }}
             />
 
@@ -214,14 +288,34 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
               ]}
               highlighted
               loading={pendingPlan === 'studio'}
+              hasTrialOffer={hasFreeTrial(studioPkg)}
               onPress={() => { void handlePlanSelect('studio'); }}
             />
           </>
         )}
 
         <Text style={styles.legalNote}>
-          Das Abo verlängert sich automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende der aktuellen Laufzeit gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.
+          {trialAvailable
+            ? 'Der Testzeitraum startet sofort und endet nach 7 Tagen. Danach verlängert sich das Abo automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.'
+            : 'Das Abo verlängert sich automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende der aktuellen Laufzeit gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.'}
         </Text>
+
+        <View style={styles.legalLinks}>
+          <TouchableOpacity
+            onPress={() => { void Linking.openURL('https://www.notion.so/Datenschutzerkl-rung-Sparr-34f1f56f1531804ebd59ec7351220d82?source=copy_link'); }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.legalLink}>Datenschutzerklärung</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalLinkSeparator}> · </Text>
+          <TouchableOpacity
+            onPress={() => { void Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'); }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.legalLink}>Nutzungsbedingungen</Text>
+          </TouchableOpacity>
+        </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -258,6 +352,9 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 16,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 24,
@@ -378,6 +475,13 @@ const styles = StyleSheet.create({
   planButtonLabelHighlighted: {
     color: colors.card,
   },
+  trialNote: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.inactive,
+    textAlign: 'center',
+    marginTop: 4,
+  },
   legalNote: {
     fontSize: 12,
     color: colors.textSecondary,
@@ -385,5 +489,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 32,
     lineHeight: 18,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 16,
+  },
+  legalLink: {
+    fontSize: 12,
+    color: colors.accentBlue,
+  },
+  legalLinkSeparator: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 });

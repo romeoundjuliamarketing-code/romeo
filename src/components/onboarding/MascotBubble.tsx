@@ -5,13 +5,10 @@ import {
   Text,
   Animated,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import type { ImageSourcePropType } from 'react-native';
 import { colors } from '../../theme/colors';
-
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const MASCOT_SIZE = Math.round(SCREEN_WIDTH * 0.88);
 
 interface Props {
   image: ImageSourcePropType;
@@ -21,7 +18,12 @@ interface Props {
 }
 
 export default function MascotBubble({ image, text, stepKey }: Props) {
-  const translateX    = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const { width: screenWidth } = useWindowDimensions();
+  const contentWidth = Math.min(screenWidth, 600);
+  const mascotSize = Math.round(contentWidth * 0.88);
+  const bubbleWidth = contentWidth - 48;
+
+  const translateX    = useRef(new Animated.Value(-screenWidth)).current;
   const bubbleScale   = useRef(new Animated.Value(0)).current;
   const bubbleOpacity = useRef(new Animated.Value(0)).current;
 
@@ -36,7 +38,7 @@ export default function MascotBubble({ image, text, stepKey }: Props) {
       isFirstRender.current = false;
       setDisplayedImage(image);
       setDisplayedText(text);
-      translateX.setValue(-SCREEN_WIDTH);
+      translateX.setValue(-screenWidth);
       bubbleScale.setValue(0);
       bubbleOpacity.setValue(0);
       slideIn();
@@ -46,7 +48,7 @@ export default function MascotBubble({ image, text, stepKey }: Props) {
     // Slide out (bubble hides, mascot exits left), then swap content, then slide in.
     Animated.parallel([
       Animated.timing(bubbleOpacity, { toValue: 0, duration: 80, useNativeDriver: true }),
-      Animated.spring(translateX, { toValue: -SCREEN_WIDTH, tension: 80, friction: 10, useNativeDriver: true }),
+      Animated.spring(translateX, { toValue: -screenWidth, tension: 80, friction: 10, useNativeDriver: true }),
     ]).start(() => {
       setDisplayedImage(image);
       setDisplayedText(text);
@@ -82,12 +84,13 @@ export default function MascotBubble({ image, text, stepKey }: Props) {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.mascotShadow, { transform: [{ translateX }] }]}>
-        <Image source={displayedImage} style={styles.mascot} resizeMode="contain" />
+        <Image source={displayedImage} style={[styles.mascot, { width: mascotSize, height: mascotSize }]} resizeMode="contain" />
       </Animated.View>
 
       <Animated.View
         style={[
           styles.bubbleWrap,
+          { width: bubbleWidth },
           {
             opacity: bubbleOpacity,
             transform: [{ scale: bubbleScale }],
@@ -116,11 +119,8 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   mascot: {
-    width: MASCOT_SIZE,
-    height: MASCOT_SIZE,
   },
   bubbleWrap: {
-    width: SCREEN_WIDTH - 48,
     alignItems: 'center',
     marginTop: 4,
   },

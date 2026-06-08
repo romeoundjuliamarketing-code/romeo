@@ -9,7 +9,7 @@ interface WorkoutStats {
   totalWorkouts: number; // all-time completed workout count
   streak: number; // consecutive completed days ending today or yesterday
   rank: number | null; // position within the user's studio by total_points
-  eigenePoints: number; // points earned from custom workouts
+  trainingTypePoints: Record<string, number>; // points per training_type, all-time
   loading: boolean;
   refetch: () => void;
 }
@@ -66,7 +66,7 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
   const [totalWorkouts, setTotalWorkouts] = useState(0);
   const [streak, setStreak] = useState(0);
   const [rank, setRank] = useState<number | null>(null);
-  const [eigenePoints, setEigenePoints] = useState(0);
+  const [trainingTypePoints, setTrainingTypePoints] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [internalTrigger, setInternalTrigger] = useState(0);
 
@@ -110,14 +110,13 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
         .select('total_points, studio_id')
         .eq('id', user.id)
         .single(),
-      // Points from custom workouts
+      // Points per training_type (all completed)
       supabase
         .from('workout_logs')
-        .select('points')
+        .select('training_type, points')
         .eq('user_id', user.id)
-        .eq('source', 'custom')
         .eq('completed', true),
-    ]).then(async ([weekRes, allRes, countRes, profileRes, eigeneRes]) => {
+    ]).then(async ([weekRes, allRes, countRes, profileRes, typesRes]) => {
       if (weekRes.error !== null) { reportNetworkError(weekRes.error); return; }
       reportNetworkSuccess();
       if (weekRes.data !== null) {
@@ -133,9 +132,13 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
         setStreak(calcStreak(allRes.data.map((row) => row.date as string)));
       }
       setTotalWorkouts(countRes.count ?? 0);
-      if (eigeneRes.data !== null) {
-        const sum = eigeneRes.data.reduce((acc, row) => acc + (row.points as number), 0);
-        setEigenePoints(sum);
+      if (typesRes.data !== null) {
+        const map: Record<string, number> = {};
+        for (const row of typesRes.data) {
+          const type = ((row.training_type as string | null) ?? 'sonstige').toLowerCase();
+          map[type] = (map[type] ?? 0) + (row.points ?? 0);
+        }
+        setTrainingTypePoints(map);
       }
       if (profileRes.data !== null) {
         setTotalPoints(profileRes.data.total_points);
@@ -157,5 +160,5 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
     });
   }, [user, refetchTrigger, internalTrigger]);
 
-  return { completedDayIndices, totalPoints, totalWorkouts, streak, rank, eigenePoints, loading, refetch };
+  return { completedDayIndices, totalPoints, totalWorkouts, streak, rank, trainingTypePoints, loading, refetch };
 }

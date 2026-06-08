@@ -3,6 +3,41 @@ import { supabase } from '../lib/supabase';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import type { TeamAnnouncement } from '../types/database.types';
 
+async function sendAnnouncementPush(studioId: string, message: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user === null) return;
+
+  const { data: members } = await supabase
+    .from('profiles')
+    .select('expo_push_token')
+    .eq('studio_id', studioId)
+    .neq('id', user.id)
+    .not('expo_push_token', 'is', null);
+
+  if (members === null || members.length === 0) return;
+
+  const tokens = members
+    .map((m) => m.expo_push_token)
+    .filter((t): t is string => t !== null && t.length > 0);
+
+  if (tokens.length === 0) return;
+
+  const body = JSON.stringify(
+    tokens.map((to) => ({
+      to,
+      title: 'Ankündigung vom Trainer',
+      body: message,
+      sound: 'default',
+    })),
+  );
+
+  await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body,
+  });
+}
+
 interface UseAnnouncementResult {
   announcement: TeamAnnouncement | null;
   loading: boolean;
@@ -76,6 +111,7 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
 
     if (error !== null) return { error: error.message };
     void fetchAnnouncement();
+    void sendAnnouncementPush(profile.studio_id, message.trim());
     return { error: null };
   }, [fetchAnnouncement]);
 

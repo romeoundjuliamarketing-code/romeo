@@ -1,8 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useTrainingTimeStats } from '../../hooks/useTrainingTimeStats';
 import type { TrainingTimeRange } from '../../hooks/useTrainingTimeStats';
+import { SUPERCATEGORIES, getSupercategoryForGroup } from '../../data/disciplines';
+import type { SupercategoryKey } from '../../data/disciplines';
 
 interface Props {
   refetchTrigger?: number;
@@ -31,9 +34,18 @@ function comparisonText(delta: number | null, percent: number | null): string {
   return `${sign}${delta} Min (${sign}${percent}%) ${direction} als zuvor`;
 }
 
+interface SupercategoryRow {
+  key: SupercategoryKey;
+  label: string;
+  totalMinutes: number;
+  percent: number;
+  categories: { key: string; label: string; minutes: number; percent: number }[];
+}
+
 export default function TrainingTimeStatsCard({ refetchTrigger = 0 }: Props): React.ReactElement {
   const [range, setRange] = useState<TrainingTimeRange>('30d');
   const { stats, loading } = useTrainingTimeStats(range, refetchTrigger);
+  const [expandedSupers, setExpandedSupers] = useState<Set<SupercategoryKey>>(new Set());
 
   const categoryShare = useMemo(() => {
     if (stats.totalMinutes <= 0) return [];
@@ -42,6 +54,44 @@ export default function TrainingTimeStatsCard({ refetchTrigger = 0 }: Props): Re
       percent: Math.round((c.minutes / stats.totalMinutes) * 100),
     }));
   }, [stats.categories, stats.totalMinutes]);
+
+  const supercategoryRows = useMemo((): SupercategoryRow[] => {
+    if (stats.totalMinutes <= 0) return [];
+    const grouped = new Map<SupercategoryKey, typeof categoryShare>();
+    for (const cat of categoryShare) {
+      const scKey = cat.groupKey !== null ? getSupercategoryForGroup(cat.groupKey) : null;
+      if (scKey !== null) {
+        const existing = grouped.get(scKey) ?? [];
+        grouped.set(scKey, [...existing, cat]);
+      }
+    }
+    return SUPERCATEGORIES
+      .map((sc) => {
+        const cats = grouped.get(sc.key) ?? [];
+        const totalMinutes = cats.reduce((sum, c) => sum + c.minutes, 0);
+        return {
+          key: sc.key,
+          label: sc.label,
+          totalMinutes,
+          percent: Math.round((totalMinutes / stats.totalMinutes) * 100),
+          categories: cats,
+        };
+      })
+      .filter((sc) => sc.totalMinutes > 0)
+      .sort((a, b) => b.totalMinutes - a.totalMinutes);
+  }, [categoryShare, stats.totalMinutes]);
+
+  function toggleSuper(key: SupercategoryKey): void {
+    setExpandedSupers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }
 
   return (
     <View style={styles.card}>
@@ -84,16 +134,41 @@ export default function TrainingTimeStatsCard({ refetchTrigger = 0 }: Props): Re
 
           <View style={styles.sectionDivider} />
 
-          <Text style={styles.breakdownTitle}>Top-Bereiche nach Zeit</Text>
-          {categoryShare.length === 0 ? (
+          <Text style={styles.breakdownTitle}>Bereiche nach Zeit</Text>
+          {supercategoryRows.length === 0 ? (
             <Text style={styles.emptySubText}>Noch keine Trainingszeit im Zeitraum erfasst.</Text>
           ) : (
-            categoryShare.map((category) => (
-              <View key={category.key} style={styles.breakdownRow}>
-                <Text style={styles.breakdownLabel}>{category.label}</Text>
-                <Text style={styles.breakdownValue}>{formatMinutes(category.minutes)} · {category.percent}%</Text>
-              </View>
-            ))
+            supercategoryRows.map((sc) => {
+              const isExpanded = expandedSupers.has(sc.key);
+              return (
+                <View key={sc.key}>
+                  <TouchableOpacity
+                    style={styles.breakdownRow}
+                    onPress={() => toggleSuper(sc.key)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.breakdownLabel}>{sc.label}</Text>
+                    <View style={styles.breakdownRight}>
+                      <Text style={styles.breakdownValue}>{formatMinutes(sc.totalMinutes)} · {sc.percent}%</Text>
+                      {sc.categories.length > 1 && (
+                        <Ionicons
+                          name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={14}
+                          color={colors.inactive}
+                          style={styles.breakdownChevron}
+                        />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                  {isExpanded && sc.categories.map((cat) => (
+                    <View key={cat.key} style={styles.subBreakdownRow}>
+                      <Text style={styles.subBreakdownLabel}>{cat.label}</Text>
+                      <Text style={styles.subBreakdownValue}>{formatMinutes(cat.minutes)} · {cat.percent}%</Text>
+                    </View>
+                  ))}
+                </View>
+              );
+            })
           )}
         </>
       )}
@@ -209,14 +284,43 @@ const styles = StyleSheet.create({
   breakdownLabel: {
     fontSize: 13,
     color: colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
     flex: 1,
     marginRight: 8,
+  },
+  breakdownRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   breakdownValue: {
     fontSize: 13,
     color: colors.inactive,
     fontWeight: '600',
+  },
+  breakdownChevron: {
+    marginLeft: 2,
+  },
+  subBreakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    paddingLeft: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  subBreakdownLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '400',
+    flex: 1,
+    marginRight: 8,
+  },
+  subBreakdownValue: {
+    fontSize: 12,
+    color: colors.inactive,
+    fontWeight: '500',
   },
   emptyWrap: {
     paddingVertical: 16,

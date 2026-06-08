@@ -243,9 +243,9 @@ export default function ErnährungScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.container}>
         <Text style={styles.title}>Ernährung</Text>
 
         {/* ── Tab Switcher ── */}
@@ -341,6 +341,7 @@ export default function ErnährungScreen() {
             )}
           </>
         )}
+        </View>
       </ScrollView>
 
       <NutritionAdjustmentModal
@@ -372,6 +373,9 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 24,
     gap: 24,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
   },
   title: {
     fontSize: 30,

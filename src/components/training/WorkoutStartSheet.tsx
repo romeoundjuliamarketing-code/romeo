@@ -23,11 +23,24 @@ const CATEGORIES = [
   'Trittkraft',
   'Ausdauer',
   'Schulter',
+  'Nacken & Hals',
+  'Griffkraft',
   'Beinarbeit',
   'Koordination',
   'Mobilität',
-  'Partnertraining',
 ] as const;
+
+const CATEGORY_KEY: Record<string, string> = {
+  'Schlagkraft':  'schlagkraft',
+  'Trittkraft':   'trittkraft',
+  'Ausdauer':     'ausdauer',
+  'Schulter':     'schulter',
+  'Nacken & Hals': 'nackenhals',
+  'Griffkraft':   'griffkraft',
+  'Beinarbeit':   'beinarbeit',
+  'Koordination': 'koordination',
+  'Mobilität':    'mobilitaet',
+};
 
 type Category = (typeof CATEGORIES)[number];
 type Intensity = 'leicht' | 'mittel' | 'intensiv';
@@ -161,7 +174,7 @@ export default function WorkoutStartSheet({ visible, onClose }: Props) {
       title: selectedCat,
       category: selectedCat,
       duration_min: durationMin,
-      training_type: result.intensity,
+      training_type: CATEGORY_KEY[selectedCat] ?? null,
     });
 
     if (logErr !== null) {
