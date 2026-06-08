@@ -11,7 +11,11 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  Linking,
+  Share,
 } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -56,15 +60,26 @@ const GENDER_LABEL: Record<string, string> = {
 };
 
 interface PublicProfile {
-  name:               string | null;
-  age_years:          number | null;
-  avatar_url:         string | null;
-  gender:             string | null;
-  disciplines:        string[];
-  show_fight_record:  boolean;
-  show_stats:         boolean;
-  coach_verified_at:  string | null;
-  studio_id:          string | null;
+  name:              string | null;
+  age_years:         number | null;
+  avatar_url:        string | null;
+  gender:            string | null;
+  disciplines:       string[];
+  show_fight_record: boolean;
+  show_stats:        boolean;
+  coach_verified_at: string | null;
+  studio_id:         string | null;
+  nickname:          string | null;
+  weight_class:      string | null;
+  weight_kg:         number | null;
+  nationality:       string | null;
+  hometown:          string | null;
+  bio:               string | null;
+  instagram_url:     string | null;
+  profile_code:      string;
+  height_cm:         number | null;
+  stance:            'orthodox' | 'southpaw' | null;
+  training_since:    string | null;
 }
 
 interface CurrentUserCoachInfo {
@@ -98,7 +113,7 @@ export default function PublicProfileScreen(): React.ReactElement {
   // Rating
   const [ratingTrigger, setRatingTrigger] = useState(0);
   const { averageStars, ratingCount, existingRating, submitRating, canRate } =
-    useSparringRatings(userId, sparringId, ratingTrigger);
+    useSparringRatings(userId, sparringId ?? '', ratingTrigger);
 
   // Report
   const { submitReport } = useUserReport();
@@ -120,6 +135,8 @@ export default function PublicProfileScreen(): React.ReactElement {
   const [targetFights,        setTargetFights]        = useState<FightRecord[]>([]);
   const [targetFightsLoading, setTargetFightsLoading] = useState(true);
 
+  const [qrSheetVisible, setQrSheetVisible] = useState(false);
+
   // Load public profile
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +144,7 @@ export default function PublicProfileScreen(): React.ReactElement {
 
     void supabase
       .from('profiles')
-      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, show_stats, coach_verified_at, studio_id')
+      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, show_stats, coach_verified_at, studio_id, nickname, weight_class, weight_kg, nationality, hometown, bio, instagram_url, profile_code, height_cm, stance, training_since')
       .eq('id', userId)
       .single()
       .then(({ data }) => {
@@ -143,6 +160,17 @@ export default function PublicProfileScreen(): React.ReactElement {
             show_stats:        (data.show_stats as boolean) ?? true,
             coach_verified_at: data.coach_verified_at ?? null,
             studio_id:         data.studio_id ?? null,
+            nickname:       data.nickname ?? null,
+            weight_class:   data.weight_class ?? null,
+            weight_kg:      data.weight_kg ?? null,
+            nationality:    data.nationality ?? null,
+            hometown:       data.hometown ?? null,
+            bio:            data.bio ?? null,
+            instagram_url:  data.instagram_url ?? null,
+            profile_code:   (data.profile_code as string) ?? '',
+            height_cm:      data.height_cm ?? null,
+            stance:         (data.stance as 'orthodox' | 'southpaw' | null) ?? null,
+            training_since: data.training_since ?? null,
           });
         }
         setProfileLoading(false);
@@ -195,12 +223,19 @@ export default function PublicProfileScreen(): React.ReactElement {
     if (error === null) setVouched(true);
   }, [userId]);
 
+  const handleShare = useCallback(async () => {
+    if (profile === null) return;
+    await Share.share({
+      message: `Kämpferprofil: ${profile.name ?? 'Unbekannt'} — Code: ${profile.profile_code}`,
+    });
+  }, [profile]);
+
   // ── Rating handlers ─────────────────────────────────────────────────────────
 
   const handleSubmitRating = useCallback(async () => {
     if (selectedStars === 0 || ratingComment.trim().length === 0) return;
     setRatingSubmitting(true);
-    const { error } = await submitRating(sparringId, userId, selectedStars, ratingComment.trim());
+    const { error } = await submitRating(sparringId ?? '', userId, selectedStars, ratingComment.trim());
     setRatingSubmitting(false);
     if (error !== null) {
       Alert.alert('Fehler', error);
@@ -217,7 +252,7 @@ export default function PublicProfileScreen(): React.ReactElement {
     setReportSubmitting(true);
     const { error } = await submitReport(
       userId,
-      sparringId,
+      sparringId ?? '',
       selectedReason,
       reportDetails.trim().length > 0 ? reportDetails.trim() : undefined,
     );
@@ -231,7 +266,11 @@ export default function PublicProfileScreen(): React.ReactElement {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  const canRateNow = canRate(sparringScheduledAt) && existingRating === null;
+  const canRateNow =
+    sparringId !== undefined &&
+    sparringScheduledAt !== undefined &&
+    canRate(sparringScheduledAt) &&
+    existingRating === null;
 
   // Show vouch button only when current user is a coach in the same studio as the viewed user,
   // not viewing their own profile, and the viewed user is not already verified.
@@ -272,6 +311,12 @@ export default function PublicProfileScreen(): React.ReactElement {
         >
           <Ionicons name="flag-outline" size={22} color={colors.deleteRed} />
         </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => setQrSheetVisible(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="share-outline" size={22} color={colors.text} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -280,9 +325,13 @@ export default function PublicProfileScreen(): React.ReactElement {
         showsVerticalScrollIndicator={false}
       >
         {/* Avatar */}
-        <View style={styles.avatarCircle}>
-          <Text style={styles.avatarInitials}>{initials}</Text>
-        </View>
+        {profile?.avatar_url !== null && profile?.avatar_url !== undefined ? (
+          <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarInitials}>{initials}</Text>
+          </View>
+        )}
 
         {/* Name with optional verified badge */}
         <View style={styles.nameRow}>
@@ -291,6 +340,11 @@ export default function PublicProfileScreen(): React.ReactElement {
             <Ionicons name="checkmark-circle" size={22} color={colors.accentBlue} />
           )}
         </View>
+
+        {profile?.nickname !== null && profile?.nickname !== undefined && (
+          <Text style={styles.nickname}>"{profile.nickname}"</Text>
+        )}
+        <Text style={styles.profileCode}>{profile?.profile_code ?? ''}</Text>
 
         {/* Age + gender — always visible */}
         {(profile?.age_years !== null && profile?.age_years !== undefined) || (profile?.gender !== null && profile?.gender !== undefined) ? (
@@ -303,6 +357,35 @@ export default function PublicProfileScreen(): React.ReactElement {
             ].filter(Boolean).join(' · ')}
           </Text>
         ) : null}
+
+        {profile?.show_stats === true && (
+          <View style={styles.statsRow}>
+            {profile.weight_class !== null && (
+              <View style={styles.statChip}>
+                <Text style={styles.statChipText}>{profile.weight_class}</Text>
+              </View>
+            )}
+            {profile.stance !== null && (
+              <View style={styles.statChip}>
+                <Text style={styles.statChipText}>
+                  {profile.stance === 'orthodox' ? 'Orthodox' : 'Southpaw'}
+                </Text>
+              </View>
+            )}
+            {profile.height_cm !== null && (
+              <View style={styles.statChip}>
+                <Text style={styles.statChipText}>{profile.height_cm} cm</Text>
+              </View>
+            )}
+            {profile.training_since !== null && (
+              <View style={styles.statChip}>
+                <Text style={styles.statChipText}>
+                  seit {profile.training_since.split('-')[0]}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {/* Average rating — always visible */}
         <View style={styles.ratingRow}>
@@ -321,6 +404,12 @@ export default function PublicProfileScreen(): React.ReactElement {
           </Text>
         </View>
 
+        {profile?.bio !== null && profile?.bio !== undefined && (
+          <View style={styles.bioCard}>
+            <Text style={styles.bioText}>{profile.bio}</Text>
+          </View>
+        )}
+
         {/* Disciplines — only if show_stats */}
         {profile?.show_stats === true && profile.disciplines.length > 0 && (
           <View style={styles.disciplinesRow}>
@@ -332,6 +421,18 @@ export default function PublicProfileScreen(): React.ReactElement {
           </View>
         )}
 
+        {profile?.show_stats === true &&
+          (profile?.hometown !== null || profile?.nationality !== null) && (
+          <View style={styles.infoRow}>
+            {profile?.nationality !== null && (
+              <Text style={styles.infoText}>{profile.nationality}</Text>
+            )}
+            {profile?.hometown !== null && (
+              <Text style={styles.infoText}>{profile.hometown}</Text>
+            )}
+          </View>
+        )}
+
         {/* Fight record — only if show_fight_record */}
         {profile?.show_fight_record === true && (
           <FightRecordCard
@@ -339,6 +440,17 @@ export default function PublicProfileScreen(): React.ReactElement {
             loading={targetFightsLoading}
             readOnly
           />
+        )}
+
+        {profile?.instagram_url !== null && profile?.instagram_url !== undefined && (
+          <TouchableOpacity
+            style={styles.instagramBtn}
+            onPress={() => { void Linking.openURL(profile.instagram_url as string); }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="logo-instagram" size={18} color={colors.text} />
+            <Text style={styles.instagramBtnText}>Instagram</Text>
+          </TouchableOpacity>
         )}
 
         {/* Rate button */}
@@ -538,6 +650,41 @@ export default function PublicProfileScreen(): React.ReactElement {
             )}
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal
+        visible={qrSheetVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setQrSheetVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setQrSheetVisible(false)}
+        >
+          <View style={styles.qrSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Profil teilen</Text>
+            {profile !== null && (
+              <QRCode
+                value={profile.profile_code}
+                size={200}
+                color={colors.text}
+                backgroundColor={colors.card}
+              />
+            )}
+            <Text style={styles.qrCodeLabel}>{profile?.profile_code ?? ''}</Text>
+            <TouchableOpacity
+              style={styles.shareBtn}
+              onPress={() => { void handleShare(); }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="share-outline" size={18} color={colors.card} />
+              <Text style={styles.shareBtnText}>Teilen</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -779,5 +926,107 @@ const styles = StyleSheet.create({
     color:      colors.headerTextPrimary,
     fontSize:   14,
     fontWeight: '700',
+  },
+  avatarImage: {
+    width:        88,
+    height:       88,
+    borderRadius: 44,
+    marginTop:    8,
+  },
+  nickname: {
+    fontSize:  15,
+    color:     colors.textSecondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  profileCode: {
+    fontSize:          12,
+    color:             colors.inactive,
+    textAlign:         'center',
+    backgroundColor:   colors.background,
+    paddingHorizontal: 10,
+    paddingVertical:   3,
+    borderRadius:      8,
+  },
+  statsRow: {
+    flexDirection:  'row',
+    flexWrap:       'wrap',
+    gap:            8,
+    justifyContent: 'center',
+  },
+  statChip: {
+    backgroundColor:   colors.background,
+    borderRadius:      8,
+    paddingHorizontal: 12,
+    paddingVertical:   4,
+  },
+  statChipText: {
+    fontSize:   13,
+    fontWeight: '500',
+    color:      colors.text,
+  },
+  bioCard: {
+    backgroundColor: colors.card,
+    borderRadius:    12,
+    padding:         16,
+    alignSelf:       'stretch',
+  },
+  bioText: {
+    fontSize:   14,
+    color:      colors.text,
+    lineHeight: 20,
+  },
+  infoRow: {
+    flexDirection:  'row',
+    gap:            16,
+    justifyContent: 'center',
+  },
+  infoText: {
+    fontSize: 13,
+    color:    colors.textSecondary,
+  },
+  instagramBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
+    paddingHorizontal: 16,
+    paddingVertical:   10,
+    borderRadius:      12,
+    borderWidth:       1,
+    borderColor:       colors.border,
+  },
+  instagramBtnText: {
+    fontSize:   14,
+    fontWeight: '500',
+    color:      colors.text,
+  },
+  qrSheet: {
+    backgroundColor:      colors.card,
+    borderTopLeftRadius:  24,
+    borderTopRightRadius: 24,
+    padding:              24,
+    paddingBottom:        40,
+    alignItems:           'center',
+    gap:                  16,
+  },
+  qrCodeLabel: {
+    fontSize:      15,
+    fontWeight:    '700',
+    color:         colors.text,
+    letterSpacing: 2,
+  },
+  shareBtn: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
+    backgroundColor:   colors.accentBlue,
+    borderRadius:      12,
+    paddingHorizontal: 24,
+    paddingVertical:   12,
+  },
+  shareBtnText: {
+    fontSize:   15,
+    fontWeight: '700',
+    color:      colors.card,
   },
 });
