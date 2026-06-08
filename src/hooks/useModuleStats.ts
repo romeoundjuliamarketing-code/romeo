@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { colors } from '../theme/colors';
 
 // Segment shown in the donut chart — one per workout category
 export interface ModuleSegment {
@@ -11,16 +12,16 @@ export interface ModuleSegment {
 
 // Maps workout category keys (stored in training_type) to display labels and colors
 const CATEGORY_CONFIG: { key: string; label: string; color: string }[] = [
-  { key: 'schlagkraft',  label: 'Schlagkraft',  color: '#0A0A0A' },
-  { key: 'trittkraft',   label: 'Trittkraft',    color: '#C4704F' },
-  { key: 'ausdauer',     label: 'Ausdauer',      color: '#B8975A' },
-  { key: 'schulter',     label: 'Schulter',      color: '#3D6B9E' },
-  { key: 'nackenhals',   label: 'Nacken und Hals', color: '#5E7AA3' },
-  { key: 'griffkraft',   label: 'Griffkraft',    color: '#4F6D7A' },
-  { key: 'beinarbeit',   label: 'Beinarbeit',    color: '#2D6E6E' },
-  { key: 'koordination', label: 'Koordination',  color: '#4A90D9' },
-  { key: 'mobilitaet',    label: 'Mobilität',     color: '#7B6FA0' },
-  { key: 'partnertraining', label: 'Partnertraining',  color: '#4A7C59' },
+  { key: 'schlagkraft',     label: 'Schlagkraft',     color: colors.catSchlagkraft    },
+  { key: 'trittkraft',      label: 'Trittkraft',       color: colors.catTrittkraft     },
+  { key: 'ausdauer',        label: 'Ausdauer',         color: colors.catCardio         },
+  { key: 'schulter',        label: 'Schulter',         color: colors.catSchulter       },
+  { key: 'nackenhals',      label: 'Nacken und Hals',  color: colors.catNackenhals     },
+  { key: 'griffkraft',      label: 'Griffkraft',       color: colors.catGriffkraft     },
+  { key: 'beinarbeit',      label: 'Beinarbeit',       color: colors.catCore           },
+  { key: 'koordination',    label: 'Koordination',     color: colors.accentBlue        },
+  { key: 'mobilitaet',      label: 'Mobilität',        color: colors.catMobility       },
+  { key: 'partnertraining', label: 'Partnertraining',  color: colors.catPartnertraining },
 ];
 
 interface UseModuleStatsResult {
@@ -75,7 +76,7 @@ export function useModuleStats(refetchTrigger = 0): UseModuleStatsResult {
       // Add extras segment if any
       const extraCount = (extraRes.data ?? []).length;
       if (extraCount > 0) {
-        built.push({ label: 'Extras', value: extraCount, color: '#8CB8E0' });
+        built.push({ label: 'Extras', value: extraCount, color: colors.chartExtra });
       }
 
       const sum = built.reduce((acc, s) => acc + s.value, 0);

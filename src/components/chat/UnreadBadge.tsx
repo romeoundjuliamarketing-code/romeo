@@ -20,7 +20,7 @@ const styles = StyleSheet.create({
     minWidth:          18,
     height:            18,
     borderRadius:      9,
-    backgroundColor:   colors.deleteRed,
+    backgroundColor:   colors.accentBlue,
     alignItems:        'center',
     justifyContent:    'center',
     paddingHorizontal: 4,

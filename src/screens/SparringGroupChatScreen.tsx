@@ -23,12 +23,14 @@ import { useSparringActions } from '../hooks/useSparringActions';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import GroupMessageBubble from '../components/chat/GroupMessageBubble';
+import ChatDateSeparator from '../components/chat/ChatDateSeparator';
 import ChatImagePicker from '../components/chat/ChatImagePicker';
 import SparringChatInfoBanner from '../components/chat/SparringChatInfoBanner';
 import SparringChatParticipantBar from '../components/chat/SparringChatParticipantBar';
 import type { Participant } from '../components/chat/SparringChatParticipantBar';
 import type { RootStackParamList } from '../navigation/types';
 import type { GroupMessageWithSender } from '../hooks/useSparringGroupChat';
+import { isSameDay, chatDateLabel } from '../utils/chatDate';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SparringGroupChat'>;
 
@@ -178,12 +180,42 @@ export default function SparringGroupChatScreen() {
           ref={listRef}
           data={messages}
           keyExtractor={(m) => m.id}
-          renderItem={({ item }) => (
-            <GroupMessageBubble
-              message={item}
-              isOwn={user?.id === item.sender_id}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const prev = index > 0 ? messages[index - 1] : null;
+            const next = index < messages.length - 1 ? messages[index + 1] : null;
+
+            const showDateSeparator =
+              index === 0 ||
+              (prev !== null && !isSameDay(new Date(prev.created_at), new Date(item.created_at)));
+
+            const isFirstInGroup =
+              prev === null ||
+              prev.sender_id !== item.sender_id ||
+              !!prev.is_system ||
+              !!item.is_system ||
+              showDateSeparator;
+
+            const isLastInGroup =
+              next === null ||
+              next.sender_id !== item.sender_id ||
+              !!next.is_system ||
+              !!item.is_system ||
+              !isSameDay(new Date(item.created_at), new Date(next.created_at));
+
+            return (
+              <>
+                {showDateSeparator && (
+                  <ChatDateSeparator label={chatDateLabel(item.created_at)} />
+                )}
+                <GroupMessageBubble
+                  message={item}
+                  isOwn={user?.id === item.sender_id}
+                  isFirstInGroup={isFirstInGroup}
+                  isLastInGroup={isLastInGroup}
+                />
+              </>
+            );
+          }}
           contentContainerStyle={styles.messageList}
           onScroll={(e) => {
             const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { useSparringChatList } from '../hooks/useSparringChatList';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import StudioMapDetailSheet from '../components/sparring/StudioMapDetailSheet';
+import MapBoostSheet from '../components/sparring/MapBoostSheet';
 import SparringMapView from '../components/sparring/SparringMapView';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
@@ -47,8 +48,17 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const [actionLoading, setActionLoading]   = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [timeFilter, setTimeFilter]         = useState<TimeFilter>('all');
-  const [mode, setMode]                     = useState<'sparrings' | 'studios'>('sparrings');
   const [selectedStudio, setSelectedStudio] = useState<StudioMapMarker | null>(null);
+  // After a user publishes their own sparring, prompt the map boost for it.
+  const [boostSparringId, setBoostSparringId] = useState<string | null>(null);
+  const boostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup the boost timer on unmount to avoid setState on an unmounted component.
+  useEffect(() => {
+    return () => {
+      if (boostTimerRef.current !== null) clearTimeout(boostTimerRef.current);
+    };
+  }, []);
 
   const { currentStudio } = useStudio();
   const { address: studioAddress, lat: studioLat, lng: studioLng } = useStudioAddress(
@@ -145,9 +155,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     <View style={styles.root}>
       <SparringMapView
         sparrings={filtered}
-        studioMarkers={studioMarkers}
-        sparringModeStudios={sparringModeStudios}
-        mode={mode}
+        studioDots={sparringModeStudios}
         onSparringPress={setSelected}
         onStudioPress={setSelectedStudio}
         totalUnread={totalUnread}
@@ -195,16 +203,14 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         loading={actionLoading}
       />
 
-      {mode === 'sparrings' && (
-        <TouchableOpacity
-          style={[styles.fab, { bottom: insets.bottom + 16 }]}
-          onPress={() => setCreateSheetVisible(true)}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="add-circle-outline" size={22} color={colors.card} />
-          <Text style={styles.fabText}>Sparring anmelden</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={[styles.fab, { bottom: insets.bottom + 16 }]}
+        onPress={() => setCreateSheetVisible(true)}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="add-circle-outline" size={22} color={colors.card} />
+        <Text style={styles.fabText}>Sparring anmelden</Text>
+      </TouchableOpacity>
 
       <CreateSparringSheet
         visible={createSheetVisible}
@@ -212,14 +218,32 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         coachStudio={coachStudio}
         onClose={() => setCreateSheetVisible(false)}
         onCreate={async (params) => {
-          const { error } = await createSparring(params);
+          const { error, sparringId } = await createSparring(params);
           if (error !== null) {
             Alert.alert('Fehler', error);
             return;
           }
           refetch();
+          // Prompt the map boost for the freshly created sparring. The create
+          // sheet closes itself right after onCreate; defer so iOS does not try
+          // to present two modals at once.
+          if (sparringId !== undefined) {
+            boostTimerRef.current = setTimeout(() => setBoostSparringId(sparringId), 400);
+          }
         }}
       />
+
+      {boostSparringId !== null && (
+        <MapBoostSheet
+          sparringId={boostSparringId}
+          visible
+          onClose={() => setBoostSparringId(null)}
+          onBoostActivated={() => {
+            setBoostSparringId(null);
+            refetch();
+          }}
+        />
+      )}
 
       <StudioMapDetailSheet
         studio={selectedStudio}
@@ -257,6 +281,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
+    elevation: 4,
   },
   closeBtnDimmed: { opacity: 0.35 },
   segmentGroup: {
@@ -270,6 +295,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
+    elevation: 3,
   },
   segment: {
     flex: 1,

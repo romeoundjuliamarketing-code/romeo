@@ -117,7 +117,7 @@ export default function CoachScreen() {
               activeOpacity={0.8}
               disabled={loading || remaining === 0}
             >
-              <Ionicons name="send" size={18} color="#FFFFFF" />
+              <Ionicons name="send" size={18} color={colors.card} />
             </TouchableOpacity>
           </View>
         </View>
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bubbleTextUser: {
-    color: '#FFFFFF',
+    color: colors.card,
   },
   bubbleTextCoach: {
     color: colors.headerTextPrimary,

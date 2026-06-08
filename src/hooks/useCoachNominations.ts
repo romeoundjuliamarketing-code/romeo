@@ -118,7 +118,7 @@ export function useCoachNominations(): UseCoachNominationsResult {
           return;
         }
 
-        const [membersRes, nominationsRes, votesRes] = await Promise.all([
+        const [membersRes, nominationsRes] = await Promise.all([
           supabase
             .from('profiles')
             .select('*')
@@ -128,15 +128,20 @@ export function useCoachNominations(): UseCoachNominationsResult {
             .select('*')
             .eq('team_id', teamId)
             .eq('status', 'pending'),
-          supabase
-            .from('coach_votes')
-            .select('nomination_id, voter_id'),
         ]);
 
         if (cancelled) return;
 
         const members = (membersRes.data ?? []) as Profile[];
         const nominations = nominationsRes.data ?? [];
+
+        const nominationIds = nominations.map((n) => n.id);
+        const votesRes = nominationIds.length > 0
+          ? await supabase
+              .from('coach_votes')
+              .select('nomination_id, voter_id')
+              .in('nomination_id', nominationIds)
+          : { data: [] as Array<{ nomination_id: string; voter_id: string }>, error: null };
 
         // Group votes by nomination_id
         const votesByNomination = new Map<string, Array<{ voter_id: string }>>();

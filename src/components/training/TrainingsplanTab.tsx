@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(74,144,217,0.6)',
     ...Platform.select({
       ios: {
-        shadowColor: '#4A90D9',
+        shadowColor: colors.accentBlue,
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.95,
         shadowRadius: 16,

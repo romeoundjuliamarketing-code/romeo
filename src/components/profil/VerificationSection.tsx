@@ -31,22 +31,20 @@ export function VerificationSection({ refetchTrigger = 0 }: { refetchTrigger?: n
   const { flags, tier, loading, updateAddress, updatePhone } = useVerification(refetchTrigger);
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [savingPhone, setSavingPhone] = useState(false);
 
-  const handleSaveAddress = async () => {
-    if (address.trim().length === 0) return;
+  const handleSave = async (
+    value: string,
+    updater: (v: string) => Promise<{ error: string | null }>,
+    setSaving: (v: boolean) => void,
+    resetField: () => void,
+  ) => {
+    if (value.trim().length === 0) return;
     setSaving(true);
-    await updateAddress(address);
+    await updater(value);
     setSaving(false);
-    setAddress('');
-  };
-
-  const handleSavePhone = async () => {
-    if (phone.trim().length === 0) return;
-    setSaving(true);
-    await updatePhone(phone);
-    setSaving(false);
-    setPhone('');
+    resetField();
   };
 
   if (loading) {
@@ -74,7 +72,11 @@ export function VerificationSection({ refetchTrigger = 0 }: { refetchTrigger?: n
             placeholder="Strasse, PLZ, Ort"
             placeholderTextColor={colors.inactive}
           />
-          <TouchableOpacity style={styles.saveButton} onPress={handleSaveAddress} disabled={saving}>
+          <TouchableOpacity
+              style={styles.saveButton}
+              onPress={() => { void handleSave(address, updateAddress, setSavingAddress, () => setAddress('')); }}
+              disabled={savingAddress}
+            >
             <Text style={styles.saveText}>Speichern</Text>
           </TouchableOpacity>
         </View>
@@ -89,7 +91,11 @@ export function VerificationSection({ refetchTrigger = 0 }: { refetchTrigger?: n
           placeholderTextColor={colors.inactive}
           keyboardType="phone-pad"
         />
-        <TouchableOpacity style={styles.saveButton} onPress={handleSavePhone} disabled={saving}>
+        <TouchableOpacity
+            style={styles.saveButton}
+            onPress={() => { void handleSave(phone, updatePhone, setSavingPhone, () => setPhone('')); }}
+            disabled={savingPhone}
+          >
           <Text style={styles.saveText}>Speichern</Text>
         </TouchableOpacity>
       </View>

@@ -27,6 +27,7 @@ import { useWaterTracking } from '../hooks/useWaterTracking';
 import { useWeight } from '../hooks/useWeight';
 import { useNotifications } from '../hooks/useNotifications';
 import { useProximitySparringNotifications } from '../hooks/useProximitySparringNotifications';
+import { useNotificationFeed } from '../hooks/useNotificationFeed';
 import ConfettiOverlay from '../components/ernaehrung/ConfettiOverlay';
 import { useEntitlement } from '../hooks/useEntitlement';
 import type { RootStackParamList } from '../navigation/types';
@@ -64,6 +65,7 @@ export default function HomeScreen() {
   const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
   const { scheduleTrainingReminders } = useNotifications();
   useProximitySparringNotifications();
+  const { unreadCount: unreadNotificationCount } = useNotificationFeed(focusTrigger);
   const { isParticipating, participate, cancelParticipation } = useParticipation();
   const { isDone: stretchDone, isUrgent: stretchUrgent, logStretch } = useDailyStretch();
   const { isDone: mobilityDone, isUrgent: mobilityUrgent, logMobility } = useDailyMobility();
@@ -166,6 +168,8 @@ export default function HomeScreen() {
           mobilityDone={mobilityDone}
           mobilityUrgent={mobilityUrgent}
           onMobility={() => { void logMobility().then(refetchStats); }}
+          onNotificationsPress={() => { navigation.navigate('Notifications'); }}
+          unreadNotificationCount={unreadNotificationCount}
         />
 
         {/* ── Stats section (light) ── */}
@@ -278,7 +282,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   statCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.card,
     borderRadius: CARD_RADIUS,
     padding: 16,
     width: '47.5%',

@@ -62,7 +62,9 @@ export function useOpenSparrings(refetchTrigger = 0): {
 
       const [{ data: mySignups }, { data: allSignups }, { data: activeBoosts }] = await Promise.all([
         supabase.from('sparring_signups').select('sparring_id').eq('user_id', user.id),
-        supabase.from('sparring_signups').select('sparring_id'),
+        sparringIds.length > 0
+          ? supabase.from('sparring_signups').select('sparring_id').in('sparring_id', sparringIds)
+          : Promise.resolve({ data: [] as Array<{ sparring_id: string }>, error: null }),
         sparringIds.length > 0
           ? supabase
               .from('map_boosts')

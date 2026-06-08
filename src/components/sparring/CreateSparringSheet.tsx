@@ -19,6 +19,121 @@ import LocationPickerModal from './LocationPickerModal';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
+// ── Internal helper: FieldLabel ───────────────────────────────────────────────
+type FieldLabelProps = {
+  icon: IoniconsName;
+  text: string;
+  hint?: string;
+};
+
+function FieldLabel({ icon, text, hint }: FieldLabelProps) {
+  return (
+    <View style={fieldLabelStyles.row}>
+      <Ionicons name={icon} size={14} color={colors.textSecondary} style={fieldLabelStyles.icon} />
+      <Text style={fieldLabelStyles.label}>{text}</Text>
+      {hint !== undefined && hint.length > 0 && (
+        <Text style={fieldLabelStyles.hint}>{hint}</Text>
+      )}
+    </View>
+  );
+}
+
+const fieldLabelStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 6,
+    gap: 5,
+  },
+  icon: {
+    marginTop: 1,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  hint: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    marginLeft: 4,
+    opacity: 0.75,
+  },
+});
+
+// ── Internal helper: Stepper ──────────────────────────────────────────────────
+type StepperProps = {
+  value: string;
+  onChange: (v: string) => void;
+  min?: number;
+};
+
+function Stepper({ value, onChange, min = 1 }: StepperProps) {
+  const numVal = parseInt(value, 10);
+  const current = isNaN(numVal) ? min : numVal;
+
+  function decrement(): void {
+    const next = Math.max(min, current - 1);
+    onChange(String(next));
+  }
+
+  function increment(): void {
+    onChange(String(current + 1));
+  }
+
+  return (
+    <View style={stepperStyles.row}>
+      <TouchableOpacity
+        style={[stepperStyles.btn, current <= min && stepperStyles.btnDisabled]}
+        onPress={decrement}
+        disabled={current <= min}
+        activeOpacity={0.75}
+      >
+        <Ionicons name="remove" size={18} color={current <= min ? colors.textSecondary : colors.text} />
+      </TouchableOpacity>
+      <Text style={stepperStyles.value}>{current}</Text>
+      <TouchableOpacity style={stepperStyles.btn} onPress={increment} activeOpacity={0.75}>
+        <Ionicons name="add" size={18} color={colors.text} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const stepperStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  btn: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  btnDisabled: {
+    opacity: 0.4,
+  },
+  value: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+});
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 type CoachStudioInfo = {
   id: string;
   address: string;
@@ -133,7 +248,9 @@ export default function CreateSparringSheet(props: Props) {
 
     const dur = isUserMode ? 90 : parseInt(durationMin, 10);
     const slots = parseInt(maxSlots, 10);
-    const resolvedTitle = isUserMode ? `${discipline} – Sparring` : title.trim();
+    const resolvedTitle = isUserMode
+      ? (title.trim().length > 0 ? title.trim() : `${discipline} – Sparring`)
+      : title.trim();
 
     const params: CreateSparringInput = isUserMode
       ? {
@@ -181,7 +298,14 @@ export default function CreateSparringSheet(props: Props) {
       <View style={styles.sheet}>
         <View style={styles.handle} />
         <View style={styles.headerRow}>
-          <Text style={styles.heading}>Sparring planen</Text>
+          <View style={styles.headerTextBlock}>
+            <Text style={styles.heading}>
+              {isUserMode ? 'Sparring anmelden' : 'Sparring planen'}
+            </Text>
+            {isUserMode && (
+              <Text style={styles.subHeading}>Plane dein eigenes Sparring</Text>
+            )}
+          </View>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -189,9 +313,24 @@ export default function CreateSparringSheet(props: Props) {
 
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
+          {/* User mode: optional name field */}
+          {isUserMode && (
+            <>
+              <FieldLabel icon="create-outline" text="Name" hint="Optional – sonst automatisch benannt" />
+              <TextInput
+                style={styles.input}
+                value={title}
+                onChangeText={setTitle}
+                placeholder="z.B. Lockeres Boxsparring"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </>
+          )}
+
+          {/* Coach mode: required title field */}
           {!isUserMode && (
             <>
-              <Text style={styles.label}>Titel</Text>
+              <FieldLabel icon="create-outline" text="Titel" />
               <TextInput
                 style={styles.input}
                 value={title}
@@ -204,7 +343,7 @@ export default function CreateSparringSheet(props: Props) {
 
           {isUserMode && (
             <>
-              <Text style={styles.label}>Ort</Text>
+              <FieldLabel icon="location-outline" text="Ort" />
               <View style={styles.locationRow}>
                 <TextInput
                   style={[styles.input, styles.locationInput, isAtStudio && styles.inputDisabled]}
@@ -259,20 +398,15 @@ export default function CreateSparringSheet(props: Props) {
             </TouchableOpacity>
           )}
 
+          {/* Max. Plätze as Stepper — User mode */}
           {isUserMode && (
             <>
-              <Text style={styles.label}>Max. Plätze</Text>
-              <TextInput
-                style={styles.input}
-                value={maxSlots}
-                onChangeText={setMaxSlots}
-                keyboardType="numeric"
-                placeholderTextColor={colors.textSecondary}
-              />
+              <FieldLabel icon="people-outline" text="Max. Plätze" />
+              <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
             </>
           )}
 
-          <Text style={styles.label}>Kampfsport</Text>
+          <FieldLabel icon="barbell-outline" text="Kampfsport" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.pillRow}>
               {DISCIPLINES.map((d) => (
@@ -289,10 +423,22 @@ export default function CreateSparringSheet(props: Props) {
             </View>
           </ScrollView>
 
-          <Text style={styles.label}>Datum</Text>
-          <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
-            <Text style={styles.inputText}>{formatDate(scheduledAt)}</Text>
-          </TouchableOpacity>
+          {/* Datum + Uhrzeit nebeneinander in beiden Modi */}
+          <View style={styles.twoCol}>
+            <View style={styles.colItem}>
+              <FieldLabel icon="calendar-outline" text="Datum" />
+              <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+                <Text style={styles.inputText}>{formatDate(scheduledAt)}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.colItem}>
+              <FieldLabel icon="time-outline" text="Uhrzeit" />
+              <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
+                <Text style={styles.inputText}>{formatTime(scheduledAt)}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {showDatePicker && (
             <DateTimePicker
               value={scheduledAt}
@@ -310,10 +456,6 @@ export default function CreateSparringSheet(props: Props) {
             />
           )}
 
-          <Text style={styles.label}>Uhrzeit</Text>
-          <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
-            <Text style={styles.inputText}>{formatTime(scheduledAt)}</Text>
-          </TouchableOpacity>
           {showTimePicker && (
             <DateTimePicker
               value={scheduledAt}
@@ -330,10 +472,11 @@ export default function CreateSparringSheet(props: Props) {
             />
           )}
 
+          {/* Coach mode: Dauer + Max. Plätze (Stepper) */}
           {!isUserMode && (
             <View style={styles.twoCol}>
               <View style={styles.colItem}>
-                <Text style={styles.label}>Dauer (Min.)</Text>
+                <FieldLabel icon="hourglass-outline" text="Dauer (Min.)" />
                 <TextInput
                   style={styles.input}
                   value={durationMin}
@@ -343,19 +486,13 @@ export default function CreateSparringSheet(props: Props) {
                 />
               </View>
               <View style={styles.colItem}>
-                <Text style={styles.label}>Max. Plätze</Text>
-                <TextInput
-                  style={styles.input}
-                  value={maxSlots}
-                  onChangeText={setMaxSlots}
-                  keyboardType="numeric"
-                  placeholderTextColor={colors.textSecondary}
-                />
+                <FieldLabel icon="people-outline" text="Max. Plätze" />
+                <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
               </View>
             </View>
           )}
 
-          <Text style={styles.label}>Hinweise (optional)</Text>
+          <FieldLabel icon="document-text-outline" text="Hinweise (optional)" />
           <TextInput
             style={[styles.input, styles.multiline]}
             value={notes}
@@ -374,7 +511,10 @@ export default function CreateSparringSheet(props: Props) {
             {loading ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={styles.btnText}>Veröffentlichen</Text>
+              <View style={styles.btnContent}>
+                <Ionicons name="megaphone-outline" size={18} color={colors.card} style={styles.btnIcon} />
+                <Text style={styles.btnText}>Veröffentlichen</Text>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -388,7 +528,7 @@ export default function CreateSparringSheet(props: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: colors.mapOverlay,
   },
   sheet: {
     backgroundColor: colors.card,
@@ -408,24 +548,27 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 8,
+  },
+  headerTextBlock: {
+    flex: 1,
+    marginRight: 8,
   },
   heading: {
     fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
-  label: {
+  subHeading: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '400',
     color: colors.textSecondary,
-    marginTop: 16,
-    marginBottom: 6,
+    marginTop: 2,
   },
   input: {
     backgroundColor: colors.background,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 13,
     fontSize: 15,
@@ -482,6 +625,14 @@ const styles = StyleSheet.create({
   },
   btnDisabled: {
     opacity: 0.6,
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  btnIcon: {
+    marginTop: 1,
   },
   btnText: {
     fontSize: 16,

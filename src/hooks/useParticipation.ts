@@ -147,13 +147,15 @@ export function useParticipation(): UseParticipationResult {
         .eq('id', scheduleId)
         .single();
 
-      await supabase
-        .from('workout_logs')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('date', sessionDate)
-        .eq('source', 'plan')
-        .eq('title', scheduleRow?.training_name ?? '');
+      if (scheduleRow !== null) {
+        await supabase
+          .from('workout_logs')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('date', sessionDate)
+          .eq('source', 'plan')
+          .eq('title', scheduleRow.training_name);
+      }
 
       // 3. Deduct points from profile atomically
       await supabase.rpc('deduct_workout_points', {

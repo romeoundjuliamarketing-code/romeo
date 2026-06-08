@@ -35,7 +35,7 @@ export type CreateSparringInput =
 export function useSparringActions(): {
   signUp: (sparringId: string) => Promise<{ error: string | null }>;
   cancelSignup: (sparringId: string) => Promise<{ error: string | null }>;
-  createSparring: (params: CreateSparringInput) => Promise<{ error: string | null }>;
+  createSparring: (params: CreateSparringInput) => Promise<{ error: string | null; sparringId?: string }>;
   deactivateSparring: (sparringId: string) => Promise<{ error: string | null }>;
 } {
   const { user } = useAuth();
@@ -58,7 +58,7 @@ export function useSparringActions(): {
     return { error: error?.message ?? null };
   }, [user]);
 
-  const createSparring = useCallback(async (params: CreateSparringInput): Promise<{ error: string | null }> => {
+  const createSparring = useCallback(async (params: CreateSparringInput): Promise<{ error: string | null; sparringId?: string }> => {
     if (user === null) return { error: 'Nicht eingeloggt' };
 
     let resolvedAddress: string;
@@ -129,14 +129,14 @@ export function useSparringActions(): {
 
     const { error: settingsError } = await supabase
       .from('sparring_chat_settings')
-      .insert({ sparring_id: newSparring.id });
+      .upsert({ sparring_id: newSparring.id }, { onConflict: 'sparring_id', ignoreDuplicates: true });
 
     if (settingsError !== null) {
       await supabase.from('open_sparrings').delete().eq('id', newSparring.id);
       return { error: settingsError.message };
     }
 
-    return { error: null };
+    return { error: null, sparringId: newSparring.id };
   }, [user]);
 
   const deactivateSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {

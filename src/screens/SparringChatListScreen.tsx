@@ -68,14 +68,17 @@ export default function SparringChatListScreen() {
               <>
                 <Text style={styles.sectionLabel}>Archiv</Text>
                 {archived.map((item) => (
-                  <SparringChatListItem key={item.sparringId} item={item} onPress={() => openChat(item)} />
+                  <SparringChatListItem key={item.sparringId} item={item} onPress={() => openChat(item)} past />
                 ))}
               </>
             ) : null
           }
           ListEmptyComponent={
             archived.length === 0 ? (
-              <Text style={styles.empty}>Noch keine Sparring-Chats.</Text>
+              <View style={styles.emptyContainer}>
+                <Ionicons name="chatbubbles-outline" size={40} color={colors.textSecondary} />
+                <Text style={styles.empty}>Noch keine Sparring-Chats.</Text>
+              </View>
             ) : null
           }
           contentContainerStyle={styles.list}
@@ -112,22 +115,26 @@ const styles = StyleSheet.create({
     marginTop: 48,
   },
   list: {
+    paddingTop:    8,
     paddingBottom: 40,
   },
   sectionLabel: {
     fontSize:          13,
     fontWeight:        '600',
     color:             colors.textSecondary,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     paddingTop:        16,
     paddingBottom:     8,
     textTransform:     'uppercase',
     letterSpacing:     0.5,
   },
+  emptyContainer: {
+    alignItems:  'center',
+    marginTop:   48,
+    gap:         12,
+  },
   empty: {
-    textAlign:  'center',
-    marginTop:  48,
-    color:      colors.textSecondary,
-    fontSize:   15,
+    color:    colors.textSecondary,
+    fontSize: 15,
   },
 });

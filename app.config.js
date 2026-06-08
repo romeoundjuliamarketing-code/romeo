@@ -88,6 +88,7 @@ module.exports = {
           groupIdentifier: "group.com.kombat.app",
         },
       ],
+      "@sentry/react-native",
     ],
     extra: {
       eas: {

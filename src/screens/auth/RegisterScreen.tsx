@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
+import { useCaptcha } from '../../hooks/useCaptcha';
 import type { AuthStackParamList } from '../../navigation/types';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
 
@@ -31,14 +32,8 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  // Turnstile tokens are single-use; bump this to remount the widget for a fresh token.
-  const [captchaKey, setCaptchaKey] = useState(0);
-
-  const resetCaptcha = () => {
-    setCaptchaToken(null);
-    setCaptchaKey(k => k + 1);
-  };
+  const { captchaToken, setCaptchaToken, captchaKey, resetCaptcha } = useCaptcha();
+  const [captchaError, setCaptchaError] = useState(false);
 
   const handleRegister = async () => {
     if (!email.trim() || !password) {
@@ -164,7 +159,19 @@ export default function RegisterScreen() {
               </View>
             )}
 
-            <TurnstileWidget key={captchaKey} onToken={setCaptchaToken} />
+            <TurnstileWidget
+              key={captchaKey}
+              onToken={(t) => { setCaptchaError(false); setCaptchaToken(t); }}
+              onError={() => { setCaptchaError(true); setCaptchaToken(null); }}
+            />
+            {captchaError && (
+              <View style={styles.captchaErrorRow}>
+                <Text style={styles.captchaErrorText}>Sicherheitsprüfung konnte nicht geladen werden.</Text>
+                <TouchableOpacity onPress={() => { setCaptchaError(false); resetCaptcha(); }}>
+                  <Text style={styles.captchaRetryLink}>Erneut versuchen</Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Registrieren-Button */}
             <TouchableOpacity
@@ -316,6 +323,21 @@ const styles = StyleSheet.create({
   },
   footerLink: {
     fontSize: 14,
+    color: colors.accentBlue,
+    fontWeight: '600',
+  },
+  captchaErrorRow: {
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  captchaErrorText: {
+    fontSize: 13,
+    color: colors.deleteRed,
+    textAlign: 'center',
+  },
+  captchaRetryLink: {
+    fontSize: 13,
     color: colors.accentBlue,
     fontWeight: '600',
   },

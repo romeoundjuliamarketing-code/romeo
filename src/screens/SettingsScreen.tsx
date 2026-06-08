@@ -17,6 +17,7 @@ import { useSchedule } from '../hooks/useSchedule';
 import { useNotifications } from '../hooks/useNotifications';
 import { supabase } from '../lib/supabase';
 import { PROXIMITY_RADIUS_KEY } from '../hooks/useProximitySparringNotifications';
+import { useCaptcha } from '../hooks/useCaptcha';
 import TurnstileWidget from '../components/auth/TurnstileWidget';
 
 const PREWORKOUT_KEY = 'preworkout_enabled';
@@ -109,8 +110,7 @@ export default function SettingsScreen(): React.ReactElement {
   const { entitlement } = useEntitlement();
   const [resetting, setResetting]             = useState(false);
   const [resetModalVisible, setResetModalVisible] = useState(false);
-  // Turnstile tokens are single-use; bump to remount the widget for a fresh token.
-  const [captchaKey, setCaptchaKey]           = useState(0);
+  const { captchaKey, resetCaptcha }          = useCaptcha();
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [notifGranted, setNotifGranted]       = useState(false);
   const [preWorkoutEnabled, setPreWorkoutEnabled] = useState(false);
@@ -141,7 +141,7 @@ export default function SettingsScreen(): React.ReactElement {
 
   function openPasswordReset(): void {
     if (user?.email == null) return;
-    setCaptchaKey(k => k + 1);
+    resetCaptcha();
     setResetModalVisible(true);
   }
 
@@ -155,7 +155,7 @@ export default function SettingsScreen(): React.ReactElement {
   async function handlePasswordReset(captchaToken: string): Promise<void> {
     if (user?.email == null) return;
     setResetting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { captchaToken });
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { captchaToken, redirectTo: 'sparr://reset-password' });
     setResetting(false);
     setResetModalVisible(false);
     if (error !== null) {

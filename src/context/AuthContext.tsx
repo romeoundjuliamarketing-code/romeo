@@ -18,15 +18,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load persisted session on mount — always resolve loading, even on network error
-    supabase.auth.getSession()
-      .then(({ data }) => setSession(data.session))
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
-
-    // Keep session in sync with Supabase Auth state changes
+    // onAuthStateChange fires INITIAL_SESSION synchronously with the persisted session,
+    // replacing the need for a separate getSession() call and avoiding race conditions.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();

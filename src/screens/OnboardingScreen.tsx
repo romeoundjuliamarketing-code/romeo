@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,8 @@ import { useStudioInvite } from '../hooks/useStudioInvite';
 import { useStudio } from '../hooks/useStudio';
 import MascotBubble from '../components/onboarding/MascotBubble';
 import StepName, { isValidName } from '../components/onboarding/StepName';
+import StepRole from '../components/onboarding/StepRole';
+import StepCoachSubscription from '../components/onboarding/StepCoachSubscription';
 import StepGender from '../components/onboarding/StepGender';
 import StepAge from '../components/onboarding/StepAge';
 import StepWeight from '../components/onboarding/StepWeight';
@@ -31,6 +33,7 @@ import StepExperience from '../components/onboarding/StepExperience';
 import StepTrainingFrequency from '../components/onboarding/StepTrainingFrequency';
 import StepInviteCode from '../components/onboarding/StepInviteCode';
 import type { Gender } from '../components/onboarding/StepGender';
+import type { Role } from '../components/onboarding/StepRole';
 import type { TrainingSince } from '../components/onboarding/StepExperience';
 import type { FrequencyTier } from '../components/onboarding/StepTrainingFrequency';
 import type { Discipline } from '../data/disciplines';
@@ -47,20 +50,33 @@ const MASCOT = {
   einladend:   require('../../assets/coach/einladend.png'),
 } as const;
 
-type StepId = 'name' | 'discipline' | 'experience' | 'gender' | 'age' | 'weight' | 'frequency' | 'invitecode';
+type StepId = 'name' | 'role' | 'coachsub' | 'discipline' | 'experience' | 'gender' | 'age' | 'weight' | 'frequency' | 'invitecode';
 
 interface StepConfig {
   id: StepId;
   mascotImage: keyof typeof MASCOT;
   bubbleText: string;
   canSkip?: boolean;
+  coachOnly?: boolean;
 }
 
-const STEPS: StepConfig[] = [
+const ALL_STEPS: StepConfig[] = [
   {
     id: 'name',
     mascotImage: 'neugierig',
     bubbleText: 'Wie heisst du?',
+  },
+  {
+    id: 'role',
+    mascotImage: 'fragend',
+    bubbleText: 'Bist du Schüler oder Coach?',
+  },
+  {
+    id: 'coachsub',
+    mascotImage: 'einladend',
+    bubbleText: 'Werde auf der Karte sichtbar.',
+    canSkip: true,
+    coachOnly: true,
   },
   {
     id: 'discipline',
@@ -95,14 +111,14 @@ const STEPS: StepConfig[] = [
   },
   {
     id: 'invitecode',
-    mascotImage: 'einladend',
+    mascotImage: 'winken',
     bubbleText: 'Bist du Teil eines Studios? Gib deinen Einladungscode ein.',
     canSkip: true,
   },
 ];
 
 const WELCOME_MASCOT: keyof typeof MASCOT = 'winken';
-const WELCOME_TEXT = 'Hey! Ich bin dein Coach. Ich stelle dir kurz ein paar Fragen, damit ich dich besser kenne.';
+const WELCOME_TEXT = 'Hey! Ich bin Sparris. Bevor du loslegst, stelle ich dir ein paar Fragen.';
 
 export default function OnboardingScreen() {
   const { user } = useAuth();
@@ -115,6 +131,7 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName]               = useState('');
+  const [role, setRole]               = useState<Role | null>(null);
   const [gender, setGender]           = useState<Gender | null>(null);
   const [age, setAge]                 = useState<number | null>(null);
   const [weight, setWeight]           = useState('');
@@ -122,6 +139,11 @@ export default function OnboardingScreen() {
   const [experience, setExperience]   = useState<TrainingSince | null>(null);
   const [frequency, setFrequency]     = useState<FrequencyTier | null>(null);
   const [inviteCode, setInviteCode]   = useState('');
+
+  const STEPS = useMemo(
+    () => ALL_STEPS.filter((s) => !s.coachOnly || role === 'coach'),
+    [role],
+  );
 
   const contentTranslateX = useRef(new Animated.Value(0)).current;
   const contentOpacity    = useRef(new Animated.Value(1)).current;
@@ -166,6 +188,8 @@ export default function OnboardingScreen() {
     if (isWelcome) return true;
     switch (currentStep!.id) {
       case 'name':        return isValidName(name);
+      case 'role':        return role !== null;
+      case 'coachsub':    return true;
       case 'gender':      return gender !== null;
       case 'age':         return age !== null;
       case 'weight':      return true;
@@ -307,14 +331,6 @@ export default function OnboardingScreen() {
           )}
         </View>
 
-        <View style={[styles.mascotArea, keyboardVisible && styles.mascotAreaHidden]}>
-          <MascotBubble
-            image={MASCOT[mascotKey]}
-            text={bubbleText}
-            stepKey={animationKey}
-          />
-        </View>
-
         <Animated.View
           style={[
             styles.contentAnimWrapper,
@@ -329,9 +345,23 @@ export default function OnboardingScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            <View style={[styles.mascotArea, keyboardVisible && styles.mascotAreaHidden]}>
+              <MascotBubble
+                image={MASCOT[mascotKey]}
+                text={bubbleText}
+                stepKey={animationKey}
+              />
+            </View>
+
             <View style={styles.stepContent}>
               {!isWelcome && currentStep?.id === 'name' && (
                 <StepName value={name} onChange={setName} />
+              )}
+              {!isWelcome && currentStep?.id === 'role' && (
+                <StepRole value={role} onChange={setRole} />
+              )}
+              {!isWelcome && currentStep?.id === 'coachsub' && (
+                <StepCoachSubscription onSubscribePress={() => navigation.navigate('Paywall')} />
               )}
               {!isWelcome && currentStep?.id === 'gender' && (
                 <StepGender value={gender} onChange={setGender} />
@@ -371,7 +401,7 @@ export default function OnboardingScreen() {
               activeOpacity={0.85}
             >
               {saving ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={colors.card} />
               ) : (
                 <Text style={styles.btnText}>{buttonLabel}</Text>
               )}
@@ -466,7 +496,7 @@ const styles = StyleSheet.create({
     opacity: 0.35,
   },
   btnText: {
-    color: '#FFFFFF',
+    color: colors.card,
     fontSize: 16,
     fontWeight: '700',
   },

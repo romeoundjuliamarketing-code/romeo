@@ -44,6 +44,8 @@ type Props = {
   mobilityDone: boolean;
   mobilityUrgent: boolean;
   onMobility: () => void;
+  onNotificationsPress: () => void;
+  unreadNotificationCount: number;
 };
 
 export default function HeroSection({
@@ -57,6 +59,8 @@ export default function HeroSection({
   isSessionParticipating,
   onSessionParticipate,
   onSessionCancel,
+  onNotificationsPress,
+  unreadNotificationCount,
   stretchDone,
   stretchUrgent,
   onStretch,
@@ -97,7 +101,7 @@ export default function HeroSection({
     <View style={styles.hero} onLayout={onHeroLayout}>
       <HeroNetworkPattern height={heroHeight} exclusionCenter={streakCenter} />
 
-      {/* ── Header: greeting left, logo centered ── */}
+      {/* ── Header: greeting left, logo centered, bell right ── */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.greeting}>{greeting}</Text>
@@ -110,6 +114,27 @@ export default function HeroSection({
             style={styles.headerLogo}
             resizeMode="contain"
           />
+        </View>
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            onPress={onNotificationsPress}
+            style={styles.bellButton}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name="notifications-outline"
+              size={24}
+              color={colors.headerTextPrimary}
+            />
+            {unreadNotificationCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadNotificationCount > 99 ? '99+' : String(unreadNotificationCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -262,6 +287,32 @@ const styles = StyleSheet.create({
   headerLeft: {
     flex: 1,
     maxWidth: '45%',
+  },
+  headerRight: {
+    flex: 1,
+    maxWidth: '45%',
+    alignItems: 'flex-end',
+  },
+  bellButton: {
+    position: 'relative',
+    padding: 4,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.deleteRed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
   },
   logoWrap: {
     position: 'absolute',

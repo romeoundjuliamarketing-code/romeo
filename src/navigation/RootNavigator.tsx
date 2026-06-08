@@ -21,7 +21,9 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
+import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 import { useAuth } from '../context/AuthContext';
+import { usePasswordRecovery } from '../hooks/usePasswordRecovery';
 import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
 import type { RootStackParamList, AuthStackParamList } from './types';
@@ -80,6 +82,7 @@ function AuthNavigator() {
 
 export default function RootNavigator() {
   const { session, loading } = useAuth();
+  const { recoveryActive, endRecovery } = usePasswordRecovery();
   const [onboardingCompleted, setOnboardingCompleted] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -104,6 +107,17 @@ export default function RootNavigator() {
       }
     })();
   }, [session]);
+
+  // Password recovery deep link takes priority over normal auth routing:
+  // the user arrived here from the email link to set a new password.
+  if (recoveryActive) {
+    return (
+      <View style={styles.root}>
+        <ResetPasswordScreen onDone={endRecovery} />
+        <OfflineBanner />
+      </View>
+    );
+  }
 
   const isLoading = loading || (session !== null && onboardingCompleted === null);
 

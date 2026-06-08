@@ -24,8 +24,6 @@ export default function MapBoostSheet({
   onClose,
   onBoostActivated,
 }: Props): React.ReactElement | null {
-  if (!visible) return null;
-
   const {
     purchase,
     loadStatus,
@@ -51,6 +49,8 @@ export default function MapBoostSheet({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boostStatus.isActive]);
+
+  if (!visible) return null;
 
   const priceLabel = boostPackage?.product.priceString ?? '€12,99';
   const isLoading  = statusLoading || packageLoading;

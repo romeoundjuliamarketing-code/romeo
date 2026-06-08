@@ -18,23 +18,23 @@ import type { RootStackParamList } from '../navigation/types';
 import { useWorkoutHistory } from '../hooks/useWorkoutHistory';
 
 const TYPE_COLORS: Record<string, string> = {
-  schlagkraft:  '#E05252',
-  trittkraft:   '#E07A52',
-  ausdauer:     '#52A86E',
-  schulter:     '#4A90D9',
-  nackenhals:   '#52A8A8',
-  griffkraft:   '#A06428',
-  beinarbeit:   '#D4B942',
-  koordination: '#C052A8',
-  mobilitaet:   '#7DC452',
-  bjj:          '#7B52C4',
-  k1:           '#C42828',
-  mma:          '#1A5296',
-  ringen:       '#1A7A3C',
-  sonstige:     '#8A8A8A',
+  schlagkraft:  colors.paletteRed,
+  trittkraft:   colors.paletteOrange,
+  ausdauer:     colors.paletteGreen,
+  schulter:     colors.accentBlue,
+  nackenhals:   colors.paletteTeal,
+  griffkraft:   colors.paletteBrown,
+  beinarbeit:   colors.paletteYellow,
+  koordination: colors.palettePink,
+  mobilitaet:   colors.paletteLime,
+  bjj:          colors.paletteViolet,
+  k1:           colors.paletteCrimson,
+  mma:          colors.paletteNavy,
+  ringen:       colors.paletteForest,
+  sonstige:     colors.textSecondary,
 };
 
-const FALLBACK_COLORS = ['#4A90D9', '#E05252', '#52A86E', '#E07A52', '#7B52C4', '#52A8A8'];
+const FALLBACK_COLORS = [colors.accentBlue, colors.paletteRed, colors.paletteGreen, colors.paletteOrange, colors.paletteViolet, colors.paletteTeal];
 
 const SCREEN_W   = Dimensions.get('window').width;
 const CARD_W     = SCREEN_W - 32;          // 16px margin each side

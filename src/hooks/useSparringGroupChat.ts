@@ -6,7 +6,8 @@ import { supabase } from '../lib/supabase';
 import type { SparringGroupMessage } from '../types/database.types';
 
 export interface GroupMessageWithSender extends SparringGroupMessage {
-  senderName: string | null;
+  senderName:      string | null;
+  senderAvatarUrl: string | null;
 }
 
 export interface UseSparringGroupChat {
@@ -35,8 +36,9 @@ export function useSparringGroupChat(
   const [loading,    setLoading]    = useState(true);
   const [sending,    setSending]    = useState(false);
   const [sendError,  setSendError]  = useState<string | null>(null);
-  const channelRef      = useRef<ReturnType<typeof supabase.channel> | null>(null);
-  const senderNamesRef  = useRef<Map<string, string | null>>(new Map());
+  const channelRef       = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const senderNamesRef   = useRef<Map<string, string | null>>(new Map());
+  const senderAvatarsRef = useRef<Map<string, string | null>>(new Map());
 
   const isReadOnly = computeIsReadOnly(scheduledAt, durationMin);
 
@@ -47,22 +49,28 @@ export function useSparringGroupChat(
       .eq('sparring_id', sparringId)
       .order('created_at', { ascending: true });
 
-    const senderIds = [...new Set((rows ?? []).map((r) => r.sender_id))];
+    const senderIdSet = new Set((rows ?? []).map((r) => r.sender_id));
+    // Include the current user so their avatar/name is seeded even if they have no prior messages.
+    if (user !== null) senderIdSet.add(user.id);
+    const senderIds = [...senderIdSet];
     const { data: profiles } = senderIds.length > 0
-      ? await supabase.from('profiles').select('id, name').in('id', senderIds)
+      ? await supabase.from('profiles').select('id, name, avatar_url').in('id', senderIds)
       : { data: [] };
-    const nameMap = new Map((profiles ?? []).map((p) => [p.id, p.name]));
-    for (const [id, name] of nameMap) senderNamesRef.current.set(id, name);
+    const nameMap   = new Map((profiles ?? []).map((p) => [p.id, p.name]));
+    const avatarMap = new Map((profiles ?? []).map((p) => [p.id, p.avatar_url]));
+    for (const [id, name] of nameMap)     senderNamesRef.current.set(id, name);
+    for (const [id, url]  of avatarMap)   senderAvatarsRef.current.set(id, url ?? null);
 
     const enriched: GroupMessageWithSender[] = (rows ?? []).map((row) => ({
-      id:          row.id,
-      sparring_id: row.sparring_id,
-      sender_id:   row.sender_id,
-      content:     row.content,
-      image_url:   row.image_url,
-      is_system:   row.is_system,
-      created_at:  row.created_at,
-      senderName:  nameMap.get(row.sender_id) ?? null,
+      id:              row.id,
+      sparring_id:     row.sparring_id,
+      sender_id:       row.sender_id,
+      content:         row.content,
+      image_url:       row.image_url,
+      is_system:       row.is_system,
+      created_at:      row.created_at,
+      senderName:      nameMap.get(row.sender_id) ?? null,
+      senderAvatarUrl: avatarMap.get(row.sender_id) ?? null,
     }));
     setMessages(enriched);
     setLoading(false);
@@ -89,22 +97,26 @@ export function useSparringGroupChat(
           const newRow = payload.new as unknown as SparringGroupMessage;
           if (!newRow?.id) return;
 
-          let senderName: string | null = null;
+          let senderName:      string | null = null;
+          let senderAvatarUrl: string | null = null;
           if (senderNamesRef.current.has(newRow.sender_id)) {
-            senderName = senderNamesRef.current.get(newRow.sender_id) ?? null;
+            senderName      = senderNamesRef.current.get(newRow.sender_id) ?? null;
+            senderAvatarUrl = senderAvatarsRef.current.get(newRow.sender_id) ?? null;
           } else {
             const { data } = await supabase
               .from('profiles')
-              .select('name')
+              .select('name, avatar_url')
               .eq('id', newRow.sender_id)
               .single();
-            senderName = data?.name ?? null;
-            senderNamesRef.current.set(newRow.sender_id, senderName);
+            senderName      = data?.name ?? null;
+            senderAvatarUrl = data?.avatar_url ?? null;
+            senderNamesRef.current.set(newRow.sender_id,   senderName);
+            senderAvatarsRef.current.set(newRow.sender_id, senderAvatarUrl);
           }
 
           setMessages((prev) => {
             if (prev.some((m) => m.id === newRow.id)) return prev;
-            return [...prev, { ...newRow, senderName }];
+            return [...prev, { ...newRow, senderName, senderAvatarUrl }];
           });
           await markRead();
         },
@@ -135,10 +147,11 @@ export function useSparringGroupChat(
       return { error: error.message };
     }
     if (newRow !== null) {
-      const senderName = senderNamesRef.current.get(user.id) ?? null;
+      const senderName      = senderNamesRef.current.get(user.id) ?? null;
+      const senderAvatarUrl = senderAvatarsRef.current.get(user.id) ?? null;
       setMessages((prev) => {
         if (prev.some((m) => m.id === newRow.id)) return prev;
-        return [...prev, { ...newRow, senderName }];
+        return [...prev, { ...newRow, senderName, senderAvatarUrl }];
       });
     }
     setSending(false);

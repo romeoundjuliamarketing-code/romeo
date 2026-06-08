@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   pointsBadgeText: {
-    color: '#FFFFFF',
+    color: colors.card,
     fontSize: 13,
     fontWeight: '700',
   },

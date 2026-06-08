@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { geocodeAddress } from '../utils/geocoding';
 import { computeVerificationTier, type VerificationFlags, type VerificationTier } from '../utils/verificationTier';
 
@@ -19,6 +20,7 @@ export function useVerification(refetchTrigger = 0): {
   updateAddress: (address: string) => Promise<{ error: string | null }>;
   updatePhone: (phone: string) => Promise<{ error: string | null }>;
 } {
+  const { user } = useAuth();
   const [flags, setFlags] = useState<VerificationFlags>(EMPTY_FLAGS);
   const [loading, setLoading] = useState(true);
   const [localTrigger, setLocalTrigger] = useState(0);
@@ -41,28 +43,24 @@ export function useVerification(refetchTrigger = 0): {
   }, [refetchTrigger, localTrigger]);
 
   const updateAddress = useCallback(async (address: string): Promise<{ error: string | null }> => {
-    const { data: userData } = await supabase.auth.getUser();
-    const uid = userData.user?.id;
-    if (uid === undefined) return { error: 'not_authenticated' };
+    if (user === null) return { error: 'not_authenticated' };
     const trimmed = address.trim();
     const coords = await geocodeAddress(trimmed);
     const { error } = await supabase
       .from('profiles')
       .update({ address: trimmed, address_lat: coords?.lat ?? null, address_lng: coords?.lng ?? null })
-      .eq('id', uid);
+      .eq('id', user.id);
     if (error === null) refetch();
     return { error: error?.message ?? null };
-  }, [refetch]);
+  }, [user, refetch]);
 
   const updatePhone = useCallback(async (phone: string): Promise<{ error: string | null }> => {
-    const { data: userData } = await supabase.auth.getUser();
-    const uid = userData.user?.id;
-    if (uid === undefined) return { error: 'not_authenticated' };
+    if (user === null) return { error: 'not_authenticated' };
     // Phone is stored but NOT verified (SMS disabled, cost). phone_verified_at stays null.
-    const { error } = await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', uid);
+    const { error } = await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', user.id);
     if (error === null) refetch();
     return { error: error?.message ?? null };
-  }, [refetch]);
+  }, [user, refetch]);
 
   return { flags, tier: computeVerificationTier(flags), loading, refetch, updateAddress, updatePhone };
 }

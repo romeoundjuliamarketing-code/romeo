@@ -7,11 +7,15 @@ import {
   ScrollView,
   ActivityIndicator,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import { supabase } from '../../lib/supabase';
 import type { StudioMapMarker } from '../../hooks/useStudioMapMarkers';
+import type { RootStackParamList } from '../../navigation/types';
 
 interface ActiveSparring {
   id: string;
@@ -39,6 +43,7 @@ function formatScheduled(iso: string): string {
 }
 
 export default function StudioMapDetailSheet({ studio, onClose }: Props) {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [sparrings, setSparrings] = useState<ActiveSparring[]>([]);
   const [loadingSparrings, setLoadingSparrings] = useState(false);
 
@@ -125,6 +130,22 @@ export default function StudioMapDetailSheet({ studio, onClose }: Props) {
             <Text style={styles.address}>{studio.address}</Text>
           </View>
         )}
+
+        <TouchableOpacity
+          style={styles.studioDetailBtn}
+          activeOpacity={0.85}
+          onPress={() => {
+            onClose();
+            if (Platform.OS === 'android') {
+              setTimeout(() => navigation.navigate('StudioDetail', { studioId: studio.id }), 350);
+            } else {
+              navigation.navigate('StudioDetail', { studioId: studio.id });
+            }
+          }}
+        >
+          <Ionicons name="business-outline" size={16} color={colors.card} />
+          <Text style={styles.studioDetailBtnText}>Studio ansehen</Text>
+        </TouchableOpacity>
 
         <View style={styles.divider} />
 
@@ -214,6 +235,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     flex: 1,
+  },
+  studioDetailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.dark,
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  studioDetailBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.card,
   },
   divider: {
     height: 1,

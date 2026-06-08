@@ -29,6 +29,7 @@ import { useSparringRatings } from '../hooks/useSparringRatings';
 import { useUserReport }      from '../hooks/useUserReport';
 import FightRecordCard        from '../components/profil/FightRecordCard';
 import { useAuth }            from '../context/AuthContext';
+import VerifiedBadge          from '../components/common/VerifiedBadge';
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -198,9 +199,10 @@ export default function PublicProfileScreen(): React.ReactElement {
     return () => { cancelled = true; };
   }, [userId]);
 
-  // Load current user's coach/studio status for vouch button visibility
+  // Load current user's coach/studio status for vouch button visibility.
+  // Only fetch when viewing someone else's profile (can't vouch for yourself).
   useEffect(() => {
-    if (currentUserId === null) return;
+    if (currentUserId === null || currentUserId === userId) return;
     let cancelled = false;
     void supabase
       .from('profiles')
@@ -212,7 +214,7 @@ export default function PublicProfileScreen(): React.ReactElement {
         setCurrentUserCoach({ is_coach: data.is_coach, studio_id: data.studio_id ?? null });
       });
     return () => { cancelled = true; };
-  }, [currentUserId]);
+  }, [currentUserId, userId]);
 
   // ── Vouch handler ────────────────────────────────────────────────────────────
 
@@ -280,10 +282,10 @@ export default function PublicProfileScreen(): React.ReactElement {
     currentUserCoach.studio_id !== null &&
     currentUserCoach.studio_id === profile?.studio_id &&
     currentUserId !== userId &&
-    (profile?.coach_verified_at === null || profile?.coach_verified_at === undefined);
+    profile?.coach_verified_at == null;
 
   // Show the verified badge if the viewed user is coach-verified or was just vouched in this session.
-  const isVerified = (profile?.coach_verified_at !== null && profile?.coach_verified_at !== undefined) || vouched;
+  const isVerified = profile?.coach_verified_at != null || vouched;
 
   if (profileLoading) {
     return (
@@ -336,9 +338,7 @@ export default function PublicProfileScreen(): React.ReactElement {
         {/* Name with optional verified badge */}
         <View style={styles.nameRow}>
           <Text style={styles.name}>{profile?.name ?? 'Unbekannt'}</Text>
-          {isVerified && (
-            <Ionicons name="checkmark-circle" size={22} color={colors.accentBlue} />
-          )}
+          <VerifiedBadge tier={isVerified ? 'verified' : 'unverified'} size={22} />
         </View>
 
         {profile?.nickname !== null && profile?.nickname !== undefined && (

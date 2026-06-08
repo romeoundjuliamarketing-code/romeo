@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 
@@ -12,7 +12,10 @@ interface Props {
 export default function SparringChatInfoBanner({ address, signupCount, maxSlots }: Props) {
   function openMaps() {
     const encoded = encodeURIComponent(address);
-    void Linking.openURL(`maps://maps.apple.com/?q=${encoded}`);
+    const url = Platform.OS === 'ios'
+      ? `maps://maps.apple.com/?q=${encoded}`
+      : `geo:0,0?q=${encoded}`;
+    void Linking.openURL(url);
   }
 
   return (

@@ -33,20 +33,24 @@ export const colors = {
   headerDotFuture:     'rgba(255,255,255,0.1)',
 
   // ── Module category left borders ──────────────────────────────────────────
-  catSchlagkraft: '#0A0A0A',
-  catTrittkraft:  '#C4704F',
-  catSchulter:    '#3D6B9E',
-  catGriffkraft:  '#4F6D7A',
-  catCore:        '#2D6E6E',
-  catCardio:      '#B8975A',
-  catMobility:        '#7B6FA0',
-  catPartnertraining:    '#4A7C59',
+  catSchlagkraft:      '#0A0A0A',
+  catTrittkraft:       '#C4704F',
+  catSchulter:         '#3D6B9E',
+  catNackenhals:       '#5E7AA3',
+  catGriffkraft:       '#4F6D7A',
+  catCore:             '#2D6E6E',
+  catCardio:           '#B8975A',
+  catMobility:         '#7B6FA0',
+  catPartnertraining:  '#4A7C59',
 
   // ── Semantic status ───────────────────────────────────────────────────────
   deleteRed:        '#D94A4A',
+  deleteRedSoft:    'rgba(217,74,74,0.08)',  // tinted bg for decline actions
   difficultyGreen:  '#52C41A',
+  difficultyGreenSoft: 'rgba(82,196,26,0.1)', // tinted bg for confirm actions
   sparringsOrange:  '#F5820A', // Demnächst-Marker auf der Sparring-Karte
   studioGreen:      '#22C55E', // Am-Studio-Marker auf der Sparring-Karte
+  mobilityOrange:   '#E07B5A', // DailyMobilityCard + DailyStretchCard Akzentfarbe
 
   // ── Donut chart segments ───────────────────────────────────────────────────
   chartK1:    '#0A0A0A',
@@ -55,6 +59,20 @@ export const colors = {
   chartMMA:   '#6BAED6',
   chartKraft: '#1A1A2E',
   chartExtra: '#8CB8E0',
+
+  // ── Visualization palette (chart bars, member avatars) ────────────────────
+  paletteRed:     '#E05252',
+  paletteOrange:  '#E07A52',
+  paletteGreen:   '#52A86E',
+  paletteTeal:    '#52A8A8',
+  paletteBrown:   '#A06428',
+  paletteYellow:  '#D4B942',
+  palettePink:    '#C052A8',
+  paletteLime:    '#7DC452',
+  paletteViolet:  '#7B52C4',
+  paletteCrimson: '#C42828',
+  paletteNavy:    '#1A5296',
+  paletteForest:  '#1A7A3C',
 
   // ── Overlays ──────────────────────────────────────────────────────────────
   mapOverlay: 'rgba(0,0,0,0.55)',

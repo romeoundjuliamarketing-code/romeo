@@ -27,6 +27,8 @@ import { useSchedule } from '../hooks/useSchedule';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
 import NominationCard from '../components/team/NominationCard';
+import StudioRequestsSection from '../components/team/StudioRequestsSection';
+import MembershipPlansSection from '../components/team/MembershipPlansSection';
 import AttendanceSheet from '../components/team/AttendanceSheet';
 import StudioScheduleSection from '../components/team/StudioScheduleSection';
 import PaywallCard from '../components/common/PaywallCard';
@@ -59,8 +61,8 @@ const ANNOUNCEMENT_DURATION_OPTIONS: AnnouncementDurationOption[] = [
 ];
 
 const MEMBER_COLORS = [
-  '#4A90D9', '#E05252', '#52A86E', '#E07A52',
-  '#7B52C4', '#52A8A8', '#D4B942', '#C052A8',
+  colors.accentBlue,    colors.paletteRed,    colors.paletteGreen,  colors.paletteOrange,
+  colors.paletteViolet, colors.paletteTeal,   colors.paletteYellow, colors.palettePink,
 ];
 
 function getInitials(name: string | null): string {
@@ -242,7 +244,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
       {/* ── 1. Dark Hero Header ── */}
       <View style={styles.hero}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <MaterialCommunityIcons name="chevron-left" size={26} color="#fff" />
+          <MaterialCommunityIcons name="chevron-left" size={26} color={colors.card} />
         </TouchableOpacity>
         <Text style={styles.heroName}>{studioName}</Text>
         {!addressLoading && studioAddress !== null && (
@@ -416,7 +418,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
                 <MaterialCommunityIcons
                   name="calendar-edit"
                   size={20}
-                  color={scheduleEditorOpen ? '#fff' : colors.text}
+                  color={scheduleEditorOpen ? colors.card : colors.text}
                 />
                 <Text style={[styles.coachFullBtnLabel, scheduleEditorOpen && styles.coachFullBtnLabelActive]}>
                   Stundenplan bearbeiten
@@ -437,7 +439,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
                 onPress={() => setSparringSheetVisible(true)}
                 activeOpacity={0.8}
               >
-                <MaterialCommunityIcons name="sword-cross" size={20} color="#fff" />
+                <MaterialCommunityIcons name="sword-cross" size={20} color={colors.card} />
                 <Text style={styles.coachFullBtnDarkLabel}>Offenes Sparring planen</Text>
               </TouchableOpacity>
 
@@ -525,7 +527,19 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
             </View>
           )}
 
-          {/* ── 6. Einladungscode ── */}
+          {/* ── 6. Anfragen (nur Coach/Staff) ── */}
+          {isCoach && (
+            <StudioRequestsSection studioId={studioId} />
+          )}
+
+          {/* ── 7. Mitgliedschafts-Tarife (nur Coach/Staff) ── */}
+          {isCoach && (
+            <View style={styles.card}>
+              <MembershipPlansSection studioId={studioId} />
+            </View>
+          )}
+
+          {/* ── 8. Einladungscode ── */}
           {isCoach && entitlement.tier === 'studio' && (
             <View style={styles.card}>
               <Text style={styles.cardSectionLabel}>Einladungscode</Text>
@@ -663,7 +677,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
               activeOpacity={0.8}
             >
               {announcementPosting ? (
-                <ActivityIndicator size="small" color="#fff" />
+                <ActivityIndicator size="small" color={colors.card} />
               ) : (
                 <Text style={styles.postBtnLabel}>Veröffentlichen</Text>
               )}
@@ -743,7 +757,7 @@ const styles = StyleSheet.create({
   heroName: {
     fontSize: 22,
     fontWeight: '500',
-    color: '#fff',
+    color: colors.card,
     marginBottom: 4,
   },
   heroAddressRow: {
@@ -780,7 +794,7 @@ const styles = StyleSheet.create({
   pillValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.card,
   },
   pillLabel: {
     fontSize: 10,
@@ -809,7 +823,7 @@ const styles = StyleSheet.create({
   sparringCardTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.card,
   },
   sparringCardMeta: {
     flexDirection: 'row',
@@ -829,7 +843,7 @@ const styles = StyleSheet.create({
   signupBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.card,
   },
   progressTrack: {
     flexDirection: 'row',
@@ -840,7 +854,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   progressFill: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 2,
   },
 
@@ -882,7 +896,7 @@ const styles = StyleSheet.create({
   memberAvatarText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.card,
   },
   memberInfo: {
     flex: 1,
@@ -965,7 +979,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   coachFullBtnLabelActive: {
-    color: '#fff',
+    color: colors.card,
   },
   coachFullBtnDark: {
     flexDirection: 'row',
@@ -979,7 +993,7 @@ const styles = StyleSheet.create({
   coachFullBtnDarkLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.card,
   },
 
   // ── Planned Sparrings (coach list) ──
@@ -1031,7 +1045,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   addressSaveBtnDisabled: { opacity: 0.5 },
-  addressSaveLabel: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  addressSaveLabel: { fontSize: 14, fontWeight: '700', color: colors.card },
 
   // ── Invite Code ──
   inviteCodeRow: {
@@ -1124,14 +1138,14 @@ const styles = StyleSheet.create({
   },
   durationChipActive: { backgroundColor: colors.dark, borderColor: colors.dark },
   durationChipLabel: { fontSize: 13, fontWeight: '600', color: colors.textPrimary },
-  durationChipLabelActive: { color: '#fff' },
+  durationChipLabelActive: { color: colors.card },
   charCount: { fontSize: 11, color: colors.textSecondary, textAlign: 'right', marginTop: 4 },
   postBtn: {
     height: 52, borderRadius: 14, backgroundColor: colors.dark,
     alignItems: 'center', justifyContent: 'center', marginTop: 8,
   },
   postBtnDisabled: { opacity: 0.4 },
-  postBtnLabel: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  postBtnLabel: { fontSize: 15, fontWeight: '700', color: colors.card },
 
   bottomPad: { height: 32 },
 });

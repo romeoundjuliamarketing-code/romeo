@@ -15,6 +15,7 @@ export function useStudioAddress(studioId: string): {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (studioId === '') return;
     void (async () => {
       const { data } = await supabase
         .from('studios')

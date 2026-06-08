@@ -49,14 +49,6 @@ function FeaturedMarker({ isAtStudio }: { isAtStudio: boolean }) {
   );
 }
 
-function StudioMarker() {
-  return (
-    <View style={styles.studioMarkerBase}>
-      <Ionicons name="business" size={20} color={colors.card} />
-    </View>
-  );
-}
-
 function SparringAtStudioMarker({ window: tw }: { window: 'jetzt' | 'demnaechst' | 'bald' }) {
   const { iconStyle, icon, size } = MARKER_CONFIGS[tw];
   return (
@@ -87,9 +79,7 @@ const INITIAL_THUMB = TRACK_HEIGHT / 2;
 
 export default function SparringMapView({
   sparrings,
-  studioMarkers,
-  sparringModeStudios,
-  mode,
+  studioDots,
   onSparringPress,
   onStudioPress,
   totalUnread,
@@ -157,24 +147,24 @@ export default function SparringMapView({
         onRegionChangeComplete={(r) => { currentRegionRef.current = r; }}
         showsUserLocation
       >
-        {mode === 'sparrings' && sortedSparrings.map((s) => (
-            <Marker
-              key={s.id}
-              coordinate={{ latitude: s.lat!, longitude: s.lng! }}
-              onPress={() => onSparringPress(s)}
-              tracksViewChanges={false}
-              zIndex={s.is_featured ? 1 : 0}
-            >
-              {s.is_featured
-                ? <FeaturedMarker isAtStudio={s.is_at_studio} />
-                : s.is_at_studio
-                  ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
-                  : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
-              }
-            </Marker>
-          ))}
+        {sortedSparrings.map((s) => (
+          <Marker
+            key={s.id}
+            coordinate={{ latitude: s.lat!, longitude: s.lng! }}
+            onPress={() => onSparringPress(s)}
+            tracksViewChanges={false}
+            zIndex={s.is_featured ? 1 : 0}
+          >
+            {s.is_featured
+              ? <FeaturedMarker isAtStudio={s.is_at_studio} />
+              : s.is_at_studio
+                ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
+                : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
+            }
+          </Marker>
+        ))}
 
-        {mode === 'sparrings' && sparringModeStudios.map((st) => (
+        {studioDots.map((st) => (
           <Marker
             key={`dot-${st.id}`}
             coordinate={{ latitude: st.lat, longitude: st.lng }}
@@ -183,17 +173,6 @@ export default function SparringMapView({
             zIndex={0}
           >
             <StudioDotMarker />
-          </Marker>
-        ))}
-
-        {mode === 'studios' && studioMarkers.map((st) => (
-          <Marker
-            key={st.id}
-            coordinate={{ latitude: st.lat, longitude: st.lng }}
-            onPress={() => onStudioPress(st)}
-            tracksViewChanges={false}
-          >
-            <StudioMarker />
           </Marker>
         ))}
       </MapView>
@@ -210,18 +189,16 @@ export default function SparringMapView({
         <Ionicons name="remove" size={16} color={colors.textSecondary} />
       </View>
 
-      {mode === 'sparrings' && (
-        <TouchableOpacity style={[styles.chatBtn, { bottom: insets.bottom + 16 }]} onPress={onChatPress} activeOpacity={0.85}>
-          <Ionicons name="chatbubbles-outline" size={22} color={colors.card} />
-          {totalUnread > 0 && (
-            <View style={styles.chatBtnBadge}>
-              <Text style={styles.chatBtnBadgeText}>
-                {totalUnread > 99 ? '99+' : String(totalUnread)}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity style={[styles.chatBtn, { bottom: insets.bottom + 16 }]} onPress={onChatPress} activeOpacity={0.85}>
+        <Ionicons name="chatbubbles-outline" size={22} color={colors.card} />
+        {totalUnread > 0 && (
+          <View style={styles.chatBtnBadge}>
+            <Text style={styles.chatBtnBadgeText}>
+              {totalUnread > 99 ? '99+' : String(totalUnread)}
+            </Text>
+          </View>
+        )}
+      </TouchableOpacity>
     </View>
   );
 }
@@ -243,7 +220,6 @@ const styles = StyleSheet.create({
   markerJetzt:      { backgroundColor: colors.deleteRed },
   markerDemnaechst: { backgroundColor: colors.sparringsOrange },
   markerBald:       { backgroundColor: colors.accentBlue },
-  markerAtStudio:   { backgroundColor: colors.studioGreen },
   featuredMarkerWrapper: {
     alignItems: 'center',
     gap: 4,
@@ -274,20 +250,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.card,
     letterSpacing: 0.3,
-  },
-  studioMarkerBase: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.dark,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: colors.card,
   },
   studioSparringWrapper: {
     width: 44,
