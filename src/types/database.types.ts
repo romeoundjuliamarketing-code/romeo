@@ -155,6 +155,27 @@ export type Database = {
           },
         ]
       }
+      banned_words: {
+        Row: {
+          id: string
+          word: string
+          category: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          word: string
+          category: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          word?: string
+          category?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       workout_logs: {
         Row: {
           category: string | null
