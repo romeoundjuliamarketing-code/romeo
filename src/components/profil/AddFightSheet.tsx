@@ -18,6 +18,7 @@ type AddFightSheetProps = {
     opponent_name: string | null;
     organization:  string | null;
     fight_date:    string | null;
+    is_amateur:    boolean;
   }) => Promise<{ error: string | null }>;
 };
 
@@ -52,9 +53,10 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
   const [org,      setOrg]      = useState('');
   const [dateStr,  setDateStr]  = useState('');
   const [saving,   setSaving]   = useState(false);
+  const [isAmateur, setIsAmateur] = useState(false);
 
   function handleClose(): void {
-    setResult('win'); setMethod(null); setOpponent(''); setOrg(''); setDateStr('');
+    setResult('win'); setMethod(null); setOpponent(''); setOrg(''); setDateStr(''); setIsAmateur(false);
     onClose();
   }
 
@@ -72,6 +74,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
       opponent_name: opponent.trim().length > 0 ? opponent.trim() : null,
       organization:  org.trim().length > 0      ? org.trim()      : null,
       fight_date:    fightDate,
+      is_amateur:    isAmateur,
     });
     setSaving(false);
     if (res.error !== null) { Alert.alert('Fehler', res.error); return; }
@@ -147,6 +150,24 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
             returnKeyType="done"
             onSubmitEditing={() => { void handleSave(); }}
           />
+
+          <Text style={styles.fieldLabel}>Typ</Text>
+          <View style={styles.chipRow}>
+            <TouchableOpacity
+              style={[styles.chip, !isAmateur && styles.chipActive]}
+              onPress={() => setIsAmateur(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.chipText, !isAmateur && styles.chipTextActive]}>Profi</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chip, isAmateur && styles.chipActive]}
+              onPress={() => setIsAmateur(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.chipText, isAmateur && styles.chipTextActive]}>Amateur</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
