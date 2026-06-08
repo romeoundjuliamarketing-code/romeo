@@ -10,12 +10,13 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import FightRecordCard from '../components/profil/FightRecordCard';
 import AddFightSheet from '../components/profil/AddFightSheet';
@@ -26,6 +27,7 @@ import DisciplinePickerCard from '../components/profil/DisciplinePickerCard';
 import PaywallCard from '../components/common/PaywallCard';
 import MyRequestsCard from '../components/profil/MyRequestsCard';
 import { VerificationSection } from '../components/profil/VerificationSection';
+import FighterProfileCard from '../components/profil/FighterProfileCard';
 import type { Discipline } from '../data/disciplines';
 import { useWorkoutStats } from '../hooks/useWorkoutStats';
 import { useFightRecord } from '../hooks/useFightRecord';
@@ -34,6 +36,7 @@ import { useProfile } from '../hooks/useProfile';
 import { useWeight } from '../hooks/useWeight';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
+import { supabase } from '../lib/supabase';
 
 // Derives initials from a full name (e.g. "Romeo Georgiadis" → "RG")
 function getInitials(name: string | null): string {
@@ -75,6 +78,11 @@ export default function ProfilScreen() {
   const [fightSheetVisible, setFightSheetVisible] = useState(false);
   const [disciplineSaving, setDisciplineSaving] = useState(false);
 
+  // Profile code search state
+  const [searchCode,  setSearchCode]  = useState('');
+  const [searching,   setSearching]   = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
   // Weight input modal
   const [weightModalVisible, setWeightModalVisible] = useState(false);
   const [weightDraft, setWeightDraft] = useState('');
@@ -98,6 +106,25 @@ export default function ProfilScreen() {
       await joinStudio(result.studioId);
     }
     return { error: null };
+  }
+
+  async function handleSearchByCode(): Promise<void> {
+    const trimmed = searchCode.trim().toUpperCase();
+    if (trimmed.length === 0) return;
+    setSearching(true);
+    setSearchError(null);
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('profile_code', trimmed)
+      .single();
+    setSearching(false);
+    if (error !== null || data === null) {
+      setSearchError('Kein Kämpfer mit diesem Code gefunden.');
+      return;
+    }
+    setSearchCode('');
+    navigation.navigate('PublicProfile', { userId: (data as { id: string }).id });
   }
 
   async function handleSaveWeight(): Promise<void> {
@@ -374,6 +401,45 @@ export default function ProfilScreen() {
 
         {/* ── Meine Anfragen ── */}
         <MyRequestsCard refetchTrigger={focusTrigger} />
+
+        {/* ── Kämpferprofil ── */}
+        <FighterProfileCard
+          profile={profile}
+          updateProfile={updateProfile}
+        />
+
+        {/* ── Profil-Code ── */}
+        <View style={styles.codeCard}>
+          <Text style={styles.codeCardTitle}>Mein Profil-Code</Text>
+          <Text style={styles.codeValue}>{profile?.profile_code ?? '—'}</Text>
+
+          <Text style={styles.codeCardLabel}>Kämpfer suchen</Text>
+          <View style={styles.codeSearchRow}>
+            <TextInput
+              style={styles.codeInput}
+              value={searchCode}
+              onChangeText={(t) => { setSearchCode(t.toUpperCase()); setSearchError(null); }}
+              placeholder="Code eingeben..."
+              placeholderTextColor={colors.textSecondary}
+              autoCapitalize="characters"
+              maxLength={12}
+            />
+            <TouchableOpacity
+              style={[styles.codeSearchBtn, searching && styles.codeSearchBtnDisabled]}
+              onPress={() => { void handleSearchByCode(); }}
+              disabled={searching}
+              activeOpacity={0.8}
+            >
+              {searching
+                ? <ActivityIndicator size="small" color={colors.card} />
+                : <Ionicons name="search" size={18} color={colors.card} />
+              }
+            </TouchableOpacity>
+          </View>
+          {searchError !== null && (
+            <Text style={styles.codeSearchError}>{searchError}</Text>
+          )}
+        </View>
 
         {entitlement.hasAccess ? (
           <>
@@ -778,6 +844,60 @@ const styles = StyleSheet.create({
   stanceChipActive:     { backgroundColor: colors.accentBlue, borderColor: colors.accentBlue },
   stanceChipText:       { fontSize: 14, fontWeight: '600', color: colors.text },
   stanceChipTextActive: { color: colors.card },
+
+  // Profile code card
+  codeCard: {
+    backgroundColor: colors.card,
+    borderRadius:    16,
+    padding:         16,
+    gap:             8,
+  },
+  codeCardTitle: {
+    fontSize:   15,
+    fontWeight: '700',
+    color:      colors.text,
+  },
+  codeValue: {
+    fontSize:      22,
+    fontWeight:    '800',
+    color:         colors.accentBlue,
+    letterSpacing: 3,
+  },
+  codeCardLabel: {
+    fontSize:   12,
+    fontWeight: '600',
+    color:      colors.textSecondary,
+    marginTop:  8,
+  },
+  codeSearchRow: {
+    flexDirection: 'row',
+    gap:           8,
+  },
+  codeInput: {
+    flex:              1,
+    backgroundColor:   colors.background,
+    borderRadius:      10,
+    paddingHorizontal: 12,
+    paddingVertical:   10,
+    fontSize:          15,
+    color:             colors.text,
+    letterSpacing:     2,
+  },
+  codeSearchBtn: {
+    width:           44,
+    height:          44,
+    borderRadius:    10,
+    backgroundColor: colors.accentBlue,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  codeSearchBtnDisabled: {
+    backgroundColor: colors.accentBlueMuted,
+  },
+  codeSearchError: {
+    fontSize: 13,
+    color:    colors.deleteRed,
+  },
 
   // Weight modal
   weightOverlay: { flex: 1, justifyContent: 'flex-end' },
