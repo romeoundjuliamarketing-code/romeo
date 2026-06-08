@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { CreateSparringInput } from '../../hooks/useSparringActions';
 import LocationPickerModal from './LocationPickerModal';
+import { checkText, filterErrorMessage } from '../../utils/contentFilter';
+import { useBannedWords } from '../../hooks/useBannedWords';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 
@@ -179,6 +181,9 @@ export default function CreateSparringSheet(props: Props) {
 
   const [isAtStudio, setIsAtStudio] = useState(false);
 
+  const { bannedWords } = useBannedWords();
+  const [filterError, setFilterError] = useState<string | null>(null);
+
   const [title, setTitle] = useState('');
   const [discipline, setDiscipline] = useState(DISCIPLINES[0]);
   const [scheduledAt, setScheduledAt] = useState<Date>(nextDay18h);
@@ -242,6 +247,16 @@ export default function CreateSparringSheet(props: Props) {
       }
       if (isNaN(slots) || slots < 1) {
         Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+        return;
+      }
+    }
+
+    setFilterError(null);
+    const fieldsToCheck = [title, notes, ...(isUserMode ? [address] : [])];
+    for (const field of fieldsToCheck) {
+      const verdict = checkText(field, bannedWords);
+      if (!verdict.ok) {
+        setFilterError(filterErrorMessage(verdict.category));
         return;
       }
     }
@@ -503,6 +518,8 @@ export default function CreateSparringSheet(props: Props) {
             numberOfLines={3}
           />
 
+          {filterError !== null && <Text style={styles.filterError}>{filterError}</Text>}
+
           <TouchableOpacity
             style={[styles.btn, loading && styles.btnDisabled]}
             onPress={handleCreate}
@@ -708,5 +725,11 @@ const styles = StyleSheet.create({
   },
   mapPickBtnDisabled: {
     opacity: 0.35,
+  },
+  filterError: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: colors.deleteRed,
+    marginTop: 8,
   },
 });
