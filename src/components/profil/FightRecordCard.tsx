@@ -39,10 +39,20 @@ const METHOD_LABEL: Record<string, string> = {
 };
 
 export default function FightRecordCard({ fights, loading, onAdd, onDelete }: FightRecordCardProps): React.ReactElement {
-  const wins   = fights.filter((f) => f.result === 'win').length;
-  const losses = fights.filter((f) => f.result === 'loss').length;
-  const draws  = fights.filter((f) => f.result === 'draw').length;
-  const kos    = fights.filter((f) => f.method === 'ko' || f.method === 'tko').length;
+  const hasAmateur = fights.some((f) => f.is_amateur === true);
+  const hasPro     = fights.some((f) => f.is_amateur !== true);
+  const showTabs   = hasAmateur && hasPro;
+
+  const [activeTab, setActiveTab] = React.useState<'pro' | 'amateur'>('pro');
+
+  const visibleFights = showTabs
+    ? fights.filter((f) => activeTab === 'amateur' ? f.is_amateur === true : f.is_amateur !== true)
+    : fights;
+
+  const wins   = visibleFights.filter((f) => f.result === 'win').length;
+  const losses = visibleFights.filter((f) => f.result === 'loss').length;
+  const draws  = visibleFights.filter((f) => f.result === 'draw').length;
+  const kos    = visibleFights.filter((f) => f.method === 'ko' || f.method === 'tko').length;
 
   function handleDelete(id: string): void {
     Alert.alert(
@@ -68,7 +78,24 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete }: Fi
         </TouchableOpacity>
       </View>
 
-      {fights.length > 0 && (
+      {showTabs && (
+        <View style={styles.tabRow}>
+          {(['pro', 'amateur'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabBtnText, activeTab === tab && styles.tabBtnTextActive]}>
+                {tab === 'pro' ? 'Profi' : 'Amateur'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {visibleFights.length > 0 && (
         <View style={styles.summaryRow}>
           <View style={styles.summaryItem}>
             <Text style={[styles.summaryCount, { color: colors.accentBlue }]}>{wins}</Text>
@@ -92,10 +119,10 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete }: Fi
         </View>
       )}
 
-      {loading ? null : fights.length === 0 ? (
+      {loading ? null : visibleFights.length === 0 ? (
         <Text style={styles.empty}>Noch keine Kämpfe eingetragen.</Text>
       ) : (
-        fights.map((fight, index) => {
+        visibleFights.map((fight, index) => {
           const cfg = RESULT_CONFIG[fight.result as 'win' | 'loss' | 'draw'];
           const dateLabel = formatDate(fight.fight_date);
           const meta = [fight.organization, dateLabel].filter((v): v is string => typeof v === 'string' && v.length > 0).join(' · ');
@@ -186,4 +213,30 @@ const styles = StyleSheet.create({
   fightInfo:    { flex: 1, gap: 2 },
   opponentName: { fontSize: 14, fontWeight: '600', color: colors.text },
   fightMeta:    { fontSize: 12, color: colors.inactive, fontWeight: '400' },
+  tabRow: {
+    flexDirection:  'row',
+    gap:            8,
+    marginBottom:   12,
+  },
+  tabBtn: {
+    flex:           1,
+    height:         32,
+    borderRadius:   8,
+    borderWidth:    1,
+    borderColor:    colors.border,
+    alignItems:     'center',
+    justifyContent: 'center',
+  },
+  tabBtnActive: {
+    backgroundColor: colors.accentBlue,
+    borderColor:     colors.accentBlue,
+  },
+  tabBtnText: {
+    fontSize:   13,
+    fontWeight: '600',
+    color:      colors.text,
+  },
+  tabBtnTextActive: {
+    color: '#FFFFFF',
+  },
 });
