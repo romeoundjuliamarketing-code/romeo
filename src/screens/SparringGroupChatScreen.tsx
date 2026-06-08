@@ -31,6 +31,8 @@ import type { Participant } from '../components/chat/SparringChatParticipantBar'
 import type { RootStackParamList } from '../navigation/types';
 import type { GroupMessageWithSender } from '../hooks/useSparringGroupChat';
 import { isSameDay, chatDateLabel } from '../utils/chatDate';
+import { checkText, filterErrorMessage } from '../utils/contentFilter';
+import { useBannedWords } from '../hooks/useBannedWords';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SparringGroupChat'>;
 
@@ -58,6 +60,7 @@ export default function SparringGroupChatScreen() {
   const { mediaEnabled, toggleMedia } =
     useSparringChatSettings(sparringId, isOrganizer);
   const { signUp, cancelSignup } = useSparringActions();
+  const { bannedWords } = useBannedWords();
 
   const [inputText,       setInputText]       = useState('');
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -128,6 +131,11 @@ export default function SparringGroupChatScreen() {
   async function handleSend() {
     const text = inputText.trim();
     if (text.length === 0 || sending) return;
+    const verdict = checkText(text, bannedWords);
+    if (!verdict.ok) {
+      Alert.alert('Nachricht blockiert', filterErrorMessage(verdict.category));
+      return;
+    }
     isNearBottomRef.current = true;
     const { error } = await sendText(text);
     if (error === null) setInputText('');
