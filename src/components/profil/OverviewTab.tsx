@@ -88,6 +88,33 @@ export default function OverviewTab({
         </View>
       )}
 
+      {/* Team card */}
+      <View style={styles.card}>
+        <TeamPickerCard
+          currentStudio={currentStudio}
+          onJoin={onJoinStudio}
+          onSearch={onSearchStudios}
+          onRedeemCode={onRedeemCode}
+          onCreate={async (name, city) => {
+            if (!canCreateStudio) {
+              Alert.alert('Studio-Abo erforderlich', 'Ein neues Team kann nur mit einem aktiven Studio-Abo erstellt werden.');
+              return null;
+            }
+            const created = await onCreateStudio(name, city);
+            if (created === null) {
+              Alert.alert('Fehler', 'Studio konnte nicht erstellt werden.');
+            }
+            return created;
+          }}
+          canCreateStudio={canCreateStudio}
+          onCreateBlocked={() => {
+            Alert.alert('Studio-Abo erforderlich', 'Ein neues Team kann nur mit einem aktiven Studio-Abo erstellt werden.');
+          }}
+          onViewTeam={onViewTeam}
+          inline
+        />
+      </View>
+
       {/* Steckbrief */}
       {steckbriefRows.length > 0 && (
         <View style={styles.card}>
@@ -116,33 +143,6 @@ export default function OverviewTab({
           </View>
         </View>
       )}
-
-      {/* Team card */}
-      <View style={styles.card}>
-        <TeamPickerCard
-          currentStudio={currentStudio}
-          onJoin={onJoinStudio}
-          onSearch={onSearchStudios}
-          onRedeemCode={onRedeemCode}
-          onCreate={async (name, city) => {
-            if (!canCreateStudio) {
-              Alert.alert('Studio-Abo erforderlich', 'Ein neues Team kann nur mit einem aktiven Studio-Abo erstellt werden.');
-              return null;
-            }
-            const created = await onCreateStudio(name, city);
-            if (created === null) {
-              Alert.alert('Fehler', 'Studio konnte nicht erstellt werden.');
-            }
-            return created;
-          }}
-          canCreateStudio={canCreateStudio}
-          onCreateBlocked={() => {
-            Alert.alert('Studio-Abo erforderlich', 'Ein neues Team kann nur mit einem aktiven Studio-Abo erstellt werden.');
-          }}
-          onViewTeam={onViewTeam}
-          inline
-        />
-      </View>
 
       {/* Verification row — only if NOT verified */}
       {tier !== 'verified' && (

@@ -149,6 +149,7 @@ export default function ProfilScreen(): React.ReactElement {
           }}
           onPressShare={() => setQrSheetVisible(true)}
           onPressEdit={() => navigation.navigate('EditProfile')}
+          onUploadAvatar={uploadAvatar}
           onPressFights={() => setActiveTab('record')}
           onPressPoints={() => navigation.navigate('PointsBreakdown')}
           onPressStreak={() => navigation.navigate('AttendanceHistory')}

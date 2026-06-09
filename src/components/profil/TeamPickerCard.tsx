@@ -114,21 +114,20 @@ export default function TeamPickerCard({
 
   const cardContent = (
     <>
-      <View style={styles.cardHeader}>
-        <Ionicons name="people-outline" size={20} color={colors.accentBlue} />
-        <Text style={styles.cardTitle}>Dein Team</Text>
-      </View>
-
-      {currentStudio !== null ? (
-        <View style={styles.studioRow}>
-          <TouchableOpacity style={styles.studioInfo} onPress={onViewTeam} activeOpacity={0.7} disabled={onViewTeam === undefined}>
-            <Text style={styles.studioName}>{currentStudio.name}</Text>
-            <Text style={styles.studioCity}>{currentStudio.city}</Text>
-          </TouchableOpacity>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionLabel}>Team</Text>
+        {currentStudio !== null && (
           <TouchableOpacity style={styles.changeBtn} onPress={() => setModalVisible(true)}>
             <Text style={styles.changeBtnText}>Wechseln</Text>
           </TouchableOpacity>
-        </View>
+        )}
+      </View>
+
+      {currentStudio !== null ? (
+        <TouchableOpacity style={styles.studioInfo} onPress={onViewTeam} activeOpacity={0.7} disabled={onViewTeam === undefined}>
+          <Text style={styles.studioName}>{currentStudio.name}</Text>
+          <Text style={styles.studioCity}>{currentStudio.city}</Text>
+        </TouchableOpacity>
       ) : (
         <TouchableOpacity style={styles.joinBtn} onPress={() => setModalVisible(true)}>
           <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
@@ -328,11 +327,7 @@ const cardShadow = Platform.select({
 const styles = StyleSheet.create({
   // ── Card ──────────────────────────────────────────────────────────────────
   inlineWrapper: {
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    gap: 5,
+    gap: 8,
   },
   card: {
     backgroundColor: colors.card,
@@ -341,21 +336,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     ...cardShadow,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  studioRow: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   studioInfo: {
     flex: 1,

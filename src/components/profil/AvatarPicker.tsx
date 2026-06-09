@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -7,7 +7,7 @@ import { colors } from '../../theme/colors';
 interface AvatarPickerProps {
   avatarUrl: string | null;
   initials: string;
-  onUpload: (localUri: string) => Promise<void>;
+  onUpload: (localUri: string) => Promise<{ error: string | null }>;
 }
 
 export default function AvatarPicker({ avatarUrl, initials, onUpload }: AvatarPickerProps) {
@@ -23,23 +23,40 @@ export default function AvatarPicker({ avatarUrl, initials, onUpload }: AvatarPi
   const displayUri = localUri ?? avatarUrl;
 
   async function handlePress(): Promise<void> {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Zugriff erforderlich',
+          'Bitte erlaube den Zugriff auf deine Fotos in den Einstellungen, um dein Profilbild zu ändern.',
+        );
+        return;
+      }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (result.canceled || result.assets.length === 0) return;
+      if (result.canceled || result.assets.length === 0) return;
 
-    const uri = result.assets[0].uri;
-    setLocalUri(uri);   // show immediately from device storage
-    setUploading(true);
-    await onUpload(uri);
-    setUploading(false);
+      const uri = result.assets[0].uri;
+      setLocalUri(uri);   // show immediately from device storage
+      setUploading(true);
+      const { error } = await onUpload(uri);
+      setUploading(false);
+      if (error !== null) {
+        setLocalUri(null);
+        Alert.alert('Upload fehlgeschlagen', error);
+      }
+    } catch (e) {
+      setUploading(false);
+      setLocalUri(null);
+      const msg = e instanceof Error ? e.message : 'Unbekannter Fehler.';
+      Alert.alert('Fehler', msg);
+    }
   }
 
   return (
@@ -103,6 +120,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    borderColor: colors.card,
   },
 });

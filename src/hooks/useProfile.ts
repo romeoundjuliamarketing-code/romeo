@@ -11,7 +11,7 @@ interface UseProfileResult {
   loading: boolean;
   error: string | null;
   updateProfile: (updates: ProfileUpdate) => Promise<void>;
-  uploadAvatar: (localUri: string) => Promise<void>;
+  uploadAvatar: (localUri: string) => Promise<{ error: string | null }>;
 }
 
 export function useProfile(refetchTrigger = 0): UseProfileResult {
@@ -64,33 +64,53 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
     setProfile(data);
   }
 
-  async function uploadAvatar(localUri: string): Promise<void> {
-    if (user === null) return;
+  async function uploadAvatar(localUri: string): Promise<{ error: string | null }> {
+    if (user === null) return { error: 'Nicht angemeldet.' };
 
-    // Read file as base64 — fetch(localUri).blob() returns empty in React Native
-    const base64 = await FileSystem.readAsStringAsync(localUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const arrayBuffer = base64Decode(base64);
+    try {
+      // Read file as base64 — fetch(localUri).blob() returns empty in React Native
+      const base64 = await FileSystem.readAsStringAsync(localUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const arrayBuffer = base64Decode(base64);
 
-    const ext = localUri.split('.').pop()?.split('?')[0].toLowerCase() ?? 'jpg';
-    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
-    const path = `${user.id}/avatar.${ext}`;
+      // Normalise the extension; iOS edited images sometimes carry no usable suffix
+      const rawExt = localUri.split('.').pop()?.split('?')[0].toLowerCase() ?? '';
+      const ext = rawExt === 'png' || rawExt === 'webp' ? rawExt : 'jpg';
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const path = `${user.id}/avatar.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(path, arrayBuffer, { upsert: true, contentType: mime });
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, arrayBuffer, { upsert: true, contentType: mime });
 
-    if (uploadError !== null) {
-      setError(uploadError.message);
-      return;
+      if (uploadError !== null) {
+        setError(uploadError.message);
+        return { error: uploadError.message };
+      }
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      // Cache-buster so the Image component reloads after re-upload
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+      const { data, error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (updateError !== null) {
+        setError(updateError.message);
+        return { error: updateError.message };
+      }
+      setProfile(data);
+      return { error: null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Unbekannter Fehler beim Hochladen.';
+      setError(msg);
+      return { error: msg };
     }
-
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-    // Cache-buster so the Image component reloads after re-upload
-    const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
-    await updateProfile({ avatar_url: publicUrl });
   }
 
   return { profile, loading, error, updateProfile, uploadAvatar };

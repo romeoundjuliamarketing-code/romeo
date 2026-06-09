@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   Image,
   TouchableOpacity,
+  ActivityIndicator,
+  Alert,
   StyleSheet,
   Platform,
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../theme/colors';
 import type { VerificationTier } from '../../utils/verificationTier';
 import type { FightRecord } from '../../hooks/useFightRecord';
@@ -37,6 +40,7 @@ interface ProfileHeroProps {
   onPressFights: () => void;
   onPressPoints: () => void;
   onPressStreak: () => void;
+  onUploadAvatar: (localUri: string) => Promise<{ error: string | null }>;
 }
 
 const BANNER_HEIGHT = 120;
@@ -56,8 +60,47 @@ export default function ProfileHero({
   onPressFights,
   onPressPoints,
   onPressStreak,
+  onUploadAvatar,
 }: ProfileHeroProps): React.ReactElement {
   const initials = getInitials(profile?.name ?? null);
+
+  const [localUri, setLocalUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const displayUri = localUri ?? profile?.avatar_url ?? null;
+
+  async function handlePickAvatar(): Promise<void> {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        'Zugriff erforderlich',
+        'Bitte erlaube den Zugriff auf deine Fotos in den Einstellungen, um dein Profilbild zu ändern.',
+      );
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: 'images',
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || result.assets.length === 0) return;
+    const uri = result.assets[0].uri;
+    setLocalUri(uri);
+    setUploading(true);
+    try {
+      const { error } = await onUploadAvatar(uri);
+      if (error !== null) {
+        setLocalUri(null);
+        Alert.alert('Upload fehlgeschlagen', error);
+      }
+    } catch (e) {
+      setLocalUri(null);
+      const msg = e instanceof Error ? e.message : 'Unbekannter Fehler.';
+      Alert.alert('Fehler', msg);
+    } finally {
+      setUploading(false);
+    }
+  }
   const displayName = profile?.name ?? 'Kämpfer';
   const isVerified = tier === 'verified';
 
@@ -116,16 +159,33 @@ export default function ProfileHero({
         </View>
       </View>
 
-      {/* ── Avatar (overlaps banner) ── */}
-      <View style={styles.avatarWrapper}>
-        {profile?.avatar_url !== null && profile?.avatar_url !== undefined ? (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
-        ) : (
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitials}>{initials}</Text>
-          </View>
-        )}
-      </View>
+      {/* ── Avatar (overlaps banner, tap to change photo) ── */}
+      <TouchableOpacity
+        style={styles.avatarTouch}
+        onPress={() => { void handlePickAvatar(); }}
+        activeOpacity={0.85}
+      >
+        <View style={styles.avatarWrapper}>
+          {displayUri !== null ? (
+            <Image
+              source={{ uri: displayUri }}
+              style={styles.avatarImage}
+              onError={() => setLocalUri(null)}
+            />
+          ) : (
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitials}>{initials}</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.avatarBadge}>
+          {uploading ? (
+            <ActivityIndicator size={12} color={colors.card} />
+          ) : (
+            <MaterialCommunityIcons name="camera" size={14} color={colors.card} />
+          )}
+        </View>
+      </TouchableOpacity>
 
       {/* ── Name + content below avatar ── */}
       <View style={styles.body}>
@@ -237,9 +297,26 @@ const styles = StyleSheet.create({
   },
 
   // Avatar overlaps banner bottom
-  avatarWrapper: {
+  avatarTouch: {
     marginTop: -AVATAR_OFFSET,
     marginLeft: 16,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+  },
+  avatarBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.card,
+  },
+  avatarWrapper: {
     width: AVATAR_SIZE,
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
