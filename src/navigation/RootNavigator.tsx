@@ -17,6 +17,8 @@ import SparringChatListScreen  from '../screens/SparringChatListScreen';
 import SparringGroupChatScreen from '../screens/SparringGroupChatScreen';
 import StudioDetailScreen from '../screens/StudioDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import EditProfileScreen from '../screens/EditProfileScreen';
+import VerificationScreen from '../screens/VerificationScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -41,6 +43,16 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen name="Tabs"    component={TabNavigator}  />
       <AppStack.Screen name="Team"     component={TeamScreen}     />
       <AppStack.Screen name="Settings" component={SettingsScreen} />
+      <AppStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <AppStack.Screen
+        name="Verification"
+        component={VerificationScreen}
+        options={{ presentation: 'modal' }}
+      />
       <AppStack.Screen name="Paywall" component={PaywallScreen} />
       <AppStack.Screen name="WeightHistory"    component={WeightHistoryScreen}    />
       <AppStack.Screen name="PointsBreakdown" component={PointsBreakdownScreen} />
