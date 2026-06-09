@@ -54,4 +54,6 @@ export type RootStackParamList = {
     category?: Workout['category'];
   };
   Notifications: undefined;
+  EditProfile: undefined;
+  Verification: undefined;
 };

@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,7 @@ import { useSparringActions } from '../hooks/useSparringActions';
 import { useStudio } from '../hooks/useStudio';
 import { useStudioAddress } from '../hooks/useStudioAddress';
 import { useStudioMapMarkers } from '../hooks/useStudioMapMarkers';
+import { useVerification } from '../hooks/useVerification';
 import type { StudioMapMarker } from '../hooks/useStudioMapMarkers';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
@@ -65,6 +66,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     currentStudio?.id ?? '',
   );
   const { studios: studioMarkers } = useStudioMapMarkers();
+  const { tier, refetch: refetchVerification } = useVerification();
 
   const coachStudio =
     currentStudio !== null &&
@@ -113,8 +115,30 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     [studioMarkers, coveredStudioIds],
   );
 
+  function requireVerified(): boolean {
+    if (tier === 'verified') return true;
+    Alert.alert(
+      'Verifizierung erforderlich',
+      'Um an Sparrings teilzunehmen oder eigene zu erstellen, musst du dein Profil verifizieren.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Jetzt verifizieren', onPress: () => navigation.navigate('Verification') },
+      ],
+    );
+    return false;
+  }
+
+  // Keep verification tier fresh when returning to the map (e.g. after verifying)
+  useFocusEffect(
+    useCallback(() => {
+      refetchVerification();
+    }, [refetchVerification]),
+  );
+
   async function handleToggleSignup(): Promise<void> {
     if (selected === null) return;
+    // Gate: only block sign-up, not sign-out
+    if (!selected.is_signed_up && !requireVerified()) return;
     setActionLoading(true);
     const { error } = await (selected.is_signed_up
       ? cancelSignup(selected.id)
@@ -205,7 +229,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
       <TouchableOpacity
         style={[styles.fab, { bottom: insets.bottom + 16 }]}
-        onPress={() => setCreateSheetVisible(true)}
+        onPress={() => { if (requireVerified()) setCreateSheetVisible(true); }}
         activeOpacity={0.85}
       >
         <Ionicons name="add-circle-outline" size={22} color={colors.card} />
