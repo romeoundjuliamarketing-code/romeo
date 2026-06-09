@@ -70,7 +70,7 @@ async function uploadImage(
 export default function StudioProfileEditScreen({ route, navigation }: Props): React.ReactElement {
   const { studioId } = route.params;
   const { studio, loading: studioLoading, refetch: refetchStudio } = useStudioProfile(studioId);
-  const { fighters, loading: fightersLoading, addFighter, removeFighter, refetch: refetchFighters } =
+  const { fighters, loading: fightersLoading, addFighter, removeFighter } =
     useFeaturedFighters(studioId);
 
   const [description, setDescription] = useState('');
@@ -81,9 +81,6 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
   const [memberPickerVisible, setMemberPickerVisible] = useState(false);
   const [members, setMembers] = useState<StudioMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
-
-  // Suppress unused warning — refetchFighters is available for future use
-  void refetchFighters;
 
   useEffect(() => {
     if (studio === null) return;
@@ -125,10 +122,13 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
 
   const loadMembers = useCallback(async (): Promise<void> => {
     setMembersLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('id, name, avatar_url')
       .eq('studio_id', studioId);
+    if (error !== null) {
+      Alert.alert('Fehler', 'Mitglieder konnten nicht geladen werden.');
+    }
     setMembers((data ?? []) as StudioMember[]);
     setMembersLoading(false);
   }, [studioId]);
@@ -170,6 +170,7 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
       }
 
       refetchStudio();
+      setSaving(false);
       navigation.goBack();
     } finally {
       setSaving(false);
