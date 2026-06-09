@@ -16,6 +16,7 @@ import { colors } from '../../theme/colors';
 import { supabase } from '../../lib/supabase';
 import type { StudioMapMarker } from '../../hooks/useStudioMapMarkers';
 import type { RootStackParamList } from '../../navigation/types';
+import DisciplineChips from '../studio/DisciplineChips';
 
 interface ActiveSparring {
   id: string;
@@ -46,6 +47,7 @@ export default function StudioMapDetailSheet({ studio, onClose }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [sparrings, setSparrings] = useState<ActiveSparring[]>([]);
   const [loadingSparrings, setLoadingSparrings] = useState(false);
+  const [disciplines, setDisciplines] = useState<string[]>([]);
 
   useEffect(() => {
     if (studio === null) {
@@ -98,6 +100,21 @@ export default function StudioMapDetailSheet({ studio, onClose }: Props) {
     })();
   }, [studio]);
 
+  useEffect(() => {
+    if (studio === null) {
+      setDisciplines([]);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase
+        .from('studios')
+        .select('disciplines')
+        .eq('id', studio.id)
+        .single();
+      setDisciplines((data?.disciplines as string[] | null) ?? []);
+    })();
+  }, [studio]);
+
   if (studio === null) return null;
 
   return (
@@ -129,6 +146,10 @@ export default function StudioMapDetailSheet({ studio, onClose }: Props) {
             <Ionicons name="location-outline" size={15} color={colors.textSecondary} />
             <Text style={styles.address}>{studio.address}</Text>
           </View>
+        )}
+
+        {disciplines.length > 0 && (
+          <DisciplineChips disciplines={disciplines} compact />
         )}
 
         <TouchableOpacity
