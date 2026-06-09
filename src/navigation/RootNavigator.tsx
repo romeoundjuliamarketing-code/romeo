@@ -19,6 +19,7 @@ import StudioDetailScreen from '../screens/StudioDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import VerificationScreen from '../screens/VerificationScreen';
+import StudioProfileEditScreen from '../screens/StudioProfileEditScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -69,6 +70,11 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen
         name="StudioDetail"
         component={StudioDetailScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <AppStack.Screen
+        name="StudioProfileEdit"
+        component={StudioProfileEditScreen}
         options={{ presentation: 'modal' }}
       />
       <AppStack.Screen name="Workout"  component={WorkoutScreen}  />

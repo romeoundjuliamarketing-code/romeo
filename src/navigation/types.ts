@@ -39,6 +39,7 @@ export type RootStackParamList = {
     sparringScheduledAt?: string;
   };
   StudioDetail: { studioId: string };
+  StudioProfileEdit: { studioId: string };
   SparringChatList: undefined;
   SparringGroupChat: {
     sparringId:    string;
