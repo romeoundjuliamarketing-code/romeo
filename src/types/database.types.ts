@@ -272,8 +272,12 @@ export type Database = {
       studios: {
         Row: {
           address: string | null
+          avatar_url: string | null
+          banner_url: string | null
           city: string
           created_at: string
+          description: string | null
+          disciplines: string[]
           id: string
           lat: number | null
           lng: number | null
@@ -282,8 +286,12 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          avatar_url?: string | null
+          banner_url?: string | null
           city: string
           created_at?: string
+          description?: string | null
+          disciplines?: string[]
           id?: string
           lat?: number | null
           lng?: number | null
@@ -292,13 +300,38 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          avatar_url?: string | null
+          banner_url?: string | null
           city?: string
           created_at?: string
+          description?: string | null
+          disciplines?: string[]
           id?: string
           lat?: number | null
           lng?: number | null
           name?: string
           owner_user_id?: string | null
+        }
+        Relationships: []
+      }
+      studio_featured_fighters: {
+        Row: {
+          added_at: string
+          id: string
+          studio_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          studio_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          studio_id?: string
+          user_id?: string
         }
         Relationships: []
       }
