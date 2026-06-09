@@ -18,11 +18,11 @@ CREATE TABLE IF NOT EXISTS public.studio_featured_fighters (
 
 ALTER TABLE public.studio_featured_fighters ENABLE ROW LEVEL SECURITY;
 
--- Anyone authenticated can read
+DROP POLICY IF EXISTS "sff_select" ON public.studio_featured_fighters;
 CREATE POLICY "sff_select" ON public.studio_featured_fighters
   FOR SELECT TO authenticated USING (true);
 
--- Only studio owner can insert
+DROP POLICY IF EXISTS "sff_insert" ON public.studio_featured_fighters;
 CREATE POLICY "sff_insert" ON public.studio_featured_fighters
   FOR INSERT TO authenticated
   WITH CHECK (
@@ -32,7 +32,7 @@ CREATE POLICY "sff_insert" ON public.studio_featured_fighters
     )
   );
 
--- Owner OR the fighter themselves can delete
+DROP POLICY IF EXISTS "sff_delete" ON public.studio_featured_fighters;
 CREATE POLICY "sff_delete" ON public.studio_featured_fighters
   FOR DELETE TO authenticated
   USING (
@@ -43,24 +43,26 @@ CREATE POLICY "sff_delete" ON public.studio_featured_fighters
     )
   );
 
--- Owner can update their own studio profile fields
-CREATE POLICY "studios_update_owner" ON public.studios
-  FOR UPDATE TO authenticated
-  USING (owner_user_id = auth.uid())
-  WITH CHECK (owner_user_id = auth.uid());
-
--- Storage bucket for studio assets (banner + avatar uploads)
+-- Storage bucket for studio banner and avatar images
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('studio-assets', 'studio-assets', true)
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "studio_assets_select" ON storage.objects;
 CREATE POLICY "studio_assets_select" ON storage.objects
   FOR SELECT USING (bucket_id = 'studio-assets');
 
+DROP POLICY IF EXISTS "studio_assets_insert" ON storage.objects;
 CREATE POLICY "studio_assets_insert" ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'studio-assets');
 
+DROP POLICY IF EXISTS "studio_assets_update" ON storage.objects;
 CREATE POLICY "studio_assets_update" ON storage.objects
   FOR UPDATE TO authenticated
-  USING (bucket_id = 'studio-assets');
+  USING (bucket_id = 'studio-assets' AND owner = auth.uid());
+
+DROP POLICY IF EXISTS "studio_assets_delete" ON storage.objects;
+CREATE POLICY "studio_assets_delete" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'studio-assets' AND owner = auth.uid());
