@@ -75,5 +75,7 @@ export const colors = {
   paletteForest:  '#1A7A3C',
 
   // ── Overlays ──────────────────────────────────────────────────────────────
-  mapOverlay: 'rgba(0,0,0,0.55)',
+  mapOverlay:       'rgba(0,0,0,0.55)',
+  heroBannerScrim:  'rgba(0,0,0,0.25)',
+  heroFloatingBtn:  'rgba(0,0,0,0.5)',
 };

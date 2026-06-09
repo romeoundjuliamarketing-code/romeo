@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   bannerOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: colors.heroBannerScrim,
   },
   editBtn: {
     position: 'absolute',
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.heroFloatingBtn,
     alignItems: 'center',
     justifyContent: 'center',
   },
