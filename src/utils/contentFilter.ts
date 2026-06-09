@@ -37,6 +37,9 @@ export function normalize(text: string): string {
     prev = s;
     s = s.replace(/\b([a-z]) (?=[a-z]\b)/g, '$1');
   } while (s !== prev);
+  // collapse stretched letters (3+ identical in a row): "fuuuuck" -> "fuck".
+  // Leaves normal double letters intact (e.g. "scheisse" keeps "ss").
+  s = s.replace(/([a-z])\1{2,}/g, '$1');
   return s;
 }
 

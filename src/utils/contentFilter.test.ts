@@ -20,6 +20,10 @@ describe('normalize', () => {
   it('collapses spaced-out single letters', () => {
     expect(normalize('s c h e i s s e')).toBe('scheisse');
   });
+  it('collapses stretched repeated letters but keeps normal doubles', () => {
+    expect(normalize('Fuuuuck')).toBe('fuck');
+    expect(normalize('Scheeeisse')).toBe('scheisse');
+  });
 });
 
 describe('checkText', () => {
@@ -31,6 +35,9 @@ describe('checkText', () => {
   });
   it('blocks leetspeak evasion', () => {
     expect(checkText('so eine Sch3i55e', list)).toEqual({ ok: false, category: 'profanity' });
+  });
+  it('blocks stretched-letter evasion', () => {
+    expect(checkText('so eine scheeeisse', list)).toEqual({ ok: false, category: 'profanity' });
   });
   it('blocks a multi-word violence phrase', () => {
     expect(checkText('ich bring dich um', list)).toEqual({ ok: false, category: 'violence' });

@@ -51,7 +51,10 @@ begin
     end if;
   end loop;
   if buf <> '' then out_parts := out_parts || buf; end if;
-  return array_to_string(out_parts, ' ');
+  s := array_to_string(out_parts, ' ');
+  -- collapse stretched letters (3+ identical): "fuuuuck" -> "fuck"; keeps doubles
+  s := regexp_replace(s, '([a-z])\1{2,}', '\1', 'g');
+  return s;
 end;
 $$;
 
@@ -145,25 +148,41 @@ insert into public.banned_words (word, category) values
   ('arschloch','profanity'),('arsch','profanity'),('scheisse','profanity'),
   ('wichser','profanity'),('hurensohn','profanity'),('fotze','profanity'),
   ('missgeburt','profanity'),('schlampe','profanity'),('hure','profanity'),
+  ('fick','profanity'),('ficken','profanity'),('verfickt','profanity'),
+  ('verpiss','profanity'),('idiot','profanity'),('vollidiot','profanity'),
+  ('vollpfosten','profanity'),('vollhorst','profanity'),('spast','profanity'),
+  ('spasti','profanity'),('spacko','profanity'),('mongo','profanity'),
+  ('trottel','profanity'),('depp','profanity'),('drecksau','profanity'),
+  ('dreckschwein','profanity'),('miststück','profanity'),('bastard','profanity'),
+  ('hundesohn','profanity'),('wixer','profanity'),('wixxer','profanity'),
+  ('wichsen','profanity'),('schwanzlutscher','profanity'),('fettsack','profanity'),
+  ('hackfresse','profanity'),('hirntot','profanity'),
   -- profanity (EN)
   ('fuck','profanity'),('shit','profanity'),('bitch','profanity'),
   ('asshole','profanity'),('motherfucker','profanity'),('cunt','profanity'),
   -- hate
-  ('neger','hate'),('nigger','hate'),('kanake','hate'),('judensau','hate'),
-  ('schwuchtel','hate'),('faggot','hate'),('untermensch','hate'),
+  ('neger','hate'),('nigger','hate'),('kanake','hate'),('kanacke','hate'),
+  ('judensau','hate'),('schwuchtel','hate'),('faggot','hate'),
+  ('untermensch','hate'),('untermenschen','hate'),('zigeuner','hate'),
+  ('schlitzauge','hate'),('kameltreiber','hate'),
   ('heil hitler','hate'),('sieg heil','hate'),
   -- violence (real threats, not sport talk)
-  ('ich bring dich um','violence'),('ich toete dich','violence'),
+  ('ich bring dich um','violence'),('ich töte dich','violence'),
   ('ich stech dich ab','violence'),('bring dich um','violence'),
   ('i kill you','violence'),('ich mach dich kalt','violence'),
+  ('umbringen','violence'),('abstechen','violence'),('abschlachten','violence'),
+  ('ich schlag dich tot','violence'),('abknallen','violence'),('erstechen','violence'),
   -- sexual
-  ('schwanz','sexual'),('moese','sexual'),('penis','sexual'),
+  ('schwanz','sexual'),('möse','sexual'),('penis','sexual'),
   ('titten','sexual'),('nutte','sexual'),('porno','sexual'),
-  ('sex treffen','sexual'),
+  ('sex treffen','sexual'),('muschi','sexual'),('vergewaltigen','sexual'),
+  ('vergewaltigung','sexual'),('arschficken','sexual'),
   -- spam
   ('kaufen sie','spam'),('jetzt kaufen','spam'),('gratis geld','spam'),
   ('http','spam'),('https','spam'),('www','spam'),('rabattcode','spam'),
+  ('gewinnspiel','spam'),('viagra','spam'),
   -- contact (blocked everywhere except Bio)
   ('whatsapp','contact'),('telegram','contact'),('snapchat','contact'),
-  ('schreib mir auf','contact'),('meine nummer','contact'),
-  ('ruf mich an','contact');
+  ('schreib mir auf','contact'),('meine nummer','contact'),('ruf mich an','contact'),
+  ('instagram','contact'),('insta','contact'),('handynummer','contact'),
+  ('telefonnummer','contact'),('discord','contact');
