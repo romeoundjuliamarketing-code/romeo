@@ -21,7 +21,10 @@ create or replace function public.normalize_text(p_text text)
 returns text language plpgsql immutable as $$
 declare
   s text;
-  prev text;
+  parts text[];
+  out_parts text[] := '{}';
+  buf text := '';
+  p text;
 begin
   if p_text is null then return ''; end if;
   s := lower(p_text);
@@ -34,13 +37,21 @@ begin
   s := replace(s, '$', 's');
   s := regexp_replace(s, '[^a-z]+', ' ', 'g');
   s := btrim(s);
-  -- collapse runs of single letters: "s c h e i s s e" -> "scheisse"
-  loop
-    prev := s;
-    s := regexp_replace(s, '(^| )([a-z]) ([a-z])($| )', '\1\2\3\4', 'g');
-    exit when s = prev;
+  if s = '' then return ''; end if;
+  -- merge consecutive single-letter tokens: "s c h e i s s e" -> "scheisse"
+  -- (POSIX regex has no lookahead, so a token-merge is used instead of a regex
+  -- loop to avoid breaking the cascade after a multi-letter prefix).
+  parts := regexp_split_to_array(s, ' ');
+  foreach p in array parts loop
+    if length(p) = 1 then
+      buf := buf || p;
+    else
+      if buf <> '' then out_parts := out_parts || buf; buf := ''; end if;
+      out_parts := out_parts || p;
+    end if;
   end loop;
-  return s;
+  if buf <> '' then out_parts := out_parts || buf; end if;
+  return array_to_string(out_parts, ' ');
 end;
 $$;
 
