@@ -333,7 +333,22 @@ export type Database = {
           studio_id?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'studio_featured_fighters_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'studio_featured_fighters_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       open_sparrings: {
         Row: {
