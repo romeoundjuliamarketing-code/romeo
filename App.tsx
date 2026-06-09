@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
@@ -10,13 +10,15 @@ import { AuthProvider } from './src/context/AuthContext';
 import { colors } from './src/theme/colors';
 import { configureRevenueCat } from './src/lib/revenuecat';
 
-// Crash + error reporting. DSN comes from the env; if it is missing Sentry stays
-// inert (no crash), so the app still runs before the DSN is configured.
+// Crash + error reporting only. DSN comes from the env; if it is missing Sentry
+// stays inert (no crash), so the app still runs before the DSN is configured.
+// NOTE: performance tracing/profiling is intentionally NOT enabled — it crashes
+// (SIGSEGV) on the New Architecture (getsentry/sentry-react-native#4188), and we
+// only need crash/error capture here.
 Sentry.init({
   dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
   // debug logs the event pipeline to the console — useful while verifying the setup.
   debug: __DEV__,
-  tracesSampleRate: __DEV__ ? 1.0 : 0.2,
 });
 
 configureRevenueCat();
@@ -35,14 +37,6 @@ function App() {
     Inter_600SemiBold,
     Inter_700Bold,
   });
-
-  // TEMP: fire one test event to verify the Sentry wiring. REMOVE after confirming.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      Sentry.captureException(new Error('Sentry Verifizierungs-Test (iOS Sim)'));
-    }, 3000);
-    return () => clearTimeout(t);
-  }, []);
 
   if (!fontsLoaded) {
     return (
