@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,27 +6,26 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
-import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import { useStudioProfile } from '../hooks/useStudioProfile';
+import { useFeaturedFighters } from '../hooks/useFeaturedFighters';
 import { useSchedule } from '../hooks/useSchedule';
 import { useMyStudioRequests } from '../hooks/useMyStudioRequests';
 import { useStudioMembershipPlans } from '../hooks/useStudioMembershipPlans';
+import StudioHero from '../components/studio/StudioHero';
+import DisciplineChips from '../components/studio/DisciplineChips';
+import FeaturedFightersRow from '../components/studio/FeaturedFightersRow';
 import TrialBookingSheet from '../components/studio/TrialBookingSheet';
 import MembershipPlansList from '../components/studio/MembershipPlansList';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioDetail'>;
-
-interface StudioData {
-  id: string;
-  name: string;
-  city: string;
-  address: string | null;
-}
 
 const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
@@ -39,16 +38,17 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function StudioDetailScreen({ route, navigation }: Props): React.ReactElement {
   const { studioId } = route.params;
+  const { user } = useAuth();
 
-  const [studio, setStudio] = useState<StudioData | null>(null);
-  const [studioLoading, setStudioLoading] = useState(true);
-  const [bookingSheetVisible, setBookingSheetVisible] = useState(false);
-
+  const { studio, loading: studioLoading } = useStudioProfile(studioId);
+  const { fighters, loading: fightersLoading, removeFighter } = useFeaturedFighters(studioId);
   const { schedule, loading: scheduleLoading } = useSchedule(undefined, studioId);
   const { trialBookings, contracts, loading: requestsLoading, refetch } = useMyStudioRequests();
   const { plans, loading: plansLoading, refetch: refetchPlans } = useStudioMembershipPlans(studioId);
+  const [bookingSheetVisible, setBookingSheetVisible] = useState(false);
 
-  // Booking for this specific studio
+  const isOwner = studio !== null && user !== null && studio.owner_user_id === user.id;
+
   const studioBooking = trialBookings.find((b) => b.studio_id === studioId) ?? null;
   const activeBooking =
     studioBooking !== null &&
@@ -56,7 +56,6 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
       ? studioBooking
       : null;
 
-  // Active membership contract for this studio (only show if pending/active/cancellation_requested)
   const activeContract =
     contracts.find(
       (c) =>
@@ -64,60 +63,90 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
         (c.status === 'pending' || c.status === 'active' || c.status === 'cancellation_requested'),
     ) ?? null;
 
-  useEffect(() => {
-    void (async () => {
-      setStudioLoading(true);
-      const { data } = await supabase
-        .from('studios')
-        .select('id, name, city, address')
-        .eq('id', studioId)
-        .single();
-      setStudio(data ?? null);
-      setStudioLoading(false);
-    })();
-  }, [studioId]);
+  async function handleRemoveSelf(): Promise<void> {
+    if (user === null) return;
+    Alert.alert(
+      'Featured-Status entfernen',
+      'Dein Profil wird nicht mehr auf dieser Studioseite angezeigt.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Entfernen',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await removeFighter(user.id);
+            if (error !== null) Alert.alert('Fehler', error);
+          },
+        },
+      ],
+    );
+  }
 
   const isLoading = studioLoading || requestsLoading;
 
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
+      </SafeAreaView>
+    );
+  }
+
+  if (studio === null) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <TouchableOpacity style={styles.backBtnStandalone} onPress={() => navigation.goBack()}>
+          <Ionicons name="chevron-back" size={24} color={colors.text} />
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.card} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {studio?.name ?? ''}
-        </Text>
-      </View>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => navigation.goBack()}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="chevron-back" size={22} color={colors.card} />
+      </TouchableOpacity>
 
-      {isLoading ? (
-        <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
-      ) : (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Studio info */}
-          {studio !== null && (
-            <View style={styles.infoCard}>
-              <Text style={styles.studioName}>{studio.name}</Text>
-              <Text style={styles.studioCity}>{studio.city}</Text>
-              {studio.address !== null && (
-                <View style={styles.addressRow}>
-                  <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-                  <Text style={styles.addressText}>{studio.address}</Text>
-                </View>
-              )}
-            </View>
-          )}
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        <StudioHero
+          name={studio.name}
+          city={studio.city}
+          address={studio.address}
+          bannerUrl={studio.banner_url}
+          avatarUrl={studio.avatar_url}
+          isOwner={isOwner}
+          onEditPress={() => navigation.navigate('StudioProfileEdit', { studioId })}
+        />
 
-          {/* Trial booking CTA or status */}
+        {studio.disciplines.length > 0 && (
+          <DisciplineChips disciplines={studio.disciplines} />
+        )}
+
+        {studio.description !== null && studio.description.trim().length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Über uns</Text>
+            <Text style={styles.description}>{studio.description}</Text>
+          </View>
+        )}
+
+        {(fighters.length > 0 || fightersLoading) && (
+          <View style={styles.sectionNopad}>
+            <Text style={[styles.sectionLabel, styles.sectionLabelPad]}>Featured Fighters</Text>
+            <FeaturedFightersRow
+              fighters={fighters}
+              loading={fightersLoading}
+              currentUserId={user?.id ?? null}
+              onRemoveSelf={handleRemoveSelf}
+            />
+          </View>
+        )}
+
+        <View style={styles.content}>
           {activeBooking !== null ? (
             <View style={styles.statusCard}>
               <Ionicons
@@ -145,7 +174,6 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
             </TouchableOpacity>
           )}
 
-          {/* Schedule preview */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Stundenplan</Text>
             {scheduleLoading ? (
@@ -169,7 +197,6 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
             )}
           </View>
 
-          {/* Membership plans */}
           <MembershipPlansList
             studioId={studioId}
             plans={plans}
@@ -177,10 +204,10 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
             activeContract={activeContract}
             onContractSigned={() => { refetch(); refetchPlans(); }}
           />
+        </View>
 
-          <View style={styles.bottomPad} />
-        </ScrollView>
-      )}
+        <View style={styles.bottomPad} />
+      </ScrollView>
 
       <TrialBookingSheet
         visible={bookingSheetVisible}
@@ -198,27 +225,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.dark,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-  },
   backBtn: {
+    position: 'absolute',
+    top: 56,
+    left: 12,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: colors.headerCard,
+    backgroundColor: colors.heroFloatingBtn,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 10,
   },
-  headerTitle: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.card,
+  backBtnStandalone: {
+    margin: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loader: {
     marginTop: 48,
@@ -230,33 +256,34 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 16,
   },
-  infoCard: {
+  section: {
     backgroundColor: colors.card,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border,
     padding: 16,
-    gap: 4,
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
   },
-  studioName: {
-    fontSize: 18,
+  sectionNopad: {
+    marginTop: 16,
+  },
+  sectionLabel: {
+    fontSize: 11,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
-  studioCity: {
+  sectionLabelPad: {
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
+  description: {
     fontSize: 14,
-    color: colors.textSecondary,
-  },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  addressText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    flex: 1,
+    color: colors.text,
+    lineHeight: 20,
   },
   bookBtn: {
     flexDirection: 'row',
@@ -294,21 +321,6 @@ const styles = StyleSheet.create({
   statusValue: {
     fontSize: 13,
     color: colors.textSecondary,
-  },
-  section: {
-    backgroundColor: colors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    gap: 12,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   emptyText: {
     fontSize: 14,
@@ -353,6 +365,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   bottomPad: {
-    height: 32,
+    height: 48,
   },
 });
