@@ -23,7 +23,9 @@ import StudioHero from '../components/studio/StudioHero';
 import DisciplineChips from '../components/studio/DisciplineChips';
 import FeaturedFightersRow from '../components/studio/FeaturedFightersRow';
 import TrialBookingSheet from '../components/studio/TrialBookingSheet';
+import DropInSheet from '../components/studio/DropInSheet';
 import MembershipPlansList from '../components/studio/MembershipPlansList';
+import type { StudioSchedule } from '../types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioDetail'>;
 
@@ -46,6 +48,7 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
   const { trialBookings, contracts, loading: requestsLoading, refetch } = useMyStudioRequests();
   const { plans, loading: plansLoading, refetch: refetchPlans } = useStudioMembershipPlans(studioId);
   const [bookingSheetVisible, setBookingSheetVisible] = useState(false);
+  const [dropInEntry, setDropInEntry] = useState<StudioSchedule | null>(null);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
 
   const isOwner = studio !== null && user !== null && studio.owner_user_id === user.id;
@@ -205,6 +208,15 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
                         {entry.start_time.slice(0, 5)}  ·  {entry.duration_min} Min.
                       </Text>
                     </View>
+                    {entry.drop_in_enabled && (
+                      <TouchableOpacity
+                        style={styles.dropInBtn}
+                        onPress={() => setDropInEntry(entry)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.dropInBtnText}>Drop-in</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ))
               )
@@ -228,6 +240,13 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
         studioId={studioId}
         schedule={schedule}
         onClose={() => setBookingSheetVisible(false)}
+        onBooked={() => { refetch(); }}
+      />
+      <DropInSheet
+        visible={dropInEntry !== null}
+        studioId={studioId}
+        entry={dropInEntry}
+        onClose={() => setDropInEntry(null)}
         onBooked={() => { refetch(); }}
       />
     </SafeAreaView>
@@ -385,6 +404,17 @@ const styles = StyleSheet.create({
   scheduleMeta: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  dropInBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.accentBlue,
+  },
+  dropInBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
   },
   bottomPad: {
     height: 48,

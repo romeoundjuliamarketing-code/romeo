@@ -1235,6 +1235,7 @@ export type Database = {
           requested_date: string
           note: string | null
           status: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          booking_type: 'trial' | 'drop_in'
           created_at: string
           updated_at: string
           responded_at: string | null
@@ -1248,6 +1249,7 @@ export type Database = {
           requested_date: string
           note?: string | null
           status?: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          booking_type?: 'trial' | 'drop_in'
           created_at?: string
           updated_at?: string
           responded_at?: string | null
@@ -1261,6 +1263,7 @@ export type Database = {
           requested_date?: string
           note?: string | null
           status?: 'pending' | 'confirmed' | 'declined' | 'cancelled'
+          booking_type?: 'trial' | 'drop_in'
           created_at?: string
           updated_at?: string
           responded_at?: string | null
@@ -1288,6 +1291,7 @@ export type Database = {
           coach_name: string | null
           created_at: string
           day_of_week: number
+          drop_in_enabled: boolean
           duration_min: number
           id: string
           is_active: boolean
@@ -1301,6 +1305,7 @@ export type Database = {
           coach_name?: string | null
           created_at?: string
           day_of_week: number
+          drop_in_enabled?: boolean
           duration_min?: number
           id?: string
           is_active?: boolean
@@ -1314,6 +1319,7 @@ export type Database = {
           coach_name?: string | null
           created_at?: string
           day_of_week?: number
+          drop_in_enabled?: boolean
           duration_min?: number
           id?: string
           is_active?: boolean
@@ -1484,6 +1490,14 @@ export type Database = {
           p_schedule_id: string | null
           p_date:        string
           p_note:        string | null
+        }
+        Returns: string
+      }
+      create_drop_in_booking: {
+        Args: {
+          p_studio_id:      string
+          p_schedule_id:    string
+          p_requested_date: string
         }
         Returns: string
       }

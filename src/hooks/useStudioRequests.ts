@@ -4,9 +4,10 @@ import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import type { TrialBookingWithUser, MembershipContractWithUser } from '../types/database.types';
 
 interface UseStudioRequestsResult {
-  trialBookings:       TrialBookingWithUser[];
-  membershipRequests:  MembershipContractWithUser[];   // status = 'pending'
-  cancellationRequests: MembershipContractWithUser[];  // status = 'cancellation_requested'
+  trialBookings:        TrialBookingWithUser[];         // booking_type = 'trial', status = 'pending'
+  dropInBookings:       TrialBookingWithUser[];         // booking_type = 'drop_in', status = 'pending'
+  membershipRequests:   MembershipContractWithUser[];   // status = 'pending'
+  cancellationRequests: MembershipContractWithUser[];   // status = 'cancellation_requested'
   loading:     boolean;
   refetch:     () => void;
   respondTrial: (id: string, confirm: boolean) => Promise<{ error: string | null }>;
@@ -16,6 +17,7 @@ interface UseStudioRequestsResult {
 // Profile names are joined via a two-step query (same pattern as the original).
 export function useStudioRequests(studioId: string): UseStudioRequestsResult {
   const [trialBookings, setTrialBookings] = useState<TrialBookingWithUser[]>([]);
+  const [dropInBookings, setDropInBookings] = useState<TrialBookingWithUser[]>([]);
   const [membershipRequests, setMembershipRequests] = useState<MembershipContractWithUser[]>([]);
   const [cancellationRequests, setCancellationRequests] = useState<MembershipContractWithUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +84,7 @@ export function useStudioRequests(studioId: string): UseStudioRequestsResult {
         }
       }
 
-      const trialRows: TrialBookingWithUser[] = bookings.map((row) => ({
+      const allRows: TrialBookingWithUser[] = bookings.map((row) => ({
         id:             row.id,
         user_id:        row.user_id,
         studio_id:      row.studio_id,
@@ -90,6 +92,7 @@ export function useStudioRequests(studioId: string): UseStudioRequestsResult {
         requested_date: row.requested_date,
         note:           row.note,
         status:         row.status,
+        booking_type:   row.booking_type,
         created_at:     row.created_at,
         updated_at:     row.updated_at,
         responded_at:   row.responded_at,
@@ -117,7 +120,8 @@ export function useStudioRequests(studioId: string): UseStudioRequestsResult {
         user_name:                 nameMap[row.user_id] ?? null,
       }));
 
-      setTrialBookings(trialRows);
+      setTrialBookings(allRows.filter((r) => r.booking_type === 'trial'));
+      setDropInBookings(allRows.filter((r) => r.booking_type === 'drop_in'));
       setMembershipRequests(contractRows.filter((c) => c.status === 'pending'));
       setCancellationRequests(contractRows.filter((c) => c.status === 'cancellation_requested'));
       setLoading(false);
@@ -143,6 +147,7 @@ export function useStudioRequests(studioId: string): UseStudioRequestsResult {
 
   return {
     trialBookings,
+    dropInBookings,
     membershipRequests,
     cancellationRequests,
     loading,

@@ -77,6 +77,7 @@ export function useMyStudioRequests(refetchTrigger = 0): UseMyStudioRequestsResu
           requested_date: row.requested_date,
           note:           row.note,
           status:         row.status,
+          booking_type:   row.booking_type,
           created_at:     row.created_at,
           updated_at:     row.updated_at,
           responded_at:   row.responded_at,

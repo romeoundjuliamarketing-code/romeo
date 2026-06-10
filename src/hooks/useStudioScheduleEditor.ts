@@ -13,6 +13,7 @@ export interface StudioSessionValues {
   points_per_30min: number;
   training_type:   string;
   coach_name:      string | null;
+  drop_in_enabled: boolean;
 }
 
 interface UseStudioScheduleEditorResult {
@@ -36,6 +37,7 @@ export function useStudioScheduleEditor(): UseStudioScheduleEditorResult {
         points_per_30min: entry.points_per_30min,
         training_type:   entry.training_type,
         coach_name:      entry.coach_name ?? null,
+        drop_in_enabled: entry.drop_in_enabled,
         is_active:       true,
       };
       const { error } = await supabase.from('studio_schedule').insert(insert);

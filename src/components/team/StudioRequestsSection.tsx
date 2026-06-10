@@ -20,6 +20,7 @@ interface Props {
 export default function StudioRequestsSection({ studioId }: Props): React.ReactElement {
   const {
     trialBookings,
+    dropInBookings,
     membershipRequests,
     cancellationRequests,
     loading,
@@ -28,7 +29,7 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
   } = useStudioRequests(studioId);
   const { respondMembership, confirmEnd } = useMembershipActions();
 
-  const totalCount = trialBookings.length + membershipRequests.length + cancellationRequests.length;
+  const totalCount = trialBookings.length + dropInBookings.length + membershipRequests.length + cancellationRequests.length;
 
   async function handleRespondTrial(id: string, confirm: boolean): Promise<void> {
     const { error } = await respondTrial(id, confirm);
@@ -112,6 +113,44 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
           </View>
         </View>
       ))}
+
+      {/* Drop-in booking requests */}
+      {dropInBookings.length > 0 && (
+        <>
+          <Text style={styles.subLabel}>Drop-in-Buchungen</Text>
+          {dropInBookings.map((booking, idx) => (
+            <View
+              key={booking.id}
+              style={[styles.requestRow, idx > 0 && styles.requestRowBorder]}
+            >
+              <View style={styles.requestInfo}>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {booking.user_name ?? 'Unbekannt'}
+                </Text>
+                <Text style={styles.requestMeta}>
+                  Drop-in · {booking.requested_date.split('-').reverse().join('.')}
+                </Text>
+              </View>
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={() => { void handleRespondTrial(booking.id, true); }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="check" size={18} color={colors.difficultyGreen} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.declineBtn}
+                  onPress={() => { void handleRespondTrial(booking.id, false); }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="close" size={18} color={colors.deleteRed} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
 
       {/* Membership requests (pending) */}
       {membershipRequests.length > 0 && (

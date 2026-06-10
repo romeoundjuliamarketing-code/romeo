@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  Switch,
   StyleSheet,
   Modal,
   KeyboardAvoidingView,
@@ -28,6 +29,7 @@ export interface ScheduleEntryValues {
   points_per_30min: number;
   training_type:    string;
   coach_name:       string | null;
+  drop_in_enabled:  boolean;
 }
 
 interface Props {
@@ -45,6 +47,7 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
   const [duration, setDuration] = useState('');
   const [trainingType, setTrainingType] = useState('');
   const [coachName, setCoachName] = useState('');
+  const [dropInEnabled, setDropInEnabled] = useState(false);
 
   const [timeError, setTimeError] = useState(false);
   const [durationError, setDurationError] = useState(false);
@@ -58,6 +61,7 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
       setDuration('');
       setTrainingType('');
       setCoachName('');
+      setDropInEnabled(false);
       setTimeError(false);
       setDurationError(false);
     }
@@ -81,6 +85,7 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
       points_per_30min: 35,
       training_type:    showCoachFields ? trainingType : 'training',
       coach_name:       showCoachFields ? (coachName.trim() || null) : null,
+      drop_in_enabled:  showCoachFields ? dropInEnabled : false,
     });
   }
 
@@ -199,6 +204,18 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
                   placeholderTextColor={colors.textSecondary}
                   maxLength={40}
                   returnKeyType="next"
+                />
+              </View>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <Text style={styles.toggleLabel}>Drop-in erlaubt</Text>
+                  <Text style={styles.toggleSub}>Mitglieder können diese Einheit einzeln buchen</Text>
+                </View>
+                <Switch
+                  value={dropInEnabled}
+                  onValueChange={setDropInEnabled}
+                  trackColor={{ false: colors.border, true: colors.accentBlue }}
+                  thumbColor={colors.card}
                 />
               </View>
             </>
@@ -338,6 +355,27 @@ const styles = StyleSheet.create({
   },
   typeChipTextActive: {
     color: colors.headerTextPrimary,
+  },
+
+  // Drop-in toggle row
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  toggleInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  toggleSub: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
 
   // Buttons
