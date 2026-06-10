@@ -14,6 +14,7 @@ import {
   Platform,
   Modal,
   FlatList,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,6 +27,7 @@ import { colors } from '../theme/colors';
 import { supabase } from '../lib/supabase';
 import { useStudioProfile } from '../hooks/useStudioProfile';
 import { useFeaturedFighters } from '../hooks/useFeaturedFighters';
+import { useEntitlement } from '../hooks/useEntitlement';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioProfileEdit'>;
 
@@ -72,6 +74,7 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
   const { studio, loading: studioLoading, refetch: refetchStudio } = useStudioProfile(studioId);
   const { fighters, loading: fightersLoading, addFighter, removeFighter } =
     useFeaturedFighters(studioId);
+  const { entitlement } = useEntitlement();
 
   const [description, setDescription] = useState('');
   const [selectedDisciplines, setSelectedDisciplines] = useState<string[]>([]);
@@ -248,6 +251,36 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
           </View>
 
           <View style={styles.content}>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Karte</Text>
+              <View style={styles.aboRow}>
+                <View style={[
+                  styles.aboDot,
+                  entitlement.hasAccess && entitlement.tier === 'studio'
+                    ? styles.aboDotActive
+                    : styles.aboDotInactive,
+                ]} />
+                <Text style={styles.aboStatus}>
+                  {entitlement.hasAccess && entitlement.tier === 'studio'
+                    ? 'Dein Studio ist auf der Karte sichtbar'
+                    : 'Nicht auf der Karte sichtbar'}
+                </Text>
+              </View>
+              {(!entitlement.hasAccess || entitlement.tier !== 'studio') && (
+                <TouchableOpacity
+                  style={styles.aboBtn}
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    void Linking.openURL(
+                      'mailto:kontakt@sparr.app?subject=Studio%20auf%20der%20Karte%20freischalten&body=Hallo%2C%20ich%20möchte%20mein%20Studio%20auf%20der%20Karte%20freischalten.',
+                    );
+                  }}
+                >
+                  <Text style={styles.aboBtnText}>Jetzt freischalten — 29 EUR/Monat</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>Disziplinen</Text>
               <View style={styles.disciplinesGrid}>
@@ -536,6 +569,38 @@ const styles = StyleSheet.create({
   charCount: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  aboRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  aboDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  aboDotActive: {
+    backgroundColor: colors.difficultyGreen,
+  },
+  aboDotInactive: {
+    backgroundColor: colors.textSecondary,
+  },
+  aboStatus: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+  },
+  aboBtn: {
+    backgroundColor: colors.accentBlue,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  aboBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.card,
   },
   disciplinesGrid: {
     flexDirection: 'row',
