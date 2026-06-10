@@ -46,6 +46,7 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
   const { trialBookings, contracts, loading: requestsLoading, refetch } = useMyStudioRequests();
   const { plans, loading: plansLoading, refetch: refetchPlans } = useStudioMembershipPlans(studioId);
   const [bookingSheetVisible, setBookingSheetVisible] = useState(false);
+  const [scheduleExpanded, setScheduleExpanded] = useState(false);
 
   const isOwner = studio !== null && user !== null && studio.owner_user_id === user.id;
 
@@ -175,25 +176,38 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
           )}
 
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Stundenplan</Text>
-            {scheduleLoading ? (
-              <ActivityIndicator color={colors.accentBlue} style={styles.loader} />
-            ) : schedule.length === 0 ? (
-              <Text style={styles.emptyText}>Noch kein Stundenplan vorhanden.</Text>
-            ) : (
-              schedule.map((entry) => (
-                <View key={entry.id} style={styles.scheduleRow}>
-                  <View style={styles.dayBadge}>
-                    <Text style={styles.dayBadgeText}>{DAY_LABELS[entry.day_of_week]}</Text>
+            <TouchableOpacity
+              style={styles.sectionHeader}
+              onPress={() => setScheduleExpanded((prev) => !prev)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.sectionLabel}>Stundenplan</Text>
+              <Ionicons
+                name={scheduleExpanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+                color={colors.text}
+              />
+            </TouchableOpacity>
+            {scheduleExpanded && (
+              scheduleLoading ? (
+                <ActivityIndicator color={colors.accentBlue} style={styles.loaderInline} />
+              ) : schedule.length === 0 ? (
+                <Text style={styles.emptyText}>Noch kein Stundenplan vorhanden.</Text>
+              ) : (
+                schedule.map((entry) => (
+                  <View key={entry.id} style={styles.scheduleRow}>
+                    <View style={styles.dayBadge}>
+                      <Text style={styles.dayBadgeText}>{DAY_LABELS[entry.day_of_week]}</Text>
+                    </View>
+                    <View style={styles.scheduleInfo}>
+                      <Text style={styles.scheduleName}>{entry.training_name}</Text>
+                      <Text style={styles.scheduleMeta}>
+                        {entry.start_time.slice(0, 5)}  ·  {entry.duration_min} Min.
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.scheduleInfo}>
-                    <Text style={styles.scheduleName}>{entry.training_name}</Text>
-                    <Text style={styles.scheduleMeta}>
-                      {entry.start_time.slice(0, 5)}  ·  {entry.duration_min} Min.
-                    </Text>
-                  </View>
-                </View>
-              ))
+                ))
+              )
             )}
           </View>
 
@@ -249,6 +263,9 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 48,
   },
+  loaderInline: {
+    marginVertical: 8,
+  },
   scroll: {
     flex: 1,
   },
@@ -275,6 +292,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   sectionLabelPad: {
     paddingHorizontal: 16,

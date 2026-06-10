@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingBottom: 16,
     marginTop: -OVERLAP,
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
   },
   textWrap: {
     flex: 1,
-    paddingBottom: 4,
+    paddingTop: OVERLAP + 8,
   },
   name: {
     fontSize: 20,
