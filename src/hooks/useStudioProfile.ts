@@ -6,6 +6,8 @@ export interface StudioProfile {
   name: string;
   city: string;
   address: string | null;
+  lat: number | null;
+  lng: number | null;
   description: string | null;
   banner_url: string | null;
   avatar_url: string | null;
@@ -31,7 +33,7 @@ export function useStudioProfile(studioId: string): {
       setLoading(true);
       const { data } = await supabase
         .from('studios')
-        .select('id, name, city, address, description, banner_url, avatar_url, disciplines, owner_user_id')
+        .select('id, name, city, address, lat, lng, description, banner_url, avatar_url, disciplines, owner_user_id')
         .eq('id', studioId)
         .single();
       setStudio(data ?? null);

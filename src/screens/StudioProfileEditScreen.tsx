@@ -84,12 +84,49 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
   const [memberPickerVisible, setMemberPickerVisible] = useState(false);
   const [members, setMembers] = useState<StudioMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
+  const [address, setAddress] = useState('');
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  const [geocodeLabel, setGeocodeLabel] = useState<string | null>(null);
 
   useEffect(() => {
     if (studio === null) return;
     setDescription(studio.description ?? '');
     setSelectedDisciplines(studio.disciplines);
+    setAddress(studio.address ?? '');
+    setLat(studio.lat);
+    setLng(studio.lng);
+    setGeocodeLabel(
+      studio.lat !== null ? `${studio.lat.toFixed(4)}, ${studio.lng?.toFixed(4)}` : null,
+    );
   }, [studio]);
+
+  async function handleGeocode(): Promise<void> {
+    const query = address.trim();
+    if (query.length === 0) return;
+    setGeocoding(true);
+    setGeocodeLabel(null);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Sparr-App/1.0 (kontakt@sparr.app)' },
+      });
+      const json = await res.json() as { lat: string; lon: string; display_name: string }[];
+      if (json.length === 0) {
+        setGeocodeLabel('Keine Ergebnisse gefunden.');
+        return;
+      }
+      const result = json[0];
+      setLat(parseFloat(result.lat));
+      setLng(parseFloat(result.lon));
+      setGeocodeLabel(result.display_name.split(',').slice(0, 3).join(','));
+    } catch {
+      setGeocodeLabel('Fehler bei der Standortsuche.');
+    } finally {
+      setGeocoding(false);
+    }
+  }
 
   function toggleDiscipline(d: string): void {
     setSelectedDisciplines((prev) =>
@@ -142,6 +179,9 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
       const updates: Record<string, unknown> = {
         description: description.trim().length > 0 ? description.trim() : null,
         disciplines: selectedDisciplines,
+        address: address.trim().length > 0 ? address.trim() : null,
+        lat,
+        lng,
       };
 
       if (bannerUri !== null) {
@@ -319,6 +359,39 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
                 numberOfLines={4}
                 textAlignVertical="top"
               />
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Standort</Text>
+              <View style={styles.addressRow}>
+                <TextInput
+                  style={styles.addressInput}
+                  value={address}
+                  onChangeText={(t) => { setAddress(t); setGeocodeLabel(null); setLat(null); setLng(null); }}
+                  placeholder="Straße, Hausnummer, Stadt"
+                  placeholderTextColor={colors.textSecondary}
+                  returnKeyType="search"
+                  onSubmitEditing={() => { void handleGeocode(); }}
+                />
+                <TouchableOpacity
+                  style={[styles.geocodeBtn, geocoding && styles.geocodeBtnDisabled]}
+                  onPress={() => { void handleGeocode(); }}
+                  disabled={geocoding}
+                  activeOpacity={0.8}
+                >
+                  {geocoding
+                    ? <ActivityIndicator size="small" color={colors.card} />
+                    : <Ionicons name="search" size={18} color={colors.card} />}
+                </TouchableOpacity>
+              </View>
+              {geocodeLabel !== null && (
+                <Text style={[
+                  styles.geocodeLabel,
+                  lat !== null ? styles.geocodeLabelOk : styles.geocodeLabelErr,
+                ]}>
+                  {lat !== null ? 'Gefunden: ' : ''}{geocodeLabel}
+                </Text>
+              )}
             </View>
 
             <View style={styles.section}>
@@ -629,6 +702,43 @@ const styles = StyleSheet.create({
   disciplineTextActive: {
     color: colors.accentBlue,
     fontWeight: '600',
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addressInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  geocodeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: colors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  geocodeBtnDisabled: {
+    opacity: 0.5,
+  },
+  geocodeLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  geocodeLabelOk: {
+    color: colors.accentBlue,
+  },
+  geocodeLabelErr: {
+    color: colors.deleteRed,
   },
   descriptionInput: {
     fontSize: 14,
