@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   aboDotActive: {
-    backgroundColor: colors.difficultyGreen,
+    backgroundColor: colors.accentBlue,
   },
   aboDotInactive: {
     backgroundColor: colors.textSecondary,
