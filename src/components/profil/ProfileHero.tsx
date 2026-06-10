@@ -115,16 +115,8 @@ export default function ProfileHero({
       : null;
 
   // Meta line: weight class · nationality (only if set)
-  const metaParts: string[] = [];
-  if (profile?.weight_class !== null && profile?.weight_class !== undefined && profile.weight_class.length > 0) {
-    metaParts.push(profile.weight_class);
-  }
-  if (profile?.nationality !== null && profile?.nationality !== undefined && profile.nationality.length > 0) {
-    metaParts.push(profile.nationality);
-  }
-  if (stanceLabel !== null) {
-    metaParts.push(stanceLabel);
-  }
+  const metaParts = [profile?.weight_class, profile?.nationality, stanceLabel]
+    .filter((v): v is string => v !== null && v !== undefined && v.length > 0);
 
   return (
     <View style={styles.container}>

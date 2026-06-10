@@ -29,6 +29,7 @@ import { useSparringRatings } from '../hooks/useSparringRatings';
 import { useUserReport }      from '../hooks/useUserReport';
 import FightRecordCard        from '../components/profil/FightRecordCard';
 import { useAuth }            from '../context/AuthContext';
+import { getInitials }        from '../components/profil/ProfileHero';
 
 // ── constants ──────────────────────────────────────────────────────────────────
 
@@ -88,11 +89,6 @@ interface StudioInfo {
 }
 
 // ── helper components ──────────────────────────────────────────────────────────
-
-function getInitials(name: string | null): string {
-  if (name === null || name.trim().length === 0) return '?';
-  return name.trim().split(/\s+/).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
-}
 
 function SteckbriefRow({
   icon,
@@ -309,14 +305,8 @@ export default function PublicProfileScreen(): React.ReactElement {
     profile?.stance === 'orthodox' ? 'Orthodox' :
     profile?.stance === 'southpaw' ? 'Southpaw' : null;
 
-  const metaParts: string[] = [];
-  if (profile?.weight_class !== null && profile?.weight_class !== undefined && profile.weight_class.length > 0) {
-    metaParts.push(profile.weight_class);
-  }
-  if (profile?.nationality !== null && profile?.nationality !== undefined && profile.nationality.length > 0) {
-    metaParts.push(profile.nationality);
-  }
-  if (stanceLabel !== null) metaParts.push(stanceLabel);
+  const metaParts = [profile?.weight_class, profile?.nationality, stanceLabel]
+    .filter((v): v is string => v !== null && v !== undefined && v.length > 0);
 
   // Steckbrief rows — same fields as OverviewTab
   const steckbriefRows: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }[] = [];
@@ -798,7 +788,7 @@ export default function PublicProfileScreen(): React.ReactElement {
 
 const cardShadow = Platform.select({
   ios: {
-    shadowColor: '#0A0A0A',
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -831,7 +821,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     ...Platform.select({
       ios: {
-        shadowColor: '#0A0A0A',
+        shadowColor: colors.dark,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 8,
