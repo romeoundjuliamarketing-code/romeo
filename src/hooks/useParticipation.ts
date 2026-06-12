@@ -74,6 +74,20 @@ export function useParticipation(): UseParticipationResult {
 
       const pointsEarned = calculatePoints(durationMin, pointsPer30Min);
 
+      // Build optimistic entry so isParticipating() flips immediately
+      const optimistic: ScheduleParticipation = {
+        id: `optimistic-${scheduleId}-${sessionDate}`,
+        created_at: new Date().toISOString(),
+        user_id: user.id,
+        schedule_id: scheduleId,
+        session_date: sessionDate,
+        status: 'confirmed',
+        points_earned: pointsEarned,
+      };
+
+      // Flip the button immediately before any network call
+      setParticipations((prev) => [...prev, optimistic]);
+
       // 1. Insert schedule participation
       const { data: newParticipation, error: participationError } = await supabase
         .from('schedule_participations')
@@ -87,7 +101,16 @@ export function useParticipation(): UseParticipationResult {
         .select()
         .single();
 
-      if (participationError !== null || newParticipation === null) return;
+      if (participationError !== null || newParticipation === null) {
+        // Roll back optimistic entry on failure
+        setParticipations((prev) => prev.filter((p) => p.id !== optimistic.id));
+        return;
+      }
+
+      // Replace optimistic entry with the real server row
+      setParticipations((prev) =>
+        prev.map((p) => (p.id === optimistic.id ? newParticipation : p)),
+      );
 
       // 2. Insert workout log
       await supabase.from('workout_logs').insert({
@@ -111,8 +134,6 @@ export function useParticipation(): UseParticipationResult {
         }),
         supabase.from('profiles').update({ last_training_date: sessionDate }).eq('id', user.id),
       ]);
-
-      setParticipations((prev) => [...prev, newParticipation]);
     },
     [user],
   );
@@ -121,13 +142,20 @@ export function useParticipation(): UseParticipationResult {
     async (scheduleId: string, sessionDate: string): Promise<void> => {
       if (user === null) return;
 
-      // Retrieve earned points before deleting
+      // Capture the entry for potential rollback before any network call
       const participation = participations.find(
         (p) => p.schedule_id === scheduleId && p.session_date === sessionDate,
       );
       if (participation === undefined) return;
 
       const pointsToDeduct = participation.points_earned;
+
+      // Flip the button immediately by removing the entry optimistically
+      setParticipations((prev) =>
+        prev.filter(
+          (p) => !(p.schedule_id === scheduleId && p.session_date === sessionDate),
+        ),
+      );
 
       // 1. Delete schedule participation
       const { error } = await supabase
@@ -137,7 +165,11 @@ export function useParticipation(): UseParticipationResult {
         .eq('schedule_id', scheduleId)
         .eq('session_date', sessionDate);
 
-      if (error !== null) return;
+      if (error !== null) {
+        // Roll back optimistic removal on failure
+        setParticipations((prev) => [...prev, participation]);
+        return;
+      }
 
       // 2. Look up training name so only the matching log is deleted,
       //    not other activities (e.g. stretching) on the same day
@@ -162,12 +194,6 @@ export function useParticipation(): UseParticipationResult {
         p_user_id: user.id,
         p_points: pointsToDeduct,
       });
-
-      setParticipations((prev) =>
-        prev.filter(
-          (p) => !(p.schedule_id === scheduleId && p.session_date === sessionDate),
-        ),
-      );
     },
     [user, participations],
   );

@@ -7,6 +7,7 @@ import {
   Animated,
   Easing,
   Image,
+  InteractionManager,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../../theme/colors';
@@ -70,9 +71,11 @@ export default function WaterBottleCard({
   const penguinY      = useRef(new Animated.Value(0)).current;
   const bubbleScale   = useRef(new Animated.Value(0)).current;
   const bubbleOpacity = useRef(new Animated.Value(0)).current;
-  const isAnimating   = useRef(false);
-  const msgIndex      = useRef(0);
-  const lastTrigger   = useRef(-1);
+  const isAnimating        = useRef(false);
+  const msgIndex           = useRef(0);
+  const lastTrigger        = useRef(-1);
+  const reminderTimer      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const interactionHandle  = useRef<ReturnType<typeof InteractionManager.runAfterInteractions> | null>(null);
 
   const [message, setMessage] = useState<string>(MESSAGES[0]);
 
@@ -134,15 +137,21 @@ export default function WaterBottleCard({
     });
   }, [bubbleOpacity, bubbleScale, penguinY]);
 
-  // One-time preview trigger — fires on first focus regardless of conditions
-  const previewFired = useRef(false);
-
   useEffect(() => {
     // Wait for data to load after focus
     if (loading) return;
     // Only process each focus event once
     if (focusTrigger === lastTrigger.current) return;
     lastTrigger.current = focusTrigger;
+
+    // Schedule the penguin after interactions settle to avoid JS-thread congestion
+    const schedule = (): void => {
+      reminderTimer.current = setTimeout(() => {
+        interactionHandle.current = InteractionManager.runAfterInteractions(() => {
+          playPenguin();
+        });
+      }, 900);
+    };
 
     async function checkReminder(): Promise<void> {
       const hour      = new Date().getHours();
@@ -151,16 +160,9 @@ export default function WaterBottleCard({
       const isEvening = hour >= 20;
       const notFull   = amountMl < goalMl;
 
-      // One-time preview on very first focus (for testing)
-      if (!previewFired.current) {
-        previewFired.current = true;
-        setTimeout(playPenguin, 900);
-        return;
-      }
-
       // Before 15:00 and under 50%: remind on every tab focus
       if (underHalf && hour < 15) {
-        setTimeout(playPenguin, 900);
+        schedule();
         return;
       }
 
@@ -169,13 +171,36 @@ export default function WaterBottleCard({
         const shown = await AsyncStorage.getItem('penguin_evening');
         if (shown !== todayIso) {
           await AsyncStorage.setItem('penguin_evening', todayIso);
-          setTimeout(playPenguin, 900);
+          schedule();
         }
       }
     }
 
     void checkReminder();
+
+    return () => {
+      if (reminderTimer.current !== null) {
+        clearTimeout(reminderTimer.current);
+        reminderTimer.current = null;
+      }
+      if (interactionHandle.current !== null) {
+        interactionHandle.current.cancel();
+        interactionHandle.current = null;
+      }
+    };
   }, [focusTrigger, loading, amountMl, goalMl, playPenguin]);
+
+  // Stop animations and reset state on unmount so the penguin cannot stay stuck
+  useEffect(() => {
+    return () => {
+      if (reminderTimer.current !== null) clearTimeout(reminderTimer.current);
+      if (interactionHandle.current !== null) interactionHandle.current.cancel();
+      penguinY.stopAnimation();
+      bubbleScale.stopAnimation();
+      bubbleOpacity.stopAnimation();
+      isAnimating.current = false;
+    };
+  }, [penguinY, bubbleScale, bubbleOpacity]);
 
   const animatedFillStyle = useMemo(
     () => ({ height: fillHeight }),
