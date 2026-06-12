@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type { StudioSchedule } from '../types/database.types';
 
 interface UseScheduleResult {
@@ -10,12 +11,22 @@ interface UseScheduleResult {
   refetch: () => void;
 }
 
+// Stable cache key per studio + day. `undefined` (skip filter) and `null`
+// (no studio) are encoded distinctly so they never collide.
+function scheduleCacheKey(dayOfWeek?: number, studioId?: string | null): string {
+  return `useSchedule:${studioId ?? (studioId === null ? 'none' : 'all')}:${dayOfWeek ?? 'all'}`;
+}
+
 // dayOfWeek: 0=Mon … 6=Sun (optional — omit to load all days)
 // studioId: filter by studio. Pass null when user has no studio (returns empty).
 //           Pass undefined to skip the filter (backward compat for callers that own their context).
 export function useSchedule(dayOfWeek?: number, studioId?: string | null): UseScheduleResult {
-  const [schedule, setSchedule] = useState<StudioSchedule[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = studioId === null ? null : scheduleCacheKey(dayOfWeek, studioId);
+  const cached = cacheKey ? getCached<StudioSchedule[]>(cacheKey) : undefined;
+  const [schedule, setSchedule] = useState<StudioSchedule[]>(() => cached ?? []);
+  // Only show a spinner on a genuine cold load. With a cached value we render
+  // it instantly and revalidate in the background (stale-while-revalidate).
+  const [loading, setLoading] = useState(cached === undefined && studioId !== null);
   const [error, setError] = useState<string | null>(null);
   const [trigger, setTrigger] = useState(0);
 
@@ -29,7 +40,10 @@ export function useSchedule(dayOfWeek?: number, studioId?: string | null): UseSc
     }
 
     let cancelled = false;
-    setLoading(true);
+    // Keep showing cached data while revalidating — don't flip back to a spinner.
+    if (cacheKey && getCached<StudioSchedule[]>(cacheKey) === undefined) {
+      setLoading(true);
+    }
     setError(null);
 
     let query = supabase
@@ -54,7 +68,9 @@ export function useSchedule(dayOfWeek?: number, studioId?: string | null): UseSc
         setError(err.message);
       } else {
         reportNetworkSuccess();
-        setSchedule(data ?? []);
+        const rows = data ?? [];
+        setSchedule(rows);
+        if (cacheKey) setCached<StudioSchedule[]>(cacheKey, rows);
       }
       setLoading(false);
     });
@@ -62,7 +78,7 @@ export function useSchedule(dayOfWeek?: number, studioId?: string | null): UseSc
     return () => {
       cancelled = true;
     };
-  }, [dayOfWeek, studioId, trigger]);
+  }, [dayOfWeek, studioId, trigger, cacheKey]);
 
   return { schedule, loading, error, refetch };
 }

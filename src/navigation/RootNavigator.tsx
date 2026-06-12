@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import WorkoutScreen from '../screens/WorkoutScreen';
@@ -31,6 +32,8 @@ import { supabase } from '../lib/supabase';
 import { colors } from '../theme/colors';
 import type { RootStackParamList, AuthStackParamList } from './types';
 import OfflineBanner from '../components/common/OfflineBanner';
+import CacheWarmer from '../components/common/CacheWarmer';
+import { onboardingCacheKey } from '../lib/onboardingCache';
 
 const AppStack  = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -109,21 +112,41 @@ export default function RootNavigator() {
       return;
     }
 
-    // Check whether this user has completed onboarding
+    const userId = session.user.id;
+    let cancelled = false;
+
     void (async () => {
+      // Fast path: a returning, already-onboarded user. Trust a cached `true`
+      // immediately (local read, no network) so the app unblocks at once.
+      // We only short-circuit on `true` — "not completed" is rare (brand-new
+      // users) and worth waiting for the authoritative answer to avoid
+      // flashing the onboarding screen.
+      const cached = await AsyncStorage.getItem(onboardingCacheKey(userId));
+      if (!cancelled && cached === 'true') {
+        setOnboardingCompleted(true);
+      }
+
+      // Revalidate against the server (silently if we already unblocked above).
       try {
         const { data } = await supabase
           .from('profiles')
           .select('onboarding_completed')
-          .eq('id', session.user.id)
+          .eq('id', userId)
           .single();
         // If the column doesn't exist yet or is null, treat as not completed
-        setOnboardingCompleted(data?.onboarding_completed ?? false);
+        const value = data?.onboarding_completed ?? false;
+        if (!cancelled) setOnboardingCompleted(value);
+        await AsyncStorage.setItem(onboardingCacheKey(userId), value ? 'true' : 'false');
       } catch {
-        // Graceful fallback: skip onboarding on fetch error
-        setOnboardingCompleted(true);
+        // Graceful fallback: skip onboarding on fetch error (only if we have
+        // no cached answer to fall back on)
+        if (!cancelled && cached === null) setOnboardingCompleted(true);
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [session]);
 
   // Password recovery deep link takes priority over normal auth routing:
@@ -159,6 +182,7 @@ export default function RootNavigator() {
   return (
     <View style={styles.root}>
       <AppNavigator showOnboarding={onboardingCompleted === false} />
+      {onboardingCompleted !== false && <CacheWarmer />}
       <OfflineBanner />
     </View>
   );

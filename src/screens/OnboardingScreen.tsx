@@ -12,10 +12,12 @@ import {
   Animated,
   Keyboard,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import type { RootStackParamList } from '../navigation/types';
+import { onboardingCacheKey } from '../lib/onboardingCache';
 import { colors } from '../theme/colors';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -239,6 +241,10 @@ export default function OnboardingScreen() {
       setError('Speichern fehlgeschlagen. Bitte versuche es nochmal.');
       return;
     }
+
+    // Prime the onboarding cache so the next cold start unblocks instantly
+    // instead of waiting on the network check in RootNavigator.
+    await AsyncStorage.setItem(onboardingCacheKey(user.id), 'true');
 
     if (weightNum !== null && !isNaN(weightNum)) {
       const today = new Date();

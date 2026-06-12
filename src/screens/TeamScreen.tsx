@@ -22,14 +22,12 @@ import type { Profile, CoachNominationDetails } from '../types/database.types';
 import { useCoachNominations } from '../hooks/useCoachNominations';
 import { fetchTeamWeights } from '../hooks/useWeight';
 import { useAnnouncement } from '../hooks/useAnnouncement';
-import { useAttendance } from '../hooks/useAttendance';
 import { useSchedule } from '../hooks/useSchedule';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
 import NominationCard from '../components/team/NominationCard';
 import StudioRequestsSection from '../components/team/StudioRequestsSection';
 import MembershipPlansSection from '../components/team/MembershipPlansSection';
-import AttendanceSheet from '../components/team/AttendanceSheet';
 import StudioScheduleSection from '../components/team/StudioScheduleSection';
 import PaywallCard from '../components/common/PaywallCard';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
@@ -96,11 +94,10 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
   const {
     pendingNominations, teamCoaches, teamMembers, isCoach, loading,
     nominatePromotion, nominateDemotion, confirmNomination, rejectNomination,
-  } = useCoachNominations();
+  } = useCoachNominations(studioId);
   const { entitlement } = useEntitlement();
 
   const { announcement, postAnnouncement, deleteAnnouncement } = useAnnouncement();
-  const { presentUserIds, loading: attendanceLoading, markPresent, unmarkPresent } = useAttendance(studioId);
 
   const [actionTarget, setActionTarget] = useState<Profile | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -112,7 +109,6 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
   const [announcementDuration, setAnnouncementDuration] = useState<AnnouncementDuration>('forever');
   const [announcementPosting, setAnnouncementPosting] = useState(false);
 
-  const [attendanceVisible, setAttendanceVisible] = useState(false);
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const { schedule: studioSchedule, loading: scheduleLoading, refetch: refetchSchedule } = useSchedule(undefined, studioId);
 
@@ -390,11 +386,11 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
               <View style={styles.coachGrid}>
                 <TouchableOpacity
                   style={styles.coachGridBtn}
-                  onPress={() => setAttendanceVisible(true)}
+                  onPress={() => navigation.navigate('StudioProfileEdit', { studioId })}
                   activeOpacity={0.8}
                 >
-                  <MaterialCommunityIcons name="account-check-outline" size={22} color={colors.accentBlue} />
-                  <Text style={styles.coachGridLabel}>Anwesenheit</Text>
+                  <MaterialCommunityIcons name="map-marker-outline" size={22} color={colors.accentBlue} />
+                  <Text style={styles.coachGridLabel}>Auf Map bearbeiten</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.coachGridBtn}
@@ -540,7 +536,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
           )}
 
           {/* ── 8. Einladungscode ── */}
-          {isCoach && entitlement.tier === 'studio' && (
+          {isCoach && entitlement.canManageStudio && (
             <View style={styles.card}>
               <Text style={styles.cardSectionLabel}>Einladungscode</Text>
               {inviteCode !== null ? (
@@ -606,17 +602,6 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
           <View style={styles.bottomPad} />
         </ScrollView>
       )}
-
-      {/* ── Attendance Sheet ── */}
-      <AttendanceSheet
-        visible={attendanceVisible}
-        members={ranked}
-        presentUserIds={presentUserIds}
-        loadingAttendance={attendanceLoading}
-        onMark={async (id) => { const r = await markPresent(id); if (r.error !== null) Alert.alert('Fehler', r.error); }}
-        onUnmark={async (id) => { const r = await unmarkPresent(id); if (r.error !== null) Alert.alert('Fehler', r.error); }}
-        onClose={() => setAttendanceVisible(false)}
-      />
 
       {/* ── Announcement Modal ── */}
       <Modal

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type {
   Profile,
   CoachNomination,
@@ -77,120 +78,134 @@ export interface UseCoachNominationsResult {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useCoachNominations(): UseCoachNominationsResult {
+type NominationsSnapshot = {
+  pendingNominations: CoachNominationDetails[];
+  teamCoaches: Profile[];
+  teamMembers: Profile[];
+  userProfile: Profile | null;
+};
+
+// studioId: the team to load. Pass the id you already have (e.g. from route
+// params) so we can skip the extra own-profile round-trip — the current user's
+// profile is derived from the members list instead.
+export function useCoachNominations(studioId: string | null): UseCoachNominationsResult {
   const { user } = useAuth();
 
-  const [pendingNominations, setPendingNominations] = useState<CoachNominationDetails[]>([]);
-  const [teamCoaches, setTeamCoaches] = useState<Profile[]>([]);
-  const [teamMembers, setTeamMembers] = useState<Profile[]>([]);
-  const [userProfile, setUserProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user !== null && studioId !== null ? `useCoachNominations:${studioId}` : null;
+  const cached = cacheKey ? getCached<NominationsSnapshot>(cacheKey) : undefined;
+
+  const [pendingNominations, setPendingNominations] = useState<CoachNominationDetails[]>(() => cached?.pendingNominations ?? []);
+  const [teamCoaches, setTeamCoaches] = useState<Profile[]>(() => cached?.teamCoaches ?? []);
+  const [teamMembers, setTeamMembers] = useState<Profile[]>(() => cached?.teamMembers ?? []);
+  const [userProfile, setUserProfile] = useState<Profile | null>(() => cached?.userProfile ?? null);
+  // Spinner only on a genuine cold load — a cached snapshot renders instantly.
+  const [loading, setLoading] = useState(cached === undefined && studioId !== null);
   const [trigger, setTrigger] = useState(0);
 
   const refetch = useCallback(() => setTrigger((n) => n + 1), []);
 
   useEffect(() => {
-    if (user === null) {
+    if (user === null || studioId === null) {
       setLoading(false);
       return;
     }
 
     let cancelled = false;
-    setLoading(true);
+    // Keep showing cached data while revalidating — don't flip back to a spinner.
+    if (cacheKey && getCached<NominationsSnapshot>(cacheKey) === undefined) {
+      setLoading(true);
+    }
 
-    // Load own profile first to get team_id
-    supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single()
-      .then(async ({ data: profile }) => {
-        if (cancelled || profile === null) {
-          setLoading(false);
-          return;
-        }
+    void (async () => {
+      // Members (which includes the current user) + pending nominations run in
+      // parallel — no sequential own-profile fetch gating them.
+      const [membersRes, nominationsRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('studio_id', studioId),
+        supabase
+          .from('coach_nominations')
+          .select('*')
+          .eq('team_id', studioId)
+          .eq('status', 'pending'),
+      ]);
 
-        setUserProfile(profile);
-        const teamId = profile.studio_id;
+      if (cancelled) return;
 
-        if (teamId === null) {
-          setLoading(false);
-          return;
-        }
+      const members = (membersRes.data ?? []) as Profile[];
+      const nominations = nominationsRes.data ?? [];
+      // Derive the current user's profile from the members list.
+      const profile = members.find((m) => m.id === user.id) ?? null;
 
-        const [membersRes, nominationsRes] = await Promise.all([
-          supabase
-            .from('profiles')
-            .select('*')
-            .eq('studio_id', teamId),
-          supabase
-            .from('coach_nominations')
-            .select('*')
-            .eq('team_id', teamId)
-            .eq('status', 'pending'),
-        ]);
+      const nominationIds = nominations.map((n) => n.id);
+      const votesRes = nominationIds.length > 0
+        ? await supabase
+            .from('coach_votes')
+            .select('nomination_id, voter_id')
+            .in('nomination_id', nominationIds)
+        : { data: [] as Array<{ nomination_id: string; voter_id: string }>, error: null };
 
-        if (cancelled) return;
+      if (cancelled) return;
 
-        const members = (membersRes.data ?? []) as Profile[];
-        const nominations = nominationsRes.data ?? [];
+      // Group votes by nomination_id
+      const votesByNomination = new Map<string, Array<{ voter_id: string }>>();
+      for (const v of votesRes.data ?? []) {
+        const list = votesByNomination.get(v.nomination_id) ?? [];
+        list.push({ voter_id: v.voter_id });
+        votesByNomination.set(v.nomination_id, list);
+      }
 
-        const nominationIds = nominations.map((n) => n.id);
-        const votesRes = nominationIds.length > 0
-          ? await supabase
-              .from('coach_votes')
-              .select('nomination_id, voter_id')
-              .in('nomination_id', nominationIds)
-          : { data: [] as Array<{ nomination_id: string; voter_id: string }>, error: null };
+      // Attach votes to nominations to build NominationRow[]
+      const rawNominations: NominationRow[] = nominations.map((nom) => ({
+        ...nom,
+        votes: votesByNomination.get(nom.id) ?? [],
+      }));
 
-        // Group votes by nomination_id
-        const votesByNomination = new Map<string, Array<{ voter_id: string }>>();
-        for (const v of votesRes.data ?? []) {
-          const list = votesByNomination.get(v.nomination_id) ?? [];
-          list.push({ voter_id: v.voter_id });
-          votesByNomination.set(v.nomination_id, list);
-        }
+      const coaches = members.filter((m) => m.is_coach);
+      const membersById = new Map(members.map((m) => [m.id, m]));
 
-        // Attach votes to nominations to build NominationRow[]
-        const rawNominations: NominationRow[] = nominations.map((nom) => ({
-          ...nom,
-          votes: votesByNomination.get(nom.id) ?? [],
-        }));
+      const enriched: CoachNominationDetails[] = rawNominations.map((nom) => ({
+        id: nom.id,
+        nominee_id: nom.nominee_id,
+        nominator_id: nom.nominator_id,
+        team_id: nom.team_id,
+        type: nom.type,
+        status: nom.status,
+        created_at: nom.created_at,
+        nominee_name: membersById.get(nom.nominee_id)?.name ?? null,
+        nominator_name: membersById.get(nom.nominator_id)?.name ?? null,
+        vote_count: nom.votes.length,
+        has_voted: nom.votes.some((v) => v.voter_id === user.id),
+        // Without a resolved profile the user can't act on anything (safe default)
+        can_confirm: profile !== null && computeCanConfirm(nom, user.id, profile, coaches),
+        can_reject: profile !== null && computeCanReject(nom, user.id, profile),
+      }));
 
-        const coaches = members.filter((m) => m.is_coach);
-        const membersById = new Map(members.map((m) => [m.id, m]));
-
-        const enriched: CoachNominationDetails[] = rawNominations.map((nom) => ({
-          id: nom.id,
-          nominee_id: nom.nominee_id,
-          nominator_id: nom.nominator_id,
-          team_id: nom.team_id,
-          type: nom.type,
-          status: nom.status,
-          created_at: nom.created_at,
-          nominee_name: membersById.get(nom.nominee_id)?.name ?? null,
-          nominator_name: membersById.get(nom.nominator_id)?.name ?? null,
-          vote_count: nom.votes.length,
-          has_voted: nom.votes.some((v) => v.voter_id === user.id),
-          can_confirm: computeCanConfirm(nom, user.id, profile, coaches),
-          can_reject: computeCanReject(nom, user.id, profile),
-        }));
-
-        if (membersRes.error !== null) {
-          reportNetworkError(membersRes.error);
-        } else {
-          reportNetworkSuccess();
-        }
-        setTeamMembers(members);
-        setTeamCoaches(coaches);
-        setPendingNominations(enriched);
-        setLoading(false);
-      });
+      if (membersRes.error !== null) {
+        reportNetworkError(membersRes.error);
+      } else {
+        reportNetworkSuccess();
+      }
+      setUserProfile(profile);
+      setTeamMembers(members);
+      setTeamCoaches(coaches);
+      setPendingNominations(enriched);
+      if (cacheKey) {
+        setCached<NominationsSnapshot>(cacheKey, {
+          pendingNominations: enriched,
+          teamCoaches: coaches,
+          teamMembers: members,
+          userProfile: profile,
+        });
+      }
+      setLoading(false);
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [user, trigger]);
+  }, [user, studioId, trigger, cacheKey]);
 
   // ── Mutations ──────────────────────────────────────────────────────────────
 

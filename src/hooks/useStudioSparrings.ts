@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/queryCache';
 
 export interface StudioSparring {
   id: string;
@@ -16,15 +17,21 @@ export function useStudioSparrings(studioId: string): {
   loading: boolean;
   refetch: () => void;
 } {
-  const [sparrings, setSparrings] = useState<StudioSparring[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = studioId !== '' ? `useStudioSparrings:${studioId}` : null;
+  const cached = cacheKey ? getCached<StudioSparring[]>(cacheKey) : undefined;
+  const [sparrings, setSparrings] = useState<StudioSparring[]>(() => cached ?? []);
+  const [loading, setLoading] = useState(cached === undefined);
   const [trigger, setTrigger] = useState(0);
 
   const refetch = useCallback(() => setTrigger((n) => n + 1), []);
 
   useEffect(() => {
+    let cancelled = false;
     void (async () => {
-      setLoading(true);
+      // Keep showing cached data while revalidating — don't flash a spinner.
+      if (cacheKey && getCached<StudioSparring[]>(cacheKey) === undefined) {
+        setLoading(true);
+      }
       const now = new Date().toISOString();
 
       const { data: rows } = await supabase
@@ -35,8 +42,11 @@ export function useStudioSparrings(studioId: string): {
         .gte('scheduled_at', now)
         .order('scheduled_at', { ascending: true });
 
+      if (cancelled) return;
+
       if (rows === null || rows.length === 0) {
         setSparrings([]);
+        if (cacheKey) setCached<StudioSparring[]>(cacheKey, []);
         setLoading(false);
         return;
       }
@@ -46,25 +56,31 @@ export function useStudioSparrings(studioId: string): {
         .select('sparring_id')
         .in('sparring_id', rows.map((r) => r.id));
 
+      if (cancelled) return;
+
       const countMap: Record<string, number> = {};
       for (const s of signups ?? []) {
         countMap[s.sparring_id] = (countMap[s.sparring_id] ?? 0) + 1;
       }
 
-      setSparrings(
-        rows.map((r) => ({
-          id: r.id,
-          title: r.title,
-          discipline: r.discipline,
-          scheduled_at: r.scheduled_at,
-          max_slots: r.max_slots,
-          signup_count: countMap[r.id] ?? 0,
-          is_active: r.is_active,
-        })),
-      );
+      const mapped: StudioSparring[] = rows.map((r) => ({
+        id: r.id,
+        title: r.title,
+        discipline: r.discipline,
+        scheduled_at: r.scheduled_at,
+        max_slots: r.max_slots,
+        signup_count: countMap[r.id] ?? 0,
+        is_active: r.is_active,
+      }));
+      setSparrings(mapped);
+      if (cacheKey) setCached<StudioSparring[]>(cacheKey, mapped);
       setLoading(false);
     })();
-  }, [studioId, trigger]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [studioId, trigger, cacheKey]);
 
   return { sparrings, loading, refetch };
 }
