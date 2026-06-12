@@ -10,7 +10,9 @@ module.exports = function (api) {
   }
 
   // Expo / Metro bundler: full preset handles JSX, TypeScript, Flow, and RN internals
+  // react-native-worklets/plugin must be last — required for reanimated v4 worklet transform
   return {
     presets: ['babel-preset-expo'],
+    plugins: ['react-native-worklets/plugin'],
   };
 };
