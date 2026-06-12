@@ -203,7 +203,6 @@ function HeroNetworkPattern(
   // pause it during scroll, resuming shortly after the last scroll event.
   const animRef     = useRef<Animated.CompositeAnimation | null>(null);
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isPaused    = useRef(false);
 
   const startLoop = useCallback(() => {
     animRef.current?.stop();
@@ -227,17 +226,15 @@ function HeroNetworkPattern(
 
   useImperativeHandle(ref, () => ({
     notifyScroll: () => {
-      // Freeze the animation on the first scroll event (cheap no-op afterwards)
-      if (!isPaused.current) {
-        isPaused.current = true;
-        animRef.current?.stop();
+      // Freeze the animation on the first scroll event; a null animRef means
+      // it is already paused, so further scroll events are cheap no-ops.
+      if (animRef.current !== null) {
+        animRef.current.stop();
+        animRef.current = null;
       }
       // Debounce the resume: only restart once scrolling has settled
       if (resumeTimer.current !== null) clearTimeout(resumeTimer.current);
-      resumeTimer.current = setTimeout(() => {
-        isPaused.current = false;
-        startLoop();
-      }, 160);
+      resumeTimer.current = setTimeout(startLoop, 160);
     },
   }), [startLoop]);
 

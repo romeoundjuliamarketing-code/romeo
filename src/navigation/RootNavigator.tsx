@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import WorkoutScreen from '../screens/WorkoutScreen';
@@ -33,6 +32,7 @@ import { colors } from '../theme/colors';
 import type { RootStackParamList, AuthStackParamList } from './types';
 import OfflineBanner from '../components/common/OfflineBanner';
 import CacheWarmer from '../components/common/CacheWarmer';
+import { getCached, setCached } from '../lib/queryCache';
 import { onboardingCacheKey } from '../lib/onboardingCache';
 
 const AppStack  = createNativeStackNavigator<RootStackParamList>();
@@ -115,18 +115,19 @@ export default function RootNavigator() {
     const userId = session.user.id;
     let cancelled = false;
 
-    void (async () => {
-      // Fast path: a returning, already-onboarded user. Trust a cached `true`
-      // immediately (local read, no network) so the app unblocks at once.
-      // We only short-circuit on `true` — "not completed" is rare (brand-new
-      // users) and worth waiting for the authoritative answer to avoid
-      // flashing the onboarding screen.
-      const cached = await AsyncStorage.getItem(onboardingCacheKey(userId));
-      if (!cancelled && cached === 'true') {
-        setOnboardingCompleted(true);
-      }
+    // Fast path: a returning, already-onboarded user. queryCache is hydrated
+    // before any UI renders, so this read is synchronous — the app unblocks at
+    // once. We only short-circuit on `true`; "not completed" is rare (brand-new
+    // users) and worth waiting for the authoritative answer to avoid flashing
+    // the onboarding screen. The flag lives in queryCache so it is cleared on
+    // sign-out / account switch, unlike a standalone AsyncStorage key.
+    const cached = getCached<boolean>(onboardingCacheKey(userId));
+    if (cached === true) {
+      setOnboardingCompleted(true);
+    }
 
-      // Revalidate against the server (silently if we already unblocked above).
+    // Revalidate against the server (silently if we already unblocked above).
+    void (async () => {
       try {
         const { data } = await supabase
           .from('profiles')
@@ -136,11 +137,11 @@ export default function RootNavigator() {
         // If the column doesn't exist yet or is null, treat as not completed
         const value = data?.onboarding_completed ?? false;
         if (!cancelled) setOnboardingCompleted(value);
-        await AsyncStorage.setItem(onboardingCacheKey(userId), value ? 'true' : 'false');
+        setCached<boolean>(onboardingCacheKey(userId), value);
       } catch {
         // Graceful fallback: skip onboarding on fetch error (only if we have
         // no cached answer to fall back on)
-        if (!cancelled && cached === null) setOnboardingCompleted(true);
+        if (!cancelled && cached === undefined) setOnboardingCompleted(true);
       }
     })();
 

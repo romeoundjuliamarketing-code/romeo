@@ -11,10 +11,11 @@ interface UseScheduleResult {
   refetch: () => void;
 }
 
-// Stable cache key per studio + day. `undefined` (skip filter) and `null`
-// (no studio) are encoded distinctly so they never collide.
-function scheduleCacheKey(dayOfWeek?: number, studioId?: string | null): string {
-  return `useSchedule:${studioId ?? (studioId === null ? 'none' : 'all')}:${dayOfWeek ?? 'all'}`;
+// Stable cache key per studio + day. studioId is never null here — callers pass
+// null only to disable caching (cacheKey stays null); undefined means "all
+// studios" (filter skipped).
+function scheduleCacheKey(dayOfWeek?: number, studioId?: string): string {
+  return `useSchedule:${studioId ?? 'all'}:${dayOfWeek ?? 'all'}`;
 }
 
 // dayOfWeek: 0=Mon … 6=Sun (optional — omit to load all days)

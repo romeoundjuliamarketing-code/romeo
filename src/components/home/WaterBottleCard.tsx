@@ -190,11 +190,11 @@ export default function WaterBottleCard({
     };
   }, [focusTrigger, loading, amountMl, goalMl, playPenguin]);
 
-  // Stop animations and reset state on unmount so the penguin cannot stay stuck
+  // Stop animations and reset state on unmount so the penguin cannot stay stuck.
+  // The timer + interaction handle are already cleared by the reminder effect's
+  // cleanup (which also runs on unmount), so they are not repeated here.
   useEffect(() => {
     return () => {
-      if (reminderTimer.current !== null) clearTimeout(reminderTimer.current);
-      if (interactionHandle.current !== null) interactionHandle.current.cancel();
       penguinY.stopAnimation();
       bubbleScale.stopAnimation();
       bubbleOpacity.stopAnimation();

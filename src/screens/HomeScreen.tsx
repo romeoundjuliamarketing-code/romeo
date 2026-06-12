@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -54,6 +54,7 @@ export default function HomeScreen() {
   const weightCheckTriggered = useRef(false);
   // Lets the ScrollView pause the hero's breathe animation while scrolling
   const networkPatternRef = useRef<HeroNetworkPatternHandle>(null);
+  const handleScroll = useCallback(() => networkPatternRef.current?.notifyScroll(), []);
 
   useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
@@ -152,7 +153,7 @@ export default function HomeScreen() {
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={() => networkPatternRef.current?.notifyScroll()}
+        onScroll={handleScroll}
       >
         <View style={styles.content}>
         <HeroSection
