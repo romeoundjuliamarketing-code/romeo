@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, Dimensions } from 'react-native';
 import Svg, { Line, Circle, Defs, RadialGradient, Stop } from 'react-native-svg';
 
@@ -138,7 +138,14 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle as any);
 
 type Props = { height: number; exclusionCenter?: { x: number; y: number } | null };
 
-export default function HeroNetworkPattern({ height, exclusionCenter = null }: Props) {
+// Imperative handle: the parent ScrollView calls notifyScroll() on every scroll
+// event so we can pause the JS-driven breathe animation while scrolling.
+export type HeroNetworkPatternHandle = { notifyScroll: () => void };
+
+function HeroNetworkPattern(
+  { height, exclusionCenter = null }: Props,
+  ref: React.Ref<HeroNetworkPatternHandle>,
+) {
   const zoneHeight = height * PATTERN_ZONE;
 
   // Fixed seed per mount so pattern is stable during the session
@@ -191,17 +198,48 @@ export default function HeroNetworkPattern({ height, exclusionCenter = null }: P
   const octDotR    = breathe.interpolate({ inputRange: [0, 1], outputRange: [2.8, 4.5] });
   const octGlowR   = breathe.interpolate({ inputRange: [0, 1], outputRange: [14,  30 ] });
 
-  useEffect(() => {
+  // The breathe loop is JS-driven (SVG props can't use the native driver), so
+  // it competes with scrolling for the JS thread. We keep the loop in a ref and
+  // pause it during scroll, resuming shortly after the last scroll event.
+  const animRef     = useRef<Animated.CompositeAnimation | null>(null);
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isPaused    = useRef(false);
+
+  const startLoop = useCallback(() => {
+    animRef.current?.stop();
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(breathe, { toValue: 1, duration: 3500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
         Animated.timing(breathe, { toValue: 0, duration: 3500, easing: Easing.inOut(Easing.sin), useNativeDriver: false }),
       ]),
     );
+    animRef.current = anim;
     anim.start();
-    return () => anim.stop();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [breathe]);
+
+  useEffect(() => {
+    startLoop();
+    return () => {
+      animRef.current?.stop();
+      if (resumeTimer.current !== null) clearTimeout(resumeTimer.current);
+    };
+  }, [startLoop]);
+
+  useImperativeHandle(ref, () => ({
+    notifyScroll: () => {
+      // Freeze the animation on the first scroll event (cheap no-op afterwards)
+      if (!isPaused.current) {
+        isPaused.current = true;
+        animRef.current?.stop();
+      }
+      // Debounce the resume: only restart once scrolling has settled
+      if (resumeTimer.current !== null) clearTimeout(resumeTimer.current);
+      resumeTimer.current = setTimeout(() => {
+        isPaused.current = false;
+        startLoop();
+      }, 160);
+    },
+  }), [startLoop]);
 
   if (height === 0 || allNodes.length === 0) return null;
 
@@ -255,6 +293,8 @@ export default function HeroNetworkPattern({ height, exclusionCenter = null }: P
     </View>
   );
 }
+
+export default forwardRef(HeroNetworkPattern);
 
 const styles = StyleSheet.create({
   container: { overflow: 'hidden' },

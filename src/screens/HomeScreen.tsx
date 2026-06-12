@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,11 +8,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import HeroSection from '../components/home/HeroSection';
+import type { HeroNetworkPatternHandle } from '../components/home/HeroNetworkPattern';
 import WaterBottleCard from '../components/home/WaterBottleCard';
 import WeightCheckInModal from '../components/home/WeightCheckInModal';
 import PaywallCard from '../components/common/PaywallCard';
@@ -50,10 +52,10 @@ export default function HomeScreen() {
   const [showConfetti,    setShowConfetti]    = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const weightCheckTriggered = useRef(false);
+  // Lets the ScrollView pause the hero's breathe animation while scrolling
+  const networkPatternRef = useRef<HeroNetworkPatternHandle>(null);
 
-  useFocusEffect(useCallback(() => {
-    setFocusTrigger((n) => n + 1);
-  }, []));
+  useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
   const { isNewWeek, loading: weightLoading, logWeight } = useWeight(focusTrigger);
   const { profile } = useProfile(focusTrigger);
@@ -149,9 +151,12 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={() => networkPatternRef.current?.notifyScroll()}
       >
         <View style={styles.content}>
         <HeroSection
+          networkPatternRef={networkPatternRef}
           name={profile?.name ?? null}
           announcement={announcement}
           isCoach={profile?.is_coach ?? false}
