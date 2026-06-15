@@ -48,7 +48,7 @@ export default function EventPaymentSheet({
 
   if (!visible) return null;
 
-  const priceLabel = eventPackage?.product.priceString ?? '9,99 Euro';
+  const priceLabel = eventPackage?.product.priceString ?? '8,99 Euro';
   const isLoading  = packageLoading;
   const isBusy     = purchasing || activating;
 

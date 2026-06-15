@@ -266,7 +266,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
             <View style={styles.feeHint}>
               <Ionicons name="information-circle-outline" size={16} color={colors.accentBlue} />
               <Text style={styles.feeHintText}>
-                Das Erstellen eines Events kostet eine einmalige Gebühr von 9,99 Euro.
+                Das Erstellen eines Events kostet eine einmalige Gebühr von 8,99 Euro.
               </Text>
             </View>
 
