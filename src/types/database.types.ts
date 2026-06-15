@@ -1271,6 +1271,146 @@ export type Database = {
           },
         ]
       }
+      events: {
+        Row: {
+          id:           string
+          created_by:   string
+          title:        string
+          event_type:   string
+          fight_card:   string | null
+          venue_name:   string | null
+          address:      string | null
+          lat:          number | null
+          lng:          number | null
+          scheduled_at: string
+          duration_min: number
+          max_slots:    number
+          notes:        string | null
+          is_active:    boolean
+          is_paid:      boolean
+          created_at:   string
+        }
+        Insert: {
+          id?:           string
+          created_by:    string
+          title:         string
+          event_type?:   string
+          fight_card?:   string | null
+          venue_name?:   string | null
+          address?:      string | null
+          lat?:          number | null
+          lng?:          number | null
+          scheduled_at:  string
+          duration_min?: number
+          max_slots?:    number
+          notes?:        string | null
+          is_active?:    boolean
+          is_paid?:      boolean
+          created_at?:   string
+        }
+        Update: {
+          id?:           string
+          created_by?:   string
+          title?:        string
+          event_type?:   string
+          fight_card?:   string | null
+          venue_name?:   string | null
+          address?:      string | null
+          lat?:          number | null
+          lng?:          number | null
+          scheduled_at?: string
+          duration_min?: number
+          max_slots?:    number
+          notes?:        string | null
+          is_active?:    boolean
+          is_paid?:      boolean
+          created_at?:   string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'events_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      event_signups: {
+        Row: {
+          id:         string
+          event_id:   string
+          user_id:    string
+          created_at: string
+        }
+        Insert: {
+          id?:        string
+          event_id:   string
+          user_id:    string
+          created_at?: string
+        }
+        Update: {
+          id?:        string
+          event_id?:  string
+          user_id?:   string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_signups_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'event_signups_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      event_messages: {
+        Row: {
+          id:         string
+          event_id:   string
+          user_id:    string
+          body:       string
+          created_at: string
+        }
+        Insert: {
+          id?:        string
+          event_id:   string
+          user_id:    string
+          body:       string
+          created_at?: string
+        }
+        Update: {
+          id?:        string
+          event_id?:  string
+          user_id?:   string
+          body?:      string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'event_messages_event_id_fkey'
+            columns: ['event_id']
+            isOneToOne: false
+            referencedRelation: 'events'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'event_messages_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       studio_join_requests: {
         Row: {
           id:           string
@@ -1665,6 +1805,37 @@ export type Database = {
         Args: Record<string, never>
         Returns: undefined
       }
+      create_event: {
+        Args: {
+          p_title:        string
+          p_fight_card:   string | null
+          p_venue_name:   string | null
+          p_address:      string | null
+          p_lat:          number | null
+          p_lng:          number | null
+          p_scheduled_at: string
+          p_duration_min: number
+          p_max_slots:    number
+          p_notes:        string | null
+        }
+        Returns: string
+      }
+      activate_event: {
+        Args: { p_event_id: string; p_user_id: string }
+        Returns: Json
+      }
+      signup_event: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      cancel_event_signup: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
+      deactivate_event: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1812,6 +1983,13 @@ export interface MembershipContractWithUser extends MembershipContract {
 export interface MembershipContractWithPlan extends MembershipContract {
   plan: MembershipPlan | null
 }
+
+export type Event = Database['public']['Tables']['events']['Row']
+export type EventInsert = Database['public']['Tables']['events']['Insert']
+export type EventSignup = Database['public']['Tables']['event_signups']['Row']
+export type EventSignupInsert = Database['public']['Tables']['event_signups']['Insert']
+export type EventMessage = Database['public']['Tables']['event_messages']['Row']
+export type EventMessageInsert = Database['public']['Tables']['event_messages']['Insert']
 
 export type StudioJoinRequest = Database['public']['Tables']['studio_join_requests']['Row']
 export type StudioJoinRequestInsert = Database['public']['Tables']['studio_join_requests']['Insert']
