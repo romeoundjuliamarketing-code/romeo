@@ -10,6 +10,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const BOOST_PRODUCT_ID   = 'com.deinebundle.sparr.mapbadge_30d';
 const BOOST_DURATION_DAYS = 30;
+// One-time consumable that unlocks creating a public-viewing event.
+const EVENT_PRODUCT_ID   = 'com.deinebundle.sparr.event_create';
 
 // RC webhook payload shapes (minimal — only fields we consume).
 interface RcSubscriberAttribute {
@@ -88,15 +90,48 @@ serve(async (req: Request): Promise<Response> => {
 
   const event = payload.event;
 
-  // Ignore non-purchase events silently (RC may send other event types).
-  if (event.type !== 'INITIAL_PURCHASE') {
+  // Ignore non-purchase events silently. Subscriptions fire INITIAL_PURCHASE;
+  // consumables (boost, event creation) fire NON_RENEWING_PURCHASE.
+  if (event.type !== 'INITIAL_PURCHASE' && event.type !== 'NON_RENEWING_PURCHASE') {
     return new Response(JSON.stringify({ skipped: true, type: event.type }), {
       status:  200,
       headers: { 'Content-Type': 'application/json' },
     });
   }
 
-  // Only process our boost product.
+  const userId   = event.app_user_id;
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  // ── Event creation: unlock a freshly created (inactive) event ──────────────
+  if (event.product_id === EVENT_PRODUCT_ID) {
+    const eventId = event.subscriber_attributes?.['event_id']?.value ?? '';
+    if (userId.length === 0 || eventId.length === 0) {
+      console.error('[rc-boost-webhook] missing user_id or event_id', { userId, eventId });
+      return new Response('Unprocessable Entity: missing user_id or event_id', { status: 422 });
+    }
+
+    const { data, error } = await supabase.rpc('activate_event', {
+      p_event_id: eventId,
+      p_user_id:  userId,
+    });
+
+    if (error !== null) {
+      console.error('[rc-boost-webhook] activate_event error', error.message);
+      // Return 200 to prevent RC from retrying on logic errors.
+      return new Response(JSON.stringify({ ok: false, reason: error.message }), {
+        status:  200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('[rc-boost-webhook] event activated', data);
+    return new Response(JSON.stringify({ ok: true, data }), {
+      status:  200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  // ── Map boost: 30-day featured marker for a sparring ───────────────────────
   if (event.product_id !== BOOST_PRODUCT_ID) {
     return new Response(JSON.stringify({ skipped: true, product: event.product_id }), {
       status:  200,
@@ -104,17 +139,13 @@ serve(async (req: Request): Promise<Response> => {
     });
   }
 
-  // Extract user ID and sparring ID from the event.
-  const userId     = event.app_user_id;
   const sparringId = event.subscriber_attributes?.['sparring_id']?.value ?? '';
-
   if (userId.length === 0 || sparringId.length === 0) {
     console.error('[rc-boost-webhook] missing user_id or sparring_id', { userId, sparringId });
     return new Response('Unprocessable Entity: missing user_id or sparring_id', { status: 422 });
   }
 
   // Call activate_map_boost via service role.
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
   const { data, error } = await supabase.rpc('activate_map_boost', {
     p_sparring_id:   sparringId,
     p_user_id:       userId,
