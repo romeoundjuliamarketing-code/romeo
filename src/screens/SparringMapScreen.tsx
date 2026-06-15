@@ -316,8 +316,14 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onToggleSignup={handleToggleEventSignup}
         onDeactivate={handleDeactivateEvent}
         onOpenChat={() => {
-          // TODO: navigate to event-specific chat once the event chat route is finalised (chat task).
-          navigation.navigate('SparringChatList');
+          if (selectedEvent === null) return;
+          navigation.navigate('EventGroupChat', {
+            eventId:     selectedEvent.id,
+            eventTitle:  selectedEvent.title,
+            scheduledAt: selectedEvent.scheduled_at,
+            durationMin: selectedEvent.duration_min,
+            isOrganizer: selectedEvent.created_by === user?.id,
+          });
         }}
         loading={actionLoading}
       />

@@ -15,6 +15,7 @@ import SparringMapScreen from '../screens/SparringMapScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
 import SparringChatListScreen  from '../screens/SparringChatListScreen';
 import SparringGroupChatScreen from '../screens/SparringGroupChatScreen';
+import EventGroupChatScreen    from '../screens/EventGroupChatScreen';
 import StudioDetailScreen from '../screens/StudioDetailScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
@@ -70,6 +71,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen name="PublicProfile" component={PublicProfileScreen} />
       <AppStack.Screen name="SparringChatList"  component={SparringChatListScreen}  />
       <AppStack.Screen name="SparringGroupChat" component={SparringGroupChatScreen} />
+      <AppStack.Screen name="EventGroupChat"    component={EventGroupChatScreen}    />
       <AppStack.Screen
         name="StudioDetail"
         component={StudioDetailScreen}

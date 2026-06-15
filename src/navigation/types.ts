@@ -48,6 +48,13 @@ export type RootStackParamList = {
     durationMin:   number;
     isOrganizer:   boolean;
   };
+  EventGroupChat: {
+    eventId:     string;
+    eventTitle:  string;
+    scheduledAt: string;
+    durationMin: number;
+    isOrganizer: boolean;
+  };
   Timer: {
     workoutTitle: string;
     exercises: Exercise[];

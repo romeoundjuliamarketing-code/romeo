@@ -15,7 +15,7 @@ import { colors } from '../theme/colors';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import SparringChatListItem from '../components/chat/SparringChatListItem';
 import type { RootStackParamList } from '../navigation/types';
-import type { SparringChatEntry } from '../hooks/useSparringChatList';
+import type { ChatListEntry, SparringChatEntry } from '../hooks/useSparringChatList';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -33,14 +33,80 @@ export default function SparringChatListScreen() {
     [chats],
   );
 
-  function openChat(item: SparringChatEntry) {
-    navigation.navigate('SparringGroupChat', {
-      sparringId:    item.sparringId,
-      sparringTitle: item.sparringTitle,
-      scheduledAt:   item.scheduledAt,
-      durationMin:   item.durationMin,
-      isOrganizer:   item.isOrganizer,
-    });
+  function openChat(item: ChatListEntry) {
+    if (item.kind === 'event') {
+      navigation.navigate('EventGroupChat', {
+        eventId:     item.eventId,
+        eventTitle:  item.title,
+        scheduledAt: item.scheduledAt,
+        durationMin: item.durationMin,
+        isOrganizer: item.isOrganizer,
+      });
+    } else {
+      navigation.navigate('SparringGroupChat', {
+        sparringId:    item.sparringId,
+        sparringTitle: item.sparringTitle,
+        scheduledAt:   item.scheduledAt,
+        durationMin:   item.durationMin,
+        isOrganizer:   item.isOrganizer,
+      });
+    }
+  }
+
+  function getKey(item: ChatListEntry): string {
+    return item.kind === 'event' ? `event-${item.eventId}` : `sparring-${item.sparringId}`;
+  }
+
+  function renderItem(item: ChatListEntry, past = false) {
+    if (item.kind === 'sparring') {
+      // SparringChatListItem expects the legacy SparringChatEntry shape (without kind).
+      // We pass the compatible fields directly by casting — kind is an additive field.
+      return (
+        <SparringChatListItem
+          key={getKey(item)}
+          item={item as SparringChatEntry}
+          onPress={() => openChat(item)}
+          past={past}
+        />
+      );
+    }
+
+    // Event chat row — minimal inline rendering.
+    return (
+      <TouchableOpacity
+        key={getKey(item)}
+        style={[styles.eventCard, past && styles.cardPast]}
+        onPress={() => openChat(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.eventIcon}>
+          <Ionicons name="tv-outline" size={22} color={colors.card} />
+        </View>
+        <View style={styles.eventContent}>
+          <View style={styles.row}>
+            <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
+            {item.lastMessageAt !== null && (
+              <Text style={styles.timeLabel}>
+                {new Date(item.lastMessageAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+          </View>
+          <View style={styles.metaRow}>
+            <Ionicons name="calendar-outline" size={12} color={colors.textSecondary} />
+            <Text style={styles.metaText}>
+              {new Date(item.scheduledAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+            </Text>
+          </View>
+          <View style={styles.row}>
+            {item.lastMessageText !== null ? (
+              <Text style={styles.preview} numberOfLines={1}>{item.lastMessageText}</Text>
+            ) : (
+              <Text style={styles.previewEmpty} numberOfLines={1}>Noch keine Nachrichten</Text>
+            )}
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
   }
 
   return (
@@ -49,7 +115,7 @@ export default function SparringChatListScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Sparring-Chats</Text>
+        <Text style={styles.title}>Chats</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -58,18 +124,14 @@ export default function SparringChatListScreen() {
       ) : (
         <FlatList
           data={active}
-          keyExtractor={(item) => item.sparringId}
-          renderItem={({ item }) => (
-            <SparringChatListItem item={item} onPress={() => openChat(item)} />
-          )}
+          keyExtractor={(item) => getKey(item)}
+          renderItem={({ item }) => renderItem(item)}
           ListHeaderComponent={active.length > 0 ? <Text style={styles.sectionLabel}>Aktiv</Text> : null}
           ListFooterComponent={
             archived.length > 0 ? (
               <>
                 <Text style={styles.sectionLabel}>Archiv</Text>
-                {archived.map((item) => (
-                  <SparringChatListItem key={item.sparringId} item={item} onPress={() => openChat(item)} past />
-                ))}
+                {archived.map((item) => renderItem(item, true))}
               </>
             ) : null
           }
@@ -77,7 +139,7 @@ export default function SparringChatListScreen() {
             archived.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="chatbubbles-outline" size={40} color={colors.textSecondary} />
-                <Text style={styles.empty}>Noch keine Sparring-Chats.</Text>
+                <Text style={styles.empty}>Noch keine Chats.</Text>
               </View>
             ) : null
           }
@@ -129,12 +191,77 @@ const styles = StyleSheet.create({
     letterSpacing:     0.5,
   },
   emptyContainer: {
-    alignItems:  'center',
-    marginTop:   48,
-    gap:         12,
+    alignItems: 'center',
+    marginTop:  48,
+    gap:        12,
   },
   empty: {
     color:    colors.textSecondary,
     fontSize: 15,
+  },
+  // Event chat row styles
+  eventCard: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    backgroundColor:  colors.card,
+    borderRadius:     14,
+    borderWidth:      1,
+    borderColor:      colors.border,
+    padding:          12,
+    marginHorizontal: 16,
+    marginBottom:     8,
+    gap:              12,
+  },
+  cardPast: {
+    opacity: 0.7,
+  },
+  eventIcon: {
+    width:           48,
+    height:          48,
+    borderRadius:    24,
+    backgroundColor: colors.accentBlue,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  eventContent: {
+    flex: 1,
+    gap:  4,
+  },
+  row: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           4,
+  },
+  eventTitle: {
+    flex:       1,
+    fontSize:   15,
+    fontWeight: '600',
+    color:      colors.text,
+    marginRight: 8,
+  },
+  timeLabel: {
+    fontSize:   12,
+    color:      colors.textSecondary,
+    flexShrink: 0,
+  },
+  metaText: {
+    fontSize: 12,
+    color:    colors.textSecondary,
+  },
+  preview: {
+    flex:     1,
+    fontSize: 13,
+    color:    colors.textSecondary,
+  },
+  previewEmpty: {
+    flex:      1,
+    fontSize:  13,
+    color:     colors.textSecondary,
+    fontStyle: 'italic',
   },
 });
