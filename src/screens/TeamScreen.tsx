@@ -25,6 +25,7 @@ import { useAnnouncement } from '../hooks/useAnnouncement';
 import { useSchedule } from '../hooks/useSchedule';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
+import { useStudio } from '../hooks/useStudio';
 import NominationCard from '../components/team/NominationCard';
 import StudioRequestsSection from '../components/team/StudioRequestsSection';
 import MembershipPlansSection from '../components/team/MembershipPlansSection';
@@ -122,6 +123,7 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
   const [addressSaving, setAddressSaving] = useState(false);
 
   const { code: inviteCode, loading: inviteLoading, error: inviteError, createInvite } = useStudioInvite();
+  const { removeMember } = useStudio();
 
   const [teamWeights, setTeamWeights] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -207,6 +209,31 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
     if (target.is_coach && isCoach && !hasPendingDemote) {
       actions.push({ label: 'Trainer-Rolle entfernen', destructive: true, onPress: async () => nominateDemotion(target.id) });
     }
+    if (isCoach && target.id !== user?.id) {
+      actions.push({
+        label: 'Aus Team entfernen',
+        destructive: true,
+        onPress: async () => {
+          return new Promise<{ error: string | null }>((resolve) => {
+            Alert.alert(
+              'Mitglied entfernen',
+              `${target.name ?? 'Dieses Mitglied'} wirklich aus dem Team entfernen?`,
+              [
+                { text: 'Abbrechen', style: 'cancel', onPress: () => resolve({ error: 'cancelled' }) },
+                {
+                  text: 'Entfernen',
+                  style: 'destructive',
+                  onPress: async () => {
+                    const result = await removeMember(target.id);
+                    resolve(result);
+                  },
+                },
+              ],
+            );
+          });
+        },
+      });
+    }
     return actions;
   }
 
@@ -218,8 +245,9 @@ export default function TeamScreen({ route, navigation }: Props): React.ReactEle
     setActionLoading(true);
     const result = await action.onPress();
     setActionLoading(false);
-    if (result.error !== null) { Alert.alert('Fehler', result.error); return; }
-    setActionTarget(null);
+    // 'cancelled' is a sentinel value used when the user dismisses a confirmation dialog
+    if (result.error !== null && result.error !== 'cancelled') { Alert.alert('Fehler', result.error); return; }
+    if (result.error === null) setActionTarget(null);
   }
 
   async function handleNominationAction(

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { getCached, setCached } from '../lib/queryCache';
 
 // ─── Fitness group mapping ─────────────────────────────────────────────────────
 
@@ -76,13 +77,17 @@ export interface FocusRecommendation {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+type RecommendedWorkoutSnapshot = { recommendation: FocusRecommendation | null };
+
 export function useRecommendedWorkout(refetchTrigger = 0): {
   recommendation: FocusRecommendation | null;
   loading: boolean;
 } {
   const { user } = useAuth();
-  const [recommendation, setRecommendation] = useState<FocusRecommendation | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useRecommendedWorkout:${user.id}` : null;
+  const cached = cacheKey ? getCached<RecommendedWorkoutSnapshot>(cacheKey) : undefined;
+  const [recommendation, setRecommendation] = useState<FocusRecommendation | null>(() => cached?.recommendation ?? null);
+  const [loading, setLoading] = useState(cached === undefined);
 
   useEffect(() => {
     if (user === null) {
@@ -135,12 +140,14 @@ export function useRecommendedWorkout(refetchTrigger = 0): {
           ? `${label} diese Woche noch nicht trainiert`
           : `Wenig ${label} diese Woche`;
 
-        setRecommendation({
+        const rec: FocusRecommendation = {
           group:  leastGroup,
           label,
           reason,
           tip: GROUP_TIPS[leastGroup],
-        });
+        };
+        setRecommendation(rec);
+        if (cacheKey) setCached<RecommendedWorkoutSnapshot>(cacheKey, { recommendation: rec });
         setLoading(false);
       });
   }, [user, refetchTrigger]);

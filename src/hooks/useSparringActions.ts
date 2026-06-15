@@ -13,6 +13,7 @@ export type CreateSparringInput =
       durationMin: number;
       maxSlots: number;
       notes: string;
+      verifiedOnly?: boolean;
     }
   | {
       address: string;
@@ -30,6 +31,7 @@ export type CreateSparringInput =
       durationMin: number;
       maxSlots: number;
       notes: string;
+      verifiedOnly?: boolean;
     };
 
 export function useSparringActions(): {
@@ -45,7 +47,14 @@ export function useSparringActions(): {
     const { error } = await supabase
       .from('sparring_signups')
       .insert({ sparring_id: sparringId, user_id: user.id });
-    return { error: error?.message ?? null };
+    if (error !== null) {
+      // Map RLS denial to a user-friendly German message
+      if (error.code === '42501' || /row-level security|policy/i.test(error.message)) {
+        return { error: 'Dieses Sparring ist nur für verifizierte Mitglieder.' };
+      }
+      return { error: error.message };
+    }
+    return { error: null };
   }, [user]);
 
   const cancelSignup = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
@@ -107,18 +116,19 @@ export function useSparringActions(): {
     const { data: newSparring, error } = await supabase
       .from('open_sparrings')
       .insert({
-        studio_id:    params.studioId !== undefined ? studioId : (params.isAtStudio === true ? (params.atStudioId ?? null) : null),
-        is_at_studio: params.studioId !== undefined ? true : (params.isAtStudio === true),
-        created_by:   user.id,
-        title:        params.title,
-        discipline:   params.discipline,
-        address:      resolvedAddress,
+        studio_id:     params.studioId !== undefined ? studioId : (params.isAtStudio === true ? (params.atStudioId ?? null) : null),
+        is_at_studio:  params.studioId !== undefined ? true : (params.isAtStudio === true),
+        created_by:    user.id,
+        title:         params.title,
+        discipline:    params.discipline,
+        address:       resolvedAddress,
         lat,
         lng,
-        scheduled_at: params.scheduledAt,
-        duration_min: params.durationMin,
-        max_slots:    params.maxSlots,
-        notes:        params.notes.trim() || null,
+        scheduled_at:  params.scheduledAt,
+        duration_min:  params.durationMin,
+        max_slots:     params.maxSlots,
+        notes:         params.notes.trim() || null,
+        verified_only: params.verifiedOnly === true,
       })
       .select('id')
       .single();

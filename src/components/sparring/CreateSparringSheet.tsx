@@ -180,6 +180,7 @@ export default function CreateSparringSheet(props: Props) {
     isUserMode && coachStudio !== null && coachStudio !== undefined && coachStudio.address.trim().length > 0;
 
   const [isAtStudio, setIsAtStudio] = useState(false);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
 
   const { bannedWords } = useBannedWords();
   const [filterError, setFilterError] = useState<string | null>(null);
@@ -280,8 +281,9 @@ export default function CreateSparringSheet(props: Props) {
           durationMin: dur,
           maxSlots: slots,
           notes,
+          verifiedOnly,
         }
-      : { studioId: studioId as string, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes };
+      : { studioId: studioId as string, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes, verifiedOnly };
 
     setLoading(true);
     await onCreate(params);
@@ -290,6 +292,7 @@ export default function CreateSparringSheet(props: Props) {
     setAddress('');
     setPickedCoord(null);
     setIsAtStudio(false);
+    setVerifiedOnly(false);
     setDiscipline(DISCIPLINES[0]);
     setNotes('');
     setDurationMin('90');
@@ -518,6 +521,20 @@ export default function CreateSparringSheet(props: Props) {
             numberOfLines={3}
           />
 
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setVerifiedOnly((v) => !v)}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.checkbox, verifiedOnly && styles.checkboxChecked]}>
+              {verifiedOnly && <Ionicons name="checkmark" size={14} color={colors.card} />}
+            </View>
+            <View style={styles.verifiedOnlyLabelBlock}>
+              <Text style={styles.checkboxLabel}>Nur verifizierte Mitglieder</Text>
+              <Text style={styles.verifiedOnlyHint}>Nur Nutzer mit verifiziertem Profil können teilnehmen</Text>
+            </View>
+          </TouchableOpacity>
+
           {filterError !== null && <Text style={styles.filterError}>{filterError}</Text>}
 
           <TouchableOpacity
@@ -719,6 +736,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
+  },
+  verifiedOnlyLabelBlock: {
+    flex: 1,
+  },
+  verifiedOnlyHint: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.textSecondary,
+    marginTop: 2,
+    opacity: 0.8,
   },
   inputDisabled: {
     opacity: 0.5,

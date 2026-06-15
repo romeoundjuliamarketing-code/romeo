@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Platform,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -17,7 +18,7 @@ import type { Studio } from '../../hooks/useStudio';
 
 interface Props {
   currentStudio: Studio | null;
-  onJoin: (studioId: string) => Promise<void>;
+  onRequestJoin: (studioId: string) => Promise<{ error: string | null }>;
   onSearch: (query: string) => Promise<Studio[]>;
   onCreate: (name: string, city: string) => Promise<Studio | null>;
   onRedeemCode?: (code: string) => Promise<{ error: string | null }>;
@@ -25,11 +26,13 @@ interface Props {
   onCreateBlocked?: () => void;
   onViewTeam?: () => void;
   inline?: boolean;
+  pendingStudioName?: string | null;
+  onCancelRequest?: () => Promise<void>;
 }
 
 export default function TeamPickerCard({
   currentStudio,
-  onJoin,
+  onRequestJoin,
   onSearch,
   onCreate,
   onRedeemCode,
@@ -37,6 +40,8 @@ export default function TeamPickerCard({
   onCreateBlocked,
   onViewTeam,
   inline = false,
+  pendingStudioName,
+  onCancelRequest,
 }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [query, setQuery] = useState('');
@@ -84,11 +89,16 @@ export default function TeamPickerCard({
     setRedeemError(null);
   }
 
-  async function handleJoin(studio: Studio): Promise<void> {
+  async function handleRequestJoin(studio: Studio): Promise<void> {
     setSaving(true);
-    await onJoin(studio.id);
+    const result = await onRequestJoin(studio.id);
     setSaving(false);
+    if (result.error !== null) {
+      Alert.alert('Fehler', result.error);
+      return;
+    }
     closeModal();
+    Alert.alert('Anfrage gesendet', 'Ein Trainer muss deinen Beitritt noch bestätigen.');
   }
 
   async function handleRedeemCode(): Promise<void> {
@@ -128,6 +138,24 @@ export default function TeamPickerCard({
           <Text style={styles.studioName}>{currentStudio.name}</Text>
           <Text style={styles.studioCity}>{currentStudio.city}</Text>
         </TouchableOpacity>
+      ) : pendingStudioName !== null && pendingStudioName !== undefined ? (
+        <View style={styles.pendingBanner}>
+          <View style={styles.pendingBannerContent}>
+            <Ionicons name="time-outline" size={16} color={colors.accentBlue} />
+            <Text style={styles.pendingBannerText} numberOfLines={2}>
+              Anfrage an {pendingStudioName} gesendet – wartet auf Bestätigung
+            </Text>
+          </View>
+          {onCancelRequest !== undefined && (
+            <TouchableOpacity
+              style={styles.cancelRequestBtn}
+              onPress={() => { void onCancelRequest(); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.cancelRequestBtnText}>Abbrechen</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       ) : (
         <TouchableOpacity style={styles.joinBtn} onPress={() => setModalVisible(true)}>
           <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
@@ -193,7 +221,7 @@ export default function TeamPickerCard({
                 return (
                   <TouchableOpacity
                     style={[styles.resultItem, isActive && styles.resultItemActive]}
-                    onPress={() => { void handleJoin(item); }}
+                    onPress={() => { void handleRequestJoin(item); }}
                     disabled={saving}
                   >
                     <View style={styles.resultInfo}>
@@ -381,6 +409,36 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.accentBlue,
+  },
+  pendingBanner: {
+    backgroundColor: colors.accentBlueSoft,
+    borderRadius: 10,
+    padding: 12,
+    gap: 8,
+  },
+  pendingBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  pendingBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.accentBlue,
+    lineHeight: 18,
+  },
+  cancelRequestBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: colors.accentBlue,
+  },
+  cancelRequestBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.headerTextPrimary,
   },
 
   // ── Modal ─────────────────────────────────────────────────────────────────

@@ -23,13 +23,20 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
     dropInBookings,
     membershipRequests,
     cancellationRequests,
+    joinRequests,
     loading,
     refetch,
     respondTrial,
+    respondJoin,
   } = useStudioRequests(studioId);
   const { respondMembership, confirmEnd } = useMembershipActions();
 
-  const totalCount = trialBookings.length + dropInBookings.length + membershipRequests.length + cancellationRequests.length;
+  const totalCount = trialBookings.length + dropInBookings.length + membershipRequests.length + cancellationRequests.length + joinRequests.length;
+
+  async function handleRespondJoin(id: string, approve: boolean): Promise<void> {
+    const { error } = await respondJoin(id, approve);
+    if (error !== null) Alert.alert('Fehler', error);
+  }
 
   async function handleRespondTrial(id: string, confirm: boolean): Promise<void> {
     const { error } = await respondTrial(id, confirm);
@@ -75,6 +82,44 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
   return (
     <View style={styles.card}>
       <Text style={styles.sectionLabel}>Anfragen</Text>
+
+      {/* Join requests (Beitrittsanfragen) */}
+      {joinRequests.length > 0 && (
+        <>
+          <Text style={styles.subLabel}>Beitrittsanfragen</Text>
+          {joinRequests.map((req, idx) => (
+            <View
+              key={req.id}
+              style={[styles.requestRow, idx > 0 && styles.requestRowBorder]}
+            >
+              <View style={styles.requestInfo}>
+                <Text style={styles.userName} numberOfLines={1}>
+                  {req.user_name ?? 'Unbekannt'}
+                </Text>
+                <Text style={styles.requestMeta}>
+                  Möchte dem Team beitreten
+                </Text>
+              </View>
+              <View style={styles.actions}>
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={() => { void handleRespondJoin(req.id, true); }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="check" size={18} color={colors.difficultyGreen} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.declineBtn}
+                  onPress={() => { void handleRespondJoin(req.id, false); }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialCommunityIcons name="close" size={18} color={colors.deleteRed} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </>
+      )}
 
       {/* Trial booking requests */}
       {trialBookings.map((booking, idx) => (

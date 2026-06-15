@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { geocodeAddress } from '../utils/geocoding';
 import { computeVerificationTier, type VerificationFlags, type VerificationTier } from '../utils/verificationTier';
+import { getCached, setCached } from '../lib/queryCache';
 
 const EMPTY_FLAGS: VerificationFlags = {
   email_verified: false,
@@ -11,6 +12,8 @@ const EMPTY_FLAGS: VerificationFlags = {
   coach_vouched: false,
   phone_verified: false,
 };
+
+type VerificationSnapshot = { flags: VerificationFlags };
 
 export function useVerification(refetchTrigger = 0): {
   flags: VerificationFlags;
@@ -21,8 +24,10 @@ export function useVerification(refetchTrigger = 0): {
   updatePhone: (phone: string) => Promise<{ error: string | null }>;
 } {
   const { user } = useAuth();
-  const [flags, setFlags] = useState<VerificationFlags>(EMPTY_FLAGS);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useVerification:${user.id}` : null;
+  const cached = cacheKey ? getCached<VerificationSnapshot>(cacheKey) : undefined;
+  const [flags, setFlags] = useState<VerificationFlags>(() => cached?.flags ?? EMPTY_FLAGS);
+  const [loading, setLoading] = useState(cached === undefined);
   const [localTrigger, setLocalTrigger] = useState(0);
 
   const refetch = useCallback(() => setLocalTrigger(v => v + 1), []);
@@ -30,17 +35,18 @@ export function useVerification(refetchTrigger = 0): {
   useEffect(() => {
     let active = true;
     void (async () => {
-      setLoading(true);
       const { data, error } = await supabase.rpc('get_my_verification');
       if (active) {
         if (error === null && data !== null) {
-          setFlags(data as VerificationFlags);
+          const newFlags = data as VerificationFlags;
+          setFlags(newFlags);
+          if (cacheKey) setCached<VerificationSnapshot>(cacheKey, { flags: newFlags });
         }
         setLoading(false);
       }
     })();
     return () => { active = false; };
-  }, [refetchTrigger, localTrigger]);
+  }, [refetchTrigger, localTrigger, cacheKey]);
 
   const updateAddress = useCallback(async (address: string): Promise<{ error: string | null }> => {
     if (user === null) return { error: 'not_authenticated' };

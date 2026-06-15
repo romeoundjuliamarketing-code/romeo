@@ -126,7 +126,7 @@ export default function OnboardingScreen() {
   const { user } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { acceptInvite } = useStudioInvite();
-  const { joinStudio } = useStudio();
+  const { requestJoin } = useStudio();
 
   const [stepIndex, setStepIndex] = useState(-1);
   const [saving, setSaving] = useState(false);
@@ -279,7 +279,7 @@ export default function OnboardingScreen() {
           setError('Ungültiger Code. Bitte prüfe den Code und versuche es erneut.');
           return;
         }
-        if (studioId !== null) await joinStudio(studioId);
+        if (studioId !== null) await requestJoin(studioId);
         setSaving(false);
       }
       await handleFinish();

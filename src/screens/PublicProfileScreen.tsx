@@ -30,6 +30,8 @@ import { useUserReport }      from '../hooks/useUserReport';
 import FightRecordCard        from '../components/profil/FightRecordCard';
 import { useAuth }            from '../context/AuthContext';
 import { getInitials }        from '../components/profil/ProfileHero';
+import { stanceLabel }        from '../utils/stance';
+import type { Stance }        from '../utils/stance';
 
 // ── constants ──────────────────────────────────────────────────────────────────
 
@@ -74,7 +76,7 @@ interface PublicProfile {
   bio:               string | null;
   instagram_url:     string | null;
   profile_code:      string;
-  stance:            'orthodox' | 'southpaw' | null;
+  stance:            Stance | null;
   training_since:    string | null;
 }
 
@@ -184,7 +186,7 @@ export default function PublicProfileScreen(): React.ReactElement {
             bio:               data.bio ?? null,
             instagram_url:     data.instagram_url ?? null,
             profile_code:      (data.profile_code as string) ?? '',
-            stance:            (data.stance as 'orthodox' | 'southpaw' | null) ?? null,
+            stance:            (data.stance as Stance | null) ?? null,
             training_since:    data.training_since ?? null,
           });
         }
@@ -301,11 +303,9 @@ export default function PublicProfileScreen(): React.ReactElement {
   const totalFights    = targetFights.length;
   const totalWins      = targetFights.filter((f) => f.result === 'win').length;
 
-  const stanceLabel =
-    profile?.stance === 'orthodox' ? 'Orthodox' :
-    profile?.stance === 'southpaw' ? 'Southpaw' : null;
+  const stanceText = stanceLabel(profile?.stance);
 
-  const metaParts = [profile?.weight_class, profile?.nationality, stanceLabel]
+  const metaParts = [profile?.weight_class, profile?.nationality, stanceText]
     .filter((v): v is string => v !== null && v !== undefined && v.length > 0);
 
   // Steckbrief rows — same fields as OverviewTab
@@ -335,7 +335,7 @@ export default function PublicProfileScreen(): React.ReactElement {
     steckbriefRows.push({
       icon: 'boxing-glove',
       label: 'Auslage',
-      value: profile.stance === 'orthodox' ? 'Rechtshänder' : 'Linkshänder',
+      value: stanceLabel(profile.stance) ?? '',
     });
   }
 

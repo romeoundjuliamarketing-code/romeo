@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 
 export interface SparringWithMeta {
   id: string;
@@ -19,6 +20,7 @@ export interface SparringWithMeta {
   is_active: boolean;
   is_featured: boolean;
   is_at_studio: boolean;
+  verified_only: boolean;
   created_at: string;
   studio_name: string;
   studio_city: string;
@@ -26,14 +28,18 @@ export interface SparringWithMeta {
   is_signed_up: boolean;
 }
 
+type OpenSparringsSnapshot = { sparrings: SparringWithMeta[] };
+
 export function useOpenSparrings(refetchTrigger = 0): {
   sparrings: SparringWithMeta[];
   loading: boolean;
   refetch: () => void;
 } {
   const { user } = useAuth();
-  const [sparrings, setSparrings] = useState<SparringWithMeta[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useOpenSparrings:${user.id}` : null;
+  const cached = cacheKey ? getCached<OpenSparringsSnapshot>(cacheKey) : undefined;
+  const [sparrings, setSparrings] = useState<SparringWithMeta[]>(() => cached?.sparrings ?? []);
+  const [loading, setLoading] = useState(cached === undefined);
   const [localTrigger, setLocalTrigger] = useState(0);
 
   const refetch = useCallback(() => setLocalTrigger((n) => n + 1), []);
@@ -42,7 +48,6 @@ export function useOpenSparrings(refetchTrigger = 0): {
     if (user === null) return;
 
     void (async () => {
-      setLoading(true);
       const now = new Date().toISOString();
 
       const { data: rows, error } = await supabase
@@ -102,6 +107,7 @@ export function useOpenSparrings(refetchTrigger = 0): {
           is_active: r.is_active,
           is_featured: (r.is_featured ?? false) || boostedIds.has(r.id),
           is_at_studio: r.is_at_studio ?? false,
+          verified_only: r.verified_only ?? false,
           created_at: r.created_at,
           studio_name: studio?.name ?? 'Privat',
           studio_city: studio?.city ?? '',
@@ -112,6 +118,7 @@ export function useOpenSparrings(refetchTrigger = 0): {
 
       reportNetworkSuccess();
       setSparrings(result);
+      if (cacheKey) setCached<OpenSparringsSnapshot>(cacheKey, { sparrings: result });
       setLoading(false);
     })();
   }, [user, refetchTrigger, localTrigger]);

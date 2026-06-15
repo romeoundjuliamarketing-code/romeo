@@ -296,27 +296,27 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
               <View style={styles.aboRow}>
                 <View style={[
                   styles.aboDot,
-                  entitlement.hasAccess && entitlement.tier === 'studio'
+                  entitlement.canManageStudio
                     ? styles.aboDotActive
                     : styles.aboDotInactive,
                 ]} />
                 <Text style={styles.aboStatus}>
-                  {entitlement.hasAccess && entitlement.tier === 'studio'
+                  {entitlement.canManageStudio
                     ? 'Dein Studio ist auf der Karte sichtbar'
                     : 'Nicht auf der Karte sichtbar'}
                 </Text>
               </View>
-              {(!entitlement.hasAccess || entitlement.tier !== 'studio') && (
+              {!entitlement.canManageStudio && (
                 <TouchableOpacity
                   style={styles.aboBtn}
                   activeOpacity={0.85}
                   onPress={() => {
                     void Linking.openURL(
-                      'mailto:kontakt@sparr.app?subject=Studio%20auf%20der%20Karte%20freischalten&body=Hallo%2C%20ich%20möchte%20mein%20Studio%20auf%20der%20Karte%20freischalten.',
+                      `https://wa.me/4915566574802?text=${encodeURIComponent('Hallo, ich möchte mein Studio auf der Karte freischalten.')}`,
                     );
                   }}
                 >
-                  <Text style={styles.aboBtnText}>Jetzt freischalten — 29 EUR/Monat</Text>
+                  <Text style={styles.aboBtnText}>Per WhatsApp freischalten — 29 EUR/Monat</Text>
                 </TouchableOpacity>
               )}
             </View>

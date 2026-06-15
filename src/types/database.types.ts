@@ -35,7 +35,7 @@ export type Database = {
           show_weight_in_group: boolean
           streak_days: number
           arm_span_cm: number | null
-          stance: 'orthodox' | 'southpaw' | null
+          stance: 'orthodox' | 'southpaw' | 'switch' | null
           is_professional: boolean | null
           studio_id: string | null
           total_points: number
@@ -80,7 +80,7 @@ export type Database = {
           show_weight_in_group?: boolean
           streak_days?: number
           arm_span_cm?: number | null
-          stance?: 'orthodox' | 'southpaw' | null
+          stance?: 'orthodox' | 'southpaw' | 'switch' | null
           is_professional?: boolean | null
           studio_id?: string | null
           total_points?: number
@@ -125,7 +125,7 @@ export type Database = {
           show_weight_in_group?: boolean
           streak_days?: number
           arm_span_cm?: number | null
-          stance?: 'orthodox' | 'southpaw' | null
+          stance?: 'orthodox' | 'southpaw' | 'switch' | null
           is_professional?: boolean | null
           studio_id?: string | null
           total_points?: number
@@ -350,6 +350,48 @@ export type Database = {
           },
         ]
       }
+      studio_coaches: {
+        Row: {
+          id: string
+          studio_id: string
+          user_id: string
+          role: string | null
+          position: number
+          added_at: string
+        }
+        Insert: {
+          id?: string
+          studio_id: string
+          user_id: string
+          role?: string | null
+          position?: number
+          added_at?: string
+        }
+        Update: {
+          id?: string
+          studio_id?: string
+          user_id?: string
+          role?: string | null
+          position?: number
+          added_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'studio_coaches_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'studio_coaches_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       open_sparrings: {
         Row: {
           id: string
@@ -367,6 +409,7 @@ export type Database = {
           is_active: boolean
           is_featured: boolean
           is_at_studio: boolean
+          verified_only: boolean
           created_at: string
         }
         Insert: {
@@ -385,6 +428,7 @@ export type Database = {
           is_active?: boolean
           is_featured?: boolean
           is_at_studio?: boolean
+          verified_only?: boolean
           created_at?: string
         }
         Update: {
@@ -403,6 +447,7 @@ export type Database = {
           is_active?: boolean
           is_featured?: boolean
           is_at_studio?: boolean
+          verified_only?: boolean
           created_at?: string
         }
         Relationships: [
@@ -682,7 +727,7 @@ export type Database = {
         Row: {
           id: string
           user_id: string
-          tier: 'individual' | 'studio'
+          tier: 'individual' | 'studio_visibility' | 'studio_suite'
           billing_cycle: 'monthly' | 'yearly'
           status: 'active' | 'trialing' | 'past_due' | 'canceled' | 'inactive'
           cancel_at_period_end: boolean
@@ -696,7 +741,7 @@ export type Database = {
         Insert: {
           id?: string
           user_id: string
-          tier: 'individual' | 'studio'
+          tier: 'individual' | 'studio_visibility' | 'studio_suite'
           billing_cycle?: 'monthly' | 'yearly'
           status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'inactive'
           cancel_at_period_end?: boolean
@@ -710,7 +755,7 @@ export type Database = {
         Update: {
           id?: string
           user_id?: string
-          tier?: 'individual' | 'studio'
+          tier?: 'individual' | 'studio_visibility' | 'studio_suite'
           billing_cycle?: 'monthly' | 'yearly'
           status?: 'active' | 'trialing' | 'past_due' | 'canceled' | 'inactive'
           cancel_at_period_end?: boolean
@@ -1226,6 +1271,44 @@ export type Database = {
           },
         ]
       }
+      studio_join_requests: {
+        Row: {
+          id:           string
+          user_id:      string
+          studio_id:    string
+          status:       'pending' | 'approved' | 'rejected' | 'cancelled'
+          created_at:   string
+          responded_at: string | null
+          responded_by: string | null
+        }
+        Insert: {
+          id?:           string
+          user_id:       string
+          studio_id:     string
+          status?:       'pending' | 'approved' | 'rejected' | 'cancelled'
+          created_at?:   string
+          responded_at?: string | null
+          responded_by?: string | null
+        }
+        Update: {
+          id?:           string
+          user_id?:      string
+          studio_id?:    string
+          status?:       'pending' | 'approved' | 'rejected' | 'cancelled'
+          created_at?:   string
+          responded_at?: string | null
+          responded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'studio_join_requests_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       trial_bookings: {
         Row: {
           id: string
@@ -1417,10 +1500,21 @@ export type Database = {
           tier: string | null
           source: string | null
           can_create_studio: boolean
+          can_manage_studio: boolean
+          can_announce: boolean
+          can_manage_memberships: boolean
           included_seats: number
           used_seats: number
           extra_seats: number
         }[]
+      }
+      grant_studio_tier: {
+        Args: { p_user_id: string; p_tier: string; p_period_end: string }
+        Returns: undefined
+      }
+      entitlement_allows: {
+        Args: { p_tier: string; p_feature: string }
+        Returns: boolean
       }
       create_studio_with_owner: {
         Args: { p_name: string; p_city: string }
@@ -1555,6 +1649,22 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: Json
       }
+      request_studio_join: {
+        Args: { p_studio_id: string }
+        Returns: string
+      }
+      respond_studio_join: {
+        Args: { p_id: string; p_approve: boolean }
+        Returns: undefined
+      }
+      remove_studio_member: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      leave_studio: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1608,6 +1718,9 @@ export type AttendanceLog = Database['public']['Tables']['attendance_logs']['Row
 
 export type CustomWorkout = Database['public']['Tables']['custom_workouts']['Row']
 export type CustomWorkoutInsert = Database['public']['Tables']['custom_workouts']['Insert']
+
+export type StudioCoach = Database['public']['Tables']['studio_coaches']['Row']
+export type StudioCoachInsert = Database['public']['Tables']['studio_coaches']['Insert']
 
 export interface CustomExercise {
   name: string;
@@ -1698,6 +1811,21 @@ export interface MembershipContractWithUser extends MembershipContract {
 // Contract enriched with plan info (optional joined read)
 export interface MembershipContractWithPlan extends MembershipContract {
   plan: MembershipPlan | null
+}
+
+export type StudioJoinRequest = Database['public']['Tables']['studio_join_requests']['Row']
+export type StudioJoinRequestInsert = Database['public']['Tables']['studio_join_requests']['Insert']
+export type StudioJoinRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled'
+
+// Join request enriched with requesting member's name (for coach-facing lists)
+export interface StudioJoinRequestWithUser extends StudioJoinRequest {
+  user_name: string | null
+}
+
+// Join request enriched with studio name/city (for member-facing lists)
+export interface StudioJoinRequestWithStudio extends StudioJoinRequest {
+  studio_name: string
+  studio_city: string
 }
 
 // Nomination enriched with display data (computed in hook)

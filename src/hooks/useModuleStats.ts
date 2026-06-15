@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { colors } from '../theme/colors';
+import { getCached, setCached } from '../lib/queryCache';
 
 // Segment shown in the donut chart — one per workout category
 export interface ModuleSegment {
@@ -30,21 +31,23 @@ interface UseModuleStatsResult {
   loading: boolean;
 }
 
+type ModuleStatsSnapshot = { segments: ModuleSegment[]; total: number };
+
 // Loads completed module workouts (grouped by category) and extra units,
 // then combines them into donut segments.
 export function useModuleStats(refetchTrigger = 0): UseModuleStatsResult {
   const { user } = useAuth();
-  const [segments, setSegments] = useState<ModuleSegment[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useModuleStats:${user.id}` : null;
+  const cached = cacheKey ? getCached<ModuleStatsSnapshot>(cacheKey) : undefined;
+  const [segments, setSegments] = useState<ModuleSegment[]>(() => cached?.segments ?? []);
+  const [total, setTotal] = useState(() => cached?.total ?? 0);
+  const [loading, setLoading] = useState(cached === undefined);
 
   useEffect(() => {
     if (user === null) {
       setLoading(false);
       return;
     }
-
-    setLoading(true);
 
     // Fetch module workouts and extra logs in parallel
     Promise.all([
@@ -82,6 +85,7 @@ export function useModuleStats(refetchTrigger = 0): UseModuleStatsResult {
       const sum = built.reduce((acc, s) => acc + s.value, 0);
       setSegments(built);
       setTotal(sum);
+      if (cacheKey) setCached<ModuleStatsSnapshot>(cacheKey, { segments: built, total: sum });
       setLoading(false);
     });
   }, [user, refetchTrigger]);

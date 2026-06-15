@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type { AppNotification } from '../types/database.types';
+
+type NotificationFeedSnapshot = { notifications: AppNotification[] };
 
 export interface UseNotificationFeedResult {
   notifications: AppNotification[];
@@ -16,8 +19,10 @@ export interface UseNotificationFeedResult {
 // markAllRead calls the mark_all_notifications_read RPC then refetches.
 export function useNotificationFeed(refetchTrigger = 0): UseNotificationFeedResult {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [loading,       setLoading]        = useState(true);
+  const cacheKey = user ? `useNotificationFeed:${user.id}` : null;
+  const cached = cacheKey ? getCached<NotificationFeedSnapshot>(cacheKey) : undefined;
+  const [notifications, setNotifications] = useState<AppNotification[]>(() => cached?.notifications ?? []);
+  const [loading,       setLoading]        = useState(cached === undefined);
   const [localTrigger,  setLocalTrigger]   = useState(0);
 
   const refetch = useCallback(() => setLocalTrigger((n) => n + 1), []);
@@ -30,7 +35,6 @@ export function useNotificationFeed(refetchTrigger = 0): UseNotificationFeedResu
     }
 
     let cancelled = false;
-    setLoading(true);
 
     void (async () => {
       const { data, error } = await supabase
@@ -55,6 +59,7 @@ export function useNotificationFeed(refetchTrigger = 0): UseNotificationFeedResu
         data: (row.data ?? {}) as Record<string, unknown>,
       }));
       setNotifications(rows);
+      if (cacheKey) setCached<NotificationFeedSnapshot>(cacheKey, { notifications: rows });
       setLoading(false);
     })();
 

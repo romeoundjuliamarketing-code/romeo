@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/queryCache';
 
 // Returns ISO date strings for Mon–Sun of the current week
 function currentWeekRange(): { from: string; to: string } {
@@ -16,11 +17,15 @@ function currentWeekRange(): { from: string; to: string } {
   };
 }
 
+type CompletedWorkoutIdsSnapshot = { titles: string[] };
+
 // Returns the Set of workout titles (source='module') completed this week.
 // Matched by title since workout_logs has no separate source_id column.
 export function useCompletedWorkoutIds(refetchTrigger = 0): Set<string> {
   const { user } = useAuth();
-  const [completedTitles, setCompletedTitles] = useState<Set<string>>(new Set());
+  const cacheKey = user ? `useCompletedWorkoutIds:${user.id}` : null;
+  const cached = cacheKey ? getCached<CompletedWorkoutIdsSnapshot>(cacheKey) : undefined;
+  const [completedTitles, setCompletedTitles] = useState<Set<string>>(() => new Set(cached?.titles ?? []));
 
   const load = useCallback(async () => {
     if (user === null) return;
@@ -35,9 +40,11 @@ export function useCompletedWorkoutIds(refetchTrigger = 0): Set<string> {
       .lte('date', to);
 
     if (data !== null) {
-      setCompletedTitles(new Set(data.map((r) => r.title ?? '')));
+      const titles = data.map((r) => r.title ?? '');
+      setCompletedTitles(new Set(titles));
+      if (cacheKey) setCached<CompletedWorkoutIdsSnapshot>(cacheKey, { titles });
     }
-  }, [user]);
+  }, [user, cacheKey]);
 
   useEffect(() => {
     void load();

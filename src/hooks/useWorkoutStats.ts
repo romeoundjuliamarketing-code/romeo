@@ -2,6 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
+
+type WorkoutStatsSnapshot = {
+  completedDayIndices: number[];
+  totalPoints: number;
+  totalWorkouts: number;
+  streak: number;
+  rank: number | null;
+  trainingTypePoints: Record<string, number>;
+};
 
 interface WorkoutStats {
   completedDayIndices: number[]; // 0=Mon … 6=Sun for the current week
@@ -61,13 +71,15 @@ type ProfileRow = { total_points: number; studio_id: string | null };
 
 export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
   const { user } = useAuth();
-  const [completedDayIndices, setCompletedDayIndices] = useState<number[]>([]);
-  const [totalPoints, setTotalPoints] = useState(0);
-  const [totalWorkouts, setTotalWorkouts] = useState(0);
-  const [streak, setStreak] = useState(0);
-  const [rank, setRank] = useState<number | null>(null);
-  const [trainingTypePoints, setTrainingTypePoints] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useWorkoutStats:${user.id}` : null;
+  const cached = cacheKey ? getCached<WorkoutStatsSnapshot>(cacheKey) : undefined;
+  const [completedDayIndices, setCompletedDayIndices] = useState<number[]>(() => cached?.completedDayIndices ?? []);
+  const [totalPoints, setTotalPoints] = useState(() => cached?.totalPoints ?? 0);
+  const [totalWorkouts, setTotalWorkouts] = useState(() => cached?.totalWorkouts ?? 0);
+  const [streak, setStreak] = useState(() => cached?.streak ?? 0);
+  const [rank, setRank] = useState<number | null>(() => cached?.rank ?? null);
+  const [trainingTypePoints, setTrainingTypePoints] = useState<Record<string, number>>(() => cached?.trainingTypePoints ?? {});
+  const [loading, setLoading] = useState(cached === undefined);
   const [internalTrigger, setInternalTrigger] = useState(0);
 
   const refetch = useCallback(() => setInternalTrigger((n) => n + 1), []);
@@ -119,29 +131,43 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
     ]).then(async ([weekRes, allRes, countRes, profileRes, typesRes]) => {
       if (weekRes.error !== null) { reportNetworkError(weekRes.error); return; }
       reportNetworkSuccess();
+      // Compute each value once (state setters are async, so the snapshot below
+      // reuses these locals rather than re-deriving them from the raw results).
+      const localIndices = weekRes.data !== null
+        ? [...new Set(weekRes.data.map((row) => {
+            const d = new Date(row.date + 'T12:00:00'); // noon to avoid TZ issues
+            const js = d.getDay(); // 0=Sun
+            return (js + 6) % 7; // convert to 0=Mon
+          }))]
+        : [];
       if (weekRes.data !== null) {
-        const indices = weekRes.data.map((row) => {
-          const d = new Date(row.date + 'T12:00:00'); // noon to avoid TZ issues
-          const js = d.getDay(); // 0=Sun
-          return (js + 6) % 7; // convert to 0=Mon
-        });
         // Deduplicate: multiple logs on the same day should count as one
-        setCompletedDayIndices([...new Set(indices)]);
+        setCompletedDayIndices(localIndices);
       }
+
+      const localStreak = allRes.data !== null ? calcStreak(allRes.data.map((row) => row.date as string)) : 0;
       if (allRes.data !== null) {
-        setStreak(calcStreak(allRes.data.map((row) => row.date as string)));
+        setStreak(localStreak);
       }
-      setTotalWorkouts(countRes.count ?? 0);
+
+      const localTotalWorkouts = countRes.count ?? 0;
+      setTotalWorkouts(localTotalWorkouts);
+
+      const localTypePoints: Record<string, number> = {};
       if (typesRes.data !== null) {
-        const map: Record<string, number> = {};
         for (const row of typesRes.data) {
           const type = ((row.training_type as string | null) ?? 'sonstige').toLowerCase();
-          map[type] = (map[type] ?? 0) + (row.points ?? 0);
+          localTypePoints[type] = (localTypePoints[type] ?? 0) + (row.points ?? 0);
         }
-        setTrainingTypePoints(map);
+        setTrainingTypePoints(localTypePoints);
       }
+
+      let snapshotTotalPoints = 0;
+      let snapshotRank: number | null = null;
+
       if (profileRes.data !== null) {
-        setTotalPoints(profileRes.data.total_points);
+        snapshotTotalPoints = profileRes.data.total_points;
+        setTotalPoints(snapshotTotalPoints);
 
         // Rank = number of studio members with more points + 1
         const studioId = (profileRes.data as ProfileRow).studio_id;
@@ -151,11 +177,24 @@ export function useWorkoutStats(refetchTrigger = 0): WorkoutStats {
             .select('id', { count: 'exact', head: true })
             .eq('studio_id', studioId)
             .gt('total_points', profileRes.data.total_points);
-          setRank((count ?? 0) + 1);
+          snapshotRank = (count ?? 0) + 1;
+          setRank(snapshotRank);
         } else {
           setRank(null);
         }
       }
+
+      if (cacheKey) {
+        setCached<WorkoutStatsSnapshot>(cacheKey, {
+          completedDayIndices: localIndices,
+          totalPoints: snapshotTotalPoints,
+          totalWorkouts: localTotalWorkouts,
+          streak: localStreak,
+          rank: snapshotRank,
+          trainingTypePoints: localTypePoints,
+        });
+      }
+
       setLoading(false);
     });
   }, [user, refetchTrigger, internalTrigger]);

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { getRelevantFitnessGroups } from '../data/disciplines';
+import { getCached, setCached } from '../lib/queryCache';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,13 +85,19 @@ const ALL_GROUPS: FitnessGroup[] = [
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+type FitnessRatingsSnapshot = { ratings: FitnessRating[] };
+
 export function useFitnessRatings(refetchTrigger = 0, disciplines: string[] = []): {
   ratings: FitnessRating[];
   loading: boolean;
 } {
   const { user } = useAuth();
-  const [ratings, setRatings] = useState<FitnessRating[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Include sorted disciplines in cache key so different discipline configs are cached separately
+  const disciplinesKey = [...disciplines].sort().join(',');
+  const cacheKey = user ? `useFitnessRatings:${user.id}:${disciplinesKey}` : null;
+  const cached = cacheKey ? getCached<FitnessRatingsSnapshot>(cacheKey) : undefined;
+  const [ratings, setRatings] = useState<FitnessRating[]>(() => cached?.ratings ?? []);
+  const [loading, setLoading] = useState(cached === undefined);
 
   useEffect(() => {
     if (user === null) {
@@ -143,6 +150,7 @@ export function useFitnessRatings(refetchTrigger = 0, disciplines: string[] = []
         }));
 
         setRatings(result);
+        if (cacheKey) setCached<FitnessRatingsSnapshot>(cacheKey, { ratings: result });
         setLoading(false);
       });
   }, [user, refetchTrigger, disciplines]);

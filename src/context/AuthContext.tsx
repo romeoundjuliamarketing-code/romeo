@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User, AuthError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { clearQueryCache, hydrateQueryCache } from '../lib/queryCache';
 
 interface AuthContextType {
   session: Session | null;
@@ -15,14 +16,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  // Track previous user ID to detect account switches
+  const prevUserIdRef = useRef<string | null>(null);
+
+  // Hydrate the query cache once on mount before showing any UI
+  useEffect(() => {
+    hydrateQueryCache().finally(() => setHydrated(true));
+  }, []);
 
   useEffect(() => {
     // onAuthStateChange fires INITIAL_SESSION synchronously with the persisted session,
     // replacing the need for a separate getSession() call and avoiding race conditions.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      const newUserId = newSession?.user.id ?? null;
+      // Clear cache on sign-out or when a different account signs in
+      if (_event === 'SIGNED_OUT' || (newUserId !== null && newUserId !== prevUserIdRef.current && prevUserIdRef.current !== null)) {
+        clearQueryCache();
+      }
+      prevUserIdRef.current = newUserId;
       setSession(newSession);
-      setLoading(false);
+      setAuthReady(true);
     });
 
     return () => subscription.unsubscribe();
@@ -51,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading: !authReady || !hydrated, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

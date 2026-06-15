@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type { WeightLog } from '../types/database.types';
 
 // Returns the ISO date string of the Monday of the given date
@@ -18,6 +19,8 @@ export interface WeightEntry {
   weightKg: number;
 }
 
+type WeightSnapshot = { history: WeightEntry[] };
+
 export function useWeight(refetchTrigger = 0): {
   history: WeightEntry[];
   currentWeight: number | null;
@@ -26,8 +29,10 @@ export function useWeight(refetchTrigger = 0): {
   logWeight: (kg: number) => Promise<{ error: string | null }>;
 } {
   const { user } = useAuth();
-  const [history, setHistory] = useState<WeightEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useWeight:${user.id}` : null;
+  const cached = cacheKey ? getCached<WeightSnapshot>(cacheKey) : undefined;
+  const [history, setHistory] = useState<WeightEntry[]>(() => cached?.history ?? []);
+  const [loading, setLoading] = useState(cached === undefined);
 
   useEffect(() => {
     if (user === null) {
@@ -50,12 +55,12 @@ export function useWeight(refetchTrigger = 0): {
     } else {
       reportNetworkSuccess();
     }
-    setHistory(
-      (data ?? []).map((row: Pick<WeightLog, 'week_start' | 'weight_kg'>) => ({
-        weekStart: row.week_start,
-        weightKg: Number(row.weight_kg),
-      })),
-    );
+    const entries = (data ?? []).map((row: Pick<WeightLog, 'week_start' | 'weight_kg'>) => ({
+      weekStart: row.week_start,
+      weightKg: Number(row.weight_kg),
+    }));
+    setHistory(entries);
+    if (error === null && cacheKey) setCached<WeightSnapshot>(cacheKey, { history: entries });
     setLoading(false);
   }
 

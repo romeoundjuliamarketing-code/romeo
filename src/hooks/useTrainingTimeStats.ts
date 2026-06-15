@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { getCached, setCached } from '../lib/queryCache';
 import type { FitnessGroup } from './useFitnessRatings';
 
 export type TrainingTimeRange = '7d' | '30d' | '90d' | '12m' | 'all';
@@ -102,38 +103,35 @@ function calculateAveragePerWeek(totalMinutes: number, days: number): number {
   return Math.round(totalMinutes / (days / 7));
 }
 
+type TrainingTimeStatsSnapshot = { stats: TrainingTimeStats };
+
 export function useTrainingTimeStats(range: TrainingTimeRange, refetchTrigger = 0): {
   stats: TrainingTimeStats;
   loading: boolean;
 } {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<TrainingTimeStats>({
+  // Cache key includes range since different range selections have different data
+  const cacheKey = user ? `useTrainingTimeStats:${user.id}:${range}` : null;
+  const cached = cacheKey ? getCached<TrainingTimeStatsSnapshot>(cacheKey) : undefined;
+  const emptyStats: TrainingTimeStats = {
     totalMinutes: 0,
     sessionCount: 0,
     averagePerWeekMinutes: 0,
     comparisonMinutes: null,
     comparisonPercent: null,
     categories: [],
-  });
+  };
+  const [loading, setLoading] = useState(cached === undefined);
+  const [stats, setStats] = useState<TrainingTimeStats>(() => cached?.stats ?? emptyStats);
 
   const today = useMemo(() => startOfToday(), [range, refetchTrigger, user?.id]);
 
   useEffect(() => {
     if (user === null) {
-      setStats({
-        totalMinutes: 0,
-        sessionCount: 0,
-        averagePerWeekMinutes: 0,
-        comparisonMinutes: null,
-        comparisonPercent: null,
-        categories: [],
-      });
+      setStats(emptyStats);
       setLoading(false);
       return;
     }
-
-    setLoading(true);
 
     const isAll = range === 'all';
     const rangeDays = isAll ? null : getRangeDays(range);
@@ -218,14 +216,16 @@ export function useTrainingTimeStats(range: TrainingTimeRange, refetchTrigger = 
         return Math.round(((totalMinutes - previousMinutes) / previousMinutes) * 100);
       })();
 
-      setStats({
+      const newStats: TrainingTimeStats = {
         totalMinutes,
         sessionCount,
         averagePerWeekMinutes,
         comparisonMinutes,
         comparisonPercent,
         categories,
-      });
+      };
+      setStats(newStats);
+      if (cacheKey) setCached<TrainingTimeStatsSnapshot>(cacheKey, { stats: newStats });
       setLoading(false);
     });
   }, [user, range, refetchTrigger, today]);

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -15,9 +15,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import QRCode from 'react-native-qrcode-svg';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import FightRecordCard from '../components/profil/FightRecordCard';
@@ -30,6 +31,7 @@ import StatsTab from '../components/profil/StatsTab';
 import { useWorkoutStats } from '../hooks/useWorkoutStats';
 import { useFightRecord } from '../hooks/useFightRecord';
 import { useStudio } from '../hooks/useStudio';
+import { useMyStudioRequests } from '../hooks/useMyStudioRequests';
 import { useProfile } from '../hooks/useProfile';
 import { useWeight } from '../hooks/useWeight';
 import { useEntitlement } from '../hooks/useEntitlement';
@@ -42,14 +44,12 @@ import { supabase } from '../lib/supabase';
 export default function ProfilScreen(): React.ReactElement {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [focusTrigger, setFocusTrigger] = useState(0);
-
-  useFocusEffect(useCallback(() => {
-    setFocusTrigger((n) => n + 1);
-  }, []));
+  useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
   // ── Hooks ──
   const { totalPoints, totalWorkouts, streak, rank } = useWorkoutStats(focusTrigger);
-  const { currentStudio, joinStudio, searchStudios, createStudio } = useStudio(focusTrigger);
+  const { currentStudio, requestJoin, leaveStudio: _leaveStudio, removeMember: _removeMember, searchStudios, createStudio } = useStudio(focusTrigger);
+  const { joinRequests, cancelJoinRequest, refetch: refetchMyRequests } = useMyStudioRequests(focusTrigger);
   const { profile, uploadAvatar, updateProfile } = useProfile(focusTrigger);
   const { acceptInvite } = useStudioInvite();
   const { currentWeight, isNewWeek, logWeight } = useWeight(focusTrigger);
@@ -76,12 +76,36 @@ export default function ProfilScreen(): React.ReactElement {
   // ── Handlers ──
 
   async function handleRedeemCode(code: string): Promise<{ error: string | null }> {
+    // accept_studio_invite RPC already sets profiles.studio_id server-side.
+    // Just redeem, then bump focusTrigger so useStudio reloads.
     const result = await acceptInvite(code);
     if (result.error !== null) return { error: result.error };
-    if (result.studioId !== null) {
-      await joinStudio(result.studioId);
-    }
+    setFocusTrigger((n) => n + 1);
     return { error: null };
+  }
+
+  // Pending join request (first one if any)
+  const pendingJoinRequest = joinRequests.length > 0 ? joinRequests[0] : null;
+  const pendingStudioName = pendingJoinRequest?.studio_name ?? null;
+
+  async function handleRequestJoin(studioId: string): Promise<{ error: string | null }> {
+    const result = await requestJoin(studioId);
+    if (result.error === null) {
+      setFocusTrigger((n) => n + 1);
+      refetchMyRequests();
+    }
+    return result;
+  }
+
+  async function handleCancelJoinRequest(): Promise<void> {
+    if (pendingJoinRequest === null) return;
+    const { error } = await cancelJoinRequest(pendingJoinRequest.id);
+    if (error !== null) {
+      Alert.alert('Fehler', error);
+      return;
+    }
+    setFocusTrigger((n) => n + 1);
+    refetchMyRequests();
   }
 
   async function handleSearchByCode(): Promise<void> {
@@ -167,10 +191,12 @@ export default function ProfilScreen(): React.ReactElement {
               currentStudio={currentStudio}
               focusTrigger={focusTrigger}
               canCreateStudio={entitlement.canCreateStudio}
-              onJoinStudio={joinStudio}
+              onRequestJoin={handleRequestJoin}
               onSearchStudios={searchStudios}
               onCreateStudio={createStudio}
               onRedeemCode={handleRedeemCode}
+              pendingStudioName={pendingStudioName}
+              onCancelRequest={handleCancelJoinRequest}
               onViewTeam={
                 currentStudio !== null
                   ? () => navigation.navigate('Team', {
@@ -222,7 +248,7 @@ export default function ProfilScreen(): React.ReactElement {
       <AddFightSheet
         visible={fightSheetVisible}
         onClose={() => setFightSheetVisible(false)}
-        onSaved={() => setFocusTrigger((n) => n + 1)}
+        onSaved={() => {}}
         addFight={addFight}
       />
 

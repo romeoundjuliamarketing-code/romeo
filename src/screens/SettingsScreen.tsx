@@ -230,9 +230,13 @@ export default function SettingsScreen(): React.ReactElement {
   const showPoints  = profile?.show_points_in_group  ?? true;
   const showFitness = profile?.show_fitness_in_group ?? true;
   const planLabel = entitlement.hasAccess
-    ? entitlement.tier === 'studio' ? 'Studio-Abo' : 'Einzel-Abo'
+    ? entitlement.tier === 'studio_suite'
+      ? 'Studio Suite'
+      : entitlement.tier === 'studio_visibility'
+        ? 'Studio Sichtbarkeit'
+        : 'Einzel-Abo'
     : 'Kein aktives Abo';
-  const seatsLabel = entitlement.tier === 'studio'
+  const seatsLabel = entitlement.tier === 'studio_suite'
     ? `${entitlement.usedSeats}/${entitlement.includedSeats + entitlement.extraSeats}`
     : undefined;
 

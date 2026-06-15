@@ -15,6 +15,8 @@ import { useBannedWords } from '../../hooks/useBannedWords';
 import DisciplinePickerCard from './DisciplinePickerCard';
 import type { Profile, ProfileUpdate } from '../../types/database.types';
 import type { Discipline } from '../../data/disciplines';
+import { STANCES, stanceLabel } from '../../utils/stance';
+import type { Stance } from '../../utils/stance';
 
 const WEIGHT_CLASSES = [
   'Strawweight',
@@ -68,7 +70,7 @@ export default function ProfileDetailsForm({
   const [nationality,  setNationality]  = useState(profile?.nationality      ?? '');
   const [hometown,     setHometown]     = useState(profile?.hometown          ?? '');
   const [disciplines,  setDisciplines]  = useState<string[]>(profile?.disciplines ?? []);
-  const [stance,       setStance]       = useState<'orthodox' | 'southpaw' | null>(
+  const [stance,       setStance]       = useState<Stance | null>(
     profile?.stance ?? null,
   );
   const [bio,          setBio]          = useState(profile?.bio              ?? '');
@@ -321,7 +323,7 @@ export default function ProfileDetailsForm({
       <View style={styles.field}>
         <FieldLabel icon="boxing-glove" text="AUSLAGE" />
         <View style={styles.stanceRow}>
-          {(['orthodox', 'southpaw'] as const).map((s) => (
+          {STANCES.map((s) => (
             <TouchableOpacity
               key={s}
               style={[styles.stanceChip, stance === s && styles.stanceChipActive]}
@@ -329,7 +331,7 @@ export default function ProfileDetailsForm({
               activeOpacity={0.7}
             >
               <Text style={[styles.stanceChipText, stance === s && styles.stanceChipTextActive]}>
-                {s === 'orthodox' ? 'Rechtshänder' : 'Linkshänder'}
+                {stanceLabel(s)}
               </Text>
             </TouchableOpacity>
           ))}

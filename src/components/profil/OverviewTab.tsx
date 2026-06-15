@@ -13,6 +13,7 @@ import type { Profile } from '../../types/database.types';
 import type { Studio } from '../../hooks/useStudio';
 import TeamPickerCard from './TeamPickerCard';
 import type { VerificationTier } from '../../utils/verificationTier';
+import { stanceLabel } from '../../utils/stance';
 
 interface OverviewTabProps {
   profile: Profile | null;
@@ -20,12 +21,14 @@ interface OverviewTabProps {
   currentStudio: Studio | null;
   focusTrigger: number;
   canCreateStudio: boolean;
-  onJoinStudio: (studioId: string) => Promise<void>;
+  onRequestJoin: (studioId: string) => Promise<{ error: string | null }>;
   onSearchStudios: (query: string) => Promise<Studio[]>;
   onCreateStudio: (name: string, city: string) => Promise<Studio | null>;
   onRedeemCode: (code: string) => Promise<{ error: string | null }>;
   onViewTeam: (() => void) | undefined;
   onOpenVerification: () => void;
+  pendingStudioName?: string | null;
+  onCancelRequest?: () => Promise<void>;
 }
 
 function SteckbriefRow({ icon, label, value }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }): React.ReactElement {
@@ -44,12 +47,14 @@ export default function OverviewTab({
   currentStudio,
   focusTrigger,
   canCreateStudio,
-  onJoinStudio,
+  onRequestJoin,
   onSearchStudios,
   onCreateStudio,
   onRedeemCode,
   onViewTeam,
   onOpenVerification,
+  pendingStudioName,
+  onCancelRequest,
 }: OverviewTabProps): React.ReactElement {
   // Build steckbrief rows (only show fields that have values)
   const steckbriefRows: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }[] = [];
@@ -76,7 +81,7 @@ export default function OverviewTab({
     steckbriefRows.push({ icon: 'map-marker-outline', label: 'Heimatstadt', value: profile.hometown });
   }
   if (profile?.stance !== null && profile?.stance !== undefined) {
-    steckbriefRows.push({ icon: 'boxing-glove', label: 'Auslage', value: profile.stance === 'orthodox' ? 'Rechtshänder' : 'Linkshänder' });
+    steckbriefRows.push({ icon: 'boxing-glove', label: 'Auslage', value: stanceLabel(profile.stance) ?? '' });
   }
 
   return (
@@ -92,9 +97,11 @@ export default function OverviewTab({
       <View style={styles.card}>
         <TeamPickerCard
           currentStudio={currentStudio}
-          onJoin={onJoinStudio}
+          onRequestJoin={onRequestJoin}
           onSearch={onSearchStudios}
           onRedeemCode={onRedeemCode}
+          pendingStudioName={pendingStudioName}
+          onCancelRequest={onCancelRequest}
           onCreate={async (name, city) => {
             if (!canCreateStudio) {
               Alert.alert('Studio-Abo erforderlich', 'Ein neues Team kann nur mit einem aktiven Studio-Abo erstellt werden.');

@@ -4,7 +4,10 @@ import { decode as base64Decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type { Profile, ProfileUpdate } from '../types/database.types';
+
+type ProfileSnapshot = { profile: Profile | null };
 
 interface UseProfileResult {
   profile: Profile | null;
@@ -16,8 +19,10 @@ interface UseProfileResult {
 
 export function useProfile(refetchTrigger = 0): UseProfileResult {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useProfile:${user.id}` : null;
+  const cached = cacheKey ? getCached<ProfileSnapshot>(cacheKey) : undefined;
+  const [profile, setProfile] = useState<Profile | null>(() => cached?.profile ?? null);
+  const [loading, setLoading] = useState(cached === undefined);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +32,6 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
       return;
     }
 
-    setLoading(true);
     setError(null);
 
     supabase
@@ -42,6 +46,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
         } else {
           reportNetworkSuccess();
           setProfile(data);
+          if (cacheKey) setCached<ProfileSnapshot>(cacheKey, { profile: data });
         }
         setLoading(false);
       });
@@ -62,6 +67,9 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
       return;
     }
     setProfile(data);
+    // Keep the shared cache in sync so other useProfile consumers
+    // (ProfilScreen, HomeScreen, ...) don't read stale data on re-focus.
+    if (cacheKey) setCached<ProfileSnapshot>(cacheKey, { profile: data });
   }
 
   async function uploadAvatar(localUri: string): Promise<{ error: string | null }> {
@@ -105,6 +113,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
         return { error: updateError.message };
       }
       setProfile(data);
+      if (cacheKey) setCached<ProfileSnapshot>(cacheKey, { profile: data });
       return { error: null };
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Unbekannter Fehler beim Hochladen.';

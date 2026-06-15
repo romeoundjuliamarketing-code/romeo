@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   ScrollView,
@@ -7,8 +7,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
@@ -20,10 +21,7 @@ import ProfileDetailsForm from '../components/profil/ProfileDetailsForm';
 export default function EditProfileScreen(): React.ReactElement {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [focusTrigger, setFocusTrigger] = useState(0);
-
-  useFocusEffect(useCallback(() => {
-    setFocusTrigger((n) => n + 1);
-  }, []));
+  useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
   const { profile, uploadAvatar, updateProfile } = useProfile(focusTrigger);
 

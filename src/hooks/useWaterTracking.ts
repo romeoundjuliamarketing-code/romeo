@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SharedGroupPreferences from 'react-native-shared-group-preferences';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type { HydrationMode } from '../types/hydration';
 
 const HYDRATION_MODE_KEY = 'hydration_mode_v1';
@@ -64,12 +65,27 @@ interface UseWaterTrackingResult {
   loading: boolean;
 }
 
+type WaterTrackingSnapshot = { amountMl: number; goalMl: number; date: string };
+
 export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0): UseWaterTrackingResult {
   const { user } = useAuth();
-  const [amountMl, setAmountMl] = useState(0);
-  const [goalMl, setGoalMl] = useState(DEFAULT_WATER_GOAL_ML);
+  // Cache is date-scoped to avoid showing yesterday's intake today
+  const today = todayIso();
+  // Key is date-scoped (includes today), so any cached value is from today by construction.
+  const cacheKey = user ? `useWaterTracking:${user.id}:${today}` : null;
+  const cached = cacheKey ? getCached<WaterTrackingSnapshot>(cacheKey) : undefined;
+  const [amountMl, setAmountMl] = useState(() => cached?.amountMl ?? 0);
+  const [goalMl, setGoalMl] = useState(() => cached?.goalMl ?? DEFAULT_WATER_GOAL_ML);
   const [hydrationMode, setHydrationModeState] = useState<HydrationMode>('active');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(cached === undefined);
+
+  // Mirror of amountMl that updates synchronously, so rapid taps and the
+  // optimistic addWater path always build on the latest value.
+  const amountRef = useRef(amountMl);
+  const commitAmount = useCallback((value: number): void => {
+    amountRef.current = value;
+    setAmountMl(value);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +93,7 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
     async function loadTodayWater(): Promise<void> {
       if (user === null) {
         if (!cancelled) {
-          setAmountMl(0);
+          commitAmount(0);
           setGoalMl(DEFAULT_WATER_GOAL_ML);
           setHydrationModeState('active');
           setLoading(false);
@@ -85,15 +101,14 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
         return;
       }
 
-      setLoading(true);
-      const today = todayIso();
+      const todayDate = todayIso();
       const [storedMode, waterResult, profileResult, weightResult] = await Promise.all([
         AsyncStorage.getItem(HYDRATION_MODE_KEY),
         supabase
           .from('water_logs')
           .select('amount_ml')
           .eq('user_id', user.id)
-          .eq('date', today)
+          .eq('date', todayDate)
           .maybeSingle(),
         supabase
           .from('profiles')
@@ -119,7 +134,7 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
       if (error !== null) {
         reportNetworkError(error);
         if (!cancelled) {
-          setAmountMl(0);
+          commitAmount(0);
           setHydrationModeState(mode);
           setGoalMl(DEFAULT_WATER_GOAL_ML);
           setLoading(false);
@@ -133,7 +148,7 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
       const dynamicGoalMl = calculateGoalMl(weightKg, ageYears, mode);
 
       if (!cancelled) {
-        setAmountMl(data?.amount_ml ?? 0);
+        commitAmount(data?.amount_ml ?? 0);
         setHydrationModeState(mode);
         setGoalMl(dynamicGoalMl);
         void syncToWidget(data?.amount_ml ?? 0, dynamicGoalMl);
@@ -157,7 +172,7 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
             // Only sync if the widget value is higher than what Supabase has
             if (widgetTotal > (data?.amount_ml ?? 0)) {
               await supabase.from('water_logs').upsert(
-                { user_id: user.id, date: today, amount_ml: widgetTotal },
+                { user_id: user.id, date: todayDate, amount_ml: widgetTotal },
                 { onConflict: 'user_id,date' },
               );
 
@@ -166,14 +181,14 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
               if (prevAmount < dynamicGoalMl && widgetTotal >= dynamicGoalMl) {
                 await supabase.rpc('add_workout_points', {
                   p_user_id: user.id,
-                  p_date: today,
+                  p_date: todayDate,
                   p_points: WATER_GOAL_POINTS,
                 });
                 onGoalReached?.();
               }
 
               if (!cancelled) {
-                setAmountMl(widgetTotal);
+                commitAmount(widgetTotal);
               }
             }
 
@@ -184,6 +199,7 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
           // Widget sync is best-effort — never block the main flow
         }
 
+        if (cacheKey) setCached<WaterTrackingSnapshot>(cacheKey, { amountMl: data?.amount_ml ?? 0, goalMl: dynamicGoalMl, date: todayDate });
         setLoading(false);
       }
     }
@@ -228,22 +244,19 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
     if (user === null || ml <= 0) return;
 
     const today = todayIso();
-    setLoading(true);
-
-    const { data: existing, error: existingError } = await supabase
-      .from('water_logs')
-      .select('amount_ml')
-      .eq('user_id', user.id)
-      .eq('date', today)
-      .maybeSingle();
-
-    if (existingError !== null) {
-      setLoading(false);
-      return;
-    }
-
-    const previousAmount = existing?.amount_ml ?? 0;
+    // Base the increment on the latest displayed value (ref updates synchronously,
+    // so rapid taps stack correctly) instead of a blocking server read.
+    const previousAmount = amountRef.current;
     const nextAmount = previousAmount + ml;
+    const crossedGoal = previousAmount < goalMl && nextAmount >= goalMl;
+
+    // Optimistic update: reflect the tap instantly, persist in the background.
+    commitAmount(nextAmount);
+    if (cacheKey) {
+      setCached<WaterTrackingSnapshot>(cacheKey, { amountMl: nextAmount, goalMl, date: today });
+    }
+    void syncToWidget(nextAmount, goalMl);
+    if (crossedGoal) onGoalReached?.();
 
     const { error: upsertError } = await supabase
       .from('water_logs')
@@ -257,23 +270,25 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
       );
 
     if (upsertError !== null) {
-      setLoading(false);
+      reportNetworkError(upsertError);
+      // Roll back the optimistic update so the UI matches the server again.
+      commitAmount(previousAmount);
+      if (cacheKey) {
+        setCached<WaterTrackingSnapshot>(cacheKey, { amountMl: previousAmount, goalMl, date: today });
+      }
+      void syncToWidget(previousAmount, goalMl);
       return;
     }
+    reportNetworkSuccess();
 
-    if (previousAmount < goalMl && nextAmount >= goalMl) {
+    if (crossedGoal) {
       await supabase.rpc('add_workout_points', {
         p_user_id: user.id,
         p_date: today,
         p_points: WATER_GOAL_POINTS,
       });
-      onGoalReached?.();
     }
-
-    setAmountMl(nextAmount);
-    await syncToWidget(nextAmount, goalMl);
-    setLoading(false);
-  }, [goalMl, onGoalReached, user]);
+  }, [goalMl, onGoalReached, user, cacheKey, commitAmount]);
 
   return {
     amountMl,

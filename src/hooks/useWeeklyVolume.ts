@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 
 export interface WeeklyVolume {
   sessions: number;
@@ -23,9 +24,13 @@ function currentWeekDates(): { start: string; end: string } {
   };
 }
 
+type WeeklyVolumeSnapshot = { volume: WeeklyVolume };
+
 export function useWeeklyVolume(refetchTrigger = 0): WeeklyVolume {
   const { user } = useAuth();
-  const [volume, setVolume] = useState<WeeklyVolume>({ sessions: 0, minutes: 0, points: 0 });
+  const cacheKey = user ? `useWeeklyVolume:${user.id}` : null;
+  const cached = cacheKey ? getCached<WeeklyVolumeSnapshot>(cacheKey) : undefined;
+  const [volume, setVolume] = useState<WeeklyVolume>(() => cached?.volume ?? { sessions: 0, minutes: 0, points: 0 });
 
   const load = useCallback(async () => {
     if (user === null) return;
@@ -47,8 +52,10 @@ export function useWeeklyVolume(refetchTrigger = 0): WeeklyVolume {
     const minutes = data.reduce((sum, row) => sum + (row.duration_min ?? 0), 0);
     const points = data.reduce((sum, row) => sum + (row.points ?? 0), 0);
 
-    setVolume({ sessions, minutes, points });
-  }, [user, refetchTrigger]);
+    const newVolume: WeeklyVolume = { sessions, minutes, points };
+    setVolume(newVolume);
+    if (cacheKey) setCached<WeeklyVolumeSnapshot>(cacheKey, { volume: newVolume });
+  }, [user, refetchTrigger, cacheKey]);
 
   useEffect(() => {
     void load();

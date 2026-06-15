@@ -1,8 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import { useSchedule } from '../hooks/useSchedule';
@@ -62,10 +63,7 @@ export default function TrainingScreen(): React.ReactElement {
   const [focusTrigger, setFocusTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState<TabKey>('workouts');
   const [workoutSheetVisible, setWorkoutSheetVisible] = useState(false);
-
-  useFocusEffect(useCallback(() => {
-    setFocusTrigger((n) => n + 1);
-  }, []));
+  useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { profile } = useProfile(focusTrigger);

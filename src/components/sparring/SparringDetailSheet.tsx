@@ -29,12 +29,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import type { RootStackParamList } from '../../navigation/types';
+import type { VerificationTier } from '../../utils/verificationTier';
 import SparringParticipantsList from './SparringParticipantsList';
 import MapBoostSheet from './MapBoostSheet';
 
 interface Props {
   sparring:          SparringWithMeta | null;
   currentUserId:     string | null;
+  userTier:          VerificationTier;
   onClose:           () => void;
   onToggleSignup:    () => Promise<void>;
   onDeactivate:      () => void;
@@ -70,7 +72,7 @@ function formatDateTime(iso: string): string {
 }
 
 export default function SparringDetailSheet({
-  sparring, currentUserId, onClose, onToggleSignup, onDeactivate, onBoostActivated, loading,
+  sparring, currentUserId, userTier, onClose, onToggleSignup, onDeactivate, onBoostActivated, loading,
 }: Props) {
   const [boostSheetVisible, setBoostSheetVisible] = useState(false);
   // Track whether the sheet is fully expanded so we can toggle scrollEnabled on JS side
@@ -198,10 +200,13 @@ export default function SparringDetailSheet({
 
   if (sparring === null) return null;
 
-  const slotsLeft   = sparring.max_slots - sparring.signup_count;
-  const isFull      = slotsLeft <= 0;
-  const isCreator   = currentUserId !== null && sparring.created_by === currentUserId;
-  const bannerColor = getBannerColor(sparring.scheduled_at, sparring.is_featured);
+  const slotsLeft    = sparring.max_slots - sparring.signup_count;
+  const isFull       = slotsLeft <= 0;
+  const isCreator    = currentUserId !== null && sparring.created_by === currentUserId;
+  const bannerColor  = getBannerColor(sparring.scheduled_at, sparring.is_featured);
+  // Block joining when this sparring requires verification and user is not verified
+  const verifiedBlock =
+    sparring.verified_only && userTier !== 'verified' && !sparring.is_signed_up;
   const fillPct     = `${Math.min(100, Math.round((sparring.signup_count / sparring.max_slots) * 100))}%` as const;
 
   // sparring is guaranteed non-null here (guarded above)
@@ -282,6 +287,12 @@ export default function SparringDetailSheet({
                     <View style={styles.badge}>
                       <Text style={styles.badgeText}>{sparring.discipline}</Text>
                     </View>
+                    {sparring.verified_only && (
+                      <View style={styles.verifiedOnlyBadge}>
+                        <Ionicons name="shield-checkmark-outline" size={13} color={colors.difficultyGreen} />
+                        <Text style={styles.verifiedOnlyBadgeText}>Nur verifizierte Mitglieder</Text>
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.infoRow}>
@@ -328,16 +339,23 @@ export default function SparringDetailSheet({
                     style={[
                       styles.btn,
                       sparring.is_signed_up && styles.btnCancel,
-                      isFull && !sparring.is_signed_up && styles.btnDisabled,
+                      isFull && !sparring.is_signed_up && !verifiedBlock && styles.btnDisabled,
+                      verifiedBlock && styles.btnVerifyRequired,
                     ]}
                     onPress={handleSignupPress}
-                    disabled={loading || (isFull && !sparring.is_signed_up)}
+                    disabled={loading || (isFull && !sparring.is_signed_up && !verifiedBlock)}
                   >
                     {loading ? (
                       <ActivityIndicator color={colors.card} />
                     ) : (
                       <Text style={styles.btnText}>
-                        {sparring.is_signed_up ? 'Abmelden' : isFull ? 'Ausgebucht' : 'Anmelden'}
+                        {sparring.is_signed_up
+                          ? 'Abmelden'
+                          : verifiedBlock
+                          ? 'Verifizierung erforderlich'
+                          : isFull
+                          ? 'Ausgebucht'
+                          : 'Anmelden'}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -567,5 +585,24 @@ const styles = StyleSheet.create({
     fontSize:   15,
     fontWeight: '600',
     color:      colors.deleteRed,
+  },
+  verifiedOnlyBadge: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               5,
+    backgroundColor:   colors.background,
+    borderRadius:      8,
+    paddingHorizontal: 10,
+    paddingVertical:   4,
+    borderWidth:       1,
+    borderColor:       colors.difficultyGreen,
+  },
+  verifiedOnlyBadgeText: {
+    fontSize:   12,
+    fontWeight: '600',
+    color:      colors.difficultyGreen,
+  },
+  btnVerifyRequired: {
+    backgroundColor: colors.sparringsOrange,
   },
 });

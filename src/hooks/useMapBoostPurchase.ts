@@ -104,6 +104,10 @@ export function useMapBoostPurchase(): UseMapBoostPurchase {
 
     setPurchasing(true);
     try {
+      // Ensure the subscriber exists on the RC backend before syncing attributes.
+      // setAttributes can be the first backend call for this app user id; without
+      // an existing subscriber it fails with "subscriber not found" (BackendError 0).
+      await Purchases.getCustomerInfo();
       // Set RC attribute BEFORE purchase so the webhook payload carries sparring_id.
       await Purchases.setAttributes({ sparring_id: sparringId });
       // 500ms delay ensures RC syncs the attribute before the purchase is processed.

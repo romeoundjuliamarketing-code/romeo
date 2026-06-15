@@ -16,12 +16,14 @@ import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useStudioProfile } from '../hooks/useStudioProfile';
 import { useFeaturedFighters } from '../hooks/useFeaturedFighters';
+import { useProfile } from '../hooks/useProfile';
 import { useSchedule } from '../hooks/useSchedule';
 import { useMyStudioRequests } from '../hooks/useMyStudioRequests';
 import { useStudioMembershipPlans } from '../hooks/useStudioMembershipPlans';
 import StudioHero from '../components/studio/StudioHero';
 import DisciplineChips from '../components/studio/DisciplineChips';
 import FeaturedFightersRow from '../components/studio/FeaturedFightersRow';
+import StudioCoachesSection from '../components/studio/StudioCoachesSection';
 import TrialBookingSheet from '../components/studio/TrialBookingSheet';
 import DropInSheet from '../components/studio/DropInSheet';
 import MembershipPlansList from '../components/studio/MembershipPlansList';
@@ -44,6 +46,7 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
 
   const { studio, loading: studioLoading } = useStudioProfile(studioId);
   const { fighters, loading: fightersLoading, removeFighter } = useFeaturedFighters(studioId);
+  const { profile: myProfile } = useProfile();
   const { schedule, loading: scheduleLoading } = useSchedule(undefined, studioId);
   const { trialBookings, contracts, loading: requestsLoading, refetch } = useMyStudioRequests();
   const { plans, loading: plansLoading, refetch: refetchPlans } = useStudioMembershipPlans(studioId);
@@ -52,6 +55,7 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
 
   const isOwner = studio !== null && user !== null && studio.owner_user_id === user.id;
+  const canManage = isOwner || (myProfile?.is_coach === true && myProfile?.studio_id === studioId);
 
   const studioBooking = trialBookings.find((b) => b.studio_id === studioId) ?? null;
   const activeBooking =
@@ -137,6 +141,12 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
             <Text style={styles.description}>{studio.description}</Text>
           </View>
         )}
+
+        <StudioCoachesSection
+          studioId={studioId}
+          canManage={canManage}
+          currentUserId={user?.id ?? null}
+        />
 
         {(fighters.length > 0 || fightersLoading) && (
           <View style={styles.sectionNopad}>

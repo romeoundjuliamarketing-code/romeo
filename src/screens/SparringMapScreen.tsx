@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { useOpenSparrings } from '../hooks/useOpenSparrings';
@@ -12,14 +13,13 @@ import { useStudio } from '../hooks/useStudio';
 import { useStudioAddress } from '../hooks/useStudioAddress';
 import { useStudioMapMarkers } from '../hooks/useStudioMapMarkers';
 import { useVerification } from '../hooks/useVerification';
-import type { StudioMapMarker } from '../hooks/useStudioMapMarkers';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
-import StudioMapDetailSheet from '../components/sparring/StudioMapDetailSheet';
 import MapBoostSheet from '../components/sparring/MapBoostSheet';
 import SparringMapView from '../components/sparring/SparringMapView';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
+import { canJoinSparring } from '../utils/sparringAccess';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -49,7 +49,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const [actionLoading, setActionLoading]   = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [timeFilter, setTimeFilter]         = useState<TimeFilter>('all');
-  const [selectedStudio, setSelectedStudio] = useState<StudioMapMarker | null>(null);
   // After a user publishes their own sparring, prompt the map boost for it.
   const [boostSparringId, setBoostSparringId] = useState<string | null>(null);
   const boostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,16 +128,15 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   }
 
   // Keep verification tier fresh when returning to the map (e.g. after verifying)
-  useFocusEffect(
-    useCallback(() => {
-      refetchVerification();
-    }, [refetchVerification]),
-  );
+  useFocusRefetch(refetchVerification);
 
   async function handleToggleSignup(): Promise<void> {
     if (selected === null) return;
-    // Gate: only block sign-up, not sign-out
-    if (!selected.is_signed_up && !requireVerified()) return;
+    // Gate: only block sign-up for verified-only sparrings when user is not verified
+    if (!selected.is_signed_up && !canJoinSparring(selected.verified_only, tier)) {
+      requireVerified(); // shows the existing "Jetzt verifizieren" alert
+      return;
+    }
     setActionLoading(true);
     const { error } = await (selected.is_signed_up
       ? cancelSignup(selected.id)
@@ -181,7 +179,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         sparrings={filtered}
         studioDots={sparringModeStudios}
         onSparringPress={setSelected}
-        onStudioPress={setSelectedStudio}
+        onStudioPress={(studio) => navigation.navigate('StudioDetail', { studioId: studio.id })}
         totalUnread={totalUnread}
         onChatPress={() => navigation.navigate('SparringChatList')}
       />
@@ -220,6 +218,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       <SparringDetailSheet
         sparring={selected}
         currentUserId={user?.id ?? null}
+        userTier={tier}
         onClose={() => setSelected(null)}
         onToggleSignup={handleToggleSignup}
         onDeactivate={handleDeactivate}
@@ -269,10 +268,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         />
       )}
 
-      <StudioMapDetailSheet
-        studio={selectedStudio}
-        onClose={() => setSelectedStudio(null)}
-      />
     </View>
   );
 }

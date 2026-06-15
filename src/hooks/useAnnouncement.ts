@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type { TeamAnnouncement } from '../types/database.types';
+
+type AnnouncementSnapshot = { announcement: TeamAnnouncement | null };
 
 async function sendAnnouncementPush(studioId: string, message: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -46,20 +50,21 @@ interface UseAnnouncementResult {
 }
 
 export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult {
-  const [announcement, setAnnouncement] = useState<TeamAnnouncement | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const cacheKey = user ? `useAnnouncement:${user.id}` : null;
+  const cached = cacheKey ? getCached<AnnouncementSnapshot>(cacheKey) : undefined;
+  const [announcement, setAnnouncement] = useState<TeamAnnouncement | null>(() => cached?.announcement ?? null);
+  const [loading, setLoading] = useState(cached === undefined);
 
   const fetchAnnouncement = useCallback(async () => {
-    setLoading(true);
-
     // Resolve the user's studio_id first
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user === null) { setLoading(false); return; }
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser === null) { setLoading(false); return; }
 
     const { data: profile } = await supabase
       .from('profiles')
       .select('studio_id')
-      .eq('id', user.id)
+      .eq('id', authUser.id)
       .single();
 
     if (profile === null || profile.studio_id === null) {
@@ -80,12 +85,16 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
 
     if (fetchError !== null) {
       reportNetworkError(fetchError);
-    } else {
-      reportNetworkSuccess();
+      setAnnouncement(null);
+      setLoading(false);
+      return;
     }
-    setAnnouncement(data ?? null);
+    reportNetworkSuccess();
+    const item = data ?? null;
+    setAnnouncement(item);
+    if (cacheKey) setCached<AnnouncementSnapshot>(cacheKey, { announcement: item });
     setLoading(false);
-  }, []);
+  }, [cacheKey]);
 
   useEffect(() => { void fetchAnnouncement(); }, [fetchAnnouncement, refetchTrigger]);
 

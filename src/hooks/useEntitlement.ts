@@ -4,15 +4,23 @@ import { supabase } from '../lib/supabase';
 import { loginRevenueCat } from '../lib/revenuecat';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
+import { type EntitlementTier } from '../utils/entitlementTier';
 
-export type SubscriptionTier = 'individual' | 'studio';
+// Re-export so callers that imported SubscriptionTier from here still compile.
+export type { EntitlementTier };
+// Legacy alias kept for backwards compat; prefer EntitlementTier.
+export type SubscriptionTier = EntitlementTier;
 export type EntitlementSource = 'direct' | 'studio';
 
 export interface EntitlementState {
   hasAccess: boolean;
-  tier: SubscriptionTier | null;
+  tier: EntitlementTier | null;
   source: EntitlementSource | null;
   canCreateStudio: boolean;
+  canManageStudio: boolean;
+  canAnnounce: boolean;
+  canManageMemberships: boolean;
   includedSeats: number;
   usedSeats: number;
   extraSeats: number;
@@ -23,10 +31,15 @@ const DEFAULT_ENTITLEMENT: EntitlementState = {
   tier: null,
   source: null,
   canCreateStudio: false,
+  canManageStudio: false,
+  canAnnounce: false,
+  canManageMemberships: false,
   includedSeats: 0,
   usedSeats: 0,
   extraSeats: 0,
 };
+
+type EntitlementSnapshot = { entitlement: EntitlementState };
 
 const RC_ENTITLEMENT_ID = 'Sparr Pro';
 
@@ -36,8 +49,10 @@ export function useEntitlement(refetchTrigger = 0): {
   refetch: () => Promise<void>;
 } {
   const { user } = useAuth();
-  const [entitlement, setEntitlement] = useState<EntitlementState>(DEFAULT_ENTITLEMENT);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useEntitlement:${user.id}` : null;
+  const cached = cacheKey ? getCached<EntitlementSnapshot>(cacheKey) : undefined;
+  const [entitlement, setEntitlement] = useState<EntitlementState>(() => cached?.entitlement ?? DEFAULT_ENTITLEMENT);
+  const [loading, setLoading] = useState(cached === undefined);
 
   const refetch = useCallback(async (): Promise<void> => {
     if (user === null) {
@@ -45,8 +60,6 @@ export function useEntitlement(refetchTrigger = 0): {
       setLoading(false);
       return;
     }
-
-    setLoading(true);
 
     await loginRevenueCat(user.id);
 
@@ -70,17 +83,32 @@ export function useEntitlement(refetchTrigger = 0): {
 
     const row = data[0];
     const dbHasAccess: boolean = row.has_access;
-    setEntitlement({
+
+    // Parse tier — accept the three new strings, fall back to null for unknowns.
+    const validTiers: ReadonlyArray<EntitlementTier> = [
+      'individual',
+      'studio_visibility',
+      'studio_suite',
+    ];
+    const parsedTier: EntitlementTier | null =
+      validTiers.includes(row.tier as EntitlementTier) ? (row.tier as EntitlementTier) : null;
+
+    const newEntitlement: EntitlementState = {
       hasAccess: rcHasAccess || dbHasAccess,
-      tier: row.tier === 'individual' || row.tier === 'studio' ? row.tier : null,
+      tier: parsedTier,
       source: row.source === 'direct' || row.source === 'studio' ? row.source : null,
       canCreateStudio: row.can_create_studio,
+      canManageStudio: row.can_manage_studio,
+      canAnnounce: row.can_announce,
+      canManageMemberships: row.can_manage_memberships,
       includedSeats: row.included_seats,
       usedSeats: row.used_seats,
       extraSeats: row.extra_seats,
-    });
+    };
+    setEntitlement(newEntitlement);
+    if (cacheKey) setCached<EntitlementSnapshot>(cacheKey, { entitlement: newEntitlement });
     setLoading(false);
-  }, [user]);
+  }, [user, cacheKey]);
 
   useEffect(() => {
     void refetch();

@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -29,7 +29,7 @@ export default function ErnährungScreen() {
   const [focusTrigger,     setFocusTrigger]     = useState(0);
   const [profileTrigger,   setProfileTrigger]   = useState(0);
   const [frequencySaving,  setFrequencySaving]  = useState(false);
-  useFocusEffect(useCallback(() => { setFocusTrigger(n => n + 1); }, []));
+  useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
   const { amountMl, goalMl, hydrationMode, setHydrationMode, addWater, loading } = useWaterTracking(
     () => setShowConfetti(true),

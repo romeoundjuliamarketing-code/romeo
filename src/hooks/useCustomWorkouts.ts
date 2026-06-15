@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { getCached, setCached } from '../lib/queryCache';
 import type { CustomWorkout, CustomExercise } from '../types/database.types';
+
+type CustomWorkoutsSnapshot = { customWorkouts: CustomWorkout[] };
 
 export interface CreateCustomWorkoutPayload {
   title: string;
@@ -22,8 +25,10 @@ interface UseCustomWorkouts {
 
 export function useCustomWorkouts(refetchTrigger = 0): UseCustomWorkouts {
   const { user } = useAuth();
-  const [customWorkouts, setCustomWorkouts] = useState<CustomWorkout[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user ? `useCustomWorkouts:${user.id}` : null;
+  const cached = cacheKey ? getCached<CustomWorkoutsSnapshot>(cacheKey) : undefined;
+  const [customWorkouts, setCustomWorkouts] = useState<CustomWorkout[]>(() => cached?.customWorkouts ?? []);
+  const [loading, setLoading] = useState(cached === undefined);
   const [internalTrigger, setInternalTrigger] = useState(0);
 
   const refetch = useCallback(() => setInternalTrigger((n) => n + 1), []);
@@ -45,7 +50,9 @@ export function useCustomWorkouts(refetchTrigger = 0): UseCustomWorkouts {
         } else {
           reportNetworkSuccess();
         }
-        setCustomWorkouts(data ?? []);
+        const workouts = data ?? [];
+        setCustomWorkouts(workouts);
+        if (error === null && cacheKey) setCached<CustomWorkoutsSnapshot>(cacheKey, { customWorkouts: workouts });
         setLoading(false);
       });
   }, [user, refetchTrigger, internalTrigger]);

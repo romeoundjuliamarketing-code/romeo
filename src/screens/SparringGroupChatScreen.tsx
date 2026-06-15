@@ -122,7 +122,12 @@ export default function SparringGroupChatScreen() {
     if (isSignedUp) {
       await cancelSignup(sparringId);
     } else {
-      await signUp(sparringId);
+      const { error } = await signUp(sparringId);
+      if (error !== null) {
+        setSignupLoading(false);
+        Alert.alert('Hinweis', error);
+        return;
+      }
     }
     await loadDetails();
     setSignupLoading(false);

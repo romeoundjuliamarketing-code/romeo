@@ -15,6 +15,7 @@ import { colors } from '../../theme/colors';
 import type { VerificationTier } from '../../utils/verificationTier';
 import type { FightRecord } from '../../hooks/useFightRecord';
 import type { Profile } from '../../types/database.types';
+import { stanceLabel } from '../../utils/stance';
 
 // Derives initials from a full name (e.g. "Romeo Georgiadis" → "RG")
 export function getInitials(name: string | null): string {
@@ -107,15 +108,10 @@ export default function ProfileHero({
   const totalFights = fights.length;
   const totalWins = fights.filter((f) => f.result === 'win').length;
 
-  const stanceLabel =
-    profile?.stance === 'orthodox'
-      ? 'Orthodox'
-      : profile?.stance === 'southpaw'
-      ? 'Southpaw'
-      : null;
+  const stanceText = stanceLabel(profile?.stance);
 
   // Meta line: weight class · nationality (only if set)
-  const metaParts = [profile?.weight_class, profile?.nationality, stanceLabel]
+  const metaParts = [profile?.weight_class, profile?.nationality, stanceText]
     .filter((v): v is string => v !== null && v !== undefined && v.length > 0);
 
   return (
