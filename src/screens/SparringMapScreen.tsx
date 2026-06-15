@@ -14,14 +14,24 @@ import { useStudioAddress } from '../hooks/useStudioAddress';
 import { useStudioMapMarkers } from '../hooks/useStudioMapMarkers';
 import { useVerification } from '../hooks/useVerification';
 import { useSparringChatList } from '../hooks/useSparringChatList';
+import { useOpenEvents } from '../hooks/useOpenEvents';
+import { useEventActions } from '../hooks/useEventActions';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import MapBoostSheet from '../components/sparring/MapBoostSheet';
+import CreateEventSheet from '../components/sparring/CreateEventSheet';
+import EventPaymentSheet from '../components/sparring/EventPaymentSheet';
+import EventDetailSheet from '../components/sparring/EventDetailSheet';
+import MapModeToggle from '../components/sparring/MapModeToggle';
+import MapTimeFilter from '../components/sparring/MapTimeFilter';
 import SparringMapView from '../components/sparring/SparringMapView';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
 import { canJoinSparring } from '../utils/sparringAccess';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
+import type { EventWithMeta } from '../hooks/useOpenEvents';
 import type { RootStackParamList } from '../navigation/types';
+import type { MapMode } from '../components/sparring/MapModeToggle';
+import type { TimeFilter } from '../components/sparring/MapTimeFilter';
 
 interface NavProp {
   goBack(): void;
@@ -30,36 +40,21 @@ interface NavProp {
 
 type Props = { navigation: NavProp };
 
-type TimeFilter = 'all' | 'jetzt' | 'demnaechst' | 'bald';
-
-const FILTER_TABS: Array<{ key: Exclude<TimeFilter, 'all'>; label: string }> = [
-  { key: 'jetzt',      label: 'Jetzt' },
-  { key: 'demnaechst', label: 'Demnächst' },
-  { key: 'bald',       label: 'Bald' },
-];
-
 export default function SparringMapScreen({ navigation: _navigation }: Props) {
-  const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-  const { sparrings, refetch } = useOpenSparrings();
+  const insets     = useSafeAreaInsets();
+  const { user }   = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  // ── Sparring data ─────────────────────────────────────────────────────────
+  const { sparrings, refetch: refetchSparrings } = useOpenSparrings();
   const { signUp, cancelSignup, createSparring, deactivateSparring } = useSparringActions();
-  const navigation  = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { totalUnread } = useSparringChatList();
-  const [selected, setSelected]             = useState<SparringWithMeta | null>(null);
-  const [actionLoading, setActionLoading]   = useState(false);
-  const [createSheetVisible, setCreateSheetVisible] = useState(false);
-  const [timeFilter, setTimeFilter]         = useState<TimeFilter>('all');
-  // After a user publishes their own sparring, prompt the map boost for it.
-  const [boostSparringId, setBoostSparringId] = useState<string | null>(null);
-  const boostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Cleanup the boost timer on unmount to avoid setState on an unmounted component.
-  useEffect(() => {
-    return () => {
-      if (boostTimerRef.current !== null) clearTimeout(boostTimerRef.current);
-    };
-  }, []);
+  // ── Event data ────────────────────────────────────────────────────────────
+  const { events, refetch: refetchEvents } = useOpenEvents();
+  const { createEvent, signUp: signUpEvent, cancelSignup: cancelSignupEvent, deactivateEvent } = useEventActions();
 
+  // ── Studio / verification ─────────────────────────────────────────────────
   const { currentStudio } = useStudio();
   const { address: studioAddress, lat: studioLat, lng: studioLng } = useStudioAddress(
     currentStudio?.id ?? '',
@@ -67,46 +62,71 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const { studios: studioMarkers } = useStudioMapMarkers();
   const { tier, refetch: refetchVerification } = useVerification();
 
+  // Keep verification tier fresh when returning to the map.
+  useFocusRefetch(refetchVerification);
+
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [mapMode, setMapMode]           = useState<MapMode>('sparrings');
+  const [timeFilter, setTimeFilter]     = useState<TimeFilter>('all');
+  const [selected, setSelected]         = useState<SparringWithMeta | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventWithMeta | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [createSheetVisible, setCreateSheetVisible] = useState(false);
+  const [createEventVisible, setCreateEventVisible] = useState(false);
+
+  // After creating a sparring, prompt the boost sheet (defer to avoid double iOS modal).
+  const [boostSparringId, setBoostSparringId] = useState<string | null>(null);
+  const boostTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // After creating an event, prompt the payment sheet (same defer pattern).
+  const [paymentEventId, setPaymentEventId] = useState<string | null>(null);
+  const paymentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timers on unmount.
+  useEffect(() => {
+    return () => {
+      if (boostTimerRef.current !== null) clearTimeout(boostTimerRef.current);
+      if (paymentTimerRef.current !== null) clearTimeout(paymentTimerRef.current);
+    };
+  }, []);
+
+  // ── Derived: coach studio marker ──────────────────────────────────────────
   const coachStudio =
     currentStudio !== null &&
     studioAddress !== null &&
     studioAddress.trim().length > 0
-      ? {
-          id: currentStudio.id,
-          address: studioAddress,
-          lat: studioLat,
-          lng: studioLng,
-        }
+      ? { id: currentStudio.id, address: studioAddress, lat: studioLat, lng: studioLng }
       : null;
 
-  const withCoords = useMemo(
+  // ── Derived: sparrings (unchanged) ────────────────────────────────────────
+  const sparringsWithCoords = useMemo(
     () => sparrings.filter((s) => s.lat !== null && s.lng !== null),
     [sparrings],
   );
 
-  const filtered = useMemo(
+  const filteredSparrings = useMemo(
     () => timeFilter === 'all'
-      ? withCoords
-      : withCoords.filter((s) => getTimeWindow(s.scheduled_at) === timeFilter),
-    [withCoords, timeFilter],
+      ? sparringsWithCoords
+      : sparringsWithCoords.filter((s) => getTimeWindow(s.scheduled_at) === timeFilter),
+    [sparringsWithCoords, timeFilter],
   );
 
-  const tabCounts = useMemo(() => {
+  const sparringTabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const s of withCoords) {
+    for (const s of sparringsWithCoords) {
       const w = getTimeWindow(s.scheduled_at);
       counts[w] = (counts[w] ?? 0) + 1;
     }
     return counts;
-  }, [withCoords]);
+  }, [sparringsWithCoords]);
 
   const coveredStudioIds = useMemo(
     () => new Set(
-      filtered
+      filteredSparrings
         .filter((s) => s.is_at_studio && s.studio_id !== null)
         .map((s) => s.studio_id as string),
     ),
-    [filtered],
+    [filteredSparrings],
   );
 
   const sparringModeStudios = useMemo(
@@ -114,6 +134,32 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     [studioMarkers, coveredStudioIds],
   );
 
+  // ── Derived: events ───────────────────────────────────────────────────────
+  const eventsWithCoords = useMemo(
+    () => events.filter((e) => e.lat !== null && e.lng !== null),
+    [events],
+  );
+
+  const filteredEvents = useMemo(
+    () => timeFilter === 'all'
+      ? eventsWithCoords
+      : eventsWithCoords.filter((e) => getTimeWindow(e.scheduled_at) === timeFilter),
+    [eventsWithCoords, timeFilter],
+  );
+
+  const eventTabCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of eventsWithCoords) {
+      const w = getTimeWindow(e.scheduled_at);
+      counts[w] = (counts[w] ?? 0) + 1;
+    }
+    return counts;
+  }, [eventsWithCoords]);
+
+  // Active counts for the time filter depend on the current mode.
+  const activeTabCounts = mapMode === 'sparrings' ? sparringTabCounts : eventTabCounts;
+
+  // ── Guard: require verified user before interacting ───────────────────────
   function requireVerified(): boolean {
     if (tier === 'verified') return true;
     Alert.alert(
@@ -127,14 +173,11 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     return false;
   }
 
-  // Keep verification tier fresh when returning to the map (e.g. after verifying)
-  useFocusRefetch(refetchVerification);
-
-  async function handleToggleSignup(): Promise<void> {
+  // ── Sparring handlers ─────────────────────────────────────────────────────
+  async function handleToggleSparringSignup(): Promise<void> {
     if (selected === null) return;
-    // Gate: only block sign-up for verified-only sparrings when user is not verified
     if (!selected.is_signed_up && !canJoinSparring(selected.verified_only, tier)) {
-      requireVerified(); // shows the existing "Jetzt verifizieren" alert
+      requireVerified();
       return;
     }
     setActionLoading(true);
@@ -143,11 +186,11 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       : signUp(selected.id));
     setActionLoading(false);
     if (error !== null) return;
-    refetch();
+    refetchSparrings();
     setSelected(null);
   }
 
-  function handleDeactivate(): void {
+  function handleDeactivateSparring(): void {
     if (selected === null) return;
     Alert.alert(
       'Sparring absagen',
@@ -165,7 +208,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
               Alert.alert('Fehler', error);
               return;
             }
-            refetch();
+            refetchSparrings();
             setSelected(null);
           },
         },
@@ -173,68 +216,132 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     );
   }
 
+  // ── Event handlers ────────────────────────────────────────────────────────
+  async function handleToggleEventSignup(): Promise<void> {
+    if (selectedEvent === null) return;
+    setActionLoading(true);
+    const { error } = await (selectedEvent.is_signed_up
+      ? cancelSignupEvent(selectedEvent.id)
+      : signUpEvent(selectedEvent.id));
+    setActionLoading(false);
+    if (error !== null) {
+      Alert.alert('Fehler', error);
+      return;
+    }
+    refetchEvents();
+    setSelectedEvent(null);
+  }
+
+  function handleDeactivateEvent(): void {
+    if (selectedEvent === null) return;
+    const ev = selectedEvent;
+    Alert.alert(
+      'Event absagen',
+      `"${ev.title}" wirklich absagen? Diese Aktion kann nicht rückgängig gemacht werden.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Absagen',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            const { error } = await deactivateEvent(ev.id);
+            setActionLoading(false);
+            if (error !== null) {
+              Alert.alert('Fehler', error);
+              return;
+            }
+            refetchEvents();
+            setSelectedEvent(null);
+          },
+        },
+      ],
+    );
+  }
+
+  // ── Map view props by mode ────────────────────────────────────────────────
+  const mapSparrings  = mapMode === 'sparrings' ? filteredSparrings : [];
+  const mapStudioDots = mapMode === 'sparrings' ? sparringModeStudios : [];
+  const mapEvents     = mapMode === 'events'    ? filteredEvents      : [];
+
   return (
     <View style={styles.root}>
       <SparringMapView
-        sparrings={filtered}
-        studioDots={sparringModeStudios}
+        sparrings={mapSparrings}
+        studioDots={mapStudioDots}
+        events={mapEvents}
         onSparringPress={setSelected}
         onStudioPress={(studio) => navigation.navigate('StudioDetail', { studioId: studio.id })}
+        onEventPress={setSelectedEvent}
         totalUnread={totalUnread}
         onChatPress={() => navigation.navigate('SparringChatList')}
       />
 
+      {/* ── Top overlay: mode toggle (center) + time filter (left) ── */}
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-        <View style={styles.filterRow}>
-          <TouchableOpacity
-            style={[styles.closeBtn, timeFilter === 'all' && styles.closeBtnDimmed]}
-            onPress={() => setTimeFilter('all')}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="close" size={22} color={colors.text} />
-          </TouchableOpacity>
-
-          <View style={styles.segmentGroup}>
-            {FILTER_TABS.map((tab) => {
-              const count    = tabCounts[tab.key] ?? 0;
-              const isActive = timeFilter === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={[styles.segment, isActive && styles.segmentActive]}
-                  onPress={() => setTimeFilter(tab.key)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.segmentText, isActive && styles.segmentTextActive]}>
-                    {`${tab.label} (${count})`}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
+        {/* Row: left side holds the vertical time filter; center holds the mode toggle */}
+        <View style={styles.topRow}>
+          <View style={styles.leftPanel}>
+            <MapTimeFilter
+              value={timeFilter}
+              onChange={setTimeFilter}
+              tabCounts={activeTabCounts}
+            />
           </View>
+          <View style={styles.centerPanel}>
+            <MapModeToggle mode={mapMode} onChange={setMapMode} />
+          </View>
+          {/* Right placeholder to keep toggle visually centered */}
+          <View style={styles.rightPanel} />
         </View>
       </View>
 
+      {/* ── Sparring detail sheet ── */}
       <SparringDetailSheet
         sparring={selected}
         currentUserId={user?.id ?? null}
         userTier={tier}
         onClose={() => setSelected(null)}
-        onToggleSignup={handleToggleSignup}
-        onDeactivate={handleDeactivate}
-        onBoostActivated={refetch}
+        onToggleSignup={handleToggleSparringSignup}
+        onDeactivate={handleDeactivateSparring}
+        onBoostActivated={refetchSparrings}
         loading={actionLoading}
       />
 
+      {/* ── Event detail sheet ── */}
+      <EventDetailSheet
+        event={selectedEvent}
+        currentUserId={user?.id ?? null}
+        onClose={() => setSelectedEvent(null)}
+        onToggleSignup={handleToggleEventSignup}
+        onDeactivate={handleDeactivateEvent}
+        onOpenChat={() => {
+          // TODO: navigate to event-specific chat once the event chat route is finalised (chat task).
+          navigation.navigate('SparringChatList');
+        }}
+        loading={actionLoading}
+      />
+
+      {/* ── FAB: action depends on mode ── */}
       <TouchableOpacity
         style={[styles.fab, { bottom: insets.bottom + 16 }]}
-        onPress={() => { if (requireVerified()) setCreateSheetVisible(true); }}
+        onPress={() => {
+          if (!requireVerified()) return;
+          if (mapMode === 'sparrings') {
+            setCreateSheetVisible(true);
+          } else {
+            setCreateEventVisible(true);
+          }
+        }}
         activeOpacity={0.85}
       >
         <Ionicons name="add-circle-outline" size={22} color={colors.card} />
-        <Text style={styles.fabText}>Sparring anmelden</Text>
+        <Text style={styles.fabText}>
+          {mapMode === 'sparrings' ? 'Sparring anmelden' : 'Event anmelden'}
+        </Text>
       </TouchableOpacity>
 
+      {/* ── Create sparring sheet (existing flow) ── */}
       <CreateSparringSheet
         visible={createSheetVisible}
         mode="user"
@@ -246,16 +353,14 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             Alert.alert('Fehler', error);
             return;
           }
-          refetch();
-          // Prompt the map boost for the freshly created sparring. The create
-          // sheet closes itself right after onCreate; defer so iOS does not try
-          // to present two modals at once.
+          refetchSparrings();
           if (sparringId !== undefined) {
             boostTimerRef.current = setTimeout(() => setBoostSparringId(sparringId), 400);
           }
         }}
       />
 
+      {/* ── Map boost sheet for sparring (existing flow) ── */}
       {boostSparringId !== null && (
         <MapBoostSheet
           sparringId={boostSparringId}
@@ -263,92 +368,91 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           onClose={() => setBoostSparringId(null)}
           onBoostActivated={() => {
             setBoostSparringId(null);
-            refetch();
+            refetchSparrings();
           }}
         />
       )}
 
+      {/* ── Create event sheet ── */}
+      <CreateEventSheet
+        visible={createEventVisible}
+        onClose={() => setCreateEventVisible(false)}
+        onCreate={async (params) => {
+          const { error, eventId } = await createEvent(params);
+          if (error !== null) {
+            Alert.alert('Fehler', error);
+            return;
+          }
+          refetchEvents();
+          // Defer opening the payment sheet so iOS does not present two modals at once.
+          if (eventId !== undefined) {
+            paymentTimerRef.current = setTimeout(() => setPaymentEventId(eventId), 400);
+          }
+        }}
+      />
+
+      {/* ── Event payment sheet (mirrors boost flow) ── */}
+      {paymentEventId !== null && (
+        <EventPaymentSheet
+          eventId={paymentEventId}
+          visible
+          onClose={() => setPaymentEventId(null)}
+          onActivated={() => {
+            setPaymentEventId(null);
+            refetchEvents();
+          }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: {
+    flex: 1,
+  },
   topBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    position:          'absolute',
+    top:               0,
+    left:              0,
+    right:             0,
     paddingHorizontal: 16,
   },
-  filterRow: {
+  topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
+    alignItems:    'flex-start',
   },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+  leftPanel: {
+    width:      80,
+    alignItems: 'flex-start',
   },
-  closeBtnDimmed: { opacity: 0.35 },
-  segmentGroup: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 4,
-    height: 40,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+  centerPanel: {
+    flex:           1,
+    alignItems:     'center',
+    justifyContent: 'flex-start',
   },
-  segment: {
-    flex: 1,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  rightPanel: {
+    width: 80,
   },
-  segmentActive: { backgroundColor: colors.accentBlue },
-  segmentText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  segmentTextActive: { color: colors.card },
   fab: {
-    position: 'absolute',
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    position:        'absolute',
+    right:           16,
+    flexDirection:   'row',
+    alignItems:      'center',
     backgroundColor: colors.accentBlue,
-    borderRadius: 24,
-    paddingVertical: 12,
+    borderRadius:    24,
+    paddingVertical:   12,
     paddingHorizontal: 20,
-    gap: 8,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 4,
+    gap:             8,
+    shadowColor:     colors.dark,
+    shadowOffset:    { width: 0, height: 4 },
+    shadowOpacity:   0.2,
+    shadowRadius:    6,
+    elevation:       4,
   },
   fabText: {
-    fontSize: 15,
+    fontSize:   15,
     fontWeight: '700',
-    color: colors.card,
+    color:      colors.card,
   },
 });
