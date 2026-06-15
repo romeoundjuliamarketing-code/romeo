@@ -8,7 +8,7 @@ import {
   UserLocation,
   type CameraRef,
 } from '@maplibre/maplibre-react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { colors } from '../../theme/colors';
 import { getTimeWindow } from '../../utils/sparringTimeWindow';
@@ -81,6 +81,14 @@ function StudioDotMarker() {
   );
 }
 
+function EventMarker() {
+  return (
+    <View style={styles.eventMarkerBase}>
+      <MaterialCommunityIcons name="television-play" size={18} color={colors.card} />
+    </View>
+  );
+}
+
 export default function SparringMapView({
   sparrings,
   studioDots,
@@ -88,6 +96,8 @@ export default function SparringMapView({
   onStudioPress,
   totalUnread,
   onChatPress,
+  events = [],
+  onEventPress,
 }: SparringMapViewProps) {
   const cameraRef     = useRef<CameraRef>(null);
   const insets        = useSafeAreaInsets();
@@ -167,6 +177,16 @@ export default function SparringMapView({
             onPress={() => onStudioPress(st)}
           >
             <StudioDotMarker />
+          </Marker>
+        ))}
+
+        {events.filter((e) => e.lat !== null && e.lng !== null).map((e) => (
+          <Marker
+            key={`event-${e.id}`}
+            lngLat={[e.lng!, e.lat!]}
+            onPress={() => { if (onEventPress) onEventPress(e); }}
+          >
+            <EventMarker />
           </Marker>
         ))}
       </Map>
@@ -264,6 +284,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 3,
+  },
+  eventMarkerBase: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.sparringsOrange,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
   },
   zoomSliderOuter: {
     position: 'absolute',

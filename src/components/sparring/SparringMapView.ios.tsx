@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, View, PanResponder, StyleSheet, Image, Text, TouchableOpacity } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
@@ -71,6 +71,14 @@ function StudioDotMarker() {
   );
 }
 
+function EventMarker() {
+  return (
+    <View style={styles.eventMarkerBase}>
+      <MaterialCommunityIcons name="television-play" size={18} color={colors.card} />
+    </View>
+  );
+}
+
 const TRACK_HEIGHT  = 160;
 const THUMB_SIZE    = 28;
 const LOG_MIN       = Math.log(0.005);
@@ -84,6 +92,8 @@ export default function SparringMapView({
   onStudioPress,
   totalUnread,
   onChatPress,
+  events = [],
+  onEventPress,
 }: SparringMapViewProps) {
   const insets           = useSafeAreaInsets();
   const mapRef           = useRef<MapView>(null);
@@ -173,6 +183,18 @@ export default function SparringMapView({
             zIndex={0}
           >
             <StudioDotMarker />
+          </Marker>
+        ))}
+
+        {events.filter((e) => e.lat !== null && e.lng !== null).map((e) => (
+          <Marker
+            key={`event-${e.id}`}
+            coordinate={{ latitude: e.lat!, longitude: e.lng! }}
+            onPress={() => { if (onEventPress) onEventPress(e); }}
+            tracksViewChanges={false}
+            zIndex={0}
+          >
+            <EventMarker />
           </Marker>
         ))}
       </MapView>
@@ -279,6 +301,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 3,
+  },
+  eventMarkerBase: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.sparringsOrange,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   zoomSliderOuter: {
     position: 'absolute',
