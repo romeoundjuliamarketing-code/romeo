@@ -12,7 +12,10 @@ export interface UseEventCreatePurchase {
   packageLoading: boolean;
 }
 
-const EVENT_OFFERING_ID = 'event-create';
+// RevenueCat does not allow hyphens in offering identifiers, so the offering
+// is named after the product id rather than 'event-create'.
+const EVENT_OFFERING_ID = 'com.deinebundle.sparr.event_create';
+const EVENT_PRODUCT_ID  = 'com.deinebundle.sparr.event_create';
 const POLL_RETRIES      = 5;
 const POLL_DELAY_MS     = 2000;
 
@@ -30,10 +33,18 @@ export function useEventCreatePurchase(): UseEventCreatePurchase {
     setPackageLoading(true);
     try {
       const offerings = await Purchases.getOfferings();
-      const offering  = offerings.all[EVENT_OFFERING_ID] ?? offerings.current;
-      if (offering !== null && offering !== undefined) {
-        const pkg = offering.availablePackages[0] ?? null;
+      // Never fall back to offerings.current — that is the subscription offering
+      // and would charge the wrong product (a subscription instead of the event fee).
+      const offering  = offerings.all[EVENT_OFFERING_ID] ?? null;
+      if (offering !== null) {
+        // Prefer the package whose store product matches the event product id.
+        const pkg =
+          offering.availablePackages.find((p) => p.product.identifier === EVENT_PRODUCT_ID)
+          ?? offering.availablePackages[0]
+          ?? null;
         setEventPackage(pkg);
+      } else {
+        setEventPackage(null);
       }
     } catch (err) {
       console.warn('[useEventCreatePurchase] loadPackage error:', err);
