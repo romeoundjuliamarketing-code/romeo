@@ -7,27 +7,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import LocationPickerMap from './LocationPickerMap';
 
 type Coord = { latitude: number; longitude: number };
-
-type Region = {
-  latitude: number;
-  longitude: number;
-  latitudeDelta: number;
-  longitudeDelta: number;
-};
-
-const FALLBACK: Region = {
-  latitude: 48.14,
-  longitude: 11.58,
-  latitudeDelta: 0.08,
-  longitudeDelta: 0.08,
-};
 
 type Props = {
   visible: boolean;
@@ -37,7 +23,7 @@ type Props = {
 
 export default function LocationPickerModal({ visible, onClose, onConfirm }: Props) {
   const insets = useSafeAreaInsets();
-  const [region, setRegion] = useState<Region>(FALLBACK);
+  const [userCenter, setUserCenter] = useState<Coord | null>(null);
   const [marker, setMarker] = useState<Coord | null>(null);
   const [displayAddress, setDisplayAddress] = useState('');
   const [geocoding, setGeocoding] = useState(false);
@@ -51,19 +37,14 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
       if (status !== 'granted') return;
       Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
         ({ coords }) => {
-          setRegion({
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-            latitudeDelta: 0.05,
-            longitudeDelta: 0.05,
-          });
+          setUserCenter({ latitude: coords.latitude, longitude: coords.longitude });
         },
       );
     });
   }, [visible]);
 
-  async function handleMapPress(e: { nativeEvent: { coordinate: Coord } }): Promise<void> {
-    const coord = e.nativeEvent.coordinate;
+  async function handleMapPress(latitude: number, longitude: number): Promise<void> {
+    const coord: Coord = { latitude, longitude };
     setMarker(coord);
     setGeocoding(true);
     setDisplayAddress('');
@@ -108,18 +89,12 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.root}>
-        <MapView
-          provider={PROVIDER_DEFAULT}
-          style={styles.map}
-          region={region}
-          onRegionChangeComplete={setRegion}
+        <LocationPickerMap
+          centerOn={userCenter}
+          marker={marker}
           onPress={handleMapPress}
           showsUserLocation
-        >
-          {marker !== null && (
-            <Marker coordinate={marker} pinColor={colors.accentBlue} />
-          )}
-        </MapView>
+        />
 
         {/* Top bar */}
         <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
@@ -172,10 +147,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  map: {
-    flex: 1,
-  },
-
   // Top bar
   topBar: {
     position: 'absolute',
