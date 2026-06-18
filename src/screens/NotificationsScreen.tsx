@@ -11,13 +11,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { useNotificationFeed } from '../hooks/useNotificationFeed';
+import { useNotificationsContext } from '../context/NotificationsContext';
 import NotificationRow from '../components/notifications/NotificationRow';
 import type { AppNotification } from '../types/database.types';
 
 export default function NotificationsScreen() {
   const navigation = useNavigation();
-  const { notifications, loading, refetch, markAllRead } = useNotificationFeed();
+  const { notifications, loading, refetch, markAllRead } = useNotificationsContext();
 
   // Mark all read and refetch when the screen comes into focus
   useFocusEffect(

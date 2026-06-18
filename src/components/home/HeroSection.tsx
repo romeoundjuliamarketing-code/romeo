@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, LayoutAnimation, Platform, UIManager, Dimensions, type LayoutChangeEvent } from 'react-native';
-import HeroNetworkPattern, { type HeroNetworkPatternHandle } from './HeroNetworkPattern';
+import HeroNetworkPattern from './HeroNetworkPattern';
 
 if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
@@ -46,7 +46,6 @@ type Props = {
   onMobility: () => void;
   onNotificationsPress: () => void;
   unreadNotificationCount: number;
-  networkPatternRef?: React.Ref<HeroNetworkPatternHandle>;
 };
 
 export default function HeroSection({
@@ -68,7 +67,6 @@ export default function HeroSection({
   mobilityDone,
   mobilityUrgent,
   onMobility,
-  networkPatternRef,
 }: Props) {
   const routineType = todayRoutineType();
   const [expanded, setExpanded] = useState(false);
@@ -101,7 +99,7 @@ export default function HeroSection({
 
   return (
     <View style={styles.hero} onLayout={onHeroLayout}>
-      <HeroNetworkPattern ref={networkPatternRef} height={heroHeight} exclusionCenter={streakCenter} />
+      <HeroNetworkPattern height={heroHeight} exclusionCenter={streakCenter} />
 
       {/* ── Header: greeting left, logo centered, bell right ── */}
       <View style={styles.header}>

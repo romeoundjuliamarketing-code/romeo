@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { colors } from '../theme/colors';
@@ -44,6 +44,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const insets     = useSafeAreaInsets();
   const { user }   = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route      = useRoute<RouteProp<RootStackParamList, 'SparringMap'>>();
 
   // ── Sparring data ─────────────────────────────────────────────────────────
   const { sparrings, refetch: refetchSparrings } = useOpenSparrings();
@@ -172,6 +173,13 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     );
     return false;
   }
+
+  // Deep-link from the "no sparrings nearby" notification: open the create sheet.
+  useEffect(() => {
+    if (route.params?.openCreate !== true) return;
+    navigation.setParams({ openCreate: undefined });
+    if (requireVerified()) setCreateSheetVisible(true);
+  }, [route.params?.openCreate]);
 
   // ── Sparring handlers ─────────────────────────────────────────────────────
   async function handleToggleSparringSignup(): Promise<void> {

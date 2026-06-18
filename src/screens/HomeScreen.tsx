@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,6 @@ import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import HeroSection from '../components/home/HeroSection';
-import type { HeroNetworkPatternHandle } from '../components/home/HeroNetworkPattern';
 import WaterBottleCard from '../components/home/WaterBottleCard';
 import WeightCheckInModal from '../components/home/WeightCheckInModal';
 import PaywallCard from '../components/common/PaywallCard';
@@ -29,7 +28,7 @@ import { useWaterTracking } from '../hooks/useWaterTracking';
 import { useWeight } from '../hooks/useWeight';
 import { useNotifications } from '../hooks/useNotifications';
 import { useProximitySparringNotifications } from '../hooks/useProximitySparringNotifications';
-import { useNotificationFeed } from '../hooks/useNotificationFeed';
+import { useNotificationsContext } from '../context/NotificationsContext';
 import ConfettiOverlay from '../components/ernaehrung/ConfettiOverlay';
 import { useEntitlement } from '../hooks/useEntitlement';
 import type { RootStackParamList } from '../navigation/types';
@@ -52,9 +51,6 @@ export default function HomeScreen() {
   const [showConfetti,    setShowConfetti]    = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const weightCheckTriggered = useRef(false);
-  // Lets the ScrollView pause the hero's breathe animation while scrolling
-  const networkPatternRef = useRef<HeroNetworkPatternHandle>(null);
-  const handleScroll = useCallback(() => networkPatternRef.current?.notifyScroll(), []);
 
   useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
@@ -68,7 +64,7 @@ export default function HomeScreen() {
   const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
   const { scheduleTrainingReminders } = useNotifications();
   useProximitySparringNotifications();
-  const { unreadCount: unreadNotificationCount } = useNotificationFeed(focusTrigger);
+  const { unreadCount: unreadNotificationCount } = useNotificationsContext();
   const { isParticipating, participate, cancelParticipation } = useParticipation();
   const { isDone: stretchDone, isUrgent: stretchUrgent, logStretch } = useDailyStretch();
   const { isDone: mobilityDone, isUrgent: mobilityUrgent, logMobility } = useDailyMobility();
@@ -152,12 +148,9 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={handleScroll}
       >
         <View style={styles.content}>
         <HeroSection
-          networkPatternRef={networkPatternRef}
           name={profile?.name ?? null}
           announcement={announcement}
           isCoach={profile?.is_coach ?? false}

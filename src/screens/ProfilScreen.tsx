@@ -38,6 +38,7 @@ import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
 import { useVerification } from '../hooks/useVerification';
 import { supabase } from '../lib/supabase';
+import QRScannerModal from '../components/profil/QRScannerModal';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -67,6 +68,7 @@ export default function ProfilScreen(): React.ReactElement {
   const [searchCode,  setSearchCode]  = useState('');
   const [searching,   setSearching]   = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [scannerVisible, setScannerVisible] = useState(false);
 
   // Weekly weight tracking modal
   const [weightModalVisible, setWeightModalVisible] = useState(false);
@@ -108,8 +110,8 @@ export default function ProfilScreen(): React.ReactElement {
     refetchMyRequests();
   }
 
-  async function handleSearchByCode(): Promise<void> {
-    const trimmed = searchCode.trim().toUpperCase();
+  async function handleSearchByCode(codeArg?: string): Promise<void> {
+    const trimmed = (codeArg ?? searchCode).trim().toUpperCase();
     if (trimmed.length === 0) return;
     setSearching(true);
     setSearchError(null);
@@ -333,6 +335,14 @@ export default function ProfilScreen(): React.ReactElement {
                 }
               </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={styles.qrScanBtn}
+              onPress={() => setScannerVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="qr-code-outline" size={18} color={colors.accentBlue} />
+              <Text style={styles.qrScanBtnText}>QR scannen</Text>
+            </TouchableOpacity>
             {searchError !== null && (
               <Text style={styles.codeSearchError}>{searchError}</Text>
             )}
@@ -346,6 +356,16 @@ export default function ProfilScreen(): React.ReactElement {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* ── QR Scanner ── */}
+      <QRScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScanned={(code) => {
+          setScannerVisible(false);
+          void handleSearchByCode(code);
+        }}
+      />
 
       {/* ── Weekly body-weight tracking modal ── */}
       <Modal
@@ -515,6 +535,21 @@ const styles = StyleSheet.create({
   codeSearchError: {
     fontSize: 13,
     color: colors.deleteRed,
+  },
+  qrScanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.accentBlue,
+    paddingVertical: 12,
+  },
+  qrScanBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.accentBlue,
   },
   ownCodeRow: {
     flexDirection: 'row',

@@ -8,6 +8,7 @@ import HomeScreen from '../screens/HomeScreen';
 import TrainingScreen from '../screens/TrainingScreen';
 import ProfilScreen from '../screens/ProfilScreen';
 import SparringMapScreen from '../screens/SparringMapScreen';
+import { useNotificationsContext } from '../context/NotificationsContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -16,7 +17,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 const TAB_CONFIG: Record<string, { active: IoniconName; inactive: IoniconName; label: string }> = {
   Home:     { active: 'home', inactive: 'home-outline', label: 'Home' },
   Training: { active: 'barbell', inactive: 'barbell-outline', label: 'Training' },
-  Sparring: { active: 'map', inactive: 'map-outline', label: 'Sparring' },
+  Sparring: { active: 'map', inactive: 'map-outline', label: 'Karte' },
   Profil:   { active: 'person', inactive: 'person-outline', label: 'Profil' },
 };
 
@@ -99,6 +100,7 @@ function TabLabel({ focused, label, color }: { focused: boolean; label: string; 
 // ─── Navigator ────────────────────────────────────────────────────────────────
 
 export default function TabNavigator() {
+  const { unreadCount } = useNotificationsContext();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -123,7 +125,16 @@ export default function TabNavigator() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Tab.Screen
+        name="Home"
+        component={HomeScreen}
+        options={{
+          headerShown: false,
+          // Red dot on the Home tab while there are unread notifications.
+          tabBarBadge: unreadCount > 0 ? '' : undefined,
+          tabBarBadgeStyle: tabStyles.dot,
+        }}
+      />
       <Tab.Screen name="Training" component={TrainingScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Sparring" component={SparringMapScreen} />
       <Tab.Screen name="Profil" component={ProfilScreen} />
@@ -148,5 +159,14 @@ const tabStyles = StyleSheet.create({
     height: 2,
     borderRadius: 1,
     backgroundColor: colors.accentBlue,
+  },
+  // Small red dot (no number) shown on the Home tab for unread notifications.
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    lineHeight: 10,
+    backgroundColor: colors.deleteRed,
+    transform: [{ translateX: -2 }],
   },
 });

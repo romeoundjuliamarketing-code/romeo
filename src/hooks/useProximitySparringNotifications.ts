@@ -2,20 +2,26 @@ import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { haversineKm } from '../utils/geoUtils';
 import { useAuth } from '../context/AuthContext';
+import type { RootStackParamList } from '../navigation/types';
 
 export const PROXIMITY_RADIUS_KEY = 'proximity_radius_km';
 const NOTIFIED_KEY                 = 'proximity_notified_v1';
+const NO_SPARRINGS_KEY             = 'no_sparrings_notified_at_v1';
 const DEFAULT_RADIUS_KM            = 30;
 const TTL_MS                       = 24 * 60 * 60 * 1000; // 24 hours
+const NO_SPARRINGS_COOLDOWN_MS     = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 type NotifiedMap = Record<string, string>; // sparringId → ISO timestamp
 
 // Runs once per app session when the user is available
 export function useProximitySparringNotifications(): void {
   const { user } = useAuth();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const hasRun = useRef(false);
 
   useEffect(() => {
@@ -23,6 +29,25 @@ export function useProximitySparringNotifications(): void {
     hasRun.current = true;
     void checkProximitySparrings();
   }, [user]);
+
+  // Handle taps on the "no sparrings nearby" notification — open the create flow.
+  useEffect(() => {
+    function handleResponse(response: Notifications.NotificationResponse): void {
+      const data = response.notification.request.content.data as { type?: string };
+      if (data.type === 'no_sparrings_nearby') {
+        navigation.navigate('SparringMap', { openCreate: true });
+      }
+    }
+
+    // Cold start: app launched by tapping the notification.
+    void Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response !== null) handleResponse(response);
+    });
+
+    // Warm taps while the app is running.
+    const sub = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    return () => sub.remove();
+  }, [navigation]);
 }
 
 async function checkProximitySparrings(): Promise<void> {
@@ -71,18 +96,49 @@ async function checkProximitySparrings(): Promise<void> {
     .not('lat', 'is', null)
     .not('lng', 'is', null);
 
-  if (rowsError !== null || rows === null || rows.length === 0) {
+  if (rowsError !== null) {
     await AsyncStorage.setItem(NOTIFIED_KEY, JSON.stringify(pruned));
     return;
   }
 
-  // 7. Filter sparrings within radius that haven't been notified yet; carry distance to avoid double-call
-  const toNotify = rows
+  const allRows = rows ?? [];
+
+  // 7. Count ALL active upcoming sparrings within radius (regardless of notified state)
+  const withinRadiusCount = allRows.filter(
+    (r) => haversineKm(latitude, longitude, r.lat as number, r.lng as number) <= radiusKm,
+  ).length;
+
+  // 7a. No sparrings nearby → nudge the user to create one (max once per week)
+  if (withinRadiusCount === 0) {
+    const lastNoSparrings = await AsyncStorage.getItem(NO_SPARRINGS_KEY);
+    const canNotify =
+      lastNoSparrings === null ||
+      Date.now() - new Date(lastNoSparrings).getTime() >= NO_SPARRINGS_COOLDOWN_MS;
+    if (canNotify) {
+      try {
+        await Notifications.scheduleNotificationAsync({
+          identifier: 'no-sparrings-nearby',
+          content: {
+            title: 'Keine Sparrings in deiner Nähe',
+            body:  `Im Umkreis von ${radiusKm} km ist nichts los. Meld doch selber eins an.`,
+            data:  { type: 'no_sparrings_nearby' },
+          },
+          trigger: null,
+        });
+        await AsyncStorage.setItem(NO_SPARRINGS_KEY, new Date().toISOString());
+      } catch {
+        // Scheduling failed — do not record the timestamp so we retry next session
+      }
+    }
+  }
+
+  // 8. Filter sparrings within radius that haven't been notified yet; carry distance to avoid double-call
+  const toNotify = allRows
     .filter((r) => pruned[r.id] === undefined)
     .map((r) => ({ ...r, dist: haversineKm(latitude, longitude, r.lat as number, r.lng as number) }))
     .filter((r) => r.dist <= radiusKm);
 
-  // 8. Fire local notifications
+  // 9. Fire local notifications
   for (const sparring of toNotify) {
     const dist    = sparring.dist;
     const distStr = dist < 1

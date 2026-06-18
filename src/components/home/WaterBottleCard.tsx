@@ -216,7 +216,7 @@ export default function WaterBottleCard({
       <Animated.View
         style={[styles.penguinWrap, { transform: [{ translateY: penguinY }] }]}
       >
-        <Image source={PENGUIN_IMG} style={styles.penguin} resizeMode="contain" />
+        <Image source={PENGUIN_IMG} style={styles.penguin} resizeMode="contain" fadeDuration={0} />
 
         {/* Speech bubble — centered directly above penguin head, tail points down */}
         <Animated.View

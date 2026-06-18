@@ -1,0 +1,70 @@
+# EAS Build archive ignore list.
+#
+# IMPORTANT: when this file exists, EAS uses it INSTEAD of .gitignore for the
+# build archive. So it must replicate the .gitignore essentials below, plus the
+# extra excludes for files the native build does not need.
+
+# ── dependencies ──
+node_modules/
+
+# ── Expo / build output ──
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# ── generated native folders (EAS runs prebuild) ──
+/ios
+/android
+
+# ── native secrets / artifacts ──
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+
+# ── misc dev ──
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+.DS_Store
+
+# ── local env / secrets ──
+.env
+.env*.local
+
+# ── Supabase local temp ──
+supabase/.temp/
+
+# ──────────────────────────────────────────────────────────
+# Extra excludes — not needed for the app build (the win here)
+# ──────────────────────────────────────────────────────────
+
+# Claude Code internals — worktrees carry full node_modules (huge)
+.claude/
+
+# Backend SQL / tooling — not bundled into the app
+supabase/
+
+# Design originals / unused source folders (not referenced by the app)
+COACH/
+Logo/
+romepo/
+Kombat/
+widgets/
+obsidian-setup/
+
+# Docs, specs, screenshots, markdown
+docs/
+screenshots/
+*.md
+
+# Editor configs
+.vscode/
+.idea/

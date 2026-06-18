@@ -89,6 +89,7 @@ module.exports = {
         },
       ],
       "@sentry/react-native",
+      ["expo-camera", { cameraPermission: "Sparr nutzt die Kamera, um den QR-Code eines Kämpferprofils zu scannen." }],
     ],
     extra: {
       eas: {

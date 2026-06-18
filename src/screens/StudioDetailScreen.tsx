@@ -48,8 +48,8 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
   const { fighters, loading: fightersLoading, removeFighter } = useFeaturedFighters(studioId);
   const { profile: myProfile } = useProfile();
   const { schedule, loading: scheduleLoading } = useSchedule(undefined, studioId);
-  const { trialBookings, contracts, loading: requestsLoading, refetch } = useMyStudioRequests();
-  const { plans, loading: plansLoading, refetch: refetchPlans } = useStudioMembershipPlans(studioId);
+  const { trialBookings, contracts, refetch } = useMyStudioRequests();
+  const { plans, loading: plansLoading } = useStudioMembershipPlans(studioId);
   const [bookingSheetVisible, setBookingSheetVisible] = useState(false);
   const [dropInEntry, setDropInEntry] = useState<StudioSchedule | null>(null);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
@@ -90,7 +90,10 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
     );
   }
 
-  const isLoading = studioLoading || requestsLoading;
+  // Only block the whole screen while the studio itself has no data to show.
+  // User-scoped requests (bookings/contracts) are cached and load independently —
+  // they must not gate the entire page behind a network round-trip.
+  const isLoading = studioLoading && studio === null;
 
   if (isLoading) {
     return (
@@ -238,7 +241,6 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
             plans={plans}
             loading={plansLoading}
             activeContract={activeContract}
-            onContractSigned={() => { refetch(); refetchPlans(); }}
           />
         </View>
 

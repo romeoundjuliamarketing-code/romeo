@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,8 +12,6 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Modal,
-  FlatList,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -28,6 +26,7 @@ import { supabase } from '../lib/supabase';
 import { useStudioProfile } from '../hooks/useStudioProfile';
 import { useFeaturedFighters } from '../hooks/useFeaturedFighters';
 import { useEntitlement } from '../hooks/useEntitlement';
+import MemberMultiPickerSheet from '../components/studio/MemberMultiPickerSheet';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioProfileEdit'>;
 
@@ -37,12 +36,6 @@ const ALL_DISCIPLINES = [
 ];
 
 const MAX_DESCRIPTION = 300;
-
-interface StudioMember {
-  id: string;
-  name: string | null;
-  avatar_url: string | null;
-}
 
 async function uploadImage(
   localUri: string,
@@ -72,7 +65,7 @@ async function uploadImage(
 export default function StudioProfileEditScreen({ route, navigation }: Props): React.ReactElement {
   const { studioId } = route.params;
   const { studio, loading: studioLoading, refetch: refetchStudio } = useStudioProfile(studioId);
-  const { fighters, loading: fightersLoading, addFighter, removeFighter } =
+  const { fighters, loading: fightersLoading, addFighters, removeFighter } =
     useFeaturedFighters(studioId);
   const { entitlement } = useEntitlement();
 
@@ -82,8 +75,6 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [memberPickerVisible, setMemberPickerVisible] = useState(false);
-  const [members, setMembers] = useState<StudioMember[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
   const [address, setAddress] = useState('');
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
@@ -160,19 +151,6 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
     if (uri !== null) setAvatarUri(uri);
   }
 
-  const loadMembers = useCallback(async (): Promise<void> => {
-    setMembersLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, avatar_url')
-      .eq('studio_id', studioId);
-    if (error !== null) {
-      Alert.alert('Fehler', 'Mitglieder konnten nicht geladen werden.');
-    }
-    setMembers((data ?? []) as StudioMember[]);
-    setMembersLoading(false);
-  }, [studioId]);
-
   async function handleSave(): Promise<void> {
     setSaving(true);
     try {
@@ -223,9 +201,6 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
   const displayBanner = bannerUri ?? studio?.banner_url ?? null;
   const displayAvatar = avatarUri ?? studio?.avatar_url ?? null;
   const studioName = studio?.name ?? '';
-
-  const alreadyFeaturedIds = new Set(fighters.map((f) => f.userId));
-  const pickableMembers = members.filter((m) => !alreadyFeaturedIds.has(m.id));
 
   if (studioLoading) {
     return (
@@ -398,10 +373,7 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
               <View style={styles.sectionLabelRow}>
                 <Text style={styles.sectionLabel}>Featured Fighters</Text>
                 <TouchableOpacity
-                  onPress={async () => {
-                    await loadMembers();
-                    setMemberPickerVisible(true);
-                  }}
+                  onPress={() => setMemberPickerVisible(true)}
                   style={styles.addBtn}
                 >
                   <Ionicons name="add" size={18} color={colors.accentBlue} />
@@ -445,57 +417,17 @@ export default function StudioProfileEditScreen({ route, navigation }: Props): R
         </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal
+      <MemberMultiPickerSheet
         visible={memberPickerVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setMemberPickerVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={() => setMemberPickerVisible(false)}
-        />
-        <View style={styles.pickerSheet}>
-          <View style={styles.pickerHandle} />
-          <Text style={styles.pickerTitle}>Mitglied hinzufügen</Text>
-          {membersLoading ? (
-            <ActivityIndicator color={colors.accentBlue} style={styles.loader} />
-          ) : pickableMembers.length === 0 ? (
-            <Text style={styles.emptyText}>Keine weiteren Mitglieder verfügbar.</Text>
-          ) : (
-            <FlatList
-              data={pickableMembers}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.memberRow}
-                  activeOpacity={0.8}
-                  onPress={async () => {
-                    setMemberPickerVisible(false);
-                    const { error } = await addFighter(item.id);
-                    if (error !== null) Alert.alert('Fehler', error);
-                  }}
-                >
-                  {item.avatar_url !== null ? (
-                    <Image source={{ uri: item.avatar_url }} style={styles.memberAvatar} />
-                  ) : (
-                    <View style={[styles.memberAvatar, styles.memberAvatarPlaceholder]}>
-                      <Text style={styles.memberInitials}>
-                        {(item.name ?? '?').slice(0, 2).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <Text style={styles.memberName}>{item.name ?? 'Unbekannt'}</Text>
-                  <Ionicons name="add-circle-outline" size={22} color={colors.accentBlue} />
-                </TouchableOpacity>
-              )}
-              showsVerticalScrollIndicator={false}
-              style={styles.memberList}
-            />
-          )}
-        </View>
-      </Modal>
+        studioId={studioId}
+        excludeIds={fighters.map((f) => f.userId)}
+        title="Fighters hinzufügen"
+        onClose={() => setMemberPickerVisible(false)}
+        onConfirm={async (ids) => {
+          const { error } = await addFighters(ids);
+          if (error !== null) Alert.alert('Fehler', error);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -786,63 +718,6 @@ const styles = StyleSheet.create({
     color: colors.accentBlue,
   },
   fighterName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.mapOverlay,
-  },
-  pickerSheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '60%',
-  },
-  pickerHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.border,
-    alignSelf: 'center',
-    marginBottom: 16,
-  },
-  pickerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 16,
-  },
-  memberList: {
-    maxHeight: 320,
-  },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  memberAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  memberAvatarPlaceholder: {
-    backgroundColor: colors.accentBlueSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  memberInitials: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.accentBlue,
-  },
-  memberName: {
     flex: 1,
     fontSize: 14,
     fontWeight: '500',

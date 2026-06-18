@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/queryCache';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import type { TrialBookingWithUser, MembershipContractWithUser, StudioJoinRequestWithUser } from '../types/database.types';
+
+// Combined snapshot cached under one key so re-opening a studio shows leads instantly.
+interface CachedStudioRequests {
+  trialBookings:        TrialBookingWithUser[];
+  dropInBookings:       TrialBookingWithUser[];
+  membershipRequests:   MembershipContractWithUser[];
+  cancellationRequests: MembershipContractWithUser[];
+  joinRequests:         StudioJoinRequestWithUser[];
+}
 
 interface UseStudioRequestsResult {
   trialBookings:        TrialBookingWithUser[];         // booking_type = 'trial', status = 'pending'
@@ -18,19 +28,24 @@ interface UseStudioRequestsResult {
 // Loads pending trial_bookings and open membership contracts for a studio (staff view).
 // Profile names are joined via a two-step query (same pattern as the original).
 export function useStudioRequests(studioId: string): UseStudioRequestsResult {
-  const [trialBookings, setTrialBookings] = useState<TrialBookingWithUser[]>([]);
-  const [dropInBookings, setDropInBookings] = useState<TrialBookingWithUser[]>([]);
-  const [membershipRequests, setMembershipRequests] = useState<MembershipContractWithUser[]>([]);
-  const [cancellationRequests, setCancellationRequests] = useState<MembershipContractWithUser[]>([]);
-  const [joinRequests, setJoinRequests] = useState<StudioJoinRequestWithUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = studioId.trim().length > 0 ? `useStudioRequests:${studioId}` : null;
+  const cached = cacheKey ? getCached<CachedStudioRequests>(cacheKey) : undefined;
+  const [trialBookings, setTrialBookings] = useState<TrialBookingWithUser[]>(() => cached?.trialBookings ?? []);
+  const [dropInBookings, setDropInBookings] = useState<TrialBookingWithUser[]>(() => cached?.dropInBookings ?? []);
+  const [membershipRequests, setMembershipRequests] = useState<MembershipContractWithUser[]>(() => cached?.membershipRequests ?? []);
+  const [cancellationRequests, setCancellationRequests] = useState<MembershipContractWithUser[]>(() => cached?.cancellationRequests ?? []);
+  const [joinRequests, setJoinRequests] = useState<StudioJoinRequestWithUser[]>(() => cached?.joinRequests ?? []);
+  // Only show the blocking spinner when there is no cached data to render.
+  const [loading, setLoading] = useState(cached === undefined);
   const [trigger, setTrigger] = useState(0);
 
   const refetch = useCallback(() => setTrigger((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // Stale-while-revalidate: serve cached data instantly, refetch in background.
+    const hasCache = cacheKey ? getCached<CachedStudioRequests>(cacheKey) !== undefined : false;
+    if (!hasCache) setLoading(true);
 
     void (async () => {
       // Fetch all sources in parallel
@@ -148,18 +163,26 @@ export function useStudioRequests(studioId: string): UseStudioRequestsResult {
         user_name:    nameMap[row.user_id] ?? null,
       }));
 
-      setTrialBookings(allRows.filter((r) => r.booking_type === 'trial'));
-      setDropInBookings(allRows.filter((r) => r.booking_type === 'drop_in'));
-      setMembershipRequests(contractRows.filter((c) => c.status === 'pending'));
-      setCancellationRequests(contractRows.filter((c) => c.status === 'cancellation_requested'));
-      setJoinRequests(joinRequestRows);
+      const snapshot: CachedStudioRequests = {
+        trialBookings:        allRows.filter((r) => r.booking_type === 'trial'),
+        dropInBookings:       allRows.filter((r) => r.booking_type === 'drop_in'),
+        membershipRequests:   contractRows.filter((c) => c.status === 'pending'),
+        cancellationRequests: contractRows.filter((c) => c.status === 'cancellation_requested'),
+        joinRequests:         joinRequestRows,
+      };
+      setTrialBookings(snapshot.trialBookings);
+      setDropInBookings(snapshot.dropInBookings);
+      setMembershipRequests(snapshot.membershipRequests);
+      setCancellationRequests(snapshot.cancellationRequests);
+      setJoinRequests(snapshot.joinRequests);
+      if (cacheKey) setCached<CachedStudioRequests>(cacheKey, snapshot);
       setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [studioId, trigger]);
+  }, [studioId, trigger, cacheKey]);
 
   async function respondTrial(id: string, confirm: boolean): Promise<{ error: string | null }> {
     const { error } = await supabase.rpc('respond_trial_booking', {

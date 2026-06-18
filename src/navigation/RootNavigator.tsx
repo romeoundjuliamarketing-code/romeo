@@ -35,12 +35,14 @@ import OfflineBanner from '../components/common/OfflineBanner';
 import CacheWarmer from '../components/common/CacheWarmer';
 import { getCached, setCached } from '../lib/queryCache';
 import { onboardingCacheKey } from '../lib/onboardingCache';
+import { NotificationsProvider } from '../context/NotificationsContext';
 
 const AppStack  = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 
 function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
   return (
+    <NotificationsProvider>
     <AppStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
       {showOnboarding ? (
         <AppStack.Screen name="Onboarding" component={OnboardingScreen} />
@@ -90,6 +92,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         options={{ presentation: 'modal' }}
       />
     </AppStack.Navigator>
+    </NotificationsProvider>
   );
 }
 

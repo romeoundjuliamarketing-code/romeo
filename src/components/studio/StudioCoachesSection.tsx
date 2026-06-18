@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Modal,
-  FlatList,
   TextInput,
   Alert,
   ActivityIndicator,
@@ -18,20 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
-import { supabase } from '../../lib/supabase';
 import { useStudioCoaches } from '../../hooks/useStudioCoaches';
+import type { StudioCoach } from '../../hooks/useStudioCoaches';
+import MemberMultiPickerSheet from './MemberMultiPickerSheet';
 import type { RootStackParamList } from '../../navigation/types';
 
 const CARD_SIZE = 80;
-
-interface StudioMember {
-  id: string;
-  name: string | null;
-  avatar_url: string | null;
-}
-
-// "pick member" step vs. "set role" step inside the picker modal
-type PickerStep = 'member' | 'role';
 
 interface Props {
   studioId: string;
@@ -52,63 +43,37 @@ export default function StudioCoachesSection({
   currentUserId,
 }: Props): React.ReactElement | null {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { coaches, loading, addCoach, removeCoach } = useStudioCoaches(studioId);
+  const { coaches, loading, addCoaches, updateCoachRole, removeCoach } = useStudioCoaches(studioId);
 
-  // Picker modal state
+  // Add-coaches picker
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [pickerStep, setPickerStep] = useState<PickerStep>('member');
-  const [members, setMembers] = useState<StudioMember[]>([]);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<StudioMember | null>(null);
-  const [roleText, setRoleText] = useState('');
-  const [adding, setAdding] = useState(false);
 
-  const alreadyCoachIds = new Set(coaches.map((c) => c.userId));
+  // Role-edit modal
+  const [roleEditCoach, setRoleEditCoach] = useState<StudioCoach | null>(null);
+  const [roleEditText, setRoleEditText] = useState('');
+  const [savingRole, setSavingRole] = useState(false);
 
-  const loadMembers = useCallback(async (): Promise<void> => {
-    setMembersLoading(true);
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, name, avatar_url')
-      .eq('studio_id', studioId);
-    if (error !== null) {
-      Alert.alert('Fehler', 'Mitglieder konnten nicht geladen werden.');
-    }
-    setMembers((data ?? []) as StudioMember[]);
-    setMembersLoading(false);
-  }, [studioId]);
-
-  function openPicker(): void {
-    setPickerStep('member');
-    setSelectedMember(null);
-    setRoleText('');
-    setPickerVisible(true);
-    void loadMembers();
+  function openRoleEditor(coach: StudioCoach): void {
+    setRoleEditCoach(coach);
+    setRoleEditText(coach.role ?? '');
   }
 
-  function closePicker(): void {
-    setPickerVisible(false);
-    setPickerStep('member');
-    setSelectedMember(null);
-    setRoleText('');
+  function closeRoleEditor(): void {
+    setRoleEditCoach(null);
+    setRoleEditText('');
   }
 
-  function handleSelectMember(member: StudioMember): void {
-    setSelectedMember(member);
-    setPickerStep('role');
-  }
-
-  async function handleAddCoach(): Promise<void> {
-    if (selectedMember === null) return;
-    setAdding(true);
-    const role = roleText.trim().length > 0 ? roleText.trim() : null;
-    const { error } = await addCoach(selectedMember.id, role);
-    setAdding(false);
+  async function handleSaveRole(): Promise<void> {
+    if (roleEditCoach === null) return;
+    setSavingRole(true);
+    const role = roleEditText.trim().length > 0 ? roleEditText.trim() : null;
+    const { error } = await updateCoachRole(roleEditCoach.userId, role);
+    setSavingRole(false);
     if (error !== null) {
       Alert.alert('Fehler', error);
       return;
     }
-    closePicker();
+    closeRoleEditor();
   }
 
   function handleRemoveCoach(userId: string): void {
@@ -131,8 +96,6 @@ export default function StudioCoachesSection({
 
   // Hide section from visitors when no coaches present
   if (coaches.length === 0 && !canManage) return null;
-
-  const pickableMembers = members.filter((m) => !alreadyCoachIds.has(m.id));
 
   return (
     <View style={styles.container}>
@@ -165,8 +128,21 @@ export default function StudioCoachesSection({
               <Text style={styles.coachName} numberOfLines={1}>
                 {coach.name ?? 'Unbekannt'}
               </Text>
-              {coach.role !== null && (
-                <Text style={styles.coachRole} numberOfLines={1}>{coach.role}</Text>
+              {canManage ? (
+                <TouchableOpacity
+                  style={styles.rolePill}
+                  activeOpacity={0.7}
+                  onPress={() => openRoleEditor(coach)}
+                >
+                  <Text style={styles.rolePillText} numberOfLines={1}>
+                    {coach.role !== null ? coach.role : '+ Rolle'}
+                  </Text>
+                  <Ionicons name="pencil" size={12} color={colors.accentBlue} />
+                </TouchableOpacity>
+              ) : (
+                coach.role !== null && (
+                  <Text style={styles.coachRole} numberOfLines={1}>{coach.role}</Text>
+                )
               )}
               {canManage && (
                 <TouchableOpacity
@@ -185,119 +161,64 @@ export default function StudioCoachesSection({
           <TouchableOpacity
             style={[styles.card, styles.addCard]}
             activeOpacity={0.75}
-            onPress={openPicker}
+            onPress={() => setPickerVisible(true)}
           >
             <View style={styles.addIconWrap}>
               <Ionicons name="add" size={28} color={colors.accentBlue} />
             </View>
-            <Text style={styles.addLabel}>Coach{'\n'}hinzufügen</Text>
+            <Text style={styles.addLabel}>Coaches{'\n'}hinzufügen</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
 
-      {/* Picker Modal */}
-      <Modal
+      <MemberMultiPickerSheet
         visible={pickerVisible}
+        studioId={studioId}
+        excludeIds={coaches.map((c) => c.userId)}
+        title="Coaches hinzufügen"
+        onClose={() => setPickerVisible(false)}
+        onConfirm={async (ids) => {
+          const { error } = await addCoaches(ids);
+          if (error !== null) Alert.alert('Fehler', error);
+        }}
+      />
+
+      {/* Role-edit modal */}
+      <Modal
+        visible={roleEditCoach !== null}
         animationType="slide"
         transparent
-        onRequestClose={closePicker}
+        onRequestClose={closeRoleEditor}
       >
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={closePicker}
-        />
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={closeRoleEditor} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.sheetWrapper}
         >
           <View style={styles.pickerSheet}>
             <View style={styles.pickerHandle} />
-
-            {pickerStep === 'member' ? (
-              <>
-                <Text style={styles.pickerTitle}>Coach hinzufügen</Text>
-                {membersLoading ? (
-                  <ActivityIndicator color={colors.accentBlue} style={styles.pickerLoader} />
-                ) : pickableMembers.length === 0 ? (
-                  <Text style={styles.emptyText}>Keine weiteren Mitglieder verfügbar.</Text>
-                ) : (
-                  <FlatList
-                    data={pickableMembers}
-                    keyExtractor={(item) => item.id}
-                    style={styles.memberList}
-                    showsVerticalScrollIndicator={false}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.memberRow}
-                        activeOpacity={0.8}
-                        onPress={() => handleSelectMember(item)}
-                      >
-                        {item.avatar_url !== null ? (
-                          <Image source={{ uri: item.avatar_url }} style={styles.memberAvatar} />
-                        ) : (
-                          <View style={[styles.memberAvatar, styles.memberAvatarPlaceholder]}>
-                            <Text style={styles.memberInitials}>
-                              {getInitials(item.name)}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={styles.memberName}>{item.name ?? 'Unbekannt'}</Text>
-                        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-                      </TouchableOpacity>
-                    )}
-                  />
-                )}
-              </>
-            ) : (
-              <>
-                {/* Role step */}
-                <TouchableOpacity onPress={() => setPickerStep('member')} style={styles.backRow}>
-                  <Ionicons name="chevron-back" size={18} color={colors.accentBlue} />
-                  <Text style={styles.backText}>Zurück</Text>
-                </TouchableOpacity>
-                <Text style={styles.pickerTitle}>Rolle festlegen</Text>
-
-                {selectedMember !== null && (
-                  <View style={styles.selectedMemberRow}>
-                    {selectedMember.avatar_url !== null ? (
-                      <Image source={{ uri: selectedMember.avatar_url }} style={styles.memberAvatar} />
-                    ) : (
-                      <View style={[styles.memberAvatar, styles.memberAvatarPlaceholder]}>
-                        <Text style={styles.memberInitials}>
-                          {getInitials(selectedMember.name)}
-                        </Text>
-                      </View>
-                    )}
-                    <Text style={styles.memberName}>{selectedMember.name ?? 'Unbekannt'}</Text>
-                  </View>
-                )}
-
-                <Text style={styles.roleLabel}>Rolle (optional)</Text>
-                <TextInput
-                  style={styles.roleInput}
-                  value={roleText}
-                  onChangeText={setRoleText}
-                  placeholder="z.B. Head Coach"
-                  placeholderTextColor={colors.textSecondary}
-                  returnKeyType="done"
-                  autoFocus
-                />
-
-                <TouchableOpacity
-                  style={[styles.addBtn, adding && styles.addBtnDisabled]}
-                  onPress={() => { void handleAddCoach(); }}
-                  disabled={adding}
-                  activeOpacity={0.85}
-                >
-                  {adding ? (
-                    <ActivityIndicator size="small" color={colors.card} />
-                  ) : (
-                    <Text style={styles.addBtnText}>Hinzufügen</Text>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
+            <Text style={styles.pickerTitle}>Rolle festlegen</Text>
+            <TextInput
+              style={styles.roleInput}
+              value={roleEditText}
+              onChangeText={setRoleEditText}
+              placeholder="z.B. Head Coach"
+              placeholderTextColor={colors.textSecondary}
+              returnKeyType="done"
+              autoFocus
+            />
+            <TouchableOpacity
+              style={[styles.addBtn, savingRole && styles.addBtnDisabled]}
+              onPress={() => { void handleSaveRole(); }}
+              disabled={savingRole}
+              activeOpacity={0.85}
+            >
+              {savingRole ? (
+                <ActivityIndicator size="small" color={colors.card} />
+              ) : (
+                <Text style={styles.addBtnText}>Speichern</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -388,6 +309,22 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  rolePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: CARD_SIZE + 16,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: colors.accentBlueSoft,
+  },
+  rolePillText: {
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.accentBlue,
+  },
   removeBtn: {
     position: 'absolute',
     top: -4,
@@ -422,76 +359,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text,
     marginBottom: 16,
-  },
-  pickerLoader: {
-    marginVertical: 24,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
-  memberList: {
-    maxHeight: 320,
-  },
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  memberAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
-  memberAvatarPlaceholder: {
-    backgroundColor: colors.accentBlueSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  memberInitials: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.accentBlue,
-  },
-  memberName: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  // Role step
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 8,
-  },
-  backText: {
-    fontSize: 14,
-    color: colors.accentBlue,
-    fontWeight: '500',
-  },
-  selectedMemberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 24,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  roleLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginBottom: 8,
   },
   roleInput: {
     fontSize: 14,

@@ -1,381 +1,145 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
----
+Guidance für Claude Code in diesem Repo.
 
 ## Befehle
-
 ```bash
-# App starten (Expo Go / Simulator)
-npx expo start
-npx expo start --ios
+npx expo start --ios        # Simulator (kein Expo Go — Dev-Build noetig)
 npx expo start --android
-
-# TypeScript-Fehler prüfen (nach jeder Codeänderung pflicht)
-npx tsc --noEmit
-
-# Tests ausführen
-npx jest
-npx jest src/utils/nutritionEngine.test.ts   # einzelner Test
-npx jest src/utils/points.test.ts
+npx tsc --noEmit            # nach JEDER Codeaenderung pflicht
+npx jest                    # Tests; einzeln: npx jest src/utils/nutritionEngine.test.ts
 ```
+Kein separater Build-Schritt, kein Linter.
 
-Kein separater Build-Schritt. Kein Linter konfiguriert.
-
-Test-Setup: `babel.config.js` + `jest.config.js` vorhanden. Die Config ist
-environment-aware: im `test`-Env läuft `@babel/preset-typescript` +
-`@babel/plugin-transform-modules-commonjs`; im App/Metro-Kontext läuft
-`babel-preset-expo`. In Test-Dateien kein `import type` verwenden — Babel kann
-das nicht parsen. Stattdessen `as const` auf String-Literale nutzen, damit
-TypeScript die Typen narrowt.
-
----
+Test-Setup (`babel.config.js` + `jest.config.js`) ist environment-aware. In Test-Dateien **kein `import type`** (Babel kann das nicht parsen) — stattdessen `as const` auf String-Literale.
 
 ## Architektur
 
-### Stack
-- **React Native + Expo SDK 55** (kein Expo Router — React Navigation)
-- **Supabase** als Backend: Auth, Postgres, Storage, RPCs
-- **TypeScript strict**
+**Stack:** React Native + Expo SDK 55 (kein Expo Router — React Navigation), Supabase (Auth/Postgres/Storage/RPCs), TypeScript strict.
 
-### Navigation
-Zwei getrennte Stacks in `src/navigation/RootNavigator.tsx`:
-- `AuthStack` (Login / Register) — wenn keine Session
-- `AppStack` → `TabNavigator` (Home, Training, Ernährung, Profil) + modale Stacks (Team, Workout, Timer)
+**Navigation** (`src/navigation/RootNavigator.tsx`): `AuthStack` ohne Session, sonst `AppStack` → `TabNavigator` (Home/Training/Ernaehrung/Profil) + modale Stacks. Tab-Screens persistent, Rest NativeStack-Modals.
 
-Tab-Screens sind persistent; alle anderen Screens sind NativeStack-Modals.
+**Datenzugriff:** Kein globaler State-Manager. Dedizierte Hooks in `src/hooks/`, Muster `useXxx(refetchTrigger = 0)` (Zahl aus `useFocusEffect` loest Refetch aus). `refetch`-Callbacks nach Mutationen explizit aufrufen.
 
-### Datenzugriff
-Kein globaler State-Manager. Jeder Screen/Komponente nutzt dedizierte Hooks in `src/hooks/`. Hooks folgen dem Muster:
-```ts
-export function useXxx(refetchTrigger = 0) {
-  // refetchTrigger: Zahl aus useFocusEffect → löst useEffect neu aus
-}
-```
-`refetch`-Callbacks werden von Hooks zurückgegeben und nach Mutationen explizit aufgerufen.
+**Supabase-Besonderheiten:**
+- Typen manuell in `src/types/database.types.ts` (kein codegen).
+- Session via `SecureStore` (< 1800 B) bzw. `AsyncStorage` (groessere JWTs) — `src/lib/supabase.ts`.
+- Business-Logik (Punkte, Coach, Anwesenheit) in `SECURITY DEFINER` RPCs, nicht im Client.
+- Rekursive RLS vermeiden: Subqueries auf dieselbe Tabelle als `SECURITY DEFINER`-Funktion auslagern (z.B. `get_my_studio_id()`).
 
-### Supabase-Besonderheiten
-- Typen leben in `src/types/database.types.ts` — manuell gepflegt (kein codegen).
-- Auth-Session wird über `SecureStore` (< 1800 Bytes) oder `AsyncStorage` (größere JWTs) persistiert — Logik in `src/lib/supabase.ts`.
-- Business-Logik (Punkte, Coach-Beförderung, Anwesenheit) läuft in `SECURITY DEFINER` RPCs auf Postgres, nicht im Client.
-- Rekursive RLS-Policies vermeiden: Subqueries auf dieselbe Tabelle als `SECURITY DEFINER`-Funktion auslagern (Beispiel: `get_my_studio_id()`).
+**Feature-Map** (Details im jeweiligen Code/Test):
+- **Punkte:** `profiles.total_points`; RPCs `add_/deduct_workout_points`, `mark_/unmark_attendance`. Calc `Math.max(1, Math.floor(min/30)) * pointsPer30Min`.
+- **Coach:** Peer-Vouching `coach_nominations`+`coach_votes`; Selbst-Demotion `self_demote_coach`; Selbst-Nominierung clientseitig blockiert.
+- **Subscription/Paywall:** `get_my_entitlement()` RPC; Plaene `individual`/`studio`; IAP RevenueCat+StoreKit (iOS, kein Stripe); `PaywallScreen.tsx` + `PaywallCard.tsx`; Team via `create_studio_with_owner` (nur studio-Plan).
+- **Studio-Einladungscode:** `create_studio_invite`/`accept_studio_invite` RPCs; Hook `useStudioInvite.ts`.
+- **Nutrition Engine:** `src/utils/nutritionEngine.ts` (pure TS); Mifflin-St Jeor; Modi `recommended/faster/aggressive`; Szenario mit Deadline → `findModeForRate()`/`autoSelectMode`. Hooks `useNutritionTargets` + `useWeightGoalCoach`. 62 Tests.
+- **Trainingspensum:** `profiles.training_frequency` (`low/medium/high`) → Aktivitaetslevel-Mapping in `useNutritionTargets`.
+- **Wassertracking:** `water_logs`; Hook `useWaterTracking`; dynamisches Ziel aus Gewicht/Alter/Modus; 5 XP-Bonus.
+- **Maskottchen-Modals (montags):** `WeightCheckInModal.tsx`, `NutritionAdjustmentModal.tsx`. Konfetti: `ConfettiOverlay.tsx`.
+- **Coach Studio-Plan-Editor:** `useStudioScheduleEditor.ts`; `ScheduleEntrySheet showCoachFields`.
 
-### Punkte-System
-Punkte werden in `profiles.total_points` akkumuliert. Zwei Quellen:
-1. Workout-Logs (`workout_logs`): via `add_workout_points` / `deduct_workout_points` RPCs
-2. Anwesenheits-Bestätigung (`attendance_logs`): via `mark_attendance` / `unmark_attendance` RPCs
-Berechnung: `Math.max(1, Math.floor(durationMin / 30)) * pointsPer30Min`
+**Kritische Fallstricke:**
+- **Avatar-Upload:** `expo-file-system` + `base64-arraybuffer` direkt in Storage (`avatars`-Bucket). **Nie** `fetch().blob()` (geht im Expo-Kontext nicht).
+- **Maps:** Kein Google Maps (kein Key). iOS `react-native-maps`/Apple Maps (`PROVIDER_DEFAULT`); Android `@maplibre/maplibre-react-native` + OpenFreeMap. Plattform-Split via `.ios.tsx`/`.android.tsx` + TS-Stub `Name.tsx`.
+- **MapLibre Android (v11+):** `<Map>` OHNE `androidView`-Prop rendern (Default `GLSurfaceView` ist stabil). `androidView="texture"` verursacht SIGSEGV-Crashes. Richtig: `<Map mapStyle={MAP_STYLE} style={styles.map}>`
 
-### Coach-System
-Peer-Vouching über `coach_nominations` + `coach_votes`:
-- Nominierung → mindestens 1 Bestätigung nötig
-- Wenn noch kein Coach im Team: jedes Mitglied darf bestätigen
-- Wenn Coach(es) vorhanden: nur Coaches dürfen bestätigen
-- Selbst-Demotion: sofort via `self_demote_coach` RPC (kein Vote nötig)
-- Selbst-Nominierung ist clientseitig blockiert
+## Android-Pflicht (immer mitbauen)
 
-### Subscription / Paywall
-- Entitlement-Quelle: `get_my_entitlement()` RPC (Supabase, `SECURITY DEFINER`)
-- Pläne: `individual` und `studio` (funktional identisch; Studio zusätzlich mit Seats/Team-Owner-Rechten)
-- Tabellen:
-  - `subscriptions` (Plan, Status, Laufzeit, inklusive/zusätzliche Seats)
-  - `studio_memberships` (aktive Seat-Zuweisungen; UNIQUE auf `(subscription_id, user_id)`)
-  - `studio_invites` (email-basierte Einladungen — Legacy-Schema, derzeit nicht aktiv genutzt)
-  - `studio_invite_codes` (ein aktiver 6-stelliger Code pro Studio, 7 Tage Laufzeit)
-- Team-Erstellung ist serverseitig geschützt über `create_studio_with_owner(p_name, p_city)` RPC:
-  - nur mit aktivem `studio`-Plan
-  - setzt `studios.owner_user_id`
-- App-Gates:
-  - Punkte/Stats nur bei aktivem Entitlement (`entitlement.hasAccess`)
-  - Studio erstellen nur bei `entitlement.canCreateStudio`
-- Paywall-UI:
-  - Fullscreen-Screen `src/screens/PaywallScreen.tsx` (Einzel/Studio, monatlich/jährlich)
-  - Inline-Teaser `src/components/common/PaywallCard.tsx` mit CTA auf `Paywall`
-- IAP: RevenueCat + StoreKit (iOS), Stripe entfernt
-- Migrationen:
-  - `20260408152000_add_subscription_and_entitlements.sql`
-  - `20260410200000_add_studio_invite_rpcs.sql`
+Wir bauen **immer fuer iOS und Android**. Jede native oder funktionale Aenderung
+wird auf beiden Plattformen gebaut und getestet — iOS-Simulator allein reicht nie.
+Android ist extrem fragmentiert (verschiedene GPUs/Renderer, OEM-Skins wie
+OneUI/MIUI, API-Level, Display-Cutouts, Navigationsmodi), darum zusaetzlich zum
+Emulator mindestens ein echtes Geraet testen.
 
-### Studio-Einladungscode
-Studio-Owner kann einen 6-stelligen Code generieren, den Mitglieder einlösen können.
-Einlösen → `studio_memberships`-Eintrag (Premium-Zugang) + `profiles.studio_id` wird gesetzt.
-- RPCs: `create_studio_invite(p_studio_id)` → `text` (Code), `accept_studio_invite(p_code)` → `uuid` (studio_id)
-- Hook: `src/hooks/useStudioInvite.ts` — `createInvite(studioId)` + `acceptInvite(code)`
-- UI Coach-Seite: `TeamScreen` — Karte "Einladungscode" nur wenn `isCoach && entitlement.tier === 'studio'`; zeigt Code + Teilen + Neu-erstellen
-- UI Mitglied: `TeamPickerCard` — `onRedeemCode?`-Prop; Eingabefeld im Such-Modal unterhalb der Ergebnisliste
-- `ProfilScreen` verbindet `acceptInvite` + `joinStudio` in `handleRedeemCode` → lokale Studiostate wird sofort aktualisiert
-
-### Avatar-Upload
-`expo-file-system` + `base64-arraybuffer` → direkter Upload in Supabase Storage (`avatars`-Bucket). **Nicht** `fetch().blob()` verwenden — funktioniert nicht im Expo-Kontext.
-
-### Ernährung / Nutrition Engine
-Gesamte Berechnungslogik liegt in `src/utils/nutritionEngine.ts` (pure TypeScript, kein React).
-- BMR: Mifflin-St Jeor, TDEE via Aktivitätslevel + Trainingstyp-Bonus
-- 3 Plan-Modi: `recommended` / `faster` / `aggressive`
-- Wochenraten (% Körpergewicht): Verlust rec=[0.50–0.75]%, faster=[0.75–1.00]%, aggressive=[1.00–1.25]%; Aufbau rec=[0.25–0.50]%, faster=[0.50–0.75]%, aggressive=[0.75–1.00]%
-- Protein nach Zielrichtung (1.7–2.4 g/kg), Fett-Floor 0.6 g/kg, Carbs als Rest
-- Guard rails: Deficit 200–1050 kcal, Surplus 150–900 kcal
-- **Zwei Berechnungs-Szenarien:**
-  - Szenario A (kein Datum): Bandmitte der gewählten Rate → normale Planberechnung
-  - Szenario B (mit Datum): Benötigte Rate aus Gewichtsdifferenz + verbleibenden Wochen berechnet → `findModeForRate()` wählt passenden Modus, tatsächliche Rate überschreibt Bandmitte (`overrideRateKgPerWeek`)
-- `findModeForRate(ratePct, direction)` — exported helper, mappt tatsächliche Rate auf Plan-Modus
-- `autoSelectMode: PlanMode | null` wird von `calculateNutrition()` zurückgegeben und von `useWeightGoalCoach` verwendet, um beim Speichern eines Ziels mit Deadline automatisch den richtigen Tab zu wählen
-- Hooks: `useNutritionTargets(refetchTrigger)` + `useWeightGoalCoach` (Ziel + Engine → Pläne)
-- `useNutritionTargets` gibt `profile: Profile | null` zurück — kein separater `useProfile`-Aufruf im Screen nötig
-- AsyncStorage-Key für gespeichertes Ziel: `weight_goal_plan_v2`
-- 62 Unit-Tests in `src/utils/nutritionEngine.test.ts`
-
-### Trainingspensum (Training Frequency)
-Nutzer wählt sein wöchentliches Trainingspensum; beeinflusst TDEE-Berechnung.
-- DB-Spalte: `profiles.training_frequency` (`text`, nullable) — Werte: `'low'` / `'medium'` / `'high'`
-- Mapping in `useNutritionTargets`:
-  - `low`    → `moderately_active`, 3×/Woche
-  - `medium` → `very_active`, 5×/Woche
-  - `high`   → `extremely_active`, 10×/Woche (2× täglich)
-- Fallback: `null` → `'low'`
-- Onboarding: letzter Schritt `StepTrainingFrequency` (`src/components/onboarding/StepTrainingFrequency.tsx`)
-- ErnährungScreen: `TrainingFrequencySelector` (`src/components/ernaehrung/TrainingFrequencySelector.tsx`) als Radio-Liste mit sofortigem Supabase-Update
-- Migration: `20260410120000_add_training_frequency_to_profiles.sql`
-
-### Wassertracking
-- Tabelle: `water_logs` (Spalten: `user_id`, `date`, `amount_ml`), UNIQUE auf `(user_id, date)`
-- Hook: `useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)`
-- Wasserziel: dynamisch aus Gewicht + Alter + Modus
-  - Erwachsene: `30/35/40 ml pro kg` (`Alltag`/`Aktiv`/`Intensiv`)
-  - Unter 18: `25/30/35 ml pro kg`
-  - Bonus 5 XP bei Erreichen via `add_workout_points` RPC
-- `refetchTrigger` (aus `useFocusEffect`) sorgt für Sync zwischen HomeScreen und ErnährungScreen
-- Konfetti-Animation (`ConfettiOverlay`) wird in beiden Screens ausgelöst wenn Ziel erreicht wird
-
-### Konfetti-Animation
-`src/components/ernaehrung/ConfettiOverlay.tsx` — wiederverwendbar in allen Screens.
-- Props: `visible: boolean`, `onComplete: () => void`
-- 28 Partikel, `useNativeDriver: true`, `pointerEvents="none"`
-- Auslöser: Wasserziel erreicht (Home + Ernährung), Ernährungsplan bestätigt (Ernährung)
-
-### Wöchentliches Gewichts-Check-in
-`src/components/home/WeightCheckInModal.tsx` — Waage.png-Maskottchen-Modal.
-- Öffnet sich montags beim App-Öffnen, wenn `isNewWeek` true + nicht bereits heute dismissed
-- AsyncStorage-Key: `weight_checkin_dismissed` → hält heutiges Datum (Format: ISO-Datum)
-- Animationssequenz: Overlay-Fade → Maskottchen springt von rechts rein → Sprechblase poppt auf
-- "Eintragen" disabled bis Eingabe 30–300 kg valid; "Später eintragen" schreibt Dismiss-Datum
-
-### Ernährungs-Anpassungsmodal
-`src/components/ernaehrung/NutritionAdjustmentModal.tsx` — gleiche Animationsstruktur wie WeightCheckInModal.
-- Props: `visible`, `adjustmentKcal: number`, `isGain: boolean`, `onConfirm`, `onDecline`
-- Trigger: **nur montags** (`new Date().getDay() === 1`) + nach ≥ 2 wöchentlichen Einträgen + `trendDeltaKcal ≠ 0` + kein bestätigter Adj + nicht diese Woche dismissed
-- AsyncStorage-Keys pro User: `nutrition_adj_accepted:<uid>` + `nutrition_adj_dismissed_week:<uid>`
-- Bestätigter Wert wird in `displayedPlan` addiert: `kcalPerDay + acceptedAdj`, `carbsGrams + Math.round(acceptedAdj/4)`
-
-### Coach Studio-Plan-Editor
-Coaches können den Studio-Stundenplan direkt in der App bearbeiten:
-- Hook: `src/hooks/useStudioScheduleEditor.ts` — `addSession(studioId, entry)` + `deleteSession(id)` (setzt `is_active=false`)
-- `ScheduleEntrySheet` hat `showCoachFields?: boolean` → zeigt zusätzlich "Trainingsart" (required) + "Coach" (optional)
-- `StundenplanSection` bekommt Props `isCoach`, `studioId`, `onStudioRefetch` → zeigt "Studio"-Button (calendar-edit Icon) wenn `isCoach && studioId !== null`
-- Im `coachEditMode` zeigt der Plan immer `studioSchedule` (nicht den persönlichen Plan)
-- Änderungen triggern `onStudioRefetch()` → `useSchedule.refetch()` in `TrainingScreen`
-
-### Karten (Maps)
-
-Kein Google Maps — kein API Key vorhanden und nicht gewünscht.
-
-- **iOS**: `react-native-maps` + Apple Maps (`PROVIDER_DEFAULT`) — kein Key nötig
-- **Android**: `@maplibre/maplibre-react-native` + OpenFreeMap (`https://tiles.openfreemap.org/styles/liberty`)
-- Plattform-Split via `.ios.tsx` / `.android.tsx` Dateinamen — Metro wählt automatisch die richtige Datei
-- TypeScript-Stub `ComponentName.tsx` (ohne Platform-Suffix) nötig damit `tsc` den Import auflösen kann
-
-**Kritisch für Android (v11+):** MapLibre `<Map>` OHNE `androidView`-Prop rendern — der Standard ist seit v11 `GLSurfaceView` und stabil.
-`androidView="texture"` NICHT verwenden — TextureView verursacht SIGSEGV-Crashes (Fatal signal 11 im Thread TextureViewRend) auf vielen Android-Geräten.
-
-```tsx
-// Richtig:
-<Map mapStyle={MAP_STYLE} style={styles.map} androidView="texture">
+```bash
+npx expo run:android                       # lokaler Dev-Build
+eas build --platform all --profile preview # beide Plattformen (EAS baut sonst nur eine)
+# native Aenderung → zusaetzlich --no-build-cache
 ```
 
----
+**Damit es auf ALLEN Geraeten laeuft — bei jedem Feature pruefen:**
+- **Edge-to-Edge (SDK 55 = Pflicht, nicht abschaltbar):** Inhalt zeichnet unter
+  Statusbar + Navigationsleiste. Immer `SafeAreaView`/Insets nutzen, nie feste
+  Pixel fuer System-Bars — Statusbar-Hoehen, Punch-Holes und Gesten- vs.
+  3-Button-Navigation variieren stark zwischen Geraeten.
+- **Renderer/GPU:** MapLibre OHNE `androidView` (siehe oben); gilt analog fuer
+  alles GPU-nahe — `texture`/TextureView crasht (SIGSEGV) auf vielen GPUs.
+- **Hardware-Back-Button:** Android hat einen, iOS nicht. Modals/Sheets muessen
+  den Back-Press abfangen (`BackHandler` bzw. Navigations-`beforeRemove`), sonst
+  springt der User unerwartet aus dem Screen. (`predictiveBackGestureEnabled:false`
+  ist gesetzt — nur der klassische Back bleibt relevant.)
+- **Runtime-Permissions:** Nie als erteilt annehmen. Android 13+ braucht explizit
+  POST_NOTIFICATIONS (Push); Standort hat precise/approximate; Kamera einzeln
+  anfragen. Permission-Flow auf Geraet durchspielen.
+- **Tastatur:** Verhalten weicht von iOS ab — Eingabefelder gegen Verdeckung
+  durch die Tastatur testen (scrollbar / nicht verdeckt).
+- **Fonts:** Inter muss gebuendelt sein — Android hat sie nicht systemseitig.
+- **Release-Minify (R8):** Release-Build kann strippen, was im Debug laeuft. Vor
+  jeder Submission einen Release-Build auf einem echten Geraet pruefen.
+- **Low-End / OEM-Killer:** Wenig RAM, aggressive Akku-Optimierung (Xiaomi/Samsung
+  killen Background-Tasks). Listen/Bilder schlank halten, Push nicht auf
+  zuverlaessige Background-Zustellung verlassen.
 
 # Projektregeln
 
-## Kosten
-- Keine Änderungen, die kostenpflichtige Dienste aktivieren oder Kosten verursachen könnten (z.B. Supabase Pro, Edge Functions mit externen API-Calls, bezahlte Drittanbieter).
-- Kostenpflichtige Features müssen explizit vom User angefragt und bestätigt werden, bevor sie implementiert werden.
+**Kosten:** Keine Aenderungen, die kostenpflichtige Dienste aktivieren (Supabase Pro, Edge Functions mit externen Calls, bezahlte Drittanbieter). Kostenpflichtige Features nur nach expliziter Bestaetigung.
 
-## Emojis
-- Keine Emojis in der App – weder in UI-Komponenten, Screens, Buttons, Labels noch in Kommentaren, die als Text angezeigt werden.
+**Emojis/Icons:** Keine Emojis (UI, Kommentare, Labels). Icons ausschliesslich `@expo/vector-icons` — keine Unicode-Symbole.
 
-## Icons
-- Icons werden ausschliesslich über die Bibliothek `@expo/vector-icons` umgesetzt. Keine Emoji-Icons, keine Unicode-Symbole als Icons.
+**Designsystem** (immer einhalten, Farben nur aus `src/theme/colors.ts`, keine Hardcoded-Hex):
 
-## Designsystem
-Immer einhalten:
+| Token | Wert | colors.ts |
+|---|---|---|
+| Hintergrund | `#F7F5F0` | `colors.background` |
+| Text | `#141414` | `colors.text` |
+| Akzent | `#4A90D9` | `colors.accentBlue` |
+| Dunkel/Hero | `#0A0A0A` | `colors.dark` |
+| Font | Inter | — |
 
-| Token           | Wert        | colors.ts-Key     |
-|-----------------|-------------|-------------------|
-| Hintergrund     | `#F7F5F0`   | `colors.background` |
-| Text            | `#141414`   | `colors.text`       |
-| Primärer Akzent | `#4A90D9`   | `colors.accentBlue` |
-| Dunkel / Hero   | `#0A0A0A`   | `colors.dark`       |
-| Font            | Inter       | —                   |
+**Styling:** Kein Inline-`style={{}}` — immer `StyleSheet.create`. Abstaende nur in 8px-Vielfachen (8, 16, 24, …).
 
-- Keine abweichenden Farben ohne explizite Genehmigung.
-- Font `Inter` konsequent verwenden – keine anderen Schriften.
-- Farben ausschliesslich aus `src/theme/colors.ts` importieren – keine Hardcoded-Hex-Werte im Code.
+**TypeScript:** Strict, `any` verboten, Typen explizit.
 
-## Styling
-- Kein Inline-Styling (`style={{ ... }}` direkt im JSX) – immer `StyleSheet.create` verwenden.
-- Abstände ausschliesslich in Vielfachen von 8px: `8, 16, 24, 32, 40, 48, ...`
+**Sprache:** UI-Texte Deutsch; Code-Kommentare Englisch; Umlaute **immer** als Ä/Ö/Ü/ä/ö/ü (nie Ae/Oe/Ue).
 
-## TypeScript
-- Strict-Modus aktiv – `any` ist verboten. Typen immer explizit angeben.
+**Komponentenstruktur:** Wiederverwendbares in `src/components/`. Screens > 150 Zeilen aufteilen.
 
-## Sprache
-- UI-Texte (Labels, Buttons, Fehlermeldungen, Platzhalter): Deutsch.
-- Code-Kommentare: Englisch.
-- Umlaute **immer** als Ä, Ö, Ü, ä, ö, ü schreiben — niemals als Ae, Oe, Ue, ae, oe, ue ersetzen.
+**Scope-Disziplin:** Nur aendern, was angefragt wurde. Kein opportunistisches Refactoring/Umbenennen/Aufraeumen. Funktionierende Logik nie ohne Auftrag refactoren.
 
-## Komponentenstruktur
-- Wiederverwendbare Komponenten gehoeren in `src/components/`.
-- Screens, die laenger als 150 Zeilen sind, in kleinere Teilkomponenten aufteilen.
+**Funktionalitaet vor Aesthetik:** Erst funktionell bauen (kein Styling/Animation ueber Minimum), Politur nur auf Wunsch.
 
-## Tool-Nutzung
-- Update TodoWrite only at major milestones (not after every single tool call).
-- ALWAYS use Edit for existing files, never Write/overwrite.
-- Read files with offset+limit when only a specific section is needed.
-- Do NOT write plan files or summaries to disk unless explicitly asked.
-- Do NOT spawn sub-agents for simple file reads — use Read and Grep directly.
+**Planungspflicht:** Bei > 2 Dateien oder neuer Feature-Struktur zuerst kurzen Plan im Chat skizzieren und auf Genehmigung warten. Keine Ueberraschungsarchitektur.
 
-## Planungspflicht
-- Bei Aufgaben, die mehr als 2 Dateien betreffen oder eine neue Feature-Struktur einführen:
-  zuerst einen kurzen Implementierungsplan im Chat skizzieren und auf Genehmigung warten,
-  bevor Code geschrieben wird.
-- Keine Überraschungsarchitektur – Claude entscheidet keine Struktur-Entscheidungen eigenständig.
+**Fehlermanagement:** Nach jeder Codeaenderung `tsc --noEmit`. Wenn ein Ansatz nach 2 Versuchen scheitert: stoppen, erklaeren, Alternativen vorschlagen.
 
-## Sub-Agents / Task-Tool
-- Sub-Agents nur dann spawnen, wenn die Aufgabe wirklich parallelisierbar ist
-  (z.B. unabhängige Recherchen).
-- Niemals Sub-Agents für einfache Datei-Reads, Grep-Suchen oder einzelne Codeänderungen.
-- Kein Agent darf Dateien schreiben, ohne dass der übergeordnete Plan genehmigt wurde.
+**Tool-Nutzung:** TodoWrite nur bei Meilensteinen. Bestehende Dateien immer mit Edit (nie ueberschreiben). Read mit offset+limit fuer Teilbereiche. Keine Plan-/Summary-Dateien auf Disk ohne expliziten Auftrag.
 
-## Fehlermanagement
-- Nach jeder Codeänderung TypeScript-Fehler prüfen (tsc --noEmit) bevor die Aufgabe
-  als erledigt gilt.
-- Wenn ein Ansatz nach 2 Versuchen nicht funktioniert: stoppen, Problem erklären,
-  Alternativen vorschlagen – nicht blind weiterprobieren.
-- Niemals funktionierende Logik refactoren, wenn die Aufgabe das nicht explizit verlangt.
+**Sub-Agents / Agenten-Workflow:**
+- Kleine, klar umrissene Aenderungen (1–3 Dateien): direkt inline umsetzen — nie Subagenten fuer einzelne Codeaenderungen, einfache Reads oder Greps.
+- Subagenten nur bei echt parallelisierbaren, unabhaengigen Recherchen; nur das Ergebnis zurueckgeben.
+- Kein Agent schreibt Dateien, ohne dass der uebergeordnete Plan genehmigt wurde.
+- `Edit`/`Write` sind in `.claude/settings.local.json` erlaubt, damit ein genehmigter Subagent selbst schreiben kann.
 
-## Funktionalität vor Ästhetik
-- Alle Features werden zuerst funktionell gebaut — keine visuellen Extras, keine Animationen,
-  kein Styling-Aufwand über das Minimum hinaus, solange nicht explizit anders angefragt.
-- Erst wenn die Logik korrekt funktioniert, darf auf Wunsch des Users poliert werden.
+**Sicherheit:** Keine Keys/Secrets im Code — nur via `.env` + expo-constants/config. `.env` nie committen, nie Inhalte im Chat ausgeben.
 
-## Scope-Disziplin
-- Claude aendert ausschliesslich, was explizit angefragt wurde.
-- Kein opportunistisches Refactoring, Umbenennen oder "Aufräumen" ohne Auftrag.
-- Bestehende Komponenten nicht umstrukturieren, solange die Aufgabe das nicht erfordert.
-
-## Sicherheit
-- Keine API-Keys, Tokens oder Secrets im Code – ausschliesslich über .env und
-  expo-constants/config.
-- .env niemals committen, niemals Inhalte davon in Chat-Antworten ausgeben.
-
-## Tests
-- Neue Utility-Funktionen (src/utils/) bekommen einen Unit-Test.
-- Test-Dateien liegen neben der Quelldatei: ComponentName.test.tsx.
-- Keine Tests für reine UI-Screens – Fokus auf Logik und Hooks.
+**Tests:** Neue Utils in `src/utils/` bekommen Unit-Test (neben Quelldatei, `Name.test.tsx`). Keine Tests fuer reine UI-Screens.
 
 ## Obsidian Vault
-Vault-Pfad: /Users/romeogeorgiadis/Documents/Obsidian Vault/
-Sparr-Pfad: /Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/
-System-Datei: /Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/_VAULT_SYSTEM.md
-Kein MCP — direkt mit Bash (VM-Pfad: /sessions/busy-keen-ride/mnt/obsidian/) auf den Vault zugreifen.
+Pfad: `/Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/`. System-Datei `_VAULT_SYSTEM.md`. Kein MCP — Zugriff per Bash.
 
-### Pflichtregeln
+**Pflicht:** Vor jedem Update `_VAULT_SYSTEM.md` lesen. Ziel-Note pruefen, dann **append** (nie ueberschreiben), fehlende Ordner `mkdir -p`. Keine taeglichen Logs — direkt in thematische Dateien.
 
-Vor jedem Vault-Update: _VAULT_SYSTEM.md lesen um zu wissen was wohin gehört.
-Prüfe zuerst ob die Ziel-Note existiert (Read via Bash), dann append — sonst neu anlegen.
-Lege fehlende Ordner automatisch an (mkdir -p via Bash).
-Niemals eine bestehende Note überschreiben — immer append.
-Keine täglichen Logs mehr — direkt in thematische Dateien schreiben.
+**Routing:** Neues Feature → `Funktionen.md` | Abo/Preis → `Abo-System.md` | App eingereicht → `App-Store.md` | Bug → `Offene-Punkte.md` (bzw. `Bugs-und-TechDebt.md`) | Architektur → `Architektur.md`.
 
-### Thematische Dateien (kein täglicher Log)
-
-- Funktionen.md — neue oder geänderte Features
-- Abo-System.md — RevenueCat, Preise, Apple-Status
-- App-Store.md — Versionen, Submissions, Review-Status
-- Architektur.md — Tech-Stack, DB, Navigation, Designsystem
-- Offene-Punkte.md — Bugs, Tech Debt, offene TODOs
-- Archiv/ — alte Logs, verworfene Ideen
-
-### Update-Pflicht nach jeder Session
-
-Neues Feature → Funktionen.md | Abo/Preis-Änderung → Abo-System.md | App eingereicht → App-Store.md | Bug entdeckt → Offene-Punkte.md
-
-### Dev-Log
-Wann: Nach jeder Session oder nach einer bedeutenden Änderung.
-Dateiname: 02 Projekte/Sparr/Dev-Log/YYYY-MM-DD.md (heutiges Datum, ISO-Format)
-Exaktes Format:
-markdown# Dev-Log – 2026-04-27
-
-## Was wurde gebaut / geändert
-- Login-Flow mit Supabase Auth implementiert
-- Komponente `UserCard.tsx` erstellt
-
+**Dev-Log** (`Dev-Log/YYYY-MM-DD.md`, bei zweitem Eintrag/Tag `---`-Trenner):
+```markdown
+# Dev-Log – YYYY-MM-DD
+## Was wurde gebaut / geaendert
 ## Warum
-- Supabase gewählt weil bereits im Stack, kein extra Service nötig
-- UserCard ausgelagert weil sie in 3 Views gebraucht wird
-
 ## Offene Probleme
-- Token-Refresh funktioniert noch nicht bei App-Neustart (Tech Debt)
-
-## Nächste Schritte
-- Passwort-Reset-Flow bauen
-- UserCard responsiv machen
-Wenn am selben Tag bereits ein Eintrag existiert: append mit --- als Trennlinie.
-### Architekturentscheid
-Wann: Bei jeder nicht-trivialen technischen Wahl (DB, Auth, State, API-Struktur, Hosting).
-Dateiname: Architektur/ADR-001-supabase-auth.md (Nummer aufsteigend, Titel als Kebab-Case)
-Exaktes Format:
-markdown# ADR-001: Supabase Auth
-
-## Status
-Entschieden
-
-## Kontext
-Brauchen Auth-Lösung, die sich schnell integrieren lässt.
-
-## Entscheidung
-Supabase Auth — weil Supabase bereits als DB im Stack ist.
-
-## Alternativen verworfen
-- Firebase Auth: extra Vendor, mehr Kosten
-- Custom JWT: zu viel Eigenaufwand
-
-## Konsequenzen
-Supabase bleibt fester Bestandteil des Stacks. Kein einfacher Wechsel mehr.
-### API-Endpunkt
-Wann: Bei jedem neuen oder geänderten Endpunkt.
-Dateiname: API/Endpunkte.md (immer dieselbe Datei, append)
-Exaktes Format:
-markdown## POST /api/login – 2026-04-27
-
-**Was:** User einloggen, JWT zurückgeben
-**Auth erforderlich:** Nein
-**Request:** { "email": "string", "password": "string" }
-**Response:** { "token": "string", "user": { "id": "string" } }
-**Besonderheiten:** Token läuft nach 1h ab
-### Bug / Tech Debt
-Wann: Sobald ein Bug entdeckt wird, der nicht sofort gefixt wird.
-Dateiname: Bugs-und-TechDebt.md (immer dieselbe Datei, append)
-Exaktes Format:
-markdown## [OFFEN] Token-Refresh schlägt fehl bei App-Neustart – 2026-04-27
-
-**Beschreibung:** Nach App-Neustart wird der gespeicherte Token nicht automatisch erneuert.
-**Reproduzierbar:** Ja – App schließen, neu öffnen, API-Call schlägt fehl.
-**Priorität:** Hoch
-**Notiz:** Vermutlich fehlt `onAuthStateChange` Listener im Root-Component.
-### Nicht dokumentieren
-
-Typo-Fixes, Formatierung, Umbenennung von Variablen
-Code der direkt verworfen wird
-Wenn ich explizit schreibe: „kein Obsidian"
+## Naechste Schritte
+```
+**ADR** (`Architektur/ADR-NNN-titel.md`): Status / Kontext / Entscheidung / Alternativen verworfen / Konsequenzen.
+**API** (`API/Endpunkte.md`, append): `## METHOD /pfad – Datum` + Was/Auth/Request/Response/Besonderheiten.
+**Bug/Tech Debt** (`Bugs-und-TechDebt.md`, append): `## [OFFEN] Titel – Datum` + Beschreibung/Reproduzierbar/Prioritaet/Notiz.
+**Nicht dokumentieren:** Typo-/Format-/Rename-Fixes, verworfener Code, oder wenn ich „kein Obsidian" sage.

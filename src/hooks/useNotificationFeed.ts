@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
@@ -68,7 +68,10 @@ export function useNotificationFeed(refetchTrigger = 0): UseNotificationFeedResu
     };
   }, [user, refetchTrigger, localTrigger]);
 
-  const unreadCount = notifications.filter((n) => n.read_at === null).length;
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => n.read_at === null).length,
+    [notifications],
+  );
 
   const markAllRead = useCallback(async (): Promise<void> => {
     if (user === null) return;

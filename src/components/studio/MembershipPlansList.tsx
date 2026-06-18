@@ -1,23 +1,20 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { formatPrice, billingIntervalLabel } from '../../utils/formatPrice';
-import MembershipContractSheet from './MembershipContractSheet';
 import type { MembershipPlan, MembershipContractWithStudio } from '../../types/database.types';
 
 interface Props {
-  studioId:         string;
-  plans:            MembershipPlan[];
-  loading:          boolean;
-  activeContract:   MembershipContractWithStudio | null;
-  onContractSigned: () => void;
+  studioId:       string;
+  plans:          MembershipPlan[];
+  loading:        boolean;
+  activeContract: MembershipContractWithStudio | null;
 }
 
 const CONTRACT_STATUS_LABELS: Record<string, string> = {
@@ -36,23 +33,14 @@ const CONTRACT_STATUS_COLORS: Record<string, string> = {
   declined:               colors.deleteRed,
 };
 
-// Displays the studio's active membership plans and handles contract sign-up.
+// Displays the studio's active membership plans (read-only price list).
+// Sign-up via the app is intentionally not offered here.
 // Shown inside StudioDetailScreen; extracted to keep the screen under 150 lines.
 export default function MembershipPlansList({
   plans,
   loading,
   activeContract,
-  onContractSigned,
 }: Props): React.ReactElement {
-  const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null);
-  const [sheetVisible, setSheetVisible] = useState(false);
-
-  function handlePlanPress(plan: MembershipPlan): void {
-    if (activeContract !== null) return;
-    setSelectedPlan(plan);
-    setSheetVisible(true);
-  }
-
   return (
     <View style={styles.section}>
       <Text style={styles.sectionLabel}>Mitgliedschaften</Text>
@@ -80,12 +68,7 @@ export default function MembershipPlansList({
           )}
 
           {plans.map((plan) => (
-            <TouchableOpacity
-              key={plan.id}
-              style={[styles.planRow, activeContract !== null && styles.planRowDisabled]}
-              onPress={() => handlePlanPress(plan)}
-              activeOpacity={activeContract !== null ? 1 : 0.8}
-            >
+            <View key={plan.id} style={styles.planRow}>
               <View style={styles.planInfo}>
                 <Text style={styles.planName}>{plan.name}</Text>
                 <Text style={styles.planPrice}>
@@ -102,23 +85,10 @@ export default function MembershipPlansList({
                   <Text style={styles.planDescription} numberOfLines={2}>{plan.description}</Text>
                 )}
               </View>
-              {activeContract === null && (
-                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-              )}
-            </TouchableOpacity>
+            </View>
           ))}
         </>
       )}
-
-      <MembershipContractSheet
-        visible={sheetVisible}
-        plan={selectedPlan}
-        onClose={() => setSheetVisible(false)}
-        onSigned={() => {
-          setSheetVisible(false);
-          onContractSigned();
-        }}
-      />
     </View>
   );
 }
@@ -181,9 +151,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.background,
     gap: 12,
-  },
-  planRowDisabled: {
-    opacity: 0.55,
   },
   planInfo: {
     flex: 1,

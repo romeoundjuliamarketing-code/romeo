@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { getCached, setCached } from '../lib/queryCache';
 
 export interface StudioProfile {
   id: string;
@@ -20,8 +21,11 @@ export function useStudioProfile(studioId: string): {
   loading: boolean;
   refetch: () => void;
 } {
-  const [studio, setStudio] = useState<StudioProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = studioId.trim().length > 0 ? `useStudioProfile:${studioId}` : null;
+  const cached = cacheKey ? getCached<StudioProfile>(cacheKey) : undefined;
+  const [studio, setStudio] = useState<StudioProfile | null>(() => cached ?? null);
+  // Only show the blocking spinner when there is no cached data to render.
+  const [loading, setLoading] = useState(cached === undefined);
   const [trigger, setTrigger] = useState(0);
 
   const refetch = useCallback(() => setTrigger((n) => n + 1), []);
@@ -29,17 +33,27 @@ export function useStudioProfile(studioId: string): {
   useEffect(() => {
     if (studioId.trim().length === 0) return;
 
+    let cancelled = false;
+    // Stale-while-revalidate: serve cached data instantly, refetch in background.
+    const hasCache = cacheKey ? getCached<StudioProfile>(cacheKey) !== undefined : false;
+    if (!hasCache) setLoading(true);
+
     void (async () => {
-      setLoading(true);
       const { data } = await supabase
         .from('studios')
         .select('id, name, city, address, lat, lng, description, banner_url, avatar_url, disciplines, owner_user_id')
         .eq('id', studioId)
         .single();
+      if (cancelled) return;
       setStudio(data ?? null);
+      if (data !== null && cacheKey) setCached<StudioProfile>(cacheKey, data);
       setLoading(false);
     })();
-  }, [studioId, trigger]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [studioId, trigger, cacheKey]);
 
   return { studio, loading, refetch };
 }

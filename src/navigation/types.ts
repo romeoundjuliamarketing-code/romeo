@@ -32,7 +32,7 @@ export type RootStackParamList = {
   PointsBreakdown: undefined;
   AttendanceHistory: undefined;
   WorkoutHistory: undefined;
-  SparringMap: undefined;
+  SparringMap: { openCreate?: boolean } | undefined;
   PublicProfile: {
     userId:               string;
     sparringId?:          string;
