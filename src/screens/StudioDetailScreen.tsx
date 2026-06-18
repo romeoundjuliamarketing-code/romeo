@@ -42,7 +42,7 @@ import TrialBookingSheet from '../components/studio/TrialBookingSheet';
 import DropInSheet from '../components/studio/DropInSheet';
 import MembershipPlansList from '../components/studio/MembershipPlansList';
 import MemberMultiPickerSheet from '../components/studio/MemberMultiPickerSheet';
-import StudioScheduleSection from '../components/team/StudioScheduleSection';
+import StudioScheduleCalendar from '../components/studio/StudioScheduleCalendar';
 import type { StudioSchedule } from '../types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioDetail'>;
@@ -718,7 +718,7 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
               </TouchableOpacity>
             )}
             {canManage && scheduleEditorOpen && (
-              <StudioScheduleSection
+              <StudioScheduleCalendar
                 studioId={studioId}
                 schedule={schedule}
                 loading={scheduleLoading}
