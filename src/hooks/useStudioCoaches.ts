@@ -74,28 +74,29 @@ export function useStudioCoaches(studioId: string): {
   }, [studioId, trigger, cacheKey]);
 
   const addCoach = useCallback(
-    async (userId: string, role: string | null): Promise<{ error: string | null }> => {
-      const { error } = await supabase
-        .from('studio_coaches')
-        .insert({ studio_id: studioId, user_id: userId, role });
+    // `role` is kept in the signature for API stability; the RPC sets is_coach=true
+    // and inserts into studio_coaches — role can be updated separately via updateCoachRole.
+    async (userId: string, _role: string | null): Promise<{ error: string | null }> => {
+      const { error } = await supabase.rpc('appoint_studio_trainer', { p_user_id: userId });
       if (error !== null) return { error: error.message };
       refetch();
       return { error: null };
     },
-    [studioId, refetch],
+    [refetch],
   );
 
   const addCoaches = useCallback(
     async (userIds: string[]): Promise<{ error: string | null }> => {
       if (userIds.length === 0) return { error: null };
-      const { error } = await supabase
-        .from('studio_coaches')
-        .insert(userIds.map((id) => ({ studio_id: studioId, user_id: id, role: null })));
-      if (error !== null) return { error: error.message };
+      const results = await Promise.all(
+        userIds.map((id) => supabase.rpc('appoint_studio_trainer', { p_user_id: id })),
+      );
+      const firstError = results.find((r) => r.error !== null)?.error ?? null;
+      if (firstError !== null) return { error: firstError.message };
       refetch();
       return { error: null };
     },
-    [studioId, refetch],
+    [refetch],
   );
 
   const updateCoachRole = useCallback(
@@ -114,16 +115,12 @@ export function useStudioCoaches(studioId: string): {
 
   const removeCoach = useCallback(
     async (userId: string): Promise<{ error: string | null }> => {
-      const { error } = await supabase
-        .from('studio_coaches')
-        .delete()
-        .eq('studio_id', studioId)
-        .eq('user_id', userId);
+      const { error } = await supabase.rpc('remove_studio_trainer', { p_user_id: userId });
       if (error !== null) return { error: error.message };
       refetch();
       return { error: null };
     },
-    [studioId, refetch],
+    [refetch],
   );
 
   return { coaches, loading, addCoach, addCoaches, updateCoachRole, removeCoach, refetch };
