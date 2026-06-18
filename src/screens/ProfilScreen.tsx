@@ -201,11 +201,7 @@ export default function ProfilScreen(): React.ReactElement {
               onCancelRequest={handleCancelJoinRequest}
               onViewTeam={
                 currentStudio !== null
-                  ? () => navigation.navigate('Team', {
-                      studioId: currentStudio.id,
-                      studioName: currentStudio.name,
-                      studioCity: currentStudio.city,
-                    })
+                  ? () => navigation.navigate('StudioDetail', { studioId: currentStudio.id })
                   : undefined
               }
               onOpenVerification={() => navigation.navigate('Verification')}

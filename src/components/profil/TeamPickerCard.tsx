@@ -125,7 +125,7 @@ export default function TeamPickerCard({
   const cardContent = (
     <>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>Team</Text>
+        <Text style={styles.sectionLabel}>Mein Studio</Text>
         {currentStudio !== null && (
           <TouchableOpacity style={styles.changeBtn} onPress={() => setModalVisible(true)}>
             <Text style={styles.changeBtnText}>Wechseln</Text>
@@ -159,7 +159,7 @@ export default function TeamPickerCard({
       ) : (
         <TouchableOpacity style={styles.joinBtn} onPress={() => setModalVisible(true)}>
           <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
-          <Text style={styles.joinBtnText}>Team beitreten</Text>
+          <Text style={styles.joinBtnText}>Studio beitreten</Text>
         </TouchableOpacity>
       )}
     </>

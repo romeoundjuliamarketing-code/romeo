@@ -9,11 +9,6 @@ export type AuthStackParamList = {
 export type RootStackParamList = {
   Onboarding: undefined;
   Tabs: undefined;
-  Team: {
-    studioId: string;
-    studioName: string;
-    studioCity: string;
-  };
   Workout: {
     title: string;
     subtitle: string;
@@ -40,7 +35,6 @@ export type RootStackParamList = {
   };
   StudioDetail: { studioId: string };
   StudioMembers: { studioId: string; studioName: string };
-  StudioProfileEdit: { studioId: string };
   StudioRequests: { studioId: string };
   StudioInvite: { studioId: string };
   SparringChatList: undefined;

@@ -4,7 +4,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
 import WorkoutScreen from '../screens/WorkoutScreen';
 import TimerScreen from '../screens/TimerScreen';
-import TeamScreen from '../screens/TeamScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import PaywallScreen from '../screens/PaywallScreen';
 import WeightHistoryScreen from '../screens/WeightHistoryScreen';
@@ -22,7 +21,6 @@ import StudioInviteScreen from '../screens/studio/StudioInviteScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import VerificationScreen from '../screens/VerificationScreen';
-import StudioProfileEditScreen from '../screens/StudioProfileEditScreen';
 import StudioMembersScreen from '../screens/studio/StudioMembersScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -51,7 +49,6 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
         <AppStack.Screen name="Onboarding" component={OnboardingScreen} />
       ) : null}
       <AppStack.Screen name="Tabs"    component={TabNavigator}  />
-      <AppStack.Screen name="Team"     component={TeamScreen}     />
       <AppStack.Screen name="Settings" component={SettingsScreen} />
       <AppStack.Screen
         name="EditProfile"
@@ -80,11 +77,6 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen
         name="StudioDetail"
         component={StudioDetailScreen}
-        options={{ presentation: 'modal' }}
-      />
-      <AppStack.Screen
-        name="StudioProfileEdit"
-        component={StudioProfileEditScreen}
         options={{ presentation: 'modal' }}
       />
       <AppStack.Screen
