@@ -38,9 +38,11 @@ interface Props {
   onClose:         () => void;
   onConfirm:       (entry: ScheduleEntryValues) => void;
   showCoachFields?: boolean;  // extra fields for studio schedule editing
+  initialValues?:  ScheduleEntryValues | null;  // when set: edit mode
+  onDelete?:       () => void;  // called when user taps "Einheit löschen" in edit mode
 }
 
-export default function ScheduleEntrySheet({ visible, initialDay, onClose, onConfirm, showCoachFields = false }: Props): React.ReactElement {
+export default function ScheduleEntrySheet({ visible, initialDay, onClose, onConfirm, showCoachFields = false, initialValues = null, onDelete }: Props): React.ReactElement {
   const [selectedDay, setSelectedDay] = useState(initialDay);
   const [name, setName] = useState('');
   const [time, setTime] = useState('');
@@ -52,20 +54,25 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
   const [timeError, setTimeError] = useState(false);
   const [durationError, setDurationError] = useState(false);
 
-  // Reset form when sheet opens
+  // Seed or reset form when sheet opens
   React.useEffect(() => {
-    if (visible) {
+    if (!visible) return;
+    if (initialValues !== null) {
+      setSelectedDay(initialValues.day_of_week);
+      setName(initialValues.training_name);
+      setTime(initialValues.start_time.slice(0, 5));
+      setDuration(String(initialValues.duration_min));
+      setTrainingType(initialValues.training_type);
+      setCoachName(initialValues.coach_name ?? '');
+      setDropInEnabled(initialValues.drop_in_enabled);
+    } else {
       setSelectedDay(initialDay);
-      setName('');
-      setTime('');
-      setDuration('');
-      setTrainingType('');
-      setCoachName('');
-      setDropInEnabled(false);
-      setTimeError(false);
-      setDurationError(false);
+      setName(''); setTime(''); setDuration('');
+      setTrainingType(''); setCoachName(''); setDropInEnabled(false);
     }
-  }, [visible, initialDay]);
+    setTimeError(false);
+    setDurationError(false);
+  }, [visible, initialDay, initialValues]);
 
   function handleConfirm(): void {
     const timeValid = isValidTime(time);
@@ -109,7 +116,7 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
 
         <View style={styles.sheet}>
-          <Text style={styles.title}>Einheit hinzufügen</Text>
+          <Text style={styles.title}>{initialValues !== null ? 'Einheit bearbeiten' : 'Einheit hinzufügen'}</Text>
 
           {/* Day selector */}
           <View style={styles.dayRow}>
@@ -221,6 +228,13 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
             </>
           )}
 
+          {/* Delete button — only in edit mode when onDelete is provided */}
+          {initialValues !== null && onDelete !== undefined && (
+            <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} activeOpacity={0.7}>
+              <Text style={styles.deleteLabel}>Einheit löschen</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Buttons */}
           <View style={styles.buttons}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onClose} activeOpacity={0.7}>
@@ -232,7 +246,7 @@ export default function ScheduleEntrySheet({ visible, initialDay, onClose, onCon
               disabled={!canConfirm}
               activeOpacity={0.8}
             >
-              <Text style={styles.confirmLabel}>Hinzufügen</Text>
+              <Text style={styles.confirmLabel}>{initialValues !== null ? 'Speichern' : 'Hinzufügen'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -376,6 +390,22 @@ const styles = StyleSheet.create({
   toggleSub: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+
+  // Delete button (edit mode only)
+  deleteBtn: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.deleteRed,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  deleteLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.deleteRed,
   },
 
   // Buttons
