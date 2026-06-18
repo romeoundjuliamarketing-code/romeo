@@ -17,9 +17,10 @@ export interface StudioSessionValues {
 }
 
 interface UseStudioScheduleEditorResult {
-  saving:        boolean;
-  addSession:    (studioId: string, entry: StudioSessionValues) => Promise<{ error: string | null }>;
-  deleteSession: (id: string) => Promise<{ error: string | null }>;
+  saving:         boolean;
+  addSession:     (studioId: string, entry: StudioSessionValues) => Promise<{ error: string | null }>;
+  updateSession:  (id: string, entry: StudioSessionValues) => Promise<{ error: string | null }>;
+  deleteSession:  (id: string) => Promise<{ error: string | null }>;
 }
 
 export function useStudioScheduleEditor(): UseStudioScheduleEditorResult {
@@ -48,6 +49,27 @@ export function useStudioScheduleEditor(): UseStudioScheduleEditorResult {
     [],
   );
 
+  const updateSession = useCallback(
+    async (id: string, entry: StudioSessionValues): Promise<{ error: string | null }> => {
+      setSaving(true);
+      const update = {
+        day_of_week:      entry.day_of_week,
+        training_name:    entry.training_name,
+        start_time:       entry.start_time.length === 5 ? `${entry.start_time}:00` : entry.start_time,
+        duration_min:     entry.duration_min,
+        points_per_30min: entry.points_per_30min,
+        training_type:    entry.training_type,
+        coach_name:       entry.coach_name ?? null,
+        drop_in_enabled:  entry.drop_in_enabled,
+      };
+      const { error } = await supabase.from('studio_schedule').update(update).eq('id', id);
+      setSaving(false);
+      if (error !== null) { reportNetworkError(error); } else { reportNetworkSuccess(); }
+      return { error: error?.message ?? null };
+    },
+    [],
+  );
+
   const deleteSession = useCallback(
     async (id: string): Promise<{ error: string | null }> => {
       const { error } = await supabase
@@ -60,5 +82,5 @@ export function useStudioScheduleEditor(): UseStudioScheduleEditorResult {
     [],
   );
 
-  return { saving, addSession, deleteSession };
+  return { saving, addSession, updateSession, deleteSession };
 }
