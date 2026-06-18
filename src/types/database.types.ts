@@ -1836,6 +1836,14 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: undefined
       }
+      appoint_studio_trainer: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      remove_studio_trainer: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
