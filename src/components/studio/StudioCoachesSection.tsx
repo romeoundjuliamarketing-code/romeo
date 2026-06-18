@@ -190,11 +190,11 @@ export default function StudioCoachesSection({
         transparent
         onRequestClose={closeRoleEditor}
       >
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={closeRoleEditor} />
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.sheetWrapper}
+          style={styles.overlay}
         >
+          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={closeRoleEditor} />
           <View style={styles.pickerSheet}>
             <View style={styles.pickerHandle} />
             <Text style={styles.pickerTitle}>Rolle festlegen</Text>
@@ -331,19 +331,19 @@ const styles = StyleSheet.create({
     right: 0,
   },
   // Modal
-  backdrop: {
+  overlay: {
     flex: 1,
-    backgroundColor: colors.mapOverlay,
+    justifyContent: 'flex-end',
   },
-  sheetWrapper: {
-    // allows KeyboardAvoidingView to push sheet up
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.mapOverlay,
   },
   pickerSheet: {
     backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '65%',
     paddingBottom: 40,
   },
   pickerHandle: {

@@ -100,11 +100,11 @@ export default function MemberMultiPickerSheet({
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.sheetWrapper}
+        style={styles.overlay}
       >
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <Text style={styles.title}>{title}</Text>
@@ -179,19 +179,18 @@ export default function MemberMultiPickerSheet({
   );
 }
 
+
 const styles = StyleSheet.create({
-  backdrop: {
+  overlay: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.mapOverlay,
   },
-  sheetWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   sheet: {
-    height: '70%',
+    height: '80%',
     backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
