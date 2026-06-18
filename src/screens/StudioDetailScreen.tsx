@@ -28,6 +28,8 @@ import { useStudioProfile } from '../hooks/useStudioProfile';
 import { useFeaturedFighters } from '../hooks/useFeaturedFighters';
 import { useProfile } from '../hooks/useProfile';
 import { useSchedule } from '../hooks/useSchedule';
+import { useStudioSparrings } from '../hooks/useStudioSparrings';
+import { useSparringActions } from '../hooks/useSparringActions';
 import { useMyStudioRequests } from '../hooks/useMyStudioRequests';
 import { useStudioMembershipPlans } from '../hooks/useStudioMembershipPlans';
 import { useEntitlement } from '../hooks/useEntitlement';
@@ -40,6 +42,7 @@ import TrialBookingSheet from '../components/studio/TrialBookingSheet';
 import DropInSheet from '../components/studio/DropInSheet';
 import MembershipPlansList from '../components/studio/MembershipPlansList';
 import MemberMultiPickerSheet from '../components/studio/MemberMultiPickerSheet';
+import StudioScheduleSection from '../components/team/StudioScheduleSection';
 import type { StudioSchedule } from '../types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioDetail'>;
@@ -94,7 +97,9 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
   const { studio, loading: studioLoading, refetch: refetchStudio } = useStudioProfile(studioId);
   const { fighters, loading: fightersLoading, addFighters, removeFighter } = useFeaturedFighters(studioId);
   const { profile: myProfile } = useProfile();
-  const { schedule, loading: scheduleLoading } = useSchedule(undefined, studioId);
+  const { schedule, loading: scheduleLoading, refetch: refetchSchedule } = useSchedule(undefined, studioId);
+  const { sparrings: studioSparrings, refetch: refetchSparrings } = useStudioSparrings(studioId);
+  const { deactivateSparring } = useSparringActions();
   const { trialBookings, contracts, refetch } = useMyStudioRequests();
   const { plans, loading: plansLoading } = useStudioMembershipPlans(studioId);
   const { entitlement } = useEntitlement();
@@ -102,6 +107,7 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
   const [bookingSheetVisible, setBookingSheetVisible] = useState(false);
   const [dropInEntry, setDropInEntry] = useState<StudioSchedule | null>(null);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
+  const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false);
   const [memberPickerVisible, setMemberPickerVisible] = useState(false);
 
   // ── Edit-mode state ────────────────────────────────────────────────────────
@@ -295,6 +301,20 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
         },
       ],
     );
+  }
+
+  function handleCancelSparring(sparringId: string, title: string): void {
+    Alert.alert('Sparring absagen', `"${title}" wirklich absagen?`, [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Absagen', style: 'destructive',
+        onPress: async () => {
+          const { error } = await deactivateSparring(sparringId);
+          if (error !== null) Alert.alert('Fehler', error);
+          else refetchSparrings();
+        },
+      },
+    ]);
   }
 
   // Block the whole screen only while the studio itself has no data yet.
@@ -681,7 +701,59 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
                 ))
               )
             )}
+            {canManage && (
+              <TouchableOpacity
+                style={[styles.scheduleEditToggle, scheduleEditorOpen && styles.scheduleEditToggleActive]}
+                onPress={() => setScheduleEditorOpen((v) => !v)}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={18}
+                  color={scheduleEditorOpen ? colors.card : colors.text}
+                />
+                <Text style={[styles.scheduleEditToggleLabel, scheduleEditorOpen && styles.scheduleEditToggleLabelActive]}>
+                  Stundenplan bearbeiten
+                </Text>
+              </TouchableOpacity>
+            )}
+            {canManage && scheduleEditorOpen && (
+              <StudioScheduleSection
+                studioId={studioId}
+                schedule={schedule}
+                loading={scheduleLoading}
+                onRefetch={refetchSchedule}
+              />
+            )}
           </View>
+
+          {/* Owner-only: planned sparrings management */}
+          {canManage && studioSparrings.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Geplante Sparrings</Text>
+              {studioSparrings.map((s) => {
+                const d = new Date(s.scheduled_at);
+                const dateStr = d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+                const timeStr = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <View key={s.id} style={styles.plannedSparringRow}>
+                    <View style={styles.plannedSparringInfo}>
+                      <Text style={styles.plannedSparringTitle} numberOfLines={1}>{s.title}</Text>
+                      <Text style={styles.plannedSparringMeta}>
+                        {dateStr} · {timeStr} · {s.signup_count}/{s.max_slots} Angemeldet
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleCancelSparring(s.id, s.title)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle-outline" size={20} color={colors.deleteRed} />
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          )}
 
           <MembershipPlansList
             studioId={studioId}
@@ -1182,4 +1254,46 @@ const styles = StyleSheet.create({
   editGeocodeLabelErr: {
     color: colors.deleteRed,
   },
+
+  // ── Owner schedule editor toggle ───────────────────────────────────────────
+  scheduleEditToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: 8,
+  },
+  scheduleEditToggleActive: {
+    backgroundColor: colors.dark,
+    borderColor: colors.dark,
+  },
+  scheduleEditToggleLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  scheduleEditToggleLabelActive: {
+    color: colors.card,
+  },
+
+  // ── Owner: planned sparrings list ──────────────────────────────────────────
+  plannedSparringRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  plannedSparringInfo: { flex: 1, gap: 2 },
+  plannedSparringTitle: { fontSize: 13, fontWeight: '600', color: colors.text },
+  plannedSparringMeta: { fontSize: 11, color: colors.textSecondary },
 });
