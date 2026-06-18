@@ -39,6 +39,7 @@ export type RootStackParamList = {
     sparringScheduledAt?: string;
   };
   StudioDetail: { studioId: string };
+  StudioMembers: { studioId: string; studioName: string };
   StudioProfileEdit: { studioId: string };
   StudioRequests: { studioId: string };
   StudioInvite: { studioId: string };
