@@ -40,6 +40,8 @@ export type RootStackParamList = {
   };
   StudioDetail: { studioId: string };
   StudioProfileEdit: { studioId: string };
+  StudioRequests: { studioId: string };
+  StudioInvite: { studioId: string };
   SparringChatList: undefined;
   SparringGroupChat: {
     sparringId:    string;
