@@ -61,7 +61,7 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
 
           {/* Dark header */}
           <View style={styles.header}>
-            <Text style={styles.appName}>Kombat</Text>
+            <Text style={styles.appName}>Sparr</Text>
             <Text style={styles.headerSubtitle}>Neues Passwort festlegen</Text>
           </View>
 

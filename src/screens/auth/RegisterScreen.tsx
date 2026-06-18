@@ -82,7 +82,7 @@ export default function RegisterScreen() {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={22} color={colors.headerTextPrimary} />
             </TouchableOpacity>
-            <Text style={styles.appName}>Kombat</Text>
+            <Text style={styles.appName}>Sparr</Text>
             <Text style={styles.headerSubtitle}>Konto erstellen</Text>
           </View>
 

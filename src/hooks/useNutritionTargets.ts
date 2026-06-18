@@ -9,7 +9,7 @@ import {
 } from '../utils/nutritionEngine';
 import type { Profile } from '../types/database.types';
 
-// Kombat is exclusively a combat-sports app — training type is fixed.
+// Sparr is exclusively a combat-sports app — training type is fixed.
 const TRAINING_TYPE = 'combat' as const;
 
 // Average session duration for combat sports (more realistic than the previous 60 min default).

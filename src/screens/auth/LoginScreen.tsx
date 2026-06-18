@@ -64,7 +64,7 @@ export default function LoginScreen() {
 
           {/* ── Dark header ── */}
           <View style={styles.header}>
-            <Text style={styles.appName}>Kombat</Text>
+            <Text style={styles.appName}>Sparr</Text>
             <Text style={styles.headerSubtitle}>Anmelden</Text>
           </View>
 
