@@ -35,6 +35,7 @@ import StudioHero from '../components/studio/StudioHero';
 import DisciplineChips from '../components/studio/DisciplineChips';
 import FeaturedFightersRow from '../components/studio/FeaturedFightersRow';
 import StudioCoachesSection from '../components/studio/StudioCoachesSection';
+import StudioOwnerBar from '../components/studio/StudioOwnerBar';
 import TrialBookingSheet from '../components/studio/TrialBookingSheet';
 import DropInSheet from '../components/studio/DropInSheet';
 import MembershipPlansList from '../components/studio/MembershipPlansList';
@@ -528,6 +529,8 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
           isOwner={isOwner}
           onEditPress={enterEditMode}
         />
+
+        {canManage && <StudioOwnerBar studioId={studioId} studioName={studio.name} />}
 
         {studio.disciplines.length > 0 && (
           <DisciplineChips disciplines={studio.disciplines} />
