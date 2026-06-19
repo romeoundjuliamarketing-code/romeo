@@ -52,13 +52,15 @@ supabase/.temp/
 # Backend SQL / tooling — not bundled into the app
 supabase/
 
-# Design originals / unused source folders (not referenced by the app)
-COACH/
-Logo/
-romepo/
-Kombat/
-widgets/
-obsidian-setup/
+# Design originals / unused source folders (not referenced by the app).
+# Anchored to repo root with a leading slash: a bare "COACH/" matches
+# case-insensitively and would also exclude the app's "assets/coach/" mascots.
+/COACH/
+/Logo/
+/romepo/
+/Kombat/
+/widgets/
+/obsidian-setup/
 
 # Docs, specs, screenshots, markdown
 docs/
