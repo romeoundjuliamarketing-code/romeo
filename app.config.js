@@ -24,7 +24,7 @@ module.exports = {
     name: "Sparr",
     slug: "sparr",
     scheme: "sparr",
-    version: "1.2.1",
+    version: "1.2.2",
     updates: {
       url: "https://u.expo.dev/9811826e-5835-47ff-9c96-8fb7a14cdab3",
     },
