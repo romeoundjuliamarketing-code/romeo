@@ -69,6 +69,7 @@ module.exports = {
     },
     assetBundlePatterns: ["assets/**"],
     plugins: [
+      "expo-font",
       "@maplibre/maplibre-react-native",
       withGeoIntentQuery,
       "expo-notifications",
