@@ -30,7 +30,7 @@ const DEFAULT_ENTITLEMENT: EntitlementState = {
   hasAccess: false,
   tier: null,
   source: null,
-  canCreateStudio: false,
+  canCreateStudio: true,
   canManageStudio: false,
   canAnnounce: false,
   canManageMemberships: false,

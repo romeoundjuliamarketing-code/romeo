@@ -4,7 +4,6 @@ import {
   TouchableOpacity, Alert, ActivityIndicator, Linking, Modal,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
-import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -65,40 +64,6 @@ function ToggleRow({
       />
     </View>
   );
-}
-
-// ─── Debug ────────────────────────────────────────────────────────────────────
-
-// Fires all notification types at 10-second intervals for simulator testing
-async function scheduleTestNotifications(): Promise<void> {
-  const all = await Notifications.getAllScheduledNotificationsAsync();
-  await Promise.all(
-    all
-      .filter((n) => n.identifier.startsWith('test-'))
-      .map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
-  );
-
-  // Pre-workout values based on 75 kg fallback for testing
-  const testItems: Array<{ id: string; title: string; body: string; delaySec: number }> = [
-    { id: 'test-water-1',  delaySec: 10,  title: 'Wasser trinken',                  body: 'Wasser trinken — dein Körper dankt es dir.' },
-    { id: 'test-water-2',  delaySec: 20,  title: 'Wasser trinken',                  body: 'Hydration-Check: Wann hast du zuletzt getrunken?' },
-    { id: 'test-water-3',  delaySec: 30,  title: 'Wasser trinken',                  body: 'Trink jetzt — warte nicht bis du Durst hast.' },
-    { id: 'test-weight',   delaySec: 40,  title: 'Wöchentliches Gewichts-Check-in', body: 'Wöchentliches Wiegen — nur eine Zahl, aber sie zeigt den Trend.' },
-    { id: 'test-pw-4h',    delaySec: 50,  title: 'Heute Training: Ernährung',       body: 'Jetzt vollständig essen — letzte Mahlzeit mit Fetten und Ballaststoffen. Danach nur noch leichte Kost.' },
-    { id: 'test-pw-2h',    delaySec: 60,  title: 'Trainingszeit nähert sich',       body: 'Leichte Mahlzeit: ~90 g Kohlenhydrate + ~26 g Protein. Z.B. Reis + Hühnchen.' },
-    { id: 'test-pw-1h',    delaySec: 70,  title: '1 Stunde bis Training',           body: 'Kleiner Snack: ~38 g schnelle Carbs (Banane, Reiswaffel). Dazu 450 ml Wasser mit einer Prise Salz.' },
-    { id: 'test-pw-30min', delaySec: 80,  title: '30 Minuten',                      body: 'Kein Essen mehr. Equipment packen, kurz dehnen, mental einstimmen.' },
-    { id: 'test-training', delaySec: 90,  title: 'Training in 1 Stunde',            body: 'Dein Training startet bald — vergiss nicht, dich anzumelden und deine Punkte abzuholen!' },
-  ];
-
-  for (const item of testItems) {
-    const date = new Date(Date.now() + item.delaySec * 1000);
-    await Notifications.scheduleNotificationAsync({
-      identifier: item.id,
-      content: { title: item.title, body: item.body },
-      trigger: { type: SchedulableTriggerInputTypes.DATE, date },
-    });
-  }
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -349,6 +314,16 @@ export default function SettingsScreen(): React.ReactElement {
           )}
         </View>
 
+        {/* ── Rechtliches ── */}
+        <SectionHeader title="Rechtliches" />
+        <View style={styles.card}>
+          <SettingsRow
+            icon="information-outline"
+            label="Impressum"
+            onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Impressum'); }}
+          />
+        </View>
+
         {/* ── Konto-Aktionen ── */}
         <SectionHeader title="Konto-Aktionen" />
         <View style={styles.card}>
@@ -369,22 +344,6 @@ export default function SettingsScreen(): React.ReactElement {
             <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Account löschen</Text>
             {deletingAccount && <ActivityIndicator size="small" color={colors.deleteRed} />}
           </TouchableOpacity>
-        </View>
-
-        {/* DEBUG – remove after App Store screenshot */}
-        <SectionHeader title="Debug" />
-        <View style={styles.card}>
-          <SettingsRow
-            icon="storefront-outline"
-            label="Abo ändern"
-            onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Paywall'); }}
-          />
-          <View style={styles.divider} />
-          <SettingsRow
-            icon="bell-ring-outline"
-            label="Alle Notifications testen (10 s)"
-            onPress={() => { void scheduleTestNotifications(); }}
-          />
         </View>
 
         <View style={styles.bottomPad} />

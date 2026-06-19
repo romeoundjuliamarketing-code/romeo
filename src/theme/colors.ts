@@ -50,6 +50,7 @@ export const colors = {
   difficultyGreenSoft: 'rgba(82,196,26,0.1)', // tinted bg for confirm actions
   sparringsOrange:  '#F5820A', // Demnächst-Marker auf der Sparring-Karte
   studioGreen:      '#22C55E', // Am-Studio-Marker auf der Sparring-Karte
+  studioGold:       '#D4B942', // Studio-Marker auf der Sparring-Karte
   mobilityOrange:   '#E07B5A', // DailyMobilityCard + DailyStretchCard Akzentfarbe
 
   // ── Donut chart segments ───────────────────────────────────────────────────

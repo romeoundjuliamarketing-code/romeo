@@ -19,25 +19,33 @@ import type { Studio } from '../../hooks/useStudio';
 interface Props {
   currentStudio: Studio | null;
   onRequestJoin: (studioId: string) => Promise<{ error: string | null }>;
+  onLeave?: () => Promise<{ error: string | null }>;
   onSearch: (query: string) => Promise<Studio[]>;
   onCreate: (name: string, city: string) => Promise<Studio | null>;
   onRedeemCode?: (code: string) => Promise<{ error: string | null }>;
-  canCreateStudio?: boolean;
-  onCreateBlocked?: () => void;
   onViewTeam?: () => void;
   inline?: boolean;
   pendingStudioName?: string | null;
   onCancelRequest?: () => Promise<void>;
 }
 
+// Promise-wrapped confirmation dialog so it can be awaited inline.
+function confirmAsync(title: string, message: string, confirmLabel: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: 'Abbrechen', style: 'cancel', onPress: () => resolve(false) },
+      { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
+
 export default function TeamPickerCard({
   currentStudio,
   onRequestJoin,
+  onLeave,
   onSearch,
   onCreate,
   onRedeemCode,
-  canCreateStudio = true,
-  onCreateBlocked,
   onViewTeam,
   inline = false,
   pendingStudioName,
@@ -90,6 +98,38 @@ export default function TeamPickerCard({
   }
 
   async function handleRequestJoin(studio: Studio): Promise<void> {
+    // Tapping the team you are already in does nothing.
+    if (studio.id === currentStudio?.id) return;
+
+    // Switching teams: a join is approval-gated and the backend rejects a
+    // request while you are still in a team. So leave the current team first,
+    // then send the join request to the new one.
+    if (currentStudio !== null) {
+      if (onLeave === undefined) return;
+      const confirmed = await confirmAsync(
+        'Team wechseln',
+        `Du verlässt ${currentStudio.name} und sendest eine Beitrittsanfrage an ${studio.name}. Ein Trainer muss den Beitritt noch bestätigen.`,
+        'Wechseln',
+      );
+      if (!confirmed) return;
+      setSaving(true);
+      const leaveResult = await onLeave();
+      if (leaveResult.error !== null) {
+        setSaving(false);
+        Alert.alert('Fehler', leaveResult.error);
+        return;
+      }
+      const joinResult = await onRequestJoin(studio.id);
+      setSaving(false);
+      if (joinResult.error !== null) {
+        Alert.alert('Fehler', joinResult.error);
+        return;
+      }
+      closeModal();
+      Alert.alert('Anfrage gesendet', 'Ein Trainer muss deinen Beitritt noch bestätigen.');
+      return;
+    }
+
     setSaving(true);
     const result = await onRequestJoin(studio.id);
     setSaving(false);
@@ -99,6 +139,22 @@ export default function TeamPickerCard({
     }
     closeModal();
     Alert.alert('Anfrage gesendet', 'Ein Trainer muss deinen Beitritt noch bestätigen.');
+  }
+
+  async function handleLeave(): Promise<void> {
+    if (onLeave === undefined || currentStudio === null) return;
+    const confirmed = await confirmAsync(
+      'Team verlassen',
+      `Möchtest du ${currentStudio.name} wirklich verlassen?`,
+      'Verlassen',
+    );
+    if (!confirmed) return;
+    setSaving(true);
+    const result = await onLeave();
+    setSaving(false);
+    if (result.error !== null) {
+      Alert.alert('Fehler', result.error);
+    }
   }
 
   async function handleRedeemCode(): Promise<void> {
@@ -134,10 +190,18 @@ export default function TeamPickerCard({
       </View>
 
       {currentStudio !== null ? (
-        <TouchableOpacity style={styles.studioInfo} onPress={onViewTeam} activeOpacity={0.7} disabled={onViewTeam === undefined}>
-          <Text style={styles.studioName}>{currentStudio.name}</Text>
-          <Text style={styles.studioCity}>{currentStudio.city}</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity style={styles.studioInfo} onPress={onViewTeam} activeOpacity={0.7} disabled={onViewTeam === undefined}>
+            <Text style={styles.studioName}>{currentStudio.name}</Text>
+            <Text style={styles.studioCity}>{currentStudio.city}</Text>
+          </TouchableOpacity>
+          {onLeave !== undefined && (
+            <TouchableOpacity style={styles.leaveBtn} onPress={() => { void handleLeave(); }} activeOpacity={0.7} disabled={saving}>
+              <Ionicons name="exit-outline" size={16} color={colors.deleteRed} />
+              <Text style={styles.leaveBtnText}>Team verlassen</Text>
+            </TouchableOpacity>
+          )}
+        </>
       ) : pendingStudioName !== null && pendingStudioName !== undefined ? (
         <View style={styles.pendingBanner}>
           <View style={styles.pendingBannerContent}>
@@ -283,20 +347,12 @@ export default function TeamPickerCard({
                   ) : (
                     <TouchableOpacity
                       style={styles.createHint}
-                      onPress={() => {
-                        if (canCreateStudio) {
-                          setCreateMode(true);
-                          return;
-                        }
-                        onCreateBlocked?.();
-                      }}
+                      onPress={() => setCreateMode(true)}
                       activeOpacity={0.7}
                     >
                       <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
                       <Text style={styles.createHintLabel}>
-                        {canCreateStudio
-                          ? 'Studio nicht gefunden? Neu erstellen'
-                          : 'Studio erstellen (Studio-Abo erforderlich)'}
+                        Studio nicht gefunden? Neu erstellen
                       </Text>
                     </TouchableOpacity>
                   )}
@@ -399,6 +455,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.accentBlue,
+  },
+  leaveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  leaveBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.deleteRed,
   },
   joinBtn: {
     flexDirection: 'row',

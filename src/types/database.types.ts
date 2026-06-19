@@ -269,6 +269,36 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_ratings: {
+        Row: {
+          id: string
+          rater_id: string
+          studio_id: string
+          stars: number
+          comment: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          rater_id: string
+          studio_id: string
+          stars: number
+          comment?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          rater_id?: string
+          studio_id?: string
+          stars?: number
+          comment?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       studios: {
         Row: {
           address: string | null

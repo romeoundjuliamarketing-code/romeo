@@ -1,6 +1,5 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 
 export type TimeFilter = 'all' | 'jetzt' | 'demnaechst' | 'bald';
@@ -20,16 +19,7 @@ const FILTER_TABS: Array<{ key: Exclude<TimeFilter, 'all'>; label: string }> = [
 export default function MapTimeFilter({ value, onChange, tabCounts }: Props) {
   return (
     <View style={styles.container}>
-      {/* Clear / reset button */}
-      <TouchableOpacity
-        style={[styles.clearBtn, value === 'all' && styles.clearBtnDimmed]}
-        onPress={() => onChange('all')}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="close" size={18} color={colors.text} />
-      </TouchableOpacity>
-
-      {/* Stacked filter buttons */}
+      {/* Stacked filter buttons; tapping the active one resets to "all" */}
       {FILTER_TABS.map((tab) => {
         const count  = tabCounts[tab.key] ?? 0;
         const active = value === tab.key;
@@ -37,7 +27,7 @@ export default function MapTimeFilter({ value, onChange, tabCounts }: Props) {
           <TouchableOpacity
             key={tab.key}
             style={[styles.filterBtn, active && styles.filterBtnActive]}
-            onPress={() => onChange(tab.key)}
+            onPress={() => onChange(active ? 'all' : tab.key)}
             activeOpacity={0.8}
           >
             <Text style={[styles.filterText, active && styles.filterTextActive]} numberOfLines={1}>
@@ -57,22 +47,6 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     gap:        8,
-  },
-  clearBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    20,
-    backgroundColor: colors.card,
-    alignItems:      'center',
-    justifyContent:  'center',
-    shadowColor:     colors.dark,
-    shadowOffset:    { width: 0, height: 2 },
-    shadowOpacity:   0.15,
-    shadowRadius:    4,
-    elevation:       4,
-  },
-  clearBtnDimmed: {
-    opacity: 0.35,
   },
   filterBtn: {
     minWidth:          72,

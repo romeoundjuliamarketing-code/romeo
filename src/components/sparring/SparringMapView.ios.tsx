@@ -31,7 +31,7 @@ function SparringMarker({ window: tw }: { window: 'jetzt' | 'demnaechst' | 'bald
 }
 
 function FeaturedMarker({ isAtStudio }: { isAtStudio: boolean }) {
-  const ringColor = isAtStudio ? colors.studioGreen : colors.accentBlue;
+  const ringColor = isAtStudio ? colors.studioGold : colors.accentBlue;
   return (
     <View style={styles.featuredMarkerWrapper}>
       <View style={[styles.featuredMarkerBase, { borderColor: ringColor }]}>
@@ -50,15 +50,10 @@ function FeaturedMarker({ isAtStudio }: { isAtStudio: boolean }) {
 }
 
 function SparringAtStudioMarker({ window: tw }: { window: 'jetzt' | 'demnaechst' | 'bald' }) {
-  const { iconStyle, icon, size } = MARKER_CONFIGS[tw];
+  const { iconStyle } = MARKER_CONFIGS[tw];
   return (
-    <View style={styles.studioSparringWrapper}>
-      <View style={[styles.markerBase, styles[iconStyle]]}>
-        <Ionicons name={icon} size={size} color={colors.card} />
-      </View>
-      <View style={styles.studioBadgeCorner}>
-        <Ionicons name="business" size={9} color={colors.card} />
-      </View>
+    <View style={[styles.markerBase, styles[iconStyle]]}>
+      <Ionicons name="business" size={18} color={colors.card} />
     </View>
   );
 }
@@ -273,28 +268,11 @@ const styles = StyleSheet.create({
     color: colors.card,
     letterSpacing: 0.3,
   },
-  studioSparringWrapper: {
-    width: 44,
-    height: 42,
-  },
-  studioBadgeCorner: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.studioGreen,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.card,
-  },
   studioDotBase: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: colors.accentBlue,
+    backgroundColor: colors.studioGold,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colors.dark,

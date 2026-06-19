@@ -49,7 +49,7 @@ export default function ProfilScreen(): React.ReactElement {
 
   // ── Hooks ──
   const { totalPoints, totalWorkouts, streak, rank } = useWorkoutStats(focusTrigger);
-  const { currentStudio, requestJoin, leaveStudio: _leaveStudio, removeMember: _removeMember, searchStudios, createStudio } = useStudio(focusTrigger);
+  const { currentStudio, requestJoin, leaveStudio, removeMember: _removeMember, searchStudios, createStudio } = useStudio(focusTrigger);
   const { joinRequests, cancelJoinRequest, refetch: refetchMyRequests } = useMyStudioRequests(focusTrigger);
   const { profile, uploadAvatar, updateProfile } = useProfile(focusTrigger);
   const { acceptInvite } = useStudioInvite();
@@ -92,6 +92,15 @@ export default function ProfilScreen(): React.ReactElement {
 
   async function handleRequestJoin(studioId: string): Promise<{ error: string | null }> {
     const result = await requestJoin(studioId);
+    if (result.error === null) {
+      setFocusTrigger((n) => n + 1);
+      refetchMyRequests();
+    }
+    return result;
+  }
+
+  async function handleLeaveStudio(): Promise<{ error: string | null }> {
+    const result = await leaveStudio();
     if (result.error === null) {
       setFocusTrigger((n) => n + 1);
       refetchMyRequests();
@@ -192,8 +201,8 @@ export default function ProfilScreen(): React.ReactElement {
               tier={tier}
               currentStudio={currentStudio}
               focusTrigger={focusTrigger}
-              canCreateStudio={entitlement.canCreateStudio}
               onRequestJoin={handleRequestJoin}
+              onLeaveStudio={handleLeaveStudio}
               onSearchStudios={searchStudios}
               onCreateStudio={createStudio}
               onRedeemCode={handleRedeemCode}

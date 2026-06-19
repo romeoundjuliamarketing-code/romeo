@@ -25,6 +25,10 @@ import EventDetailSheet from '../components/sparring/EventDetailSheet';
 import MapModeToggle from '../components/sparring/MapModeToggle';
 import MapTimeFilter from '../components/sparring/MapTimeFilter';
 import SparringMapView from '../components/sparring/SparringMapView';
+import QRScannerModal from '../components/profil/QRScannerModal';
+import StudioRatingSheet from '../components/studio/StudioRatingSheet';
+import { supabase } from '../lib/supabase';
+import { parseStudioQr } from '../utils/studioQr';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
 import { canJoinSparring } from '../utils/sparringAccess';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
@@ -74,6 +78,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const [actionLoading, setActionLoading] = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [createEventVisible, setCreateEventVisible] = useState(false);
+  const [scanVisible, setScanVisible] = useState(false);
+  const [ratingStudio, setRatingStudio] = useState<{ id: string; name: string } | null>(null);
 
   // After creating a sparring, prompt the boost sheet (defer to avoid double iOS modal).
   const [boostSparringId, setBoostSparringId] = useState<string | null>(null);
@@ -120,20 +126,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     }
     return counts;
   }, [sparringsWithCoords]);
-
-  const coveredStudioIds = useMemo(
-    () => new Set(
-      filteredSparrings
-        .filter((s) => s.is_at_studio && s.studio_id !== null)
-        .map((s) => s.studio_id as string),
-    ),
-    [filteredSparrings],
-  );
-
-  const sparringModeStudios = useMemo(
-    () => studioMarkers.filter((st) => !coveredStudioIds.has(st.id)),
-    [studioMarkers, coveredStudioIds],
-  );
 
   // ── Derived: events ───────────────────────────────────────────────────────
   const eventsWithCoords = useMemo(
@@ -267,10 +259,31 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     );
   }
 
+  // ── Studio rating via scanned QR ──────────────────────────────────────────
+  // Scanned payload is "STUDIO:<id>"; look up the studio name and open the sheet.
+  async function handleStudioScan(code: string): Promise<void> {
+    setScanVisible(false);
+    const studioId = parseStudioQr(code);
+    if (studioId === null) {
+      Alert.alert('Kein Studio-QR', 'Dieser QR-Code gehört zu keinem Studio.');
+      return;
+    }
+    const { data } = await supabase
+      .from('studios')
+      .select('name')
+      .eq('id', studioId)
+      .maybeSingle();
+    if (data === null) {
+      Alert.alert('Studio nicht gefunden', 'Zu diesem QR-Code gibt es kein Studio.');
+      return;
+    }
+    setRatingStudio({ id: studioId, name: data.name });
+  }
+
   // ── Map view props by mode ────────────────────────────────────────────────
   const mapSparrings  = mapMode === 'sparrings' ? filteredSparrings : [];
-  const mapStudioDots = mapMode === 'sparrings' ? sparringModeStudios : [];
-  const mapEvents     = mapMode === 'events'    ? filteredEvents      : [];
+  const mapStudioDots = mapMode === 'studios'   ? studioMarkers     : [];
+  const mapEvents     = mapMode === 'events'    ? filteredEvents    : [];
 
   return (
     <View style={styles.root}>
@@ -285,23 +298,20 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onChatPress={() => navigation.navigate('SparringChatList')}
       />
 
-      {/* ── Top overlay: mode toggle (center) + time filter (left) ── */}
+      {/* ── Top overlay: full-width mode toggle, time filter floats below-left ── */}
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-        {/* Row: left side holds the vertical time filter; center holds the mode toggle */}
-        <View style={styles.topRow}>
-          <View style={styles.leftPanel}>
+        {/* Mode toggle gets its own full-width row so all three tabs fit comfortably */}
+        <MapModeToggle mode={mapMode} onChange={setMapMode} />
+        {/* Vertical time filter floats on the left, below the toggle */}
+        {mapMode !== 'studios' && (
+          <View style={styles.filterRow} pointerEvents="box-none">
             <MapTimeFilter
               value={timeFilter}
               onChange={setTimeFilter}
               tabCounts={activeTabCounts}
             />
           </View>
-          <View style={styles.centerPanel}>
-            <MapModeToggle mode={mapMode} onChange={setMapMode} />
-          </View>
-          {/* Right placeholder to keep toggle visually centered */}
-          <View style={styles.rightPanel} />
-        </View>
+        )}
       </View>
 
       {/* ── Sparring detail sheet ── */}
@@ -337,23 +347,52 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       />
 
       {/* ── FAB: action depends on mode ── */}
+      {mapMode !== 'studios' && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: insets.bottom + 16 }]}
+          onPress={() => {
+            if (!requireVerified()) return;
+            if (mapMode === 'sparrings') {
+              setCreateSheetVisible(true);
+            } else {
+              setCreateEventVisible(true);
+            }
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="add-circle-outline" size={22} color={colors.card} />
+          <Text style={styles.fabText}>
+            {mapMode === 'sparrings' ? 'Sparring anmelden' : 'Event anmelden'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* ── Scan FAB: scan a studio QR to rate it (sits above the chat button) ── */}
       <TouchableOpacity
-        style={[styles.fab, { bottom: insets.bottom + 16 }]}
-        onPress={() => {
-          if (!requireVerified()) return;
-          if (mapMode === 'sparrings') {
-            setCreateSheetVisible(true);
-          } else {
-            setCreateEventVisible(true);
-          }
-        }}
+        style={[styles.scanFab, { bottom: insets.bottom + 80 }]}
+        onPress={() => setScanVisible(true)}
         activeOpacity={0.85}
       >
-        <Ionicons name="add-circle-outline" size={22} color={colors.card} />
-        <Text style={styles.fabText}>
-          {mapMode === 'sparrings' ? 'Sparring anmelden' : 'Event anmelden'}
-        </Text>
+        <Ionicons name="qr-code-outline" size={22} color={colors.card} />
       </TouchableOpacity>
+
+      {/* ── Studio QR scanner + rating sheet ── */}
+      <QRScannerModal
+        visible={scanVisible}
+        onClose={() => setScanVisible(false)}
+        onScanned={(code) => { void handleStudioScan(code); }}
+        headerTitle="Studio bewerten"
+        hintText="QR-Code des Studios scannen"
+      />
+      {ratingStudio !== null && (
+        <StudioRatingSheet
+          visible
+          studioId={ratingStudio.id}
+          studioName={ratingStudio.name}
+          onClose={() => setRatingStudio(null)}
+          onSubmitted={() => Alert.alert('Danke!', 'Deine Bewertung wurde gespeichert.')}
+        />
+      )}
 
       {/* ── Create sparring sheet (existing flow) ── */}
       <CreateSparringSheet
@@ -432,21 +471,9 @@ const styles = StyleSheet.create({
     right:             0,
     paddingHorizontal: 16,
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems:    'flex-start',
-  },
-  leftPanel: {
-    width:      80,
+  filterRow: {
+    marginTop:  8,
     alignItems: 'flex-start',
-  },
-  centerPanel: {
-    flex:           1,
-    alignItems:     'center',
-    justifyContent: 'flex-start',
-  },
-  rightPanel: {
-    width: 80,
   },
   fab: {
     position:        'absolute',
@@ -468,5 +495,20 @@ const styles = StyleSheet.create({
     fontSize:   15,
     fontWeight: '700',
     color:      colors.card,
+  },
+  scanFab: {
+    position:        'absolute',
+    left:            16,
+    width:           52,
+    height:          52,
+    borderRadius:    26,
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: colors.dark,
+    shadowColor:     colors.dark,
+    shadowOffset:    { width: 0, height: 4 },
+    shadowOpacity:   0.2,
+    shadowRadius:    6,
+    elevation:       4,
   },
 });

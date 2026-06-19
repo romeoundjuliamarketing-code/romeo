@@ -22,6 +22,7 @@ export type RootStackParamList = {
     trainingType?: string;
   };
   Settings: undefined;
+  Impressum: undefined;
   Paywall: undefined;
   WeightHistory: undefined;
   PointsBreakdown: undefined;

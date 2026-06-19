@@ -5,6 +5,7 @@ import TabNavigator from './TabNavigator';
 import WorkoutScreen from '../screens/WorkoutScreen';
 import TimerScreen from '../screens/TimerScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import ImpressumScreen from '../screens/ImpressumScreen';
 import PaywallScreen from '../screens/PaywallScreen';
 import WeightHistoryScreen from '../screens/WeightHistoryScreen';
 import PointsBreakdownScreen from '../screens/PointsBreakdownScreen';
@@ -50,6 +51,7 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       ) : null}
       <AppStack.Screen name="Tabs"    component={TabNavigator}  />
       <AppStack.Screen name="Settings" component={SettingsScreen} />
+      <AppStack.Screen name="Impressum" component={ImpressumScreen} />
       <AppStack.Screen
         name="EditProfile"
         component={EditProfileScreen}

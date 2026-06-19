@@ -17,6 +17,8 @@ interface QRScannerModalProps {
   visible: boolean;
   onClose: () => void;
   onScanned: (code: string) => void;
+  headerTitle?: string;
+  hintText?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -25,6 +27,8 @@ export default function QRScannerModal({
   visible,
   onClose,
   onScanned,
+  headerTitle = 'QR-Code scannen',
+  hintText = 'QR-Code des Kämpfers scannen',
 }: QRScannerModalProps): React.ReactElement {
   const [permission, requestPermission] = useCameraPermissions();
   // Prevent multiple scanned callbacks from a single QR detection burst
@@ -67,7 +71,7 @@ export default function QRScannerModal({
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
             <Ionicons name="close" size={24} color={colors.card} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>QR-Code scannen</Text>
+          <Text style={styles.headerTitle}>{headerTitle}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
@@ -137,7 +141,7 @@ export default function QRScannerModal({
                   <View style={[styles.corner, styles.cornerBR]} />
                 </View>
                 <Text style={styles.scanHint}>
-                  QR-Code des Kämpfers scannen
+                  {hintText}
                 </Text>
               </View>
             </View>

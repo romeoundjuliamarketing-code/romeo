@@ -43,3 +43,6 @@ yarn-error.*
 
 # Supabase local temp files (contain connection strings)
 supabase/.temp/
+
+# Lokale Claude-Worktrees nie committen
+.claude/worktrees/

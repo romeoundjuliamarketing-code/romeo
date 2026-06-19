@@ -22,8 +22,6 @@ import type { StudioSchedule } from '../../types/database.types';
 
 const DAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'] as const;
 const PX_PER_MIN = 1;
-const START_HOUR = 6;
-const END_HOUR = 23;
 const HOUR_LABEL_WIDTH = 48;
 const HORIZONTAL_INSET = 16; // matches section padding
 
@@ -73,23 +71,21 @@ interface DayAxisProps {
 }
 
 function DayAxis({ sessions, pageWidth, onSessionPress }: DayAxisProps): React.ReactElement {
-  // Compute visible window (widen if sessions fall outside defaults)
-  const defaultStartMin = START_HOUR * 60;
-  const defaultEndMin = END_HOUR * 60;
-
-  let windowStartMin = defaultStartMin;
-  let windowEndMin = defaultEndMin;
+  // Tight window around the day's actual sessions, snapped to whole hours.
+  // No fixed 6–23 axis and no inner scroll: the timeline takes its natural
+  // height and scrolls together with the surrounding screen.
+  let earliestMin = Infinity;
+  let latestMin = -Infinity;
 
   for (const s of sessions) {
     const startMin = timeToMinutes(s.start_time);
     const endMin = startMin + s.duration_min;
-    if (startMin < windowStartMin) {
-      windowStartMin = Math.floor(startMin / 60) * 60;
-    }
-    if (endMin > windowEndMin) {
-      windowEndMin = Math.ceil(endMin / 60) * 60;
-    }
+    if (startMin < earliestMin) earliestMin = startMin;
+    if (endMin > latestMin) latestMin = endMin;
   }
+
+  const windowStartMin = Math.floor(earliestMin / 60) * 60;
+  const windowEndMin = Math.ceil(latestMin / 60) * 60;
 
   const totalMinutes = windowEndMin - windowStartMin;
   const totalHeight = totalMinutes * PX_PER_MIN;
@@ -102,58 +98,51 @@ function DayAxis({ sessions, pageWidth, onSessionPress }: DayAxisProps): React.R
   }
 
   return (
-    <ScrollView
-      style={styles.axisScroll}
-      nestedScrollEnabled
-      showsVerticalScrollIndicator={false}
-      contentContainerStyle={[styles.axisContent, { height: totalHeight + 64 }]}
-    >
-      {/* Hour rows */}
-      <View style={[styles.axisInner, { height: totalHeight }]}>
-        {hours.map((hour) => {
-          const topPx = (hour * 60 - windowStartMin) * PX_PER_MIN;
+    // Hour rows; absolutely-positioned children reference this box's full width
+    <View style={[styles.axisInner, { height: totalHeight + 16 }]}>
+      {hours.map((hour) => {
+        const topPx = (hour * 60 - windowStartMin) * PX_PER_MIN;
+        return (
+          <View key={hour} style={[styles.hourRow, { top: topPx }]}>
+            <Text style={styles.hourLabel}>{formatHour(hour)}</Text>
+            <View style={styles.hourLine} />
+          </View>
+        );
+      })}
+
+      {/* Session blocks */}
+      <View style={[styles.blocksLayer, { height: totalHeight }]}>
+        {sessions.map((session) => {
+          const startMin = timeToMinutes(session.start_time);
+          const top = (startMin - windowStartMin) * PX_PER_MIN;
+          const height = Math.max(session.duration_min * PX_PER_MIN, 32);
           return (
-            <View key={hour} style={[styles.hourRow, { top: topPx }]}>
-              <Text style={styles.hourLabel}>{formatHour(hour)}</Text>
-              <View style={styles.hourLine} />
-            </View>
+            <TouchableOpacity
+              key={session.id}
+              activeOpacity={0.8}
+              onPress={() => onSessionPress(session)}
+              style={[styles.block, { top, height, width: blockWidth }]}
+            >
+              <Text style={styles.blockName} numberOfLines={1}>{session.training_name}</Text>
+              <Text style={styles.blockMeta} numberOfLines={1}>
+                {session.start_time.slice(0, 5)}
+                {' · '}
+                {session.duration_min} Min
+              </Text>
+              {session.coach_name !== null && (
+                <Text style={styles.blockCoach} numberOfLines={1}>{session.coach_name}</Text>
+              )}
+              {session.drop_in_enabled && (
+                <View style={styles.dropInBadge}>
+                  <Ionicons name="person-add-outline" size={10} color={colors.headerTextPrimary} />
+                  <Text style={styles.dropInText}>Drop-in</Text>
+                </View>
+              )}
+            </TouchableOpacity>
           );
         })}
-
-        {/* Session blocks */}
-        <View style={[styles.blocksLayer, { height: totalHeight }]}>
-          {sessions.map((session) => {
-            const startMin = timeToMinutes(session.start_time);
-            const top = (startMin - windowStartMin) * PX_PER_MIN;
-            const height = Math.max(session.duration_min * PX_PER_MIN, 32);
-            return (
-              <TouchableOpacity
-                key={session.id}
-                activeOpacity={0.8}
-                onPress={() => onSessionPress(session)}
-                style={[styles.block, { top, height, width: blockWidth }]}
-              >
-                <Text style={styles.blockName} numberOfLines={1}>{session.training_name}</Text>
-                <Text style={styles.blockMeta} numberOfLines={1}>
-                  {session.start_time.slice(0, 5)}
-                  {' · '}
-                  {session.duration_min} Min
-                </Text>
-                {session.coach_name !== null && (
-                  <Text style={styles.blockCoach} numberOfLines={1}>{session.coach_name}</Text>
-                )}
-                {session.drop_in_enabled && (
-                  <View style={styles.dropInBadge}>
-                    <Ionicons name="person-add-outline" size={10} color={colors.headerTextPrimary} />
-                    <Text style={styles.dropInText}>Drop-in</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -436,12 +425,6 @@ const styles = StyleSheet.create({
   },
 
   // Time axis
-  axisScroll: {
-    flex: 1,
-  },
-  axisContent: {
-    // height set dynamically
-  },
   axisInner: {
     // height set dynamically; positioning context for absolute children
     position: 'relative',

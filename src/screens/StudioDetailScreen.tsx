@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Linking,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -43,6 +44,11 @@ import DropInSheet from '../components/studio/DropInSheet';
 import MembershipPlansList from '../components/studio/MembershipPlansList';
 import MemberMultiPickerSheet from '../components/studio/MemberMultiPickerSheet';
 import StudioScheduleCalendar from '../components/studio/StudioScheduleCalendar';
+import StudioRatingSheet from '../components/studio/StudioRatingSheet';
+import QRScannerModal from '../components/profil/QRScannerModal';
+import QRCode from 'react-native-qrcode-svg';
+import { useStudioRatings } from '../hooks/useStudioRatings';
+import { buildStudioQr, parseStudioQr } from '../utils/studioQr';
 import type { StudioSchedule } from '../types/database.types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioDetail'>;
@@ -104,6 +110,13 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
   const { plans, loading: plansLoading } = useStudioMembershipPlans(studioId);
   const { entitlement } = useEntitlement();
 
+  const [ratingRefetch, setRatingRefetch] = useState(0);
+  const { averageStars, ratingCount } = useStudioRatings(studioId, ratingRefetch);
+
+  const [ratingScannerVisible, setRatingScannerVisible] = useState(false);
+  const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
+  const [ownerQrVisible, setOwnerQrVisible] = useState(false);
+
   const [bookingSheetVisible, setBookingSheetVisible] = useState(false);
   const [dropInEntry, setDropInEntry] = useState<StudioSchedule | null>(null);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
@@ -152,6 +165,16 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
         c.studio_id === studioId &&
         (c.status === 'pending' || c.status === 'active' || c.status === 'cancellation_requested'),
     ) ?? null;
+
+  // Handle a scanned studio QR. Only this studio's own code opens the rating sheet.
+  function handleRatingScan(code: string): void {
+    setRatingScannerVisible(false);
+    if (parseStudioQr(code) !== studioId.toLowerCase()) {
+      Alert.alert('Falscher QR-Code', 'Dieser QR-Code gehört nicht zu diesem Studio.');
+      return;
+    }
+    setRatingSheetVisible(true);
+  }
 
   // ── Edit-mode helpers ──────────────────────────────────────────────────────
 
@@ -552,6 +575,40 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
 
         {canManage && <StudioOwnerBar studioId={studioId} studioName={studio.name} />}
 
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Bewertungen</Text>
+          <View style={styles.ratingSummaryRow}>
+            <Ionicons name="star" size={18} color={colors.accentBlue} />
+            <Text style={styles.ratingAvg}>
+              {averageStars !== null ? averageStars.toFixed(1) : '–'}
+            </Text>
+            <Text style={styles.ratingCount}>
+              {ratingCount === 0
+                ? 'Noch keine Bewertungen'
+                : `${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'}`}
+            </Text>
+          </View>
+          {isOwner ? (
+            <TouchableOpacity
+              style={styles.ratingActionBtn}
+              onPress={() => setOwnerQrVisible(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="qr-code-outline" size={18} color={colors.accentBlue} />
+              <Text style={styles.ratingActionText}>Bewertungs-QR anzeigen</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.ratingActionBtn}
+              onPress={() => setRatingScannerVisible(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="qr-code-outline" size={18} color={colors.accentBlue} />
+              <Text style={styles.ratingActionText}>Studio bewerten (QR scannen)</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {studio.disciplines.length > 0 && (
           <DisciplineChips disciplines={studio.disciplines} />
         )}
@@ -791,6 +848,51 @@ export default function StudioDetailScreen({ route, navigation }: Props): React.
           if (error !== null) Alert.alert('Fehler', error);
         }}
       />
+
+      <QRScannerModal
+        visible={ratingScannerVisible}
+        onClose={() => setRatingScannerVisible(false)}
+        onScanned={handleRatingScan}
+        headerTitle="Studio bewerten"
+        hintText="QR-Code des Studios scannen"
+      />
+
+      {ratingSheetVisible && (
+        <StudioRatingSheet
+          visible
+          studioId={studioId}
+          studioName={studio.name}
+          onClose={() => setRatingSheetVisible(false)}
+          onSubmitted={() => setRatingRefetch((n) => n + 1)}
+        />
+      )}
+
+      <Modal
+        visible={ownerQrVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setOwnerQrVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.qrModalBackdrop}
+          activeOpacity={1}
+          onPress={() => setOwnerQrVisible(false)}
+        >
+          <View style={styles.qrModalSheet}>
+            <View style={styles.qrModalHandle} />
+            <Text style={styles.qrModalTitle}>Bewertungs-QR</Text>
+            <QRCode
+              value={buildStudioQr(studioId)}
+              size={200}
+              color={colors.text}
+              backgroundColor={colors.card}
+            />
+            <Text style={styles.qrModalHint}>
+              Hänge diesen Code im Studio aus. Mitglieder scannen ihn in Sparr, um dein Studio zu bewerten.
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -849,6 +951,65 @@ const styles = StyleSheet.create({
   },
   sectionNopad: {
     marginTop: 16,
+  },
+  ratingSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  ratingAvg: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  ratingCount: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  ratingActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.accentBlueSoft,
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  ratingActionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.accentBlue,
+  },
+  qrModalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: colors.mapOverlay,
+  },
+  qrModalSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    gap: 16,
+  },
+  qrModalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+  },
+  qrModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  qrModalHint: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   sectionLabel: {
     fontSize: 11,

@@ -20,8 +20,8 @@ interface OverviewTabProps {
   tier: VerificationTier;
   currentStudio: Studio | null;
   focusTrigger: number;
-  canCreateStudio: boolean;
   onRequestJoin: (studioId: string) => Promise<{ error: string | null }>;
+  onLeaveStudio: () => Promise<{ error: string | null }>;
   onSearchStudios: (query: string) => Promise<Studio[]>;
   onCreateStudio: (name: string, city: string) => Promise<Studio | null>;
   onRedeemCode: (code: string) => Promise<{ error: string | null }>;
@@ -46,8 +46,8 @@ export default function OverviewTab({
   tier,
   currentStudio,
   focusTrigger,
-  canCreateStudio,
   onRequestJoin,
+  onLeaveStudio,
   onSearchStudios,
   onCreateStudio,
   onRedeemCode,
@@ -98,24 +98,17 @@ export default function OverviewTab({
         <TeamPickerCard
           currentStudio={currentStudio}
           onRequestJoin={onRequestJoin}
+          onLeave={onLeaveStudio}
           onSearch={onSearchStudios}
           onRedeemCode={onRedeemCode}
           pendingStudioName={pendingStudioName}
           onCancelRequest={onCancelRequest}
           onCreate={async (name, city) => {
-            if (!canCreateStudio) {
-              Alert.alert('Studio-Abo erforderlich', 'Ein neues Team kann nur mit einem aktiven Studio-Abo erstellt werden.');
-              return null;
-            }
             const created = await onCreateStudio(name, city);
             if (created === null) {
               Alert.alert('Fehler', 'Studio konnte nicht erstellt werden.');
             }
             return created;
-          }}
-          canCreateStudio={canCreateStudio}
-          onCreateBlocked={() => {
-            Alert.alert('Studio-Abo erforderlich', 'Ein neues Team kann nur mit einem aktiven Studio-Abo erstellt werden.');
           }}
           onViewTeam={onViewTeam}
           inline

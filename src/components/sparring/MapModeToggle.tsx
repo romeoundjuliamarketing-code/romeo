@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../theme/colors';
 
-export type MapMode = 'sparrings' | 'events';
+export type MapMode = 'sparrings' | 'studios' | 'events';
 
 interface Props {
   mode:     MapMode;
@@ -11,6 +11,7 @@ interface Props {
 
 const OPTIONS: Array<{ key: MapMode; label: string }> = [
   { key: 'sparrings', label: 'Sparrings' },
+  { key: 'studios',   label: 'Studios' },
   { key: 'events',    label: 'Events' },
 ];
 
