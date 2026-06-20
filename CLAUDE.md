@@ -80,6 +80,47 @@ eas build --platform all --profile preview # beide Plattformen (EAS baut sonst n
   killen Background-Tasks). Listen/Bilder schlank halten, Push nicht auf
   zuverlaessige Background-Zustellung verlassen.
 
+## Release-Checkliste (vor JEDEM Store-Build/-Upload)
+
+Cloud-Builds kosten Zeit/Kontingent — diese Punkte **lokal** abhaken, bevor `eas build`
+laeuft. Jeder Punkt hat schon mal einen Build verbrannt.
+
+**1. Code gruen:**
+```bash
+npx tsc --noEmit && npx jest
+```
+
+**2. expo-doctor 19/19:**
+```bash
+npx expo-doctor          # muss "No issues detected" sagen
+npx expo install --check # Versions-Drift gegen SDK 55 pruefen (--fix zum Angleichen)
+```
+Bei Bedarf: `@types/jest` auf jest-Major pinnen; Duplikate via `overrides`;
+unmaintained/no-metadata-Libs in `expo.doctor.reactNativeDirectoryCheck.exclude`.
+
+**3. `.easignore`-Sanity (EAS nutzt sie STATT `.gitignore` fuers Upload-Archiv):**
+Pruefen, dass kein benoetigtes File ausgeschlossen wird — Matching ist
+case-insensitiv, native Source-Ordner (`widgets/`) duerfen NIE rausfallen:
+```bash
+node -e "const f=require('fs'),cp=require('child_process'),ig=require('ignore')().add(f.readFileSync('.easignore','utf8'));const w=cp.execSync('git ls-files',{encoding:'utf8'}).split('\n').filter(Boolean).filter(p=>/^(src|assets|widgets)\//.test(p)&&ig.ignores(p));console.log(w.length?'WRONGLY IGNORED:\n'+w.join('\n'):'ok: 0 wrongly ignored')"
+```
+Root-Only-Excludes immer mit fuehrendem `/` anchoren (`/COACH/`, nicht `COACH/`).
+
+**4. Versionen hochziehen:**
+- `version` in `app.config.js` MUSS hoeher sein als die zuletzt bei Apple
+  eingereichte/freigegebene (sonst ITMS-90186/90062, Train geschlossen). Marketing-Version
+  ist im Binary eingebacken → Bump = neuer Build noetig.
+- `buildNumber`/`versionCode` laufen via EAS remote `autoIncrement`. Bei Android
+  „versionCode N already used": neu bauen (auto +1) oder `eas build:version:set`.
+
+**5. Sentry:** `production`-Profil in `eas.json` hat `env.SENTRY_DISABLE_AUTO_UPLOAD: "true"`
+ODER ein `SENTRY_AUTH_TOKEN`-EAS-Secret — sonst bricht der Build am `sentry-cli`-Upload ab.
+
+**Externe Voraussetzungen (sonst Submit-Fehler, kein Build-Fehler):**
+- **Apple:** aktuelles Program License Agreement als Account Holder akzeptiert (sonst 403).
+- **Google Play:** Service-Account hat App-Berechtigungen (Konto-Ebene →
+  „Nutzer und Berechtigungen", nicht in der App); erste AAB ggf. einmal manuell hochladen.
+
 # Projektregeln
 
 **Kosten:** Keine Aenderungen, die kostenpflichtige Dienste aktivieren (Supabase Pro, Edge Functions mit externen Calls, bezahlte Drittanbieter). Kostenpflichtige Features nur nach expliziter Bestaetigung.
