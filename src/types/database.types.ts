@@ -1319,6 +1319,7 @@ export type Database = {
           is_active:    boolean
           is_paid:      boolean
           created_at:   string
+          venue_id:     string | null
         }
         Insert: {
           id?:           string
@@ -1337,6 +1338,7 @@ export type Database = {
           is_active?:    boolean
           is_paid?:      boolean
           created_at?:   string
+          venue_id?:     string | null
         }
         Update: {
           id?:           string
@@ -1355,6 +1357,7 @@ export type Database = {
           is_active?:    boolean
           is_paid?:      boolean
           created_at?:   string
+          venue_id?:     string | null
         }
         Relationships: [
           {
@@ -1626,6 +1629,140 @@ export type Database = {
             columns: ['schedule_id']
             isOneToOne: false
             referencedRelation: 'studio_schedule'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      venues: {
+        Row: {
+          id:            string
+          owner_user_id: string
+          name:          string
+          venue_type:    string
+          city:          string | null
+          address:       string | null
+          lat:           number | null
+          lng:           number | null
+          description:   string | null
+          capacity:      number | null
+          opening_hours: Record<string, string> | null
+          avatar_url:    string | null
+          banner_url:    string | null
+          instagram:     string | null
+          tags:          string[] | null
+          is_active:     boolean
+          created_at:    string
+        }
+        Insert: {
+          id?:            string
+          owner_user_id:  string
+          name:           string
+          venue_type:     string
+          city?:          string | null
+          address?:       string | null
+          lat?:           number | null
+          lng?:           number | null
+          description?:   string | null
+          capacity?:      number | null
+          opening_hours?: Record<string, string> | null
+          avatar_url?:    string | null
+          banner_url?:    string | null
+          instagram?:     string | null
+          tags?:          string[] | null
+          is_active?:     boolean
+          created_at?:    string
+        }
+        Update: {
+          id?:            string
+          owner_user_id?: string
+          name?:          string
+          venue_type?:    string
+          city?:          string | null
+          address?:       string | null
+          lat?:           number | null
+          lng?:           number | null
+          description?:   string | null
+          capacity?:      number | null
+          opening_hours?: Record<string, string> | null
+          avatar_url?:    string | null
+          banner_url?:    string | null
+          instagram?:     string | null
+          tags?:          string[] | null
+          is_active?:     boolean
+          created_at?:    string
+        }
+        Relationships: []
+      }
+      venue_photos: {
+        Row: {
+          id:         string
+          venue_id:   string
+          url:        string
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          venue_id:    string
+          url:         string
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          id?:         string
+          venue_id?:   string
+          url?:        string
+          sort_order?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'venue_photos_venue_id_fkey'
+            columns: ['venue_id']
+            isOneToOne: false
+            referencedRelation: 'venues'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      venue_ratings: {
+        Row: {
+          id:         string
+          venue_id:   string
+          user_id:    string
+          stars:      number
+          comment:    string | null
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          venue_id:    string
+          user_id:     string
+          stars:       number
+          comment?:    string | null
+          created_at?: string
+        }
+        Update: {
+          id?:         string
+          venue_id?:   string
+          user_id?:    string
+          stars?:      number
+          comment?:    string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'venue_ratings_venue_id_fkey'
+            columns: ['venue_id']
+            isOneToOne: false
+            referencedRelation: 'venues'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'venue_ratings_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'users'
             referencedColumns: ['id']
           },
         ]
@@ -2021,6 +2158,13 @@ export interface MembershipContractWithUser extends MembershipContract {
 export interface MembershipContractWithPlan extends MembershipContract {
   plan: MembershipPlan | null
 }
+
+export type Venue = Database['public']['Tables']['venues']['Row']
+export type VenueInsert = Database['public']['Tables']['venues']['Insert']
+export type VenuePhoto = Database['public']['Tables']['venue_photos']['Row']
+export type VenuePhotoInsert = Database['public']['Tables']['venue_photos']['Insert']
+export type VenueRating = Database['public']['Tables']['venue_ratings']['Row']
+export type VenueRatingInsert = Database['public']['Tables']['venue_ratings']['Insert']
 
 export type Event = Database['public']['Tables']['events']['Row']
 export type EventInsert = Database['public']['Tables']['events']['Insert']
