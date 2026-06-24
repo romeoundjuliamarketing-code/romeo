@@ -17,6 +17,7 @@ import SparringChatListScreen  from '../screens/SparringChatListScreen';
 import SparringGroupChatScreen from '../screens/SparringGroupChatScreen';
 import EventGroupChatScreen    from '../screens/EventGroupChatScreen';
 import StudioDetailScreen from '../screens/StudioDetailScreen';
+import VenueDetailScreen from '../screens/VenueDetailScreen';
 import StudioRequestsScreen from '../screens/studio/StudioRequestsScreen';
 import StudioInviteScreen from '../screens/studio/StudioInviteScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -79,6 +80,11 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen
         name="StudioDetail"
         component={StudioDetailScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <AppStack.Screen
+        name="VenueDetail"
+        component={VenueDetailScreen}
         options={{ presentation: 'modal' }}
       />
       <AppStack.Screen
