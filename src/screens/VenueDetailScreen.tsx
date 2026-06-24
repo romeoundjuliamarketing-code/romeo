@@ -40,6 +40,17 @@ type Props = NativeStackScreenProps<RootStackParamList, 'VenueDetail'>;
 
 const MAX_DESCRIPTION = 300;
 
+// Day keys and labels must match VenueInfoSection exactly (DAY_ORDER / DAY_LABELS there).
+const EDIT_DAY_ORDER: { key: string; label: string }[] = [
+  { key: 'mon', label: 'Mo' },
+  { key: 'tue', label: 'Di' },
+  { key: 'wed', label: 'Mi' },
+  { key: 'thu', label: 'Do' },
+  { key: 'fri', label: 'Fr' },
+  { key: 'sat', label: 'Sa' },
+  { key: 'sun', label: 'So' },
+];
+
 export default function VenueDetailScreen({ route, navigation }: Props): React.ReactElement {
   const { venueId } = route.params;
   const { user } = useAuth();
@@ -60,7 +71,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
   const [draftDescription,  setDraftDescription]  = useState('');
   const [draftVenueType,    setDraftVenueType]    = useState('');
   const [draftCapacity,     setDraftCapacity]     = useState('');
-  const [draftOpeningHours, setDraftOpeningHours] = useState('');
+  const [draftHours,        setDraftHours]        = useState<Record<string, string>>({});
   const [draftInstagram,    setDraftInstagram]    = useState('');
   const [draftAddress,      setDraftAddress]      = useState('');
   const [draftLat,          setDraftLat]          = useState<number | null>(null);
@@ -80,7 +91,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
     setDraftDescription(venue.description ?? '');
     setDraftVenueType(venue.venue_type);
     setDraftCapacity(venue.capacity !== null ? String(venue.capacity) : '');
-    setDraftOpeningHours('');
+    setDraftHours({ ...(venue.opening_hours ?? {}) });
     setDraftInstagram(venue.instagram ?? '');
     setDraftAddress(venue.address ?? '');
     setDraftLat(venue.lat);
@@ -100,6 +111,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
       setDraftDescription(venue.description ?? '');
       setDraftVenueType(venue.venue_type);
       setDraftCapacity(venue.capacity !== null ? String(venue.capacity) : '');
+      setDraftHours({ ...(venue.opening_hours ?? {}) });
       setDraftInstagram(venue.instagram ?? '');
       setDraftAddress(venue.address ?? '');
       setDraftLat(venue.lat);
@@ -201,15 +213,23 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
     setSaving(true);
     try {
       const capacityNum = parseInt(draftCapacity, 10);
+
+      // Build a cleaned opening_hours record — only include days with a non-empty value.
+      const cleanedHours: Record<string, string> = {};
+      for (const [k, v] of Object.entries(draftHours)) {
+        if (v.trim().length > 0) cleanedHours[k] = v.trim();
+      }
+
       const updates: Record<string, unknown> = {
-        name:        draftName.trim().length > 0 ? draftName.trim() : venue?.name,
-        description: draftDescription.trim().length > 0 ? draftDescription.trim() : null,
-        venue_type:  draftVenueType.trim().length > 0 ? draftVenueType.trim() : venue?.venue_type,
-        capacity:    isNaN(capacityNum) || draftCapacity.trim().length === 0 ? null : capacityNum,
-        instagram:   draftInstagram.trim().length > 0 ? draftInstagram.trim() : null,
-        address:     draftAddress.trim().length > 0 ? draftAddress.trim() : null,
-        lat:         draftLat,
-        lng:         draftLng,
+        name:          draftName.trim().length > 0 ? draftName.trim() : venue?.name,
+        description:   draftDescription.trim().length > 0 ? draftDescription.trim() : null,
+        venue_type:    draftVenueType.trim().length > 0 ? draftVenueType.trim() : venue?.venue_type,
+        capacity:      isNaN(capacityNum) || draftCapacity.trim().length === 0 ? null : capacityNum,
+        opening_hours: Object.keys(cleanedHours).length > 0 ? cleanedHours : null,
+        instagram:     draftInstagram.trim().length > 0 ? draftInstagram.trim() : null,
+        address:       draftAddress.trim().length > 0 ? draftAddress.trim() : null,
+        lat:           draftLat,
+        lng:           draftLng,
       };
 
       if (draftBannerUri !== null) {
@@ -409,19 +429,22 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
                 />
               </View>
 
-              {/* Opening hours */}
+              {/* Opening hours — 7-day structured editor (same keys/order as VenueInfoSection) */}
               <View style={styles.editSection}>
-                <Text style={styles.editSectionLabel}>Öffnungszeiten (Freitext)</Text>
-                <TextInput
-                  style={styles.editDescriptionInput}
-                  value={draftOpeningHours}
-                  onChangeText={setDraftOpeningHours}
-                  placeholder="Mo–Fr 10–22 Uhr, Sa/So 10–18 Uhr"
-                  placeholderTextColor={colors.textSecondary}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
+                <Text style={styles.editSectionLabel}>Öffnungszeiten</Text>
+                {EDIT_DAY_ORDER.map(({ key, label }) => (
+                  <View key={key} style={styles.editHoursRow}>
+                    <Text style={styles.editHoursDayLabel}>{label}</Text>
+                    <TextInput
+                      style={styles.editHoursInput}
+                      value={draftHours[key] ?? ''}
+                      onChangeText={(t) => setDraftHours((prev) => ({ ...prev, [key]: t }))}
+                      placeholder="17:00-23:00"
+                      placeholderTextColor={colors.textSecondary}
+                      returnKeyType="done"
+                    />
+                  </View>
+                ))}
               </View>
 
               {/* Instagram */}
@@ -876,5 +899,27 @@ const styles = StyleSheet.create({
   },
   editGeocodeLabelErr: {
     color: colors.deleteRed,
+  },
+  editHoursRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  editHoursDayLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    width: 24,
+  },
+  editHoursInput: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 });
