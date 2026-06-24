@@ -15,6 +15,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { CreateEventParams } from '../../hooks/useEventActions';
+import { useEventActions } from '../../hooks/useEventActions';
+import { geocodeAddress } from '../../utils/geocoding';
 import LocationPickerModal from './LocationPickerModal';
 
 // ── Internal helper: FieldLabel ───────────────────────────────────────────────
@@ -154,9 +156,13 @@ const stepperStyles = StyleSheet.create({
 
 // ── Main component ────────────────────────────────────────────────────────────
 interface Props {
-  visible:  boolean;
-  onClose:  () => void;
-  onCreate: (params: CreateEventParams) => void | Promise<void>;
+  visible:    boolean;
+  onClose:    () => void;
+  onCreate:   (params: CreateEventParams) => void | Promise<void>;
+  /** When set: free venue-event path (skips location + payment). */
+  venueId?:   string;
+  /** Called after a successful venue-event creation, before onClose. */
+  onCreated?: () => void;
 }
 
 function nextDay18h(): Date {
@@ -166,7 +172,9 @@ function nextDay18h(): Date {
   return d;
 }
 
-export default function CreateEventSheet({ visible, onClose, onCreate }: Props) {
+export default function CreateEventSheet({ visible, onClose, onCreate, venueId, onCreated }: Props) {
+  const { createVenueEvent } = useEventActions();
+
   const [title,                setTitle]                = useState('');
   const [fightCard,            setFightCard]            = useState('');
   const [venueName,            setVenueName]            = useState('');
@@ -180,6 +188,10 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
   const [notes,                setNotes]                = useState('');
   const [loading,              setLoading]              = useState(false);
 
+  // Address text-search state (non-venue path only)
+  const [addressQuery, setAddressQuery] = useState('');
+  const [geocoding,    setGeocoding]    = useState(false);
+
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
@@ -188,6 +200,73 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
     return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
   }
 
+  function resetFields(): void {
+    setTitle('');
+    setFightCard('');
+    setVenueName('');
+    setAddress('');
+    setPickedCoord(null);
+    setMaxSlots('20');
+    setNotes('');
+    setScheduledAt(nextDay18h());
+    setAddressQuery('');
+  }
+
+  // Address geocoding search handler (non-venue path)
+  async function handleAddressSearch(): Promise<void> {
+    const q = addressQuery.trim();
+    if (q.length === 0) return;
+    setGeocoding(true);
+    const coords = await geocodeAddress(q);
+    setGeocoding(false);
+    if (coords === null) {
+      Alert.alert('Nicht gefunden', 'Zu dieser Adresse wurden keine Koordinaten gefunden.');
+      return;
+    }
+    setPickedCoord({ lat: coords.lat, lng: coords.lng });
+    setAddress(q);
+  }
+
+  // ── Venue-bound (free) path ───────────────────────────────────────────────
+  async function handleCreateVenueEvent(): Promise<void> {
+    if (venueId === undefined) return;
+
+    if (title.trim().length === 0) {
+      Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
+      return;
+    }
+    if (fightCard.trim().length === 0) {
+      Alert.alert('Kampfkarte fehlt', 'Bitte gib an, was gezeigt wird.');
+      return;
+    }
+    const slots = parseInt(maxSlots, 10);
+    if (isNaN(slots) || slots < 1) {
+      Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await createVenueEvent(venueId, {
+      title:       title.trim(),
+      fightCard:   fightCard.trim(),
+      scheduledAt: scheduledAt.toISOString(),
+      durationMin: 120,
+      maxSlots:    slots,
+      notes:       notes.trim(),
+    });
+    setLoading(false);
+
+    if (error !== null) {
+      Alert.alert('Fehler', error);
+      return;
+    }
+
+    resetFields();
+    onCreated?.();
+    onClose();
+  }
+
+  // ── Standard (paid) path ──────────────────────────────────────────────────
   async function handleCreate(): Promise<void> {
     if (title.trim().length === 0) {
       Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
@@ -198,7 +277,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
       return;
     }
     if (address.trim().length === 0 || pickedCoord === null) {
-      Alert.alert('Standort fehlt', 'Bitte wähle einen Standort auf der Karte aus.');
+      Alert.alert('Standort fehlt', 'Bitte wähle einen Standort auf der Karte aus oder suche eine Adresse.');
       return;
     }
     const slots = parseInt(maxSlots, 10);
@@ -223,29 +302,27 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
     setLoading(true);
     await onCreate(params);
     setLoading(false);
-    // Reset fields
-    setTitle('');
-    setFightCard('');
-    setVenueName('');
-    setAddress('');
-    setPickedCoord(null);
-    setMaxSlots('20');
-    setNotes('');
-    setScheduledAt(nextDay18h());
+    resetFields();
     onClose();
   }
 
+  const isVenuePath = venueId !== undefined;
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <LocationPickerModal
-        visible={locationPickerVisible}
-        onClose={() => setLocationPickerVisible(false)}
-        onConfirm={(lat, lng, displayAddress) => {
-          setPickedCoord({ lat, lng });
-          setAddress(displayAddress);
-          setLocationPickerVisible(false);
-        }}
-      />
+      {/* LocationPickerModal is only needed for the standard path */}
+      {!isVenuePath && (
+        <LocationPickerModal
+          visible={locationPickerVisible}
+          onClose={() => setLocationPickerVisible(false)}
+          onConfirm={(lat, lng, displayAddress) => {
+            setPickedCoord({ lat, lng });
+            setAddress(displayAddress);
+            setAddressQuery('');
+            setLocationPickerVisible(false);
+          }}
+        />
+      )}
       <View style={styles.container}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
         <View style={styles.sheet}>
@@ -253,7 +330,9 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
           <View style={styles.headerRow}>
             <View style={styles.headerTextBlock}>
               <Text style={styles.heading}>Event erstellen</Text>
-              <Text style={styles.subHeading}>Public Viewing für deine Community</Text>
+              <Text style={styles.subHeading}>
+                {isVenuePath ? 'Kostenlos für dein Venue' : 'Public Viewing für deine Community'}
+              </Text>
             </View>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Ionicons name="close" size={24} color={colors.textSecondary} />
@@ -262,13 +341,23 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
-            {/* Fee hint */}
-            <View style={styles.feeHint}>
-              <Ionicons name="information-circle-outline" size={16} color={colors.accentBlue} />
-              <Text style={styles.feeHintText}>
-                Das Erstellen eines Events kostet eine einmalige Gebühr von 8,99 Euro.
-              </Text>
-            </View>
+            {/* Fee hint — only for standard paid path */}
+            {!isVenuePath && (
+              <View style={styles.feeHint}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.accentBlue} />
+                <Text style={styles.feeHintText}>
+                  Das Erstellen eines Events kostet eine einmalige Gebühr von 8,99 Euro.
+                </Text>
+              </View>
+            )}
+
+            {/* Venue-path location note */}
+            {isVenuePath && (
+              <View style={styles.feeHint}>
+                <Ionicons name="location-outline" size={16} color={colors.accentBlue} />
+                <Text style={styles.feeHintText}>Findet in deiner Location statt.</Text>
+              </View>
+            )}
 
             <FieldLabel icon="create-outline" text="Titel" />
             <TextInput
@@ -288,47 +377,86 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
               placeholderTextColor={colors.textSecondary}
             />
 
-            <FieldLabel icon="business-outline" text="Venue-Name" hint="Optional" />
-            <TextInput
-              style={styles.input}
-              value={venueName}
-              onChangeText={setVenueName}
-              placeholder="z.B. Sports Bar München"
-              placeholderTextColor={colors.textSecondary}
-            />
-
-            <FieldLabel icon="location-outline" text="Standort" />
-            <View style={styles.locationRow}>
-              <TextInput
-                style={[styles.input, styles.locationInput]}
-                value={address}
-                editable={false}
-                placeholder="Auf Karte auswählen"
-                placeholderTextColor={colors.textSecondary}
-              />
-              <TouchableOpacity
-                style={styles.mapPickBtn}
-                onPress={() => setLocationPickerVisible(true)}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="map-outline"
-                  size={18}
-                  color={pickedCoord !== null ? colors.card : colors.accentBlue}
+            {/* Venue name — only shown in the standard path */}
+            {!isVenuePath && (
+              <>
+                <FieldLabel icon="business-outline" text="Venue-Name" hint="Optional" />
+                <TextInput
+                  style={styles.input}
+                  value={venueName}
+                  onChangeText={setVenueName}
+                  placeholder="z.B. Sports Bar München"
+                  placeholderTextColor={colors.textSecondary}
                 />
-              </TouchableOpacity>
-            </View>
-            {pickedCoord !== null && (
-              <View style={styles.pickedBadge}>
-                <Ionicons name="location" size={13} color={colors.accentBlue} />
-                <Text style={styles.pickedBadgeText} numberOfLines={1}>{address}</Text>
-                <TouchableOpacity
-                  onPress={() => { setPickedCoord(null); setAddress(''); }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
-                </TouchableOpacity>
-              </View>
+              </>
+            )}
+
+            {/* Location block — only shown in the standard path */}
+            {!isVenuePath && (
+              <>
+                <FieldLabel icon="location-outline" text="Standort" />
+
+                {/* Map picker row */}
+                <View style={styles.locationRow}>
+                  <TextInput
+                    style={[styles.input, styles.locationInput]}
+                    value={address}
+                    editable={false}
+                    placeholder="Auf Karte auswählen"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                  <TouchableOpacity
+                    style={styles.mapPickBtn}
+                    onPress={() => setLocationPickerVisible(true)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name="map-outline"
+                      size={18}
+                      color={pickedCoord !== null ? colors.card : colors.accentBlue}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Address text-search row */}
+                <View style={[styles.locationRow, styles.addressSearchRow]}>
+                  <TextInput
+                    style={[styles.input, styles.locationInput]}
+                    value={addressQuery}
+                    onChangeText={setAddressQuery}
+                    placeholder="Adresse eingeben"
+                    placeholderTextColor={colors.textSecondary}
+                    returnKeyType="search"
+                    onSubmitEditing={() => { void handleAddressSearch(); }}
+                  />
+                  <TouchableOpacity
+                    style={[styles.mapPickBtn, geocoding && styles.mapPickBtnLoading]}
+                    onPress={() => { void handleAddressSearch(); }}
+                    disabled={geocoding}
+                    activeOpacity={0.8}
+                  >
+                    {geocoding ? (
+                      <ActivityIndicator size="small" color={colors.accentBlue} />
+                    ) : (
+                      <Ionicons name="search-outline" size={18} color={colors.accentBlue} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Confirmed location badge */}
+                {pickedCoord !== null && (
+                  <View style={styles.pickedBadge}>
+                    <Ionicons name="location" size={13} color={colors.accentBlue} />
+                    <Text style={styles.pickedBadgeText} numberOfLines={1}>{address}</Text>
+                    <TouchableOpacity
+                      onPress={() => { setPickedCoord(null); setAddress(''); setAddressQuery(''); }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="close-circle" size={15} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
             )}
 
             {/* Datum + Uhrzeit */}
@@ -396,7 +524,10 @@ export default function CreateEventSheet({ visible, onClose, onCreate }: Props) 
 
             <TouchableOpacity
               style={[styles.btn, loading && styles.btnDisabled]}
-              onPress={handleCreate}
+              onPress={isVenuePath
+                ? () => { void handleCreateVenueEvent(); }
+                : () => { void handleCreate(); }
+              }
               disabled={loading}
             >
               {loading ? (
@@ -502,6 +633,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  addressSearchRow: {
+    marginTop: 8,
+  },
   locationInput: {
     flex: 1,
   },
@@ -514,6 +648,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentBlueSoft,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  mapPickBtnLoading: {
+    opacity: 0.6,
   },
   pickedBadge: {
     flexDirection: 'row',

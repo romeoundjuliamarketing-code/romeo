@@ -34,7 +34,9 @@ import VenueEventsList from '../components/venue/VenueEventsList';
 import VenueOwnerBar from '../components/venue/VenueOwnerBar';
 import VenueRatingSheet from '../components/venue/VenueRatingSheet';
 import EventDetailSheet from '../components/sparring/EventDetailSheet';
+import CreateEventSheet from '../components/sparring/CreateEventSheet';
 import type { EventWithMeta } from '../hooks/useOpenEvents';
+import type { CreateEventParams } from '../hooks/useEventActions';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VenueDetail'>;
 
@@ -62,8 +64,9 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
   const [ratingRefetch, setRatingRefetch] = useState(0);
   const { averageStars, ratingCount } = useVenueRatings(venueId, ratingRefetch);
 
-  const [ratingSheetVisible, setRatingSheetVisible] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<EventWithMeta | null>(null);
+  const [ratingSheetVisible,    setRatingSheetVisible]    = useState(false);
+  const [selectedEvent,         setSelectedEvent]         = useState<EventWithMeta | null>(null);
+  const [createEventVisible,    setCreateEventVisible]    = useState(false);
 
   // ── Edit-mode state ────────────────────────────────────────────────────────
   const [editing, setEditing] = useState(false);
@@ -269,10 +272,8 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
     }
   }
 
-  // Create event — Task 10 will wire up CreateEventSheet with venueId.
-  // For now: show a placeholder Alert so the build stays green.
   function handleCreateEvent(): void {
-    Alert.alert('Demnächst', 'Event-Erstellung folgt in einem der nächsten Updates.');
+    setCreateEventVisible(true);
   }
 
   // Block the whole screen only while the venue itself has no data yet.
@@ -596,6 +597,17 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
           onSubmitted={() => setRatingRefetch((n) => n + 1)}
         />
       )}
+
+      {/* CreateEventSheet — venue-bound free path */}
+      <CreateEventSheet
+        visible={createEventVisible}
+        venueId={venueId}
+        onClose={() => setCreateEventVisible(false)}
+        onCreate={(_params: CreateEventParams) => {
+          // Not called in the venue path; required by the prop interface.
+        }}
+        onCreated={refetchEvents}
+      />
 
       {/* EventDetailSheet — wired to the same pattern as SparringMapScreen */}
       <EventDetailSheet

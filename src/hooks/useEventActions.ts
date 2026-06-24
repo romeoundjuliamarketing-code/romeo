@@ -15,11 +15,21 @@ export interface CreateEventParams {
   notes:       string;
 }
 
+export interface CreateVenueEventParams {
+  title:       string;
+  fightCard:   string;
+  scheduledAt: string;
+  durationMin: number;
+  maxSlots:    number;
+  notes:       string;
+}
+
 export function useEventActions(): {
-  createEvent:     (params: CreateEventParams) => Promise<{ error: string | null; eventId?: string }>;
-  signUp:          (eventId: string) => Promise<{ error: string | null }>;
-  cancelSignup:    (eventId: string) => Promise<{ error: string | null }>;
-  deactivateEvent: (eventId: string) => Promise<{ error: string | null }>;
+  createEvent:       (params: CreateEventParams) => Promise<{ error: string | null; eventId?: string }>;
+  createVenueEvent:  (venueId: string, params: CreateVenueEventParams) => Promise<{ error: string | null; eventId?: string }>;
+  signUp:            (eventId: string) => Promise<{ error: string | null }>;
+  cancelSignup:      (eventId: string) => Promise<{ error: string | null }>;
+  deactivateEvent:   (eventId: string) => Promise<{ error: string | null }>;
 } {
   const { user } = useAuth();
 
@@ -42,6 +52,28 @@ export function useEventActions(): {
 
       if (error !== null) return { error: error.message };
 
+      const eventId = typeof data === 'string' ? data : (data as { id?: string } | null)?.id;
+      return { error: null, eventId };
+    },
+    [user],
+  );
+
+  const createVenueEvent = useCallback(
+    async (
+      venueId: string,
+      params: CreateVenueEventParams,
+    ): Promise<{ error: string | null; eventId?: string }> => {
+      if (user === null) return { error: 'Nicht eingeloggt' };
+      const { data, error } = await supabase.rpc('create_venue_event', {
+        p_venue_id:     venueId,
+        p_title:        params.title,
+        p_fight_card:   params.fightCard,
+        p_scheduled_at: params.scheduledAt,
+        p_duration_min: params.durationMin,
+        p_max_slots:    params.maxSlots,
+        p_notes:        params.notes,
+      });
+      if (error !== null) return { error: error.message };
       const eventId = typeof data === 'string' ? data : (data as { id?: string } | null)?.id;
       return { error: null, eventId };
     },
@@ -77,5 +109,5 @@ export function useEventActions(): {
     [user],
   );
 
-  return { createEvent, signUp, cancelSignup, deactivateEvent };
+  return { createEvent, createVenueEvent, signUp, cancelSignup, deactivateEvent };
 }

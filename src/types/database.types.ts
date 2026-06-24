@@ -1987,6 +1987,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_venue_event: {
+        Args: {
+          p_venue_id:     string
+          p_title:        string
+          p_fight_card:   string | null
+          p_scheduled_at: string
+          p_duration_min: number
+          p_max_slots:    number
+          p_notes:        string | null
+        }
+        Returns: string
+      }
       activate_event: {
         Args: { p_event_id: string; p_user_id: string }
         Returns: Json
