@@ -16,6 +16,7 @@ import { useVerification } from '../hooks/useVerification';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import { useOpenEvents } from '../hooks/useOpenEvents';
 import { useEventActions } from '../hooks/useEventActions';
+import { useVenueMapMarkers } from '../hooks/useVenueMapMarkers';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import MapBoostSheet from '../components/sparring/MapBoostSheet';
@@ -65,6 +66,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     currentStudio?.id ?? '',
   );
   const { studios: studioMarkers } = useStudioMapMarkers();
+  const { venues: venueMarkers } = useVenueMapMarkers();
   const { tier, refetch: refetchVerification } = useVerification();
 
   // Keep verification tier fresh when returning to the map.
@@ -296,6 +298,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onEventPress={setSelectedEvent}
         totalUnread={totalUnread}
         onChatPress={() => navigation.navigate('SparringChatList')}
+        venueDots={venueMarkers}
+        onVenuePress={(venue) => navigation.navigate('VenueDetail', { venueId: venue.id })}
       />
 
       {/* ── Top overlay: full-width mode toggle, time filter floats below-left ── */}

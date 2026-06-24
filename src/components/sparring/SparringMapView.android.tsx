@@ -13,6 +13,7 @@ import * as Location from 'expo-location';
 import { colors } from '../../theme/colors';
 import { getTimeWindow } from '../../utils/sparringTimeWindow';
 import type { SparringMapViewProps } from './SparringMapView.types';
+import type { VenueMapMarker } from '../../hooks/useVenueMapMarkers';
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
@@ -76,6 +77,14 @@ function StudioDotMarker() {
   );
 }
 
+function VenueMarker() {
+  return (
+    <View style={styles.venueDotBase}>
+      <Ionicons name="location" size={16} color={colors.card} />
+    </View>
+  );
+}
+
 function EventMarker() {
   return (
     <View style={styles.eventMarkerBase}>
@@ -93,6 +102,8 @@ export default function SparringMapView({
   onChatPress,
   events = [],
   onEventPress,
+  venueDots,
+  onVenuePress,
 }: SparringMapViewProps) {
   const cameraRef     = useRef<CameraRef>(null);
   const insets        = useSafeAreaInsets();
@@ -184,6 +195,16 @@ export default function SparringMapView({
             <EventMarker />
           </Marker>
         ))}
+
+        {venueDots.map((venue: VenueMapMarker) => (
+          <Marker
+            key={`venue-${venue.id}`}
+            lngLat={[venue.lng, venue.lat]}
+            onPress={() => onVenuePress(venue)}
+          >
+            <VenueMarker />
+          </Marker>
+        ))}
       </Map>
 
       <View style={styles.zoomSliderOuter} pointerEvents="box-none">
@@ -262,6 +283,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 3,
+  },
+  venueDotBase: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.catPartnertraining,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
   },
   eventMarkerBase: {
     width: 40,

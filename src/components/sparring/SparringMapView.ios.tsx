@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import { getTimeWindow } from '../../utils/sparringTimeWindow';
 import type { SparringMapViewProps } from './SparringMapView.types';
+import type { VenueMapMarker } from '../../hooks/useVenueMapMarkers';
 
 const FALLBACK_REGION = {
   latitude: 48.14,
@@ -66,6 +67,14 @@ function StudioDotMarker() {
   );
 }
 
+function VenueMarker() {
+  return (
+    <View style={styles.venueDotBase}>
+      <Ionicons name="location" size={16} color={colors.card} />
+    </View>
+  );
+}
+
 function EventMarker() {
   return (
     <View style={styles.eventMarkerBase}>
@@ -89,6 +98,8 @@ export default function SparringMapView({
   onChatPress,
   events = [],
   onEventPress,
+  venueDots,
+  onVenuePress,
 }: SparringMapViewProps) {
   const insets           = useSafeAreaInsets();
   const mapRef           = useRef<MapView>(null);
@@ -192,6 +203,18 @@ export default function SparringMapView({
             <EventMarker />
           </Marker>
         ))}
+
+        {venueDots.map((venue: VenueMapMarker) => (
+          <Marker
+            key={`venue-${venue.id}`}
+            coordinate={{ latitude: venue.lat, longitude: venue.lng }}
+            onPress={() => onVenuePress(venue)}
+            tracksViewChanges={false}
+            zIndex={0}
+          >
+            <VenueMarker />
+          </Marker>
+        ))}
       </MapView>
 
       <View style={styles.zoomSliderOuter} pointerEvents="box-none">
@@ -279,6 +302,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 3,
+  },
+  venueDotBase: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.catPartnertraining,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
   eventMarkerBase: {
     width: 40,

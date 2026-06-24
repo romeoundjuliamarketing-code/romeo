@@ -1,6 +1,7 @@
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import type { StudioMapMarker } from '../../hooks/useStudioMapMarkers';
 import type { EventWithMeta } from '../../hooks/useOpenEvents';
+import type { VenueMapMarker } from '../../hooks/useVenueMapMarkers';
 
 export interface SparringMapViewProps {
   sparrings:           SparringWithMeta[];
@@ -11,4 +12,6 @@ export interface SparringMapViewProps {
   onChatPress:         () => void;
   events?:             EventWithMeta[];
   onEventPress?:       (e: EventWithMeta) => void;
+  venueDots:           VenueMapMarker[];
+  onVenuePress:        (venue: VenueMapMarker) => void;
 }
