@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
   ActivityIndicator,
   Alert,
   StyleSheet,
@@ -325,6 +326,10 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
       )}
       <View style={styles.container}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardAvoid}
+        >
         <View style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.headerRow}>
@@ -543,6 +548,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
             <View style={styles.bottomPad} />
           </ScrollView>
         </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -556,6 +562,12 @@ const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.mapOverlay,
+  },
+  keyboardAvoid: {
+    // Ensures the sheet lifts as a unit when the soft keyboard opens.
+    // On iOS 'padding' is the standard; on Android 'height' shrinks the
+    // available space so the ScrollView inside can scroll to the focused input.
+    width: '100%',
   },
   sheet: {
     backgroundColor: colors.card,
