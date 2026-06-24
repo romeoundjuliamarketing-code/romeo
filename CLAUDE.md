@@ -37,6 +37,7 @@ Test-Setup (`babel.config.js` + `jest.config.js`) ist environment-aware. In Test
 - **Wassertracking:** `water_logs`; Hook `useWaterTracking`; dynamisches Ziel aus Gewicht/Alter/Modus; 5 XP-Bonus.
 - **Maskottchen-Modals (montags):** `WeightCheckInModal.tsx`, `NutritionAdjustmentModal.tsx`. Konfetti: `ConfettiOverlay.tsx`.
 - **Coach Studio-Plan-Editor:** `useStudioScheduleEditor.ts`; `ScheduleEntrySheet showCoachFields`.
+- **Partner-Venues:** Bars/Locations mit Profil (`venues`/`venue_photos`/`venue_ratings`); B2B-Freischaltung serverseitig via `grant_venue_partner(...)` (service_role, kein IAP); Partner-Events gratis via `create_venue_event`; `VenueDetailScreen` rollenbewusst; persistente Map-Marker; „Meine Location"-Einstieg im Profil. Spec/Plan unter `docs/superpowers/`.
 
 **Kritische Fallstricke:**
 - **Avatar-Upload:** `expo-file-system` + `base64-arraybuffer` direkt in Storage (`avatars`-Bucket). **Nie** `fetch().blob()` (geht im Expo-Kontext nicht).
