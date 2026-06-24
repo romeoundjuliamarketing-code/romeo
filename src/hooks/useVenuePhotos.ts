@@ -20,6 +20,8 @@ export function useVenuePhotos(venueId: string): {
   useEffect(() => {
     if (venueId.trim().length === 0) return;
     let cancelled = false;
+    const hasCache = cacheKey ? getCached<Snapshot>(cacheKey) !== undefined : false;
+    if (!hasCache) setLoading(true);
     void (async () => {
       const { data } = await supabase
         .from('venue_photos').select('*').eq('venue_id', venueId)
