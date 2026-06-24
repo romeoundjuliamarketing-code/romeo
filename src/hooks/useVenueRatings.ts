@@ -17,6 +17,8 @@ interface UseVenueRatingsResult {
   averageStars:   number | null;
   ratingCount:    number;
   existingRating: ExistingRating | null;
+  loading:        boolean;
+  refetch:        () => void;
   submitRating: (
     venueId: string,
     stars:   number,
@@ -36,10 +38,15 @@ export function useVenueRatings(
 
   const [summary,        setSummary]        = useState<RatingSummary>(() => cached?.summary ?? { averageStars: null, ratingCount: 0 });
   const [existingRating, setExistingRating] = useState<ExistingRating | null>(() => cached?.existingRating ?? null);
+  const [loading,        setLoading]        = useState(cached === undefined);
+  const [localTrigger,   setLocalTrigger]   = useState(0);
+  const refetch = useCallback(() => setLocalTrigger((n) => n + 1), []);
 
   // Load average + own existing rating
   useEffect(() => {
     let cancelled = false;
+    const hasCache = cacheKey ? getCached<VenueRatingsSnapshot>(cacheKey) !== undefined : false;
+    if (!hasCache) setLoading(true);
 
     void (async () => {
       // All ratings for this venue (for the average)
@@ -66,16 +73,18 @@ export function useVenueRatings(
           .eq('user_id', user.id)
           .maybeSingle();
 
-        if (!cancelled) {
-          const ownRating = own !== null ? { stars: own.stars, comment: own.comment } : null;
-          setExistingRating(ownRating);
-          if (cacheKey) setCached<VenueRatingsSnapshot>(cacheKey, { summary: computedSummary, existingRating: ownRating });
-        }
+        if (cancelled) return;
+        const ownRating = own !== null ? { stars: own.stars, comment: own.comment } : null;
+        setExistingRating(ownRating);
+        if (cacheKey) setCached<VenueRatingsSnapshot>(cacheKey, { summary: computedSummary, existingRating: ownRating });
+        setLoading(false);
+      } else {
+        setLoading(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [venueId, user, refetchTrigger, cacheKey]);
+  }, [venueId, user, refetchTrigger, localTrigger, cacheKey]);
 
   const submitRating = useCallback(
     async (
@@ -105,6 +114,8 @@ export function useVenueRatings(
     averageStars:   summary.averageStars,
     ratingCount:    summary.ratingCount,
     existingRating,
+    loading,
+    refetch,
     submitRating,
   };
 }
