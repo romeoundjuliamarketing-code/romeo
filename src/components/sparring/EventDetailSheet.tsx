@@ -34,6 +34,7 @@ interface Props {
   onToggleSignup: () => void;
   onDeactivate:   () => void;
   onOpenChat:     () => void;
+  onOpenVenue?:   (venueId: string) => void;
   loading:        boolean;
 }
 
@@ -59,6 +60,7 @@ export default function EventDetailSheet({
   onToggleSignup,
   onDeactivate,
   onOpenChat,
+  onOpenVenue,
   loading,
 }: Props) {
   const [isFullyExpanded, setIsFullyExpanded] = useState(false);
@@ -250,6 +252,21 @@ export default function EventDetailSheet({
                     </View>
                   )}
 
+                  {/* Venue profile link — only when event is tied to a partner venue */}
+                  {ev.venue_id !== null && ev.venue_name !== null && (
+                    <TouchableOpacity
+                      style={styles.venueLink}
+                      onPress={() => onOpenVenue?.(ev.venue_id as string)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="business-outline" size={16} color={colors.accentBlue} />
+                      <Text style={styles.venueLinkText}>
+                        {`Veranstaltet von ${ev.venue_name}`}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color={colors.accentBlue} />
+                    </TouchableOpacity>
+                  )}
+
                   {/* Address */}
                   <View style={styles.infoRow}>
                     <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
@@ -425,6 +442,20 @@ const styles = StyleSheet.create({
     color:      colors.textSecondary,
     flex:       1,
     lineHeight: 20,
+  },
+  venueLink: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           8,
+    paddingVertical: 8,
+    borderTopWidth:  1,
+    borderTopColor:  colors.border,
+  },
+  venueLinkText: {
+    fontSize:   14,
+    fontWeight: '600',
+    color:      colors.accentBlue,
+    flex:       1,
   },
   slotsLeft: {
     color:      colors.difficultyGreen,

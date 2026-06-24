@@ -347,6 +347,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             isOrganizer: selectedEvent.created_by === user?.id,
           });
         }}
+        onOpenVenue={(venueId) => {
+          setSelectedEvent(null);
+          navigation.navigate('VenueDetail', { venueId });
+        }}
         loading={actionLoading}
       />
 

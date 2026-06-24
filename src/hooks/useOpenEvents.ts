@@ -21,6 +21,7 @@ export interface EventWithMeta {
   created_at: string;
   signup_count: number;
   is_signed_up: boolean;
+  venue_id:     string | null;
 }
 
 type OpenEventsSnapshot = { events: EventWithMeta[] };
@@ -90,6 +91,7 @@ export function useOpenEvents(refetchTrigger = 0): {
         created_at:   r.created_at,
         signup_count: countMap[r.id] ?? 0,
         is_signed_up: signedUpIds.has(r.id),
+        venue_id:     r.venue_id ?? null,
       }));
 
       reportNetworkSuccess();

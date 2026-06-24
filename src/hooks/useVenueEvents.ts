@@ -56,6 +56,7 @@ export function useVenueEvents(venueId: string): {
         created_at:   r.created_at,
         signup_count: countMap[r.id] ?? 0,
         is_signed_up: false,
+        venue_id:     r.venue_id ?? null,
       }));
       setEvents(result);
       if (cacheKey) setCached<Snapshot>(cacheKey, { events: result });
