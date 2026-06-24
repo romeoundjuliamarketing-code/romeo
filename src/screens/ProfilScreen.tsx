@@ -37,6 +37,7 @@ import { useWeight } from '../hooks/useWeight';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
 import { useVerification } from '../hooks/useVerification';
+import { useMyVenue } from '../hooks/useMyVenue';
 import { supabase } from '../lib/supabase';
 import QRScannerModal from '../components/profil/QRScannerModal';
 
@@ -57,6 +58,7 @@ export default function ProfilScreen(): React.ReactElement {
   const { entitlement } = useEntitlement(focusTrigger);
   const { fights, loading: fightsLoading, addFight, deleteFight } = useFightRecord(focusTrigger);
   const { tier } = useVerification(focusTrigger);
+  const { venueId } = useMyVenue(focusTrigger);
 
   // ── Local state ──
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
@@ -214,6 +216,12 @@ export default function ProfilScreen(): React.ReactElement {
                   : undefined
               }
               onOpenVerification={() => navigation.navigate('Verification')}
+              venueId={venueId}
+              onOpenVenue={
+                venueId !== null
+                  ? () => navigation.navigate('VenueDetail', { venueId })
+                  : undefined
+              }
             />
           )}
 

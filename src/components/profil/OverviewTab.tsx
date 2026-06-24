@@ -7,6 +7,7 @@ import {
   Platform,
   TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { Profile } from '../../types/database.types';
@@ -29,6 +30,10 @@ interface OverviewTabProps {
   onOpenVerification: () => void;
   pendingStudioName?: string | null;
   onCancelRequest?: () => Promise<void>;
+  /** venueId of the venue owned by this user, or null if not a venue owner */
+  venueId?: string | null;
+  /** Navigate to VenueDetail for the owned venue */
+  onOpenVenue?: (() => void) | undefined;
 }
 
 function SteckbriefRow({ icon, label, value }: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }): React.ReactElement {
@@ -55,6 +60,8 @@ export default function OverviewTab({
   onOpenVerification,
   pendingStudioName,
   onCancelRequest,
+  venueId,
+  onOpenVenue,
 }: OverviewTabProps): React.ReactElement {
   // Build steckbrief rows (only show fields that have values)
   const steckbriefRows: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }[] = [];
@@ -161,6 +168,21 @@ export default function OverviewTab({
           <MaterialCommunityIcons name="chevron-right" size={22} color={colors.textSecondary} />
         </TouchableOpacity>
       )}
+
+      {/* Venue entry — only visible to venue owners (B2B) */}
+      {venueId !== null && venueId !== undefined && onOpenVenue !== undefined && (
+        <TouchableOpacity
+          style={styles.venueRow}
+          onPress={onOpenVenue}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="business-outline" size={24} color={colors.accentBlue} />
+          <View style={styles.venueRowContent}>
+            <Text style={styles.venueRowTitle}>Meine Location</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color={colors.textSecondary} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -260,5 +282,23 @@ const styles = StyleSheet.create({
   verificationRowStatus: {
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  // Venue owner entry row
+  venueRow: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    ...cardShadow,
+  },
+  venueRowContent: {
+    flex: 1,
+  },
+  venueRowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
   },
 });
