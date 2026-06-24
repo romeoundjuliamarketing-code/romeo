@@ -252,11 +252,16 @@ export default function EventDetailSheet({
                     </View>
                   )}
 
-                  {/* Venue profile link — only when event is tied to a partner venue */}
-                  {ev.venue_id !== null && ev.venue_name !== null && (
+                  {/* Venue profile link — opt-in navigation affordance; only rendered when a
+                      navigation handler is provided (SparringMapScreen), so the row is
+                      correctly hidden inside VenueDetailScreen where it would be a dead tap. */}
+                  {onOpenVenue !== undefined && ev.venue_id !== null && ev.venue_name !== null && (
                     <TouchableOpacity
                       style={styles.venueLink}
-                      onPress={() => onOpenVenue?.(ev.venue_id as string)}
+                      onPress={() => {
+                        const venueId = ev.venue_id;
+                        if (venueId !== null) onOpenVenue(venueId);
+                      }}
                       activeOpacity={0.7}
                     >
                       <Ionicons name="business-outline" size={16} color={colors.accentBlue} />
