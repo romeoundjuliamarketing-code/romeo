@@ -88,8 +88,8 @@ const styles = StyleSheet.create({
   },
   editBannerBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: 16,
+    right: 16,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
     marginTop: -OVERLAP,
-    gap: 12,
+    gap: 16,
   },
   avatarWrap: {
     borderWidth: 3,
@@ -154,6 +154,6 @@ const styles = StyleSheet.create({
   venueType: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginTop: 2,
+    marginTop: 0,
   },
 });

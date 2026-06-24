@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   },
   rowMain: {
     flex: 1,
-    gap: 4,
+    gap: 8,
   },
   title: {
     fontSize: 15,
@@ -111,12 +111,12 @@ const styles = StyleSheet.create({
   },
   rowMeta: {
     alignItems: 'flex-end',
-    gap: 4,
+    gap: 8,
   },
   slotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 8,
   },
   slotsText: {
     fontSize: 13,

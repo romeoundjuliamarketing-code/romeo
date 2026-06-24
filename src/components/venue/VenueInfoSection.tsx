@@ -53,10 +53,12 @@ export default function VenueInfoSection({ venue }: Props): React.ReactElement {
       )}
 
       {/* Venue type */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Typ</Text>
-        <Text style={styles.bodyText}>{venue.venue_type}</Text>
-      </View>
+      {venue.venue_type !== null && venue.venue_type !== undefined && venue.venue_type.length > 0 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Typ</Text>
+          <Text style={styles.bodyText}>{venue.venue_type}</Text>
+        </View>
+      )}
 
       {/* Address — tappable */}
       {hasAddress && (
@@ -86,12 +88,15 @@ export default function VenueInfoSection({ venue }: Props): React.ReactElement {
       {hasOpeningHours && (
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Öffnungszeiten</Text>
-          {DAY_ORDER.filter((key) => (venue.opening_hours as Record<string, string>)[key] !== undefined).map((key) => (
-            <View key={key} style={styles.hoursRow}>
-              <Text style={styles.dayLabel}>{DAY_LABELS[key]}</Text>
-              <Text style={styles.bodyText}>{(venue.opening_hours as Record<string, string>)[key]}</Text>
-            </View>
-          ))}
+          {(() => {
+            const hours = venue.opening_hours as Record<string, string>;
+            return DAY_ORDER.filter((key) => hours[key] !== undefined).map((key) => (
+              <View key={key} style={styles.hoursRow}>
+                <Text style={styles.dayLabel}>{DAY_LABELS[key]}</Text>
+                <Text style={styles.bodyText}>{hours[key]}</Text>
+              </View>
+            ));
+          })()}
         </View>
       )}
 
@@ -142,7 +147,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   bodyText: {
     fontSize: 15,
@@ -162,7 +167,7 @@ const styles = StyleSheet.create({
   hoursRow: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   dayLabel: {
     fontSize: 15,

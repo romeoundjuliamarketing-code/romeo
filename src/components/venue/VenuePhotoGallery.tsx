@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 8,
   },
   addLabel: {
     fontSize: 11,
@@ -119,8 +119,8 @@ const styles = StyleSheet.create({
   },
   deleteOverlay: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 0,
+    right: 0,
     width: 24,
     height: 24,
     borderRadius: 12,
