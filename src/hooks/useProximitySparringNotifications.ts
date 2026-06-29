@@ -18,6 +18,40 @@ const NO_SPARRINGS_COOLDOWN_MS     = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 type NotifiedMap = Record<string, string>; // sparringId → ISO timestamp
 
+// Rotating copy for the "nothing nearby" nudge so the notification does not
+// feel identical every week. One variant is picked at random per send.
+const NO_SPARRINGS_VARIANTS: ReadonlyArray<(radiusKm: number) => { title: string; body: string }> = [
+  (km) => ({
+    title: 'Keine Sparrings in deiner Nähe',
+    body:  `Im Umkreis von ${km} km ist nichts los. Meld doch selber eins an.`,
+  }),
+  (km) => ({
+    title: 'Ganz schön ruhig hier',
+    body:  `Im Umkreis von ${km} km hat keiner ein Sparring angesetzt. Sei der Erste.`,
+  }),
+  (km) => ({
+    title: 'Niemand am Start?',
+    body:  `${km} km im Umkreis – noch kein Sparring. Erstell eins und hol die Leute aus der Deckung.`,
+  }),
+  (km) => ({
+    title: 'Zeit für Action',
+    body:  `In deinen ${km} km tut sich gerade nichts. Setz ein Sparring an und finde Trainingspartner.`,
+  }),
+  (km) => ({
+    title: 'Dein Move',
+    body:  `Kein Sparring im Umkreis von ${km} km. Mach den Anfang – die anderen ziehen nach.`,
+  }),
+  (km) => ({
+    title: 'Handschuhe schon gepackt?',
+    body:  `Im Umkreis von ${km} km ist Flaute. Meld ein Sparring an und bring Bewegung rein.`,
+  }),
+];
+
+function pickNoSparringsContent(radiusKm: number): { title: string; body: string } {
+  const variant = NO_SPARRINGS_VARIANTS[Math.floor(Math.random() * NO_SPARRINGS_VARIANTS.length)];
+  return variant(radiusKm);
+}
+
 // Runs once per app session when the user is available
 export function useProximitySparringNotifications(): void {
   const { user } = useAuth();
@@ -116,11 +150,12 @@ async function checkProximitySparrings(): Promise<void> {
       Date.now() - new Date(lastNoSparrings).getTime() >= NO_SPARRINGS_COOLDOWN_MS;
     if (canNotify) {
       try {
+        const { title, body } = pickNoSparringsContent(radiusKm);
         await Notifications.scheduleNotificationAsync({
           identifier: 'no-sparrings-nearby',
           content: {
-            title: 'Keine Sparrings in deiner Nähe',
-            body:  `Im Umkreis von ${radiusKm} km ist nichts los. Meld doch selber eins an.`,
+            title,
+            body,
             data:  { type: 'no_sparrings_nearby' },
           },
           trigger: null,

@@ -45,6 +45,7 @@ interface Props {
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const AnimatedGHScrollView = Animated.createAnimatedComponent(GHScrollView);
 const SNAP_FULL    = 0;
 const SNAP_HALF    = SCREEN_HEIGHT * 0.42; // shows bottom ~50%
 const SNAP_DISMISS = SCREEN_HEIGHT;
@@ -267,7 +268,7 @@ export default function SparringDetailSheet({
             {/* Content — drag down at top also dismisses */}
             <GestureDetector gesture={contentPan}>
               <View style={styles.contentWrapper}>
-                <GHScrollView
+                <AnimatedGHScrollView
                   ref={scrollRef}
                   style={styles.scrollView}
                   contentContainerStyle={styles.content}
@@ -381,7 +382,7 @@ export default function SparringDetailSheet({
                       <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
                     </TouchableOpacity>
                   )}
-                </GHScrollView>
+                </AnimatedGHScrollView>
               </View>
             </GestureDetector>
           </Animated.View>

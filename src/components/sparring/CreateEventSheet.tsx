@@ -1,17 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
   TextInput,
-  ScrollView,
-  KeyboardAvoidingView,
   ActivityIndicator,
   Alert,
   StyleSheet,
   Platform,
+  Keyboard,
+  Dimensions,
 } from 'react-native';
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+  ScrollView as GHScrollView,
+} from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -19,6 +33,12 @@ import type { CreateEventParams } from '../../hooks/useEventActions';
 import { useEventActions } from '../../hooks/useEventActions';
 import { geocodeAddress } from '../../utils/geocoding';
 import LocationPickerModal from './LocationPickerModal';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const MAX_SHEET_RATIO     = 0.92;   // sheet never grows past this share of the screen
+const OFF_SCREEN          = SCREEN_HEIGHT;
+const DISMISS_RATIO       = 0.22;   // drag past this share of the screen -> dismiss
+const VELOCITY_PROJECTION = 150;
 
 // ── Internal helper: FieldLabel ───────────────────────────────────────────────
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -193,6 +213,99 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
   const [addressQuery, setAddressQuery] = useState('');
   const [geocoding,    setGeocoding]    = useState(false);
 
+  // ── Draggable-sheet + keyboard machinery ──────────────────────────────────
+  const insets    = useSafeAreaInsets();
+  const translateY = useSharedValue(OFF_SCREEN);
+  const keyboardH  = useSharedValue(0);
+  const startY     = useSharedValue(0);
+  const scrollRef  = useRef<React.ComponentRef<typeof GHScrollView>>(null);
+
+  // Content-driven sizing: measure header + scroll content so the sheet fits exactly
+  // (capped at MAX) and sits flush at the bottom with no empty gap.
+  const MAX_SHEET_H = SCREEN_HEIGHT * MAX_SHEET_RATIO;
+  const [sheetHeight, setSheetHeight] = useState<number | null>(null);
+  const headerH       = useRef(0);
+  const contentInnerH = useRef(0);
+  const hasEnteredRef = useRef(false);
+
+  function recomputeSize(): void {
+    if (headerH.current <= 0 || contentInnerH.current <= 0) return;
+    const total = headerH.current + contentInnerH.current;
+    setSheetHeight(Math.min(total, MAX_SHEET_H));
+    if (!hasEnteredRef.current) {
+      hasEnteredRef.current = true;
+      translateY.value = withSpring(0, { damping: 18, stiffness: 140 });
+    }
+  }
+
+  function clampYWorklet(v: number): number {
+    'worklet';
+    return Math.min(OFF_SCREEN, Math.max(0, v));
+  }
+
+  function dismiss(): void {
+    Keyboard.dismiss();
+    translateY.value = withTiming(OFF_SCREEN, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(onClose)();
+    });
+  }
+
+  function settle(position: number, vy: number): void {
+    'worklet';
+    const projected = position + vy * VELOCITY_PROJECTION;
+    if (projected > SCREEN_HEIGHT * DISMISS_RATIO) {
+      runOnJS(dismiss)();
+    } else {
+      translateY.value = withSpring(0, { damping: 18, stiffness: 140 });
+    }
+  }
+
+  // Animate in / out with the Modal's `visible` flag.
+  useEffect(() => {
+    if (visible) {
+      hasEnteredRef.current = false;
+      translateY.value = OFF_SCREEN;
+      // Size + slide in once measured (layout callbacks below), or immediately on
+      // a re-open where the content was already measured.
+      recomputeSize();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
+
+  // Lift the sheet above the soft keyboard (smoother than KeyboardAvoidingView,
+  // and it composes with the drag transform).
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      keyboardH.value = withTiming(e.endCoordinates.height, { duration: 220 });
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => {
+      keyboardH.value = withTiming(0, { duration: 200 });
+    });
+    return () => { showSub.remove(); hideSub.remove(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Drag the whole sheet by its header handle.
+  const handlePan = Gesture.Pan()
+    .onStart(() => {
+      'worklet';
+      startY.value = translateY.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      translateY.value = clampYWorklet(startY.value + e.translationY);
+    })
+    .onEnd((e) => {
+      'worklet';
+      settle(translateY.value, e.velocityY);
+    });
+
+  const animatedSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value - keyboardH.value }],
+  }));
+
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
@@ -264,7 +377,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
 
     resetFields();
     onCreated?.();
-    onClose();
+    dismiss();
   }
 
   // ── Standard (paid) path ──────────────────────────────────────────────────
@@ -304,47 +417,62 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
     await onCreate(params);
     setLoading(false);
     resetFields();
-    onClose();
+    dismiss();
   }
 
   const isVenuePath = venueId !== undefined;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      {/* LocationPickerModal is only needed for the standard path */}
-      {!isVenuePath && (
-        <LocationPickerModal
-          visible={locationPickerVisible}
-          onClose={() => setLocationPickerVisible(false)}
-          onConfirm={(lat, lng, displayAddress) => {
-            setPickedCoord({ lat, lng });
-            setAddress(displayAddress);
-            setAddressQuery('');
-            setLocationPickerVisible(false);
-          }}
-        />
-      )}
-      <View style={styles.container}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoid}
-        >
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <View style={styles.headerRow}>
-            <View style={styles.headerTextBlock}>
-              <Text style={styles.heading}>Event erstellen</Text>
-              <Text style={styles.subHeading}>
-                {isVenuePath ? 'Kostenlos für dein Venue' : 'Public Viewing für deine Community'}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={dismiss}>
+      <GestureHandlerRootView style={styles.gestureRoot}>
+        {/* LocationPickerModal is only needed for the standard path */}
+        {!isVenuePath && (
+          <LocationPickerModal
+            visible={locationPickerVisible}
+            onClose={() => setLocationPickerVisible(false)}
+            onConfirm={(lat, lng, displayAddress) => {
+              setPickedCoord({ lat, lng });
+              setAddress(displayAddress);
+              setAddressQuery('');
+              setLocationPickerVisible(false);
+            }}
+          />
+        )}
+        <View style={styles.container}>
+          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={dismiss} />
+          <Animated.View
+            style={[styles.sheet, sheetHeight !== null && { height: sheetHeight }, animatedSheetStyle]}
+          >
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Drag handle + header */}
+            <GestureDetector gesture={handlePan}>
+              <View
+                style={styles.header}
+                onLayout={(e) => { headerH.current = e.nativeEvent.layout.height; recomputeSize(); }}
+              >
+                <View style={styles.handle} />
+                <View style={styles.headerRow}>
+                  <View style={styles.headerTextBlock}>
+                    <Text style={styles.heading}>Event erstellen</Text>
+                    <Text style={styles.subHeading}>
+                      {isVenuePath ? 'Kostenlos für dein Venue' : 'Public Viewing für deine Community'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={dismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close" size={24} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </GestureDetector>
+
+            <GHScrollView
+              ref={scrollRef}
+              style={styles.scrollView}
+              contentContainerStyle={[styles.scrollContent, { paddingBottom: 24 + insets.bottom }]}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={(_w, h) => { contentInnerH.current = h; recomputeSize(); }}
+            >
 
             {/* Fee hint — only for standard paid path */}
             {!isVenuePath && (
@@ -513,8 +641,14 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
               />
             )}
 
-            <FieldLabel icon="people-outline" text="Max. Plätze" />
-            <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
+            {/* Venue/partner events are public viewings without an attendance cap,
+                so the slot count is only asked for on the standard (paid) path. */}
+            {!isVenuePath && (
+              <>
+                <FieldLabel icon="people-outline" text="Max. Plätze" />
+                <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
+              </>
+            )}
 
             <FieldLabel icon="document-text-outline" text="Hinweise (optional)" />
             <TextInput
@@ -545,16 +679,18 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
               )}
             </TouchableOpacity>
 
-            <View style={styles.bottomPad} />
-          </ScrollView>
+            </GHScrollView>
+          </Animated.View>
         </View>
-        </KeyboardAvoidingView>
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -563,19 +699,16 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.mapOverlay,
   },
-  keyboardAvoid: {
-    // Ensures the sheet lifts as a unit when the soft keyboard opens.
-    // On iOS 'padding' is the standard; on Android 'height' shrinks the
-    // available space so the ScrollView inside can scroll to the focused input.
-    width: '100%',
-  },
   sheet: {
     backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
-    padding: 24,
-    maxHeight: '88%',
+    maxHeight: SCREEN_HEIGHT * MAX_SHEET_RATIO,
+  },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
   },
   handle: {
     width: 36,
@@ -584,6 +717,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     alignSelf: 'center',
     marginBottom: 16,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 24,
   },
   headerRow: {
     flexDirection: 'row',
@@ -710,8 +849,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.card,
-  },
-  bottomPad: {
-    height: 16,
   },
 });

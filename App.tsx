@@ -52,7 +52,9 @@ function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <NavigationContainer theme={NAV_THEME}>
-            <StatusBar style="dark" backgroundColor={colors.background} />
+            {/* No backgroundColor: edge-to-edge (SDK 55) draws under the bar;
+                the prop only triggers the deprecated Window.setStatusBarColor. */}
+            <StatusBar style="dark" />
             <RootNavigator />
           </NavigationContainer>
         </AuthProvider>

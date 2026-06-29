@@ -27,26 +27,28 @@ export function getSupercategoryForGroup(group: FitnessGroup): SupercategoryKey 
 }
 
 // All supported disciplines
-export type Discipline = 'Boxen' | 'Kickboxen' | 'MMA' | 'BJJ' | 'Wrestling';
+export type Discipline = 'Boxen' | 'Kickboxen' | 'Muay Thai' | 'MMA' | 'BJJ' | 'Wrestling';
 
-export const ALL_DISCIPLINES: Discipline[] = ['Boxen', 'Kickboxen', 'MMA', 'BJJ', 'Wrestling'];
+export const ALL_DISCIPLINES: Discipline[] = ['Boxen', 'Kickboxen', 'Muay Thai', 'MMA', 'BJJ', 'Wrestling'];
 
 // Workout categories that are relevant per discipline
 const DISCIPLINE_WORKOUT_CATEGORIES: Record<Discipline, Workout['category'][]> = {
   Boxen:     ['schlagkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  Kickboxen: ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  MMA:       ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  BJJ:       ['ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  Wrestling: ['beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  Kickboxen:  ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  'Muay Thai': ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  MMA:        ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  BJJ:        ['ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  Wrestling:  ['beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
 };
 
 // Fitness profile groups that are relevant per discipline
 const DISCIPLINE_FITNESS_GROUPS: Record<Discipline, FitnessGroup[]> = {
   Boxen:     ['schlagkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  Kickboxen: ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  MMA:       ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  BJJ:       ['ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
-  Wrestling: ['beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  Kickboxen:  ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  'Muay Thai': ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  MMA:        ['schlagkraft', 'trittkraft', 'beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  BJJ:        ['ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
+  Wrestling:  ['beinarbeit', 'ausdauer', 'schulter', 'nackenhals', 'griffkraft', 'koordination', 'mobilitaet', 'partnertraining'],
 };
 
 // Returns the union of relevant workout categories for a set of disciplines.

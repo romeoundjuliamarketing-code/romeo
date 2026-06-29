@@ -26,6 +26,7 @@ import { useVenueProfile } from '../hooks/useVenueProfile';
 import { useVenuePhotos } from '../hooks/useVenuePhotos';
 import { useVenueEvents } from '../hooks/useVenueEvents';
 import { useVenueRatings } from '../hooks/useVenueRatings';
+import { useVenueSignupStats } from '../hooks/useVenueSignupStats';
 import { geocodeAddress } from '../utils/geocoding';
 import VenueHero from '../components/venue/VenueHero';
 import VenuePhotoGallery from '../components/venue/VenuePhotoGallery';
@@ -41,6 +42,15 @@ import type { CreateEventParams } from '../hooks/useEventActions';
 type Props = NativeStackScreenProps<RootStackParamList, 'VenueDetail'>;
 
 const MAX_DESCRIPTION = 300;
+
+// Compact German date for the attribution list, e.g. "14. Juni 2026".
+function formatStatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('de-DE', {
+    day:   'numeric',
+    month: 'long',
+    year:  'numeric',
+  });
+}
 
 // Day keys and labels must match VenueInfoSection exactly (DAY_ORDER / DAY_LABELS there).
 const EDIT_DAY_ORDER: { key: string; label: string }[] = [
@@ -64,6 +74,9 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
   const [ratingRefetch, setRatingRefetch] = useState(0);
   const { averageStars, ratingCount } = useVenueRatings(venueId, ratingRefetch);
 
+  // Owner/admin-only B2B attribution: signups via Sparr per event + total.
+  const { events: signupStats, totalSignups, loading: statsLoading } = useVenueSignupStats(venueId);
+
   const [ratingSheetVisible,    setRatingSheetVisible]    = useState(false);
   const [selectedEvent,         setSelectedEvent]         = useState<EventWithMeta | null>(null);
   const [createEventVisible,    setCreateEventVisible]    = useState(false);
@@ -86,6 +99,9 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
   const [saving,            setSaving]            = useState(false);
 
   const isOwner = venue !== null && user !== null && venue.owner_user_id === user.id;
+  // The global venue admin may edit every venue, not just their own.
+  const isAdmin = user?.email?.toLowerCase() === 'romeo.georgiadis@gmail.com';
+  const canEdit = isOwner || isAdmin;
 
   // Seed draft state whenever venue data loads (or reloads after a save).
   useEffect(() => {
@@ -525,15 +541,47 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <VenueHero
           venue={venue}
-          onEditAvatar={isOwner ? () => { void handlePickAvatar(); } : undefined}
-          onEditBanner={isOwner ? () => { void handlePickBanner(); } : undefined}
+          onEditAvatar={canEdit ? () => { void handlePickAvatar(); } : undefined}
+          onEditBanner={canEdit ? () => { void handlePickBanner(); } : undefined}
         />
 
-        {isOwner && (
+        {canEdit && (
           <VenueOwnerBar
             onEditProfile={enterEditMode}
             onCreateEvent={handleCreateEvent}
           />
+        )}
+
+        {/* B2B attribution — only the owner/admin sees how many people came via Sparr */}
+        {canEdit && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Über Sparr erreicht</Text>
+            <View style={styles.statsHeadlineRow}>
+              <Ionicons name="people" size={20} color={colors.accentBlue} />
+              <Text style={styles.statsHeadlineNumber}>{totalSignups}</Text>
+              <Text style={styles.statsHeadlineLabel}>
+                {totalSignups === 1 ? 'Anmeldung über Sparr' : 'Anmeldungen über Sparr'}
+              </Text>
+            </View>
+
+            {statsLoading && signupStats.length === 0 ? (
+              <ActivityIndicator color={colors.accentBlue} style={styles.statsLoader} />
+            ) : signupStats.length === 0 ? (
+              <Text style={styles.statsEmpty}>Noch keine Anmeldungen über Sparr</Text>
+            ) : (
+              <View style={styles.statsList}>
+                {signupStats.map((stat) => (
+                  <View key={stat.eventId} style={styles.statsRow}>
+                    <View style={styles.statsRowText}>
+                      <Text style={styles.statsRowTitle} numberOfLines={1}>{stat.title}</Text>
+                      <Text style={styles.statsRowDate}>{formatStatDate(stat.scheduledAt)}</Text>
+                    </View>
+                    <Text style={styles.statsRowCount}>{stat.signupCount}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {/* Ratings summary */}
@@ -550,7 +598,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
                 : `${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'}`}
             </Text>
           </View>
-          {!isOwner && (
+          {!canEdit && (
             <TouchableOpacity
               style={styles.ratingActionBtn}
               onPress={() => setRatingSheetVisible(true)}
@@ -570,9 +618,9 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
           <Text style={styles.sectionLabelPad}>Fotos</Text>
           <VenuePhotoGallery
             photos={photos}
-            editable={isOwner}
-            onAdd={isOwner ? () => { void handlePickGalleryPhoto(); } : undefined}
-            onRemovePhoto={isOwner ? handleRemovePhoto : undefined}
+            editable={canEdit}
+            onAdd={canEdit ? () => { void handlePickGalleryPhoto(); } : undefined}
+            onRemovePhoto={canEdit ? handleRemovePhoto : undefined}
           />
         </View>
 
@@ -729,6 +777,59 @@ const styles = StyleSheet.create({
   },
   bottomPad: {
     height: 48,
+  },
+
+  // ── B2B attribution section ─────────────────────────────────────────────────
+  statsHeadlineRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  statsHeadlineNumber: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  statsHeadlineLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  statsLoader: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  statsEmpty: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 8,
+  },
+  statsList: {
+    marginTop: 8,
+    gap: 8,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  statsRowText: {
+    flex: 1,
+    gap: 8,
+  },
+  statsRowTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  statsRowDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  statsRowCount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.accentBlue,
   },
 
   // ── Edit-mode styles ───────────────────────────────────────────────────────

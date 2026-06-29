@@ -16,7 +16,6 @@ import { useVerification } from '../hooks/useVerification';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import { useOpenEvents } from '../hooks/useOpenEvents';
 import { useEventActions } from '../hooks/useEventActions';
-import { useVenueMapMarkers } from '../hooks/useVenueMapMarkers';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import MapBoostSheet from '../components/sparring/MapBoostSheet';
@@ -66,7 +65,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     currentStudio?.id ?? '',
   );
   const { studios: studioMarkers } = useStudioMapMarkers();
-  const { venues: venueMarkers } = useVenueMapMarkers();
   const { tier, refetch: refetchVerification } = useVerification();
 
   // Keep verification tier fresh when returning to the map.
@@ -286,6 +284,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const mapSparrings  = mapMode === 'sparrings' ? filteredSparrings : [];
   const mapStudioDots = mapMode === 'studios'   ? studioMarkers     : [];
   const mapEvents     = mapMode === 'events'    ? filteredEvents    : [];
+  // Bars/locations are no longer shown as standalone persistent markers. The
+  // venue profile is reached via the "Location ansehen" button on the event card.
 
   return (
     <View style={styles.root}>
@@ -298,7 +298,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onEventPress={setSelectedEvent}
         totalUnread={totalUnread}
         onChatPress={() => navigation.navigate('SparringChatList')}
-        venueDots={venueMarkers}
+        venueDots={[]}
         onVenuePress={(venue) => navigation.navigate('VenueDetail', { venueId: venue.id })}
       />
 

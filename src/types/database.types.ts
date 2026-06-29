@@ -1636,7 +1636,7 @@ export type Database = {
       venues: {
         Row: {
           id:            string
-          owner_user_id: string
+          owner_user_id: string | null
           name:          string
           venue_type:    string
           city:          string | null
@@ -1655,7 +1655,7 @@ export type Database = {
         }
         Insert: {
           id?:            string
-          owner_user_id:  string
+          owner_user_id?: string | null
           name:           string
           venue_type:     string
           city?:          string | null
@@ -2014,6 +2014,15 @@ export type Database = {
       deactivate_event: {
         Args: { p_event_id: string }
         Returns: undefined
+      }
+      get_venue_signup_stats: {
+        Args: { p_venue_id: string }
+        Returns: {
+          event_id:     string
+          title:        string
+          scheduled_at: string
+          signup_count: number
+        }[]
       }
       appoint_studio_trainer: {
         Args: { p_user_id: string }

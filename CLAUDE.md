@@ -169,6 +169,8 @@ ODER ein `SENTRY_AUTH_TOKEN`-EAS-Secret — sonst bricht der Build am `sentry-cl
 ## Obsidian Vault
 Pfad: `/Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/`. System-Datei `_VAULT_SYSTEM.md`. Kein MCP — Zugriff per Bash.
 
+**Update-Pflicht:** Das Vault wird **immer** mitgepflegt — nach jeder abgeschlossenen Aenderung (neues/geaendertes Feature, Bugfix, Architektur-/API-/Abo-Entscheidung, App-Store-Schritt) wird der passende Eintrag im Vault ergaenzt, bevor die Aufgabe als erledigt gilt. Nicht aufschieben, nicht sammeln. Ausnahmen nur fuer die unten unter „Nicht dokumentieren" genannten Faelle oder wenn ich ausdruecklich „kein Obsidian" sage.
+
 **Pflicht:** Vor jedem Update `_VAULT_SYSTEM.md` lesen. Ziel-Note pruefen, dann **append** (nie ueberschreiben), fehlende Ordner `mkdir -p`. Keine taeglichen Logs — direkt in thematische Dateien.
 
 **Routing:** Neues Feature → `Funktionen.md` | Abo/Preis → `Abo-System.md` | App eingereicht → `App-Store.md` | Bug → `Offene-Punkte.md` (bzw. `Bugs-und-TechDebt.md`) | Architektur → `Architektur.md`.

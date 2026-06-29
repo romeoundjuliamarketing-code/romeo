@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   Alert,
   StyleSheet,
   Platform,
+  InputAccessoryView,
+  Keyboard,
+  type KeyboardEvent,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +23,7 @@ import { checkText, filterErrorMessage } from '../../utils/contentFilter';
 import { useBannedWords } from '../../hooks/useBannedWords';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
+const NOTES_ACCESSORY_ID = 'sparring-notes-accessory';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -72,19 +76,20 @@ type StepperProps = {
   value: string;
   onChange: (v: string) => void;
   min?: number;
+  step?: number;
 };
 
-function Stepper({ value, onChange, min = 1 }: StepperProps) {
+function Stepper({ value, onChange, min = 1, step = 1 }: StepperProps) {
   const numVal = parseInt(value, 10);
   const current = isNaN(numVal) ? min : numVal;
 
   function decrement(): void {
-    const next = Math.max(min, current - 1);
+    const next = Math.max(min, current - step);
     onChange(String(next));
   }
 
   function increment(): void {
-    onChange(String(current + 1));
+    onChange(String(current + step));
   }
 
   return (
@@ -180,7 +185,34 @@ export default function CreateSparringSheet(props: Props) {
     isUserMode && coachStudio !== null && coachStudio !== undefined && coachStudio.address.trim().length > 0;
 
   const [isAtStudio, setIsAtStudio] = useState(false);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
+
+  const scrollRef = useRef<ScrollView>(null);
+  // Tracks whether the multiline notes field currently holds focus, so the
+  // keyboard listener only auto-scrolls when the deepest field is being edited.
+  const notesFocusedRef = useRef(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // While the sheet is open, lift the scroll content by the keyboard height so
+  // the focused field sits right above the keyboard; reset to normal on hide.
+  useEffect(() => {
+    if (!visible) return;
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      if (notesFocusedRef.current) {
+        setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+      }
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+      setKeyboardHeight(0);
+    };
+  }, [visible]);
 
   const { bannedWords } = useBannedWords();
   const [filterError, setFilterError] = useState<string | null>(null);
@@ -281,9 +313,8 @@ export default function CreateSparringSheet(props: Props) {
           durationMin: dur,
           maxSlots: slots,
           notes,
-          verifiedOnly,
         }
-      : { studioId: studioId as string, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes, verifiedOnly };
+      : { studioId: studioId as string, title: resolvedTitle, discipline, scheduledAt: scheduledAt.toISOString(), durationMin: dur, maxSlots: slots, notes };
 
     setLoading(true);
     await onCreate(params);
@@ -292,7 +323,6 @@ export default function CreateSparringSheet(props: Props) {
     setAddress('');
     setPickedCoord(null);
     setIsAtStudio(false);
-    setVerifiedOnly(false);
     setDiscipline(DISCIPLINES[0]);
     setNotes('');
     setDurationMin('90');
@@ -303,6 +333,15 @@ export default function CreateSparringSheet(props: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID={NOTES_ACCESSORY_ID}>
+          <View style={styles.accessoryBar}>
+            <TouchableOpacity onPress={() => Keyboard.dismiss()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.accessoryDone}>Fertig</Text>
+            </TouchableOpacity>
+          </View>
+        </InputAccessoryView>
+      )}
       <LocationPickerModal
         visible={locationPickerVisible}
         onClose={() => setLocationPickerVisible(false)}
@@ -312,8 +351,9 @@ export default function CreateSparringSheet(props: Props) {
           setLocationPickerVisible(false);
         }}
       />
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-      <View style={styles.sheet}>
+      <View style={styles.container}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.sheet}>
         <View style={styles.handle} />
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
@@ -329,7 +369,13 @@ export default function CreateSparringSheet(props: Props) {
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={{ paddingBottom: keyboardHeight }}
+        >
 
           {/* User mode: optional name field */}
           {isUserMode && (
@@ -341,6 +387,8 @@ export default function CreateSparringSheet(props: Props) {
                 onChangeText={setTitle}
                 placeholder="z.B. Lockeres Boxsparring"
                 placeholderTextColor={colors.textSecondary}
+                returnKeyType="done"
+                blurOnSubmit={true}
               />
             </>
           )}
@@ -355,6 +403,8 @@ export default function CreateSparringSheet(props: Props) {
                 onChangeText={setTitle}
                 placeholder="z.B. Offenes Boxsparring"
                 placeholderTextColor={colors.textSecondary}
+                returnKeyType="done"
+                blurOnSubmit={true}
               />
             </>
           )}
@@ -375,6 +425,8 @@ export default function CreateSparringSheet(props: Props) {
                   }}
                   placeholder="Adresse eingeben"
                   placeholderTextColor={colors.textSecondary}
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                 />
                 <TouchableOpacity
                   style={[styles.mapPickBtn, isAtStudio && styles.mapPickBtnDisabled]}
@@ -495,13 +547,7 @@ export default function CreateSparringSheet(props: Props) {
             <View style={styles.twoCol}>
               <View style={styles.colItem}>
                 <FieldLabel icon="hourglass-outline" text="Dauer (Min.)" />
-                <TextInput
-                  style={styles.input}
-                  value={durationMin}
-                  onChangeText={setDurationMin}
-                  keyboardType="numeric"
-                  placeholderTextColor={colors.textSecondary}
-                />
+                <Stepper value={durationMin} onChange={setDurationMin} min={15} step={15} />
               </View>
               <View style={styles.colItem}>
                 <FieldLabel icon="people-outline" text="Max. Plätze" />
@@ -519,21 +565,13 @@ export default function CreateSparringSheet(props: Props) {
             placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
+            inputAccessoryViewID={Platform.OS === 'ios' ? NOTES_ACCESSORY_ID : undefined}
+            onFocus={() => {
+              notesFocusedRef.current = true;
+              setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
+            }}
+            onBlur={() => { notesFocusedRef.current = false; }}
           />
-
-          <TouchableOpacity
-            style={styles.checkboxRow}
-            onPress={() => setVerifiedOnly((v) => !v)}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.checkbox, verifiedOnly && styles.checkboxChecked]}>
-              {verifiedOnly && <Ionicons name="checkmark" size={14} color={colors.card} />}
-            </View>
-            <View style={styles.verifiedOnlyLabelBlock}>
-              <Text style={styles.checkboxLabel}>Nur verifizierte Mitglieder</Text>
-              <Text style={styles.verifiedOnlyHint}>Nur Nutzer mit verifiziertem Profil können teilnehmen</Text>
-            </View>
-          </TouchableOpacity>
 
           {filterError !== null && <Text style={styles.filterError}>{filterError}</Text>}
 
@@ -554,20 +592,26 @@ export default function CreateSparringSheet(props: Props) {
 
           <View style={styles.bottomPad} />
         </ScrollView>
+        </View>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  container: {
     flex: 1,
+    justifyContent: 'flex-end',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: colors.mapOverlay,
   },
   sheet: {
     backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    overflow: 'hidden',
     padding: 24,
     maxHeight: '88%',
   },
@@ -737,15 +781,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  verifiedOnlyLabelBlock: {
-    flex: 1,
+  accessoryBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  verifiedOnlyHint: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    marginTop: 2,
-    opacity: 0.8,
+  accessoryDone: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.accentBlue,
   },
   inputDisabled: {
     opacity: 0.5,

@@ -23,6 +23,7 @@ import {
   GestureHandlerRootView,
   ScrollView as GHScrollView,
 } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { EventWithMeta } from '../../hooks/useOpenEvents';
@@ -39,12 +40,13 @@ interface Props {
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const SNAP_FULL    = 0;
-const SNAP_HALF    = SCREEN_HEIGHT * 0.42;
-const SNAP_DISMISS = SCREEN_HEIGHT;
-const SNAP_POINTS  = [SNAP_FULL, SNAP_HALF, SNAP_DISMISS];
-const DRAG_CLAIM   = 6;
-const VELOCITY_PROJECTION = 150;
+const AnimatedGHScrollView = Animated.createAnimatedComponent(GHScrollView);
+const MAX_SHEET_RATIO = 0.92;            // sheet never grows past this share of the screen
+const OFF_SCREEN      = SCREEN_HEIGHT;    // fully hidden translateY (anchored at bottom)
+const DRAG_CLAIM      = 6;                // px before a content drag is claimed from the ScrollView
+const DISMISS_RATIO   = 0.22;             // drag past this share of the screen -> dismiss
+const VELOCITY_PROJECTION = 150;          // ms of velocity look-ahead when settling
+const UNLIMITED_SLOTS = 999999;           // sentinel slot count for uncapped public viewings
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -63,53 +65,71 @@ export default function EventDetailSheet({
   onOpenVenue,
   loading,
 }: Props) {
-  const [isFullyExpanded, setIsFullyExpanded] = useState(false);
+  const insets = useSafeAreaInsets();
+  // Whether the content overflows the (content-sized, capped) sheet. Only then is
+  // the inner ScrollView scrollable; otherwise a downward drag always dismisses.
+  const [overflow, setOverflow] = useState(false);
 
-  const translateY  = useSharedValue(SNAP_DISMISS);
-  const currentSnap = useSharedValue(SNAP_HALF);
-  const startY      = useSharedValue(0);
-  const scrollY     = useSharedValue(0);
-  const scrollRef   = useRef<React.ComponentRef<typeof GHScrollView>>(null);
+  const translateY = useSharedValue(OFF_SCREEN);
+  const startY     = useSharedValue(0);
+  const scrollY    = useSharedValue(0);
+  const scrollRef  = useRef<React.ComponentRef<typeof GHScrollView>>(null);
+
+  // Content-driven sizing: measure the banner and the scroll content, then set the
+  // sheet to exactly fit (capped at MAX). This guarantees the card sits flush at the
+  // bottom with no empty gap, and only scrolls when the content exceeds the cap.
+  const MAX_SHEET_H = SCREEN_HEIGHT * MAX_SHEET_RATIO;
+  const [sheetHeight, setSheetHeight] = useState<number | null>(null);
+  const bannerH       = useRef(0);
+  const contentInnerH = useRef(0);
+  const hasEnteredRef = useRef(false);
+
+  function recomputeSize(): void {
+    if (bannerH.current <= 0 || contentInnerH.current <= 0) return;
+    const total = bannerH.current + contentInnerH.current;
+    setSheetHeight(Math.min(total, MAX_SHEET_H));
+    setOverflow(total > MAX_SHEET_H + 1);
+    if (!hasEnteredRef.current) {
+      hasEnteredRef.current = true;
+      translateY.value = withSpring(0, { damping: 18, stiffness: 140 });
+    }
+  }
+
+  // Mirrors the latest overflow flag onto the UI thread without re-creating gestures.
+  const overflowSV = useSharedValue(false);
+  useEffect(() => { overflowSV.value = overflow; }, [overflow, overflowSV]);
 
   function clampYWorklet(v: number): number {
     'worklet';
-    return Math.min(SNAP_DISMISS, Math.max(SNAP_FULL, v));
+    return Math.min(OFF_SCREEN, Math.max(0, v));
   }
 
-  function notifyExpansionState(target: number): void {
-    setIsFullyExpanded(target === SNAP_FULL);
-  }
-
+  // Settle: dismiss when dragged/flung far enough past the open position, else snap back.
   function settle(position: number, vy: number): void {
     'worklet';
-    const projected = clampYWorklet(position + vy * VELOCITY_PROJECTION);
-    let target = SNAP_POINTS[0];
-    for (const s of SNAP_POINTS) {
-      if (Math.abs(s - projected) < Math.abs(target - projected)) target = s;
-    }
-    if (target === SNAP_DISMISS) {
-      translateY.value = withTiming(SNAP_DISMISS, { duration: 220 }, (finished) => {
+    const projected = position + vy * VELOCITY_PROJECTION;
+    if (projected > SCREEN_HEIGHT * DISMISS_RATIO) {
+      translateY.value = withTiming(OFF_SCREEN, { duration: 220 }, (finished) => {
         if (finished) runOnJS(onClose)();
       });
     } else {
-      currentSnap.value = target;
-      translateY.value = withSpring(target, { damping: 18, stiffness: 140 });
-      runOnJS(notifyExpansionState)(target);
+      translateY.value = withSpring(0, { damping: 18, stiffness: 140 });
     }
   }
 
   function dismiss(): void {
-    translateY.value = withTiming(SNAP_DISMISS, { duration: 220 }, (finished) => {
+    translateY.value = withTiming(OFF_SCREEN, { duration: 220 }, (finished) => {
       if (finished) runOnJS(onClose)();
     });
   }
 
   useEffect(() => {
     if (event !== null) {
-      translateY.value = SNAP_DISMISS;
-      currentSnap.value = SNAP_HALF;
-      setIsFullyExpanded(false);
-      translateY.value = withSpring(SNAP_HALF, { damping: 18, stiffness: 140 });
+      hasEnteredRef.current = false;
+      translateY.value = OFF_SCREEN;
+      // If the content was already measured (re-open with the component mounted),
+      // size + slide in immediately; otherwise the layout callbacks below do it.
+      recomputeSize();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id]);
@@ -145,18 +165,15 @@ export default function EventDetailSheet({
     })
     .onUpdate((e) => {
       'worklet';
-      const shouldClaim =
-        currentSnap.value !== SNAP_FULL ||
-        (scrollY.value <= 1 && e.translationY > 0);
+      // Claim the drag when there is nothing to scroll, or when pulling down from the top.
+      const shouldClaim = !overflowSV.value || (scrollY.value <= 1 && e.translationY > 0);
       if (shouldClaim) {
         translateY.value = clampYWorklet(startY.value + e.translationY);
       }
     })
     .onEnd((e) => {
       'worklet';
-      const shouldClaim =
-        currentSnap.value !== SNAP_FULL ||
-        (scrollY.value <= 1 && e.velocityY > 0);
+      const shouldClaim = !overflowSV.value || (scrollY.value <= 1 && e.velocityY > 0);
       if (shouldClaim) {
         settle(translateY.value, e.velocityY);
       }
@@ -173,7 +190,11 @@ export default function EventDetailSheet({
   const isFull      = slotsLeft <= 0;
   const isCreator   = currentUserId !== null && ev.created_by === currentUserId;
   const fillPct     = `${Math.min(100, Math.round((ev.signup_count / ev.max_slots) * 100))}%` as const;
-  const scrollEnabled = isFullyExpanded;
+  // Public viewings in bars/venues have no real attendance cap -> hide visitor
+  // counts entirely. Two markers identify them: a linked venue (create_venue_event)
+  // or the "unlimited" slot sentinel used when we register a bar event. Private
+  // events keep their X/Y count.
+  const isVenueEvent = ev.venue_id !== null || ev.max_slots >= UNLIMITED_SLOTS;
 
   function handleSignupPress(): void {
     if (ev.is_signed_up) {
@@ -202,11 +223,16 @@ export default function EventDetailSheet({
         <View style={styles.container}>
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={dismiss} />
 
-          <Animated.View style={[styles.sheet, animatedSheetStyle]}>
+          <Animated.View
+            style={[styles.sheet, sheetHeight !== null && { height: sheetHeight }, animatedSheetStyle]}
+          >
 
             {/* Banner + handle */}
             <GestureDetector gesture={handlePan}>
-              <View style={styles.banner}>
+              <View
+                style={styles.banner}
+                onLayout={(e) => { bannerH.current = e.nativeEvent.layout.height; recomputeSize(); }}
+              >
                 <View style={styles.handleRow}>
                   <View style={styles.handle} />
                 </View>
@@ -224,15 +250,16 @@ export default function EventDetailSheet({
             {/* Content */}
             <GestureDetector gesture={contentPan}>
               <View style={styles.contentWrapper}>
-                <GHScrollView
+                <AnimatedGHScrollView
                   ref={scrollRef}
                   style={styles.scrollView}
-                  contentContainerStyle={styles.content}
+                  contentContainerStyle={[styles.content, { paddingBottom: 24 + insets.bottom }]}
                   scrollEventThrottle={16}
                   onScroll={onScroll}
+                  onContentSizeChange={(_w, h) => { contentInnerH.current = h; recomputeSize(); }}
                   bounces={false}
                   showsVerticalScrollIndicator={false}
-                  scrollEnabled={scrollEnabled}
+                  scrollEnabled={overflow}
                 >
 
                   {/* Fight card badge */}
@@ -252,26 +279,6 @@ export default function EventDetailSheet({
                     </View>
                   )}
 
-                  {/* Venue profile link — opt-in navigation affordance; only rendered when a
-                      navigation handler is provided (SparringMapScreen), so the row is
-                      correctly hidden inside VenueDetailScreen where it would be a dead tap. */}
-                  {onOpenVenue !== undefined && ev.venue_id !== null && ev.venue_name !== null && (
-                    <TouchableOpacity
-                      style={styles.venueLink}
-                      onPress={() => {
-                        const venueId = ev.venue_id;
-                        if (venueId !== null) onOpenVenue(venueId);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="business-outline" size={16} color={colors.accentBlue} />
-                      <Text style={styles.venueLinkText}>
-                        {`Veranstaltet von ${ev.venue_name}`}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={14} color={colors.accentBlue} />
-                    </TouchableOpacity>
-                  )}
-
                   {/* Address */}
                   <View style={styles.infoRow}>
                     <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
@@ -284,22 +291,32 @@ export default function EventDetailSheet({
                     <Text style={styles.infoText}>{formatDateTime(ev.scheduled_at)}</Text>
                   </View>
 
-                  {/* Participants */}
-                  <View style={styles.infoRow}>
-                    <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.infoText}>
-                      {ev.signup_count}/{ev.max_slots} Angemeldet
-                      {!isFull && (
-                        <Text style={styles.slotsLeft}>
-                          {`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}
+                  {/* Participants — venue/partner events are public viewings and
+                      show no attendance numbers, only a "Public Viewing" label. */}
+                  {isVenueEvent ? (
+                    <View style={styles.infoRow}>
+                      <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+                      <Text style={styles.infoText}>Public Viewing</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <View style={styles.infoRow}>
+                        <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+                        <Text style={styles.infoText}>
+                          {ev.signup_count}/{ev.max_slots} Angemeldet
+                          {!isFull && (
+                            <Text style={styles.slotsLeft}>
+                              {`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}
+                            </Text>
+                          )}
                         </Text>
-                      )}
-                    </Text>
-                  </View>
+                      </View>
 
-                  <View style={styles.slotsBar}>
-                    <View style={[styles.slotsBarFill, isFull && styles.slotsBarFull, { width: fillPct }]} />
-                  </View>
+                      <View style={styles.slotsBar}>
+                        <View style={[styles.slotsBarFill, isFull && styles.slotsBarFull, { width: fillPct }]} />
+                      </View>
+                    </>
+                  )}
 
                   {/* Notes */}
                   {ev.notes !== null && ev.notes.length > 0 && (
@@ -311,19 +328,37 @@ export default function EventDetailSheet({
                     style={[
                       styles.btn,
                       ev.is_signed_up && styles.btnCancel,
-                      isFull && !ev.is_signed_up && styles.btnDisabled,
+                      !isVenueEvent && isFull && !ev.is_signed_up && styles.btnDisabled,
                     ]}
                     onPress={handleSignupPress}
-                    disabled={loading || (isFull && !ev.is_signed_up)}
+                    disabled={loading || (!isVenueEvent && isFull && !ev.is_signed_up)}
                   >
                     {loading ? (
                       <ActivityIndicator color={colors.card} />
                     ) : (
                       <Text style={styles.btnText}>
-                        {ev.is_signed_up ? 'Abmelden' : isFull ? 'Ausgebucht' : 'Anmelden'}
+                        {ev.is_signed_up ? 'Abmelden' : (!isVenueEvent && isFull) ? 'Ausgebucht' : 'Anmelden'}
                       </Text>
                     )}
                   </TouchableOpacity>
+
+                  {/* Location button — opens the bar/venue profile. Only shown when a
+                      navigation handler is provided (SparringMapScreen) and the event is
+                      linked to a venue; hidden inside VenueDetailScreen (dead tap). */}
+                  {onOpenVenue !== undefined && ev.venue_id !== null && (
+                    <TouchableOpacity
+                      style={styles.locationBtn}
+                      onPress={() => {
+                        const venueId = ev.venue_id;
+                        if (venueId !== null) onOpenVenue(venueId);
+                      }}
+                      disabled={loading}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="business-outline" size={18} color={colors.accentBlue} />
+                      <Text style={styles.locationBtnText}>Location ansehen</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {/* Chat button */}
                   <TouchableOpacity
@@ -347,7 +382,7 @@ export default function EventDetailSheet({
                     </TouchableOpacity>
                   )}
 
-                </GHScrollView>
+                </AnimatedGHScrollView>
               </View>
             </GestureDetector>
           </Animated.View>
@@ -370,7 +405,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   sheet: {
-    height:               SCREEN_HEIGHT * 0.92,
+    maxHeight:            SCREEN_HEIGHT * MAX_SHEET_RATIO,
     backgroundColor:      colors.card,
     borderTopLeftRadius:  24,
     borderTopRightRadius: 24,
@@ -417,7 +452,7 @@ const styles = StyleSheet.create({
   content: {
     padding:       24,
     paddingTop:    16,
-    paddingBottom: 48,
+    paddingBottom: 24,
     gap:           14,
   },
   badgesRow: {
@@ -448,19 +483,21 @@ const styles = StyleSheet.create({
     flex:       1,
     lineHeight: 20,
   },
-  venueLink: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           8,
-    paddingVertical: 8,
-    borderTopWidth:  1,
-    borderTopColor:  colors.border,
+  locationBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
+    gap:             8,
+    borderRadius:    14,
+    height:          44,
+    borderWidth:     1,
+    borderColor:     colors.accentBlue,
+    backgroundColor: colors.accentBlueSoft,
   },
-  venueLinkText: {
-    fontSize:   14,
+  locationBtnText: {
+    fontSize:   15,
     fontWeight: '600',
     color:      colors.accentBlue,
-    flex:       1,
   },
   slotsLeft: {
     color:      colors.difficultyGreen,

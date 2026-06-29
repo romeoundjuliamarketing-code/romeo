@@ -55,11 +55,10 @@ export default function VenueEventsList({ events, onPressEvent }: Props): React.
             <Text style={styles.dateTime}>{formatDateTime(event.scheduled_at)}</Text>
           </View>
           <View style={styles.rowMeta}>
+            {/* Venue events are public viewings -> show a label, no attendance count. */}
             <View style={styles.slotsRow}>
               <Ionicons name="people-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.slotsText}>
-                {event.signup_count}/{event.max_slots}
-              </Text>
+              <Text style={styles.slotsText}>Public Viewing</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </View>
