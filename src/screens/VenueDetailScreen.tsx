@@ -181,15 +181,17 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
   async function handlePickGalleryPhoto(): Promise<void> {
     const uri = await pickImage([1, 1]);
     if (uri === null) return;
-    const timestamp = Date.now();
-    const { url, error } = await uploadImage(uri, 'venues', `${venueId}/photo-${timestamp}`);
+    // Date.now() liefert nur einen eindeutigen Dateinamen; als sort_order wuerde
+    // der ms-Timestamp den int4-Bereich sprengen, daher hier max(sort_order)+1.
+    const { url, error } = await uploadImage(uri, 'venues', `${venueId}/photo-${Date.now()}`);
     if (error !== null || url === null) {
       Alert.alert('Foto-Upload fehlgeschlagen', error ?? 'Unbekannter Fehler');
       return;
     }
+    const nextSortOrder = photos.reduce((max, p) => Math.max(max, p.sort_order), -1) + 1;
     const { error: dbError } = await supabase
       .from('venue_photos')
-      .insert({ venue_id: venueId, url, sort_order: timestamp });
+      .insert({ venue_id: venueId, url, sort_order: nextSortOrder });
     if (dbError !== null) {
       Alert.alert('Fehler beim Speichern', dbError.message);
       return;
