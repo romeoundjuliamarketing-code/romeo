@@ -302,9 +302,16 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
       settle(translateY.value, e.velocityY);
     });
 
-  const animatedSheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value - keyboardH.value }],
-  }));
+  const animatedSheetStyle = useAnimatedStyle(() => {
+    const base = { transform: [{ translateY: translateY.value - keyboardH.value }] };
+    if (sheetHeight === null) return base;
+    // With the keyboard open the whole sheet is lifted by its height; cap the
+    // rendered height to the space above the keyboard so the top edge never
+    // clips off-screen (which would hide the first fields). The ScrollView holds
+    // the overflow, so the top fields stay visible.
+    const available = SCREEN_HEIGHT - keyboardH.value - insets.top;
+    return { ...base, height: Math.min(sheetHeight, available) };
+  });
 
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -441,7 +448,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
         <View style={styles.container}>
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={dismiss} />
           <Animated.View
-            style={[styles.sheet, sheetHeight !== null && { height: sheetHeight }, animatedSheetStyle]}
+            style={[styles.sheet, animatedSheetStyle]}
           >
 
             {/* Drag handle + header */}
