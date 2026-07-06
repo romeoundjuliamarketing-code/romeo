@@ -16,7 +16,7 @@ export default function OpenInApp({ sparringId }: { sparringId: string | null })
 
   function openApp() {
     if (!sparringId) return;
-    const deepLink = `sparr://sparr/${sparringId}`;
+    const deepLink = `sparr://s/${sparringId}`;
     const store = platform === 'ios' ? IOS_STORE : ANDROID_STORE;
     const t = setTimeout(() => {
       window.location.href = store;

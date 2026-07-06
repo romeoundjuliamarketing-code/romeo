@@ -248,6 +248,7 @@ export default function SparringDetailSheet({
       if (uri) {
         await Share.open({
           url: uri,
+          type: 'image/png',
           message: `${s.title} – jetzt mitmachen: ${url}`,
           failOnCancel: false,
         });

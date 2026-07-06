@@ -68,7 +68,7 @@ module.exports = {
         {
           action: "VIEW",
           autoVerify: true,
-          data: [{ scheme: "https", host: "sparr.app", pathPrefix: "/s" }],
+          data: [{ scheme: "https", host: "sparr.app", pathPrefix: "/s/" }],
           category: ["BROWSABLE", "DEFAULT"],
         },
       ],
