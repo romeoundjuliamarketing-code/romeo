@@ -22,16 +22,19 @@ export function sparringShareStatus(input: {
   return 'upcoming';
 }
 
-// Mirrors public_sparrings.area_label: studio name if present, otherwise the
-// city segment after the last comma, otherwise a generic label. Never the
-// exact street.
+// Mirrors the get_public_sparring RPC's area_label: studio name if present,
+// else a German "PLZ Stadt" label positively extracted from the address. Never
+// emits raw coordinates (lat/lng pairs have no "<5-digit> <city>" match) or
+// house numbers (digits terminate the city character class); falls back to a
+// generic label otherwise. Never the exact street/point.
 export function coarseAreaLabel(input: {
   studioName: string | null;
   address: string;
 }): string {
   if (input.studioName && input.studioName.length > 0) return input.studioName;
-  if (!input.address.includes(',')) return 'Ort in der App';
-  const parts = input.address.split(',');
-  const city = parts[parts.length - 1]?.trim();
-  return city && city.length > 0 ? city : 'Ort in der App';
+  const match = input.address.match(
+    /(?:^|\s)(\d{5}\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß .-]*)/,
+  );
+  const label = match?.[1]?.trim();
+  return label && label.length > 0 ? label : 'Ort in der App';
 }

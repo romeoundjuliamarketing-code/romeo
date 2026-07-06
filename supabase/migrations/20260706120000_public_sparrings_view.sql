@@ -17,13 +17,20 @@ SELECT
       SELECT count(*) FROM sparring_signups ss WHERE ss.sparring_id = os.id
     )
   )::int AS slots_left,
-  -- Coarse location: studio name when at a studio, otherwise only the city part
-  -- of the address (segment after the last comma), never the exact street.
+  -- Coarse location: studio name when at a studio, else positively extract a
+  -- German "PLZ Stadt" label from the address. This never emits raw
+  -- coordinates (lat/lng pairs have no "<5-digit> <city>" match) or house
+  -- numbers (digits terminate the city character class), falling back to a
+  -- generic label otherwise. Never the exact street/point.
   CASE
     WHEN os.is_at_studio AND st.name IS NOT NULL THEN st.name
-    WHEN position(',' IN os.address) > 0
-      THEN btrim(split_part(os.address, ',', -1))
-    ELSE 'Ort in der App'
+    ELSE COALESCE(
+      NULLIF(
+        btrim(substring(os.address from '(?:^|\s)(\d{5}\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß .-]*)')),
+        ''
+      ),
+      'Ort in der App'
+    )
   END AS area_label,
   p.name          AS host_name,
   p.avatar_url    AS host_avatar_url

@@ -33,11 +33,11 @@ export interface PublicSparring {
 }
 
 export async function fetchPublicSparring(id: string): Promise<PublicSparring | null> {
+  // By-id SECURITY DEFINER RPC (not a queryable view) so the public surface
+  // can't be bulk-enumerated with the anon key. Returns the curated JSON object,
+  // or null when the id is unknown / inactive / verified_only.
   const { data, error } = await getSupabaseClient()
-    .from('public_sparrings')
-    .select('id,title,discipline,scheduled_at,duration_min,max_slots,slots_left,area_label,host_name,host_avatar_url')
-    .eq('id', id)
-    .maybeSingle();
-  if (error) return null;
-  return (data as PublicSparring) ?? null;
+    .rpc('get_public_sparring', { p_id: id });
+  if (error || !data) return null;
+  return data as PublicSparring;
 }
