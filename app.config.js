@@ -43,6 +43,7 @@ module.exports = {
       supportsTablet: true,
       bundleIdentifier: "com.kombat.app",
       requireFullScreen: true,
+      associatedDomains: ["applinks:sparr.app"],
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
@@ -63,6 +64,14 @@ module.exports = {
         monochromeImage: "./assets/android-icon-monochrome.png",
       },
       predictiveBackGestureEnabled: false,
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [{ scheme: "https", host: "sparr.app", pathPrefix: "/s" }],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
     },
     web: {
       favicon: "./assets/favicon.png",

@@ -173,6 +173,17 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (requireVerified()) setCreateSheetVisible(true);
   }, [route.params?.openCreate]);
 
+  // Open the detail sheet when arriving via a deep link (https://DOMAIN/s/<id>).
+  useEffect(() => {
+    const id = route.params?.focusSparringId;
+    if (id === undefined) return;
+    const match = sparrings.find((sp) => sp.id === id);
+    if (match) {
+      setSelected(match);
+      navigation.setParams({ focusSparringId: undefined });
+    }
+  }, [route.params?.focusSparringId, sparrings, navigation]);
+
   // ── Sparring handlers ─────────────────────────────────────────────────────
   async function handleToggleSparringSignup(): Promise<void> {
     if (selected === null) return;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, type LinkingOptions } from '@react-navigation/native';
+import * as Linking from 'expo-linking';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import { colors } from './src/theme/colors';
 import { configureRevenueCat } from './src/lib/revenuecat';
+import type { RootStackParamList } from './src/navigation/types';
 
 // Crash + error reporting only. DSN comes from the env; if it is missing Sentry
 // stays inert (no crash), so the app still runs before the DSN is configured.
@@ -32,6 +34,18 @@ const NAV_THEME = {
   },
 };
 
+// Deep links: https://sparr.app/s/<id> and sparr://sparr/<id> open the
+// sparring detail sheet. SparringMap is a direct screen on the root
+// AppStack (not nested), so the config stays flat.
+const linking: LinkingOptions<RootStackParamList> = {
+  prefixes: [Linking.createURL('/'), 'sparr://', 'https://sparr.app'],
+  config: {
+    screens: {
+      SparringMap: 's/:focusSparringId',
+    },
+  },
+};
+
 function App() {
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -51,7 +65,7 @@ function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <NavigationContainer theme={NAV_THEME}>
+          <NavigationContainer theme={NAV_THEME} linking={linking}>
             {/* No backgroundColor: edge-to-edge (SDK 55) draws under the bar;
                 the prop only triggers the deprecated Window.setStatusBarColor. */}
             <StatusBar style="dark" />
