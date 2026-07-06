@@ -562,7 +562,7 @@ git commit -m "feat(sparring): share button with story image + link in detail sh
 
 **Interfaces:**
 - Consumes: bestehendes `selected`-State + `SparringDetailSheet` in `SparringMapScreen`; `useOpenSparrings`-Daten.
-- Produces: Route `SparringMap` akzeptiert `focusSparringId?: string`; Deep Links `https://sparr.app/s/:id` und `sparr://sparr/:id` öffnen das Detail-Sheet.
+- Produces: Route `SparringMap` akzeptiert `focusSparringId?: string`; Deep Links `https://sparr.app/s/:id` und `sparr://s/:id` öffnen das Detail-Sheet.
 
 - [ ] **Step 1: Route-Param erweitern**
 
@@ -665,8 +665,8 @@ Expected: no errors.
 
 Nach Dev-Build (`npx expo run:ios` / `run:android`), Deep Link testen (echte App-Link-Verifikation braucht die live well-known-Dateien aus Task 7 unter der echten Domain — bis dahin über das Custom-Scheme testen):
 
-- iOS Simulator: `xcrun simctl openurl booted "sparr://sparr/<echte-id>"`
-- Android: `adb shell am start -a android.intent.action.VIEW -d "sparr://sparr/<echte-id>"`
+- iOS Simulator: `xcrun simctl openurl booted "sparr://s/<echte-id>"`
+- Android: `adb shell am start -a android.intent.action.VIEW -d "sparr://s/<echte-id>"`
 
 Expected: App öffnet und das Detail-Sheet des Sparrs erscheint (Kaltstart & Warmstart je einmal prüfen).
 
@@ -895,7 +895,7 @@ export default function OpenInApp({ sparringId }: { sparringId: string | null })
 
   function openApp() {
     if (!sparringId) return;
-    const deepLink = `sparr://sparr/${sparringId}`;
+    const deepLink = `sparr://s/${sparringId}`;
     const store = platform === 'ios' ? IOS_STORE : ANDROID_STORE;
     const t = setTimeout(() => { window.location.href = store; }, 1500);
     window.location.href = deepLink;

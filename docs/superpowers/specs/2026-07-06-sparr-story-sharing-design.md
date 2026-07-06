@@ -107,7 +107,7 @@ Minimale App, ein sinnvoller Screen.
   Beschreibung, Bild) → schöne Vorschau in allen Chat-Apps.
 - **„In App öffnen"-Logik** (heikelster UX-Teil):
   - App installiert → Universal/App-Link öffnet die App direkt (Seite wird gar nicht sichtbar).
-  - Landet jemand doch im Browser → Button versucht `sparr://sparr/<id>`; klappt das nicht in
+  - Landet jemand doch im Browser → Button versucht `sparr://s/<id>`; klappt das nicht in
     ~1,5 s → **App-Store-Badges** (iOS/Android, plattformerkannt via User-Agent).
   - Desktop-Besucher → QR-Code zum selben Link + Store-Badges (kein toter Deep-Link).
 - **Statuszustände** (UX-relevant):
@@ -133,7 +133,7 @@ aber ohne native Source-Ordner mitzureißen (`.easignore`-Falle aus CLAUDE.md be
   - iOS `associatedDomains: ["applinks:DOMAIN"]`
   - Android `intentFilters` (autoVerify) für `https://DOMAIN/s/*`
   - bestehendes `sparr://`-Scheme bleibt
-- **React-Navigation Linking-Config** ergänzen: `https://DOMAIN/s/:id` **und** `sparr://sparr/:id`
+- **React-Navigation Linking-Config** ergänzen: `https://DOMAIN/s/:id` **und** `sparr://s/:id`
   → öffnen `SparringMapScreen`/Detail-Sheet mit der ID. **Kaltstart** (App war zu) und **Warmstart**
   beide behandeln.
 - **AASA/assetlinks** brauchen App-IDs (iOS `appID` = TeamID.BundleID) + Android SHA-256-Fingerprint
