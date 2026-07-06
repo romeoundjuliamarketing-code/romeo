@@ -1,9 +1,9 @@
 // Pure helpers for sharing a single sparring. No React Native imports so this
 // stays unit-testable and reusable.
 
-// Placeholder domain — replace with the final domain once registered.
-// See plan "Global Constraints > DOMAIN-Platzhalter".
-export const SHARE_BASE_URL = 'https://sparr.app';
+// Public share domain (sparrapp.com). Must match the host in app.config.js
+// (associatedDomains + Android intentFilter) and the Vercel deployment.
+export const SHARE_BASE_URL = 'https://sparrapp.com';
 
 export function buildSparringShareUrl(id: string): string {
   return `${SHARE_BASE_URL}/s/${encodeURIComponent(id)}`;

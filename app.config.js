@@ -43,7 +43,7 @@ module.exports = {
       supportsTablet: true,
       bundleIdentifier: "com.kombat.app",
       requireFullScreen: true,
-      associatedDomains: ["applinks:sparr.app"],
+      associatedDomains: ["applinks:sparrapp.com"],
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
@@ -68,7 +68,7 @@ module.exports = {
         {
           action: "VIEW",
           autoVerify: true,
-          data: [{ scheme: "https", host: "sparr.app", pathPrefix: "/s/" }],
+          data: [{ scheme: "https", host: "sparrapp.com", pathPrefix: "/s/" }],
           category: ["BROWSABLE", "DEFAULT"],
         },
       ],

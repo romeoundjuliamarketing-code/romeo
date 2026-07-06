@@ -34,11 +34,11 @@ const NAV_THEME = {
   },
 };
 
-// Deep links: https://sparr.app/s/<id> and sparr://sparr/<id> open the
+// Deep links: https://sparrapp.com/s/<id> and sparr://s/<id> open the
 // sparring detail sheet. SparringMap is a direct screen on the root
 // AppStack (not nested), so the config stays flat.
 const linking: LinkingOptions<RootStackParamList> = {
-  prefixes: [Linking.createURL('/'), 'sparr://', 'https://sparr.app'],
+  prefixes: [Linking.createURL('/'), 'sparr://', 'https://sparrapp.com'],
   config: {
     screens: {
       SparringMap: 's/:focusSparringId',
