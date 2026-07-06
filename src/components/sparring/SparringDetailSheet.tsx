@@ -26,11 +26,15 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import ViewShot from 'react-native-view-shot';
+import Share from 'react-native-share';
 import { colors } from '../../theme/colors';
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import type { RootStackParamList } from '../../navigation/types';
 import type { VerificationTier } from '../../utils/verificationTier';
+import { buildSparringShareUrl, coarseAreaLabel } from '../../utils/sparringShare';
 import SparringParticipantsList from './SparringParticipantsList';
+import SparringStoryCard from './SparringStoryCard';
 import MapBoostSheet from './MapBoostSheet';
 
 interface Props {
@@ -88,6 +92,7 @@ export default function SparringDetailSheet({
   // Ref to the inner scroll view so the content pan can run simultaneously with
   // it — without this the active pan would block list scrolling when expanded.
   const scrollRef   = useRef<React.ComponentRef<typeof GHScrollView>>(null);
+  const storyShotRef = useRef<ViewShot>(null);
 
   // Clamp helper — worklet version used inside gesture handlers
   function clampYWorklet(v: number): number {
@@ -236,6 +241,24 @@ export default function SparringDetailSheet({
     }
   }
 
+  async function handleShare(): Promise<void> {
+    const url = buildSparringShareUrl(s.id);
+    try {
+      const uri = await storyShotRef.current?.capture?.();
+      if (uri) {
+        await Share.open({
+          url: uri,
+          message: `${s.title} – jetzt mitmachen: ${url}`,
+          failOnCancel: false,
+        });
+        return;
+      }
+    } catch {
+      // fall through to link-only sharing
+    }
+    await Share.open({ message: `${s.title} – jetzt mitmachen: ${url}`, failOnCancel: false });
+  }
+
   // scrollEnabled: only allow inner scroll when the sheet is fully expanded
   const scrollEnabled = isFullyExpanded;
 
@@ -361,6 +384,11 @@ export default function SparringDetailSheet({
                     )}
                   </TouchableOpacity>
 
+                  <TouchableOpacity style={styles.shareBtn} onPress={() => { void handleShare(); }} activeOpacity={0.8}>
+                    <Ionicons name="share-outline" size={18} color={colors.accentBlue} />
+                    <Text style={styles.shareBtnText}>Teilen</Text>
+                  </TouchableOpacity>
+
                   {isCreator && (
                     <TouchableOpacity
                       style={styles.boostBtn}
@@ -386,6 +414,18 @@ export default function SparringDetailSheet({
               </View>
             </GestureDetector>
           </Animated.View>
+
+          <View style={styles.storyCapture} pointerEvents="none">
+            <ViewShot ref={storyShotRef} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
+              <SparringStoryCard
+                title={s.title}
+                discipline={s.discipline}
+                areaLabel={coarseAreaLabel({ studioName: s.studio_name, address: s.address })}
+                dateTimeLabel={formatDateTime(s.scheduled_at)}
+                slotsLeftLabel={isFull ? 'Ausgebucht' : `${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}
+              />
+            </ViewShot>
+          </View>
 
           {isCreator && boostSheetVisible && (
             <MapBoostSheet
@@ -557,6 +597,29 @@ const styles = StyleSheet.create({
     fontSize:   16,
     fontWeight: '700',
     color:      colors.card,
+  },
+  shareBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
+    gap:             8,
+    borderRadius:    14,
+    height:          44,
+    borderWidth:     1,
+    borderColor:     colors.accentBlue,
+    backgroundColor: colors.accentBlueSoft,
+  },
+  shareBtnText: {
+    fontSize:   15,
+    fontWeight: '600',
+    color:      colors.accentBlue,
+  },
+  storyCapture: {
+    position: 'absolute',
+    left:     -10000, // off-screen, still rendered for capture
+    top:      0,
+    width:    1080,
+    height:   1920,
   },
   boostBtn: {
     flexDirection:   'row',
