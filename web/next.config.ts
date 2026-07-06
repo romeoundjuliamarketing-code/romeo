@@ -7,6 +7,16 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Apple requires the (extension-less) apple-app-site-association file to be
+  // served as application/json; Vercel otherwise defaults it to octet-stream.
+  async headers() {
+    return [
+      {
+        source: "/.well-known/apple-app-site-association",
+        headers: [{ key: "Content-Type", value: "application/json" }],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
