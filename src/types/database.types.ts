@@ -1767,6 +1767,82 @@ export type Database = {
           },
         ]
       }
+      venue_web_ratings: {
+        Row: {
+          id:         string
+          venue_id:   string
+          stars:      number
+          comment:    string | null
+          anon_id:    string
+          ip_hash:    string | null
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          venue_id:    string
+          stars:       number
+          comment?:    string | null
+          anon_id:     string
+          ip_hash?:    string | null
+          created_at?: string
+        }
+        Update: {
+          id?:         string
+          venue_id?:   string
+          stars?:      number
+          comment?:    string | null
+          anon_id?:    string
+          ip_hash?:    string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'venue_web_ratings_venue_id_fkey'
+            columns: ['venue_id']
+            isOneToOne: false
+            referencedRelation: 'venues'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      studio_web_ratings: {
+        Row: {
+          id:         string
+          studio_id:  string
+          stars:      number
+          comment:    string | null
+          anon_id:    string
+          ip_hash:    string | null
+          created_at: string
+        }
+        Insert: {
+          id?:         string
+          studio_id:   string
+          stars:       number
+          comment?:    string | null
+          anon_id:     string
+          ip_hash?:    string | null
+          created_at?: string
+        }
+        Update: {
+          id?:         string
+          studio_id?:  string
+          stars?:      number
+          comment?:    string | null
+          anon_id?:    string
+          ip_hash?:    string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'studio_web_ratings_studio_id_fkey'
+            columns: ['studio_id']
+            isOneToOne: false
+            referencedRelation: 'studios'
+            referencedColumns: ['id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

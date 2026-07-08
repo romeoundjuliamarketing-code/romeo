@@ -49,15 +49,15 @@ export function useVenueRatings(
     if (!hasCache) setLoading(true);
 
     void (async () => {
-      // All ratings for this venue (for the average)
-      const { data: allRatings } = await supabase
-        .from('venue_ratings')
-        .select('stars')
-        .eq('venue_id', venueId);
+      // All ratings for this venue (for the average): in-app + anonymous web ratings
+      const [{ data: appRatings }, { data: webRatings }] = await Promise.all([
+        supabase.from('venue_ratings').select('stars').eq('venue_id', venueId),
+        supabase.from('venue_web_ratings').select('stars').eq('venue_id', venueId),
+      ]);
 
       if (cancelled) return;
 
-      const rows = allRatings ?? [];
+      const rows = [...(appRatings ?? []), ...(webRatings ?? [])];
       const computedSummary: RatingSummary = rows.length === 0
         ? { averageStars: null, ratingCount: 0 }
         : { averageStars: rows.reduce((sum, r) => sum + r.stars, 0) / rows.length, ratingCount: rows.length };
