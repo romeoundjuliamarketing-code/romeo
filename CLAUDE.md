@@ -2,6 +2,16 @@
 
 Guidance für Claude Code in diesem Repo.
 
+## Website sparrapp.com (eigenes Projekt)
+
+Die Bewertungs-/Landing-Website `sparrapp.com` ist ein **separates Projekt** mit eigenen
+Regeln (reines HTML/CSS/JS + PHP auf STRATO, eigene CLAUDE.md). Beide teilen sich nur das
+**Supabase-Backend**. Der geteilte Vertrag (Tabellen, RPCs, Policies) ist kanonisch im Vault:
+`02 Projekte/Sparr/Supabase-Contract (Shared).md`. **Schema-/RPC-/Policy-Änderungen** hier
+immer gegen die Website abgleichen und in der Contract-Note + Dev-Log festhalten. Konkret:
+Web-Bewertungen liegen in `venue_web_ratings` / `studio_web_ratings` (nie in den App-Tabellen);
+die App liest sie nur für Schnitt+Anzahl (SELECT-Policy `authenticated`).
+
 ## Befehle
 ```bash
 npx expo start --ios        # Simulator (kein Expo Go — Dev-Build noetig)
@@ -167,15 +177,16 @@ ODER ein `SENTRY_AUTH_TOKEN`-EAS-Secret — sonst bricht der Build am `sentry-cl
 **Tests:** Neue Utils in `src/utils/` bekommen Unit-Test (neben Quelldatei, `Name.test.tsx`). Keine Tests fuer reine UI-Screens.
 
 ## Obsidian Vault
-Pfad: `/Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/`. System-Datei `_VAULT_SYSTEM.md`. Kein MCP — Zugriff per Bash.
+Pfad: `/Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/`. Kein MCP — Zugriff per Bash.
+**Einzige Detailquelle fuer Struktur/Routing ist `_VAULT_SYSTEM.md` im Vault** — dort steht, was wohin gehoert und wann eine neue Datei angelegt wird. Diese CLAUDE.md-Passage ist nur der Kurz-Pointer; nicht doppelt pflegen.
 
-**Update-Pflicht:** Das Vault wird **immer** mitgepflegt — nach jeder abgeschlossenen Aenderung (neues/geaendertes Feature, Bugfix, Architektur-/API-/Abo-Entscheidung, App-Store-Schritt) wird der passende Eintrag im Vault ergaenzt, bevor die Aufgabe als erledigt gilt. Nicht aufschieben, nicht sammeln. Ausnahmen nur fuer die unten unter „Nicht dokumentieren" genannten Faelle oder wenn ich ausdruecklich „kein Obsidian" sage.
+**Update-Pflicht:** Nach jedem abgeschlossenen Feature / Bugfix / Architektur-/Abo-/App-Store-Schritt den passenden Vault-Eintrag ergaenzen, bevor die Aufgabe erledigt ist. Kadenz **pro Feature/Session, nicht pro einzelner Aenderung** — mehrere kleine Schritte einer Session in einem Eintrag buendeln. Ausnahmen: die unter „Nicht dokumentieren" genannten Faelle oder wenn ich „kein Obsidian" sage.
 
-**Pflicht:** Vor jedem Update `_VAULT_SYSTEM.md` lesen. Ziel-Note pruefen, dann **append** (nie ueberschreiben), fehlende Ordner `mkdir -p`. Keine taeglichen Logs — direkt in thematische Dateien.
+**Neue Datei vs. append (Faustregel):** Eigenstaendiges, weiterwachsendes Thema → **eigene Datei** (groesseres Feature/Subsystem → `Features/<Name>.md`; echte Architektur-Entscheidung → `Architektur/ADR-NNN-titel.md`; Spec/Konzept → eigene Note). Inkrement zu etwas Dokumentiertem → **append** in die Themendatei. Faustregel: eigenstaendig verlinkbar oder wuerde > ~1 Bildschirm → eigene Datei, sonst append. Kein Wildwuchs, aber sinnvoll verteilen statt alles in einen Monolithen.
 
-**Routing:** Neues Feature → `Funktionen.md` | Abo/Preis → `Abo-System.md` | App eingereicht → `App-Store.md` | Bug → `Offene-Punkte.md` (bzw. `Bugs-und-TechDebt.md`) | Architektur → `Architektur.md`.
+**Routing (Kurzform, Details in `_VAULT_SYSTEM.md`):** grosses Feature → `Features/<Name>.md` + Zeile in `Funktionen.md`-Index | kleines Feature/Feature-Aenderung → `Funktionen.md` | Abo/Preis → `Abo-System.md` | App eingereicht → `App-Store.md` | Bug/Tech Debt → `Offene-Punkte.md` | Architektur-Entscheidung → `Architektur/ADR-NNN-titel.md`, kleine Notiz → `Architektur.md`.
 
-**Dev-Log** (`Dev-Log/YYYY-MM-DD.md`, bei zweitem Eintrag/Tag `---`-Trenner):
+**Dev-Log** (`Dev-Log/YYYY-MM-DD.md`, pro Session ein Eintrag, bei zweitem Eintrag/Tag `---`-Trenner):
 ```markdown
 # Dev-Log – YYYY-MM-DD
 ## Was wurde gebaut / geaendert
@@ -183,7 +194,4 @@ Pfad: `/Users/romeogeorgiadis/Documents/Obsidian Vault/02 Projekte/Sparr/`. Syst
 ## Offene Probleme
 ## Naechste Schritte
 ```
-**ADR** (`Architektur/ADR-NNN-titel.md`): Status / Kontext / Entscheidung / Alternativen verworfen / Konsequenzen.
-**API** (`API/Endpunkte.md`, append): `## METHOD /pfad – Datum` + Was/Auth/Request/Response/Besonderheiten.
-**Bug/Tech Debt** (`Bugs-und-TechDebt.md`, append): `## [OFFEN] Titel – Datum` + Beschreibung/Reproduzierbar/Prioritaet/Notiz.
 **Nicht dokumentieren:** Typo-/Format-/Rename-Fixes, verworfener Code, oder wenn ich „kein Obsidian" sage.
