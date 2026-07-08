@@ -1,8 +1,0 @@
-{
-  "applinks": {
-    "apps": [],
-    "details": [
-      { "appID": "TEAMID.com.kombat.app", "paths": ["/s/*"] }
-    ]
-  }
-}
