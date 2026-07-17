@@ -65,7 +65,7 @@ Emulator mindestens ein echtes Geraet testen.
 ```bash
 npx expo run:android                       # lokaler Dev-Build
 eas build --platform all --profile preview # beide Plattformen (EAS baut sonst nur eine)
-# native Aenderung → zusaetzlich --no-build-cache
+# native Aenderung → zusaetzlich --clear-cache (EAS-Flag; NICHT --no-build-cache)
 ```
 
 **Damit es auf ALLEN Geraeten laeuft — bei jedem Feature pruefen:**
