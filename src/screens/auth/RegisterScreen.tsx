@@ -48,13 +48,11 @@ export default function RegisterScreen() {
       setError('Passworter stimmen nicht uberein.');
       return;
     }
-    if (captchaToken === null) {
-      setError('Bitte bestätige, dass du kein Roboter bist.');
-      return;
-    }
     setError(null);
     setLoading(true);
-    const { error: authError } = await signUp(email.trim(), password, captchaToken);
+    // Captcha is best-effort: pass the token if the widget produced one, but
+    // never block registration when it failed to load (e.g. datacenter networks).
+    const { error: authError } = await signUp(email.trim(), password, captchaToken ?? undefined);
     setLoading(false);
     if (authError) {
       console.error('[RegisterScreen] signUp error:', authError.message, authError.status);
@@ -166,7 +164,7 @@ export default function RegisterScreen() {
             />
             {captchaError && (
               <View style={styles.captchaErrorRow}>
-                <Text style={styles.captchaErrorText}>Sicherheitsprüfung konnte nicht geladen werden.</Text>
+                <Text style={styles.captchaErrorText}>Sicherheitsprüfung nicht verfügbar. Du kannst dich trotzdem registrieren.</Text>
                 <TouchableOpacity onPress={() => { setCaptchaError(false); resetCaptcha(); }}>
                   <Text style={styles.captchaRetryLink}>Erneut versuchen</Text>
                 </TouchableOpacity>
@@ -333,7 +331,7 @@ const styles = StyleSheet.create({
   },
   captchaErrorText: {
     fontSize: 13,
-    color: colors.deleteRed,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   captchaRetryLink: {

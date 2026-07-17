@@ -39,13 +39,11 @@ export default function LoginScreen() {
       setError('Bitte E-Mail und Passwort eingeben.');
       return;
     }
-    if (captchaToken === null) {
-      setError('Bitte bestätige, dass du kein Roboter bist.');
-      return;
-    }
     setError(null);
     setLoading(true);
-    const { error: authError } = await signIn(email.trim(), password, captchaToken);
+    // Captcha is best-effort: pass the token if the widget produced one, but
+    // never block the login when it failed to load (e.g. datacenter networks).
+    const { error: authError } = await signIn(email.trim(), password, captchaToken ?? undefined);
     setLoading(false);
     if (authError) {
       setError('E-Mail oder Passwort falsch.');
@@ -130,7 +128,7 @@ export default function LoginScreen() {
             />
             {captchaError && (
               <View style={styles.captchaErrorRow}>
-                <Text style={styles.captchaErrorText}>Sicherheitsprüfung konnte nicht geladen werden.</Text>
+                <Text style={styles.captchaErrorText}>Sicherheitsprüfung nicht verfügbar. Du kannst dich trotzdem anmelden.</Text>
                 <TouchableOpacity onPress={() => { setCaptchaError(false); resetCaptcha(); }}>
                   <Text style={styles.captchaRetryLink}>Erneut versuchen</Text>
                 </TouchableOpacity>
@@ -293,7 +291,7 @@ const styles = StyleSheet.create({
   },
   captchaErrorText: {
     fontSize: 13,
-    color: colors.deleteRed,
+    color: colors.textSecondary,
     textAlign: 'center',
   },
   captchaRetryLink: {
