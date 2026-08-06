@@ -25,6 +25,7 @@ export default function ChallengeCard({
 }: Props): React.ReactElement {
   return (
     <View style={[styles.card, { width: size.width, height: size.height }, cardShadow]}>
+      <View style={styles.frame}>
       <View style={styles.top}>
         <SparrLogo size={24} />
         <View style={styles.badge}>
@@ -74,6 +75,7 @@ export default function ChallengeCard({
           </View>
         ) : null}
       </View>
+      </View>
     </View>
   );
 }
@@ -82,6 +84,16 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: CARD_RADIUS,
     backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 8,
+  },
+  // Printed inner frame — mirrors the double frame on the card back.
+  frame: {
+    flex: 1,
+    borderRadius: CARD_RADIUS - 8,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 16,
   },
   top: {
