@@ -13,6 +13,8 @@ export interface SparringChallenge {
   instruction: string;
   focus:       string;
   difficulty:  ChallengeDifficulty;
+  // Optional: "Geschafft, wenn …" — wird auf der Karte nur angezeigt, wenn gesetzt.
+  successCriteria?: string;
 }
 
 export interface ChallengeAreaMeta {

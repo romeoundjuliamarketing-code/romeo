@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import type { RootStackParamList } from '../navigation/types';
@@ -15,6 +14,7 @@ import WorkoutCategoryRows from '../components/training/WorkoutCategoryRows';
 import WeeklyVolumeCard from '../components/training/WeeklyVolumeCard';
 import WorkoutStartSheet from '../components/training/WorkoutStartSheet';
 import ExtraTab from '../components/training/ExtraTab';
+import SparringChallengeEntry from '../components/training/SparringChallengeEntry';
 import type { StudioSchedule } from '../types/database.types';
 
 type TabKey = 'workouts' | 'plan';
@@ -138,20 +138,9 @@ export default function TrainingScreen(): React.ReactElement {
               >
                 <Text style={styles.startWorkoutLabel}>Workout starten</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.challengeBtn}
+              <SparringChallengeEntry
                 onPress={() => navigation.navigate('SparringChallenge')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.challengeIcon}>
-                  <Ionicons name="flash" size={22} color={colors.accentBlue} />
-                </View>
-                <View style={styles.challengeInfo}>
-                  <Text style={styles.challengeTitle}>Sparrings-Challenge</Text>
-                  <Text style={styles.challengeSubtitle}>Zieh deine Karte fürs nächste Sparring</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.headerTextSecondary} />
-              </TouchableOpacity>
+              />
               <Text style={styles.sectionTitle}>Vorgeschlagene Workouts</Text>
               <WorkoutCategoryRows disciplines={profile?.disciplines ?? []} />
               <Text style={styles.sectionTitle}>Extras</Text>
@@ -270,41 +259,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.headerTextPrimary,
-  },
-
-  // Sparrings-Challenge entry — deliberately a card, not a second primary button
-  challengeBtn: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 14,
-    backgroundColor: colors.headerCard,
-    borderWidth: 1,
-    borderColor: colors.accentBlue,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  challengeIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentBlueSoft,
-  },
-  challengeInfo: {
-    flex: 1,
-    gap: 4,
-  },
-  challengeTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.headerTextPrimary,
-  },
-  challengeSubtitle: {
-    fontSize: 12,
-    color: colors.headerTextSecondary,
   },
 
   // Today card

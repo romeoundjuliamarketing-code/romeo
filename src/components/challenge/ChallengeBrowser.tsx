@@ -5,7 +5,7 @@ import {
   Modal,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
@@ -22,8 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
-
-const PAGE_WIDTH = Dimensions.get('window').width;
+import { useCardSize } from './cardLayout';
+import type { CardSize } from './cardLayout';
 
 interface Props {
   visible:      boolean;
@@ -35,36 +35,46 @@ interface Props {
 }
 
 interface PageProps {
-  card:     SparringChallenge;
-  index:    number;
-  scrollX:  SharedValue<number>;
-  done:     boolean;
-  onToggle: () => void;
+  card:      SparringChallenge;
+  index:     number;
+  scrollX:   SharedValue<number>;
+  pageWidth: number;
+  size:      CardSize;
+  done:      boolean;
+  onToggle:  () => void;
 }
 
 // A single page — neighbouring cards shrink slightly so the active one stands out.
-function BrowserPage({ card, index, scrollX, done, onToggle }: PageProps): React.ReactElement {
+function BrowserPage({
+  card,
+  index,
+  scrollX,
+  pageWidth,
+  size,
+  done,
+  onToggle,
+}: PageProps): React.ReactElement {
   const style = useAnimatedStyle(() => {
-    const offset = scrollX.value / PAGE_WIDTH;
+    const offset = scrollX.value / pageWidth;
     const scale = interpolate(
       offset,
       [index - 1, index, index + 1],
-      [0.88, 1, 0.88],
+      [0.9, 1, 0.9],
       Extrapolation.CLAMP,
     );
     const opacity = interpolate(
       offset,
       [index - 1, index, index + 1],
-      [0.5, 1, 0.5],
+      [0.4, 1, 0.4],
       Extrapolation.CLAMP,
     );
     return { opacity, transform: [{ scale }] };
   });
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { width: pageWidth }]}>
       <Animated.View style={style}>
-        <ChallengeCard challenge={card} done={done} onToggleDone={onToggle} />
+        <ChallengeCard challenge={card} size={size} done={done} onToggleDone={onToggle} />
       </Animated.View>
     </View>
   );
@@ -79,6 +89,8 @@ export default function ChallengeBrowser({
   isDone,
   onToggleDone,
 }: Props): React.ReactElement {
+  const { width: pageWidth } = useWindowDimensions();
+  const cardSize = useCardSize(0.58);
   const scrollX = useSharedValue(0);
   const [pageIndex, setPageIndex] = useState(0);
 
@@ -87,7 +99,7 @@ export default function ChallengeBrowser({
   });
 
   const handleMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
-    setPageIndex(Math.round(event.nativeEvent.contentOffset.x / PAGE_WIDTH));
+    setPageIndex(Math.round(event.nativeEvent.contentOffset.x / pageWidth));
   };
 
   return (
@@ -101,7 +113,7 @@ export default function ChallengeBrowser({
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <TouchableOpacity
-            style={styles.closeBtn}
+            style={styles.headerBtn}
             onPress={onClose}
             activeOpacity={0.7}
             accessibilityRole="button"
@@ -110,12 +122,12 @@ export default function ChallengeBrowser({
             <Ionicons name="close" size={24} color={colors.headerTextPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{areaTitle}</Text>
-          <View style={styles.closeBtn} />
+          <View style={styles.headerBtn} />
         </View>
 
         {cards.length === 0 ? (
           <View style={styles.empty}>
-            <Text style={styles.emptyText}>Für diesen Bereich gibt es noch keine Karten</Text>
+            <Text style={styles.emptyText}>Noch keine Karten in diesem Bereich</Text>
           </View>
         ) : (
           <>
@@ -134,6 +146,8 @@ export default function ChallengeBrowser({
                   card={card}
                   index={index}
                   scrollX={scrollX}
+                  pageWidth={pageWidth}
+                  size={cardSize}
                   done={isDone(card.id)}
                   onToggle={() => onToggleDone(card.id)}
                 />
@@ -159,17 +173,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingVertical: 8,
   },
-  closeBtn: {
-    width: 40,
-    height: 40,
+  headerBtn: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.headerTextPrimary,
   },
@@ -177,12 +191,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   page: {
-    width: PAGE_WIDTH,
     alignItems: 'center',
     justifyContent: 'center',
   },
   counter: {
-    paddingVertical: 24,
+    paddingVertical: 16,
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '600',

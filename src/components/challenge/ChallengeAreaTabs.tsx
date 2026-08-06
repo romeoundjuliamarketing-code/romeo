@@ -5,25 +5,32 @@ import type { ChallengeArea } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 
 interface Props {
-  area:    ChallengeArea;
+  area:     ChallengeArea;
   onSelect: (area: ChallengeArea) => void;
 }
 
+// Segmented control on a single track — lighter than three separate pills.
 export default function ChallengeAreaTabs({ area, onSelect }: Props): React.ReactElement {
   return (
-    <View style={styles.row}>
+    <View style={styles.track}>
       {CHALLENGE_AREAS.map((entry) => {
         const active = entry.key === area;
         return (
           <TouchableOpacity
             key={entry.key}
-            style={[styles.pill, active && styles.pillActive]}
+            style={[styles.segment, active && styles.segmentActive]}
             onPress={() => onSelect(entry.key)}
-            activeOpacity={0.7}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 0, right: 0 }}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>{entry.label}</Text>
+            <Text
+              style={[styles.label, active && styles.labelActive]}
+              numberOfLines={1}
+            >
+              {entry.label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -32,24 +39,23 @@ export default function ChallengeAreaTabs({ area, onSelect }: Props): React.Reac
 }
 
 const styles = StyleSheet.create({
-  row: {
+  track: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
+    alignSelf: 'center',
+    padding: 8,
+    borderRadius: 14,
+    backgroundColor: colors.headerCard,
   },
-  pill: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
+  segment: {
+    minHeight: 36,
+    flexShrink: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.headerCard,
-    borderWidth: 1,
-    borderColor: colors.headerBorder,
+    paddingHorizontal: 16,
+    borderRadius: 10,
   },
-  pillActive: {
+  segmentActive: {
     backgroundColor: colors.accentBlue,
-    borderColor: colors.accentBlue,
   },
   label: {
     fontSize: 14,
@@ -58,5 +64,6 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     color: colors.headerTextPrimary,
+    fontWeight: '700',
   },
 });

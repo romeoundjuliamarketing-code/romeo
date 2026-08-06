@@ -81,6 +81,7 @@ export interface UseSparringChallengeResult {
   setArea:   (area: ChallengeArea) => void;
   current:   SparringChallenge | null;
   deckSize:  number;
+  remaining: number;
   draw:      () => SparringChallenge | null;
   toggleDone: (id: string) => void;
   isDone:    (id: string) => boolean;
@@ -163,12 +164,14 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
   const isDone = useCallback((id: string): boolean => state.done.includes(id), [state.done]);
 
   const currentId = state.current[state.area];
+  const deckSize  = challengesForArea(state.area).length;
 
   return {
     area:       state.area,
     setArea,
     current:    currentId === null ? null : challengeById(currentId),
-    deckSize:   challengesForArea(state.area).length,
+    deckSize,
+    remaining:  Math.max(0, deckSize - state.drawn[state.area].length),
     draw,
     toggleDone,
     isDone,
