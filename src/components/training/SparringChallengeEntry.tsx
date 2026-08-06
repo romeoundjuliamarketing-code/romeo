@@ -2,16 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import SparrLogo from '../common/SparrLogo';
 import { entryShadow } from '../challenge/cardLayout';
 
-// Miniature deck — hints at what waits behind the tap without looking like an ad.
-function MiniDeck(): React.ReactElement {
+// A miniature Sparr card — same anthracite back and blue inset line as the deck.
+function MiniCard(): React.ReactElement {
   return (
     <View style={styles.mini}>
-      <View style={[styles.miniCard, styles.miniCardFar]} />
-      <View style={[styles.miniCard, styles.miniCardNear]} />
-      <View style={[styles.miniCard, styles.miniCardTop]}>
-        <Ionicons name="flash" size={18} color={colors.accentBlue} />
+      <View style={styles.miniBehind} />
+      <View style={styles.miniCard}>
+        <View style={styles.miniInner}>
+          <SparrLogo size={18} />
+        </View>
       </View>
     </View>
   );
@@ -30,7 +32,7 @@ export default function SparringChallengeEntry({ onPress }: Props): React.ReactE
       accessibilityRole="button"
       accessibilityLabel="Sparrings-Challenge öffnen"
     >
-      <MiniDeck />
+      <MiniCard />
       <View style={styles.info}>
         <Text style={styles.title}>Sparrings-Challenge</Text>
         <Text style={styles.subtitle}>Zieh eine geheime Aufgabe für deine nächste Runde</Text>
@@ -44,7 +46,8 @@ const styles = StyleSheet.create({
   card: {
     marginHorizontal: 16,
     marginTop: 16,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 16,
     backgroundColor: colors.accentBlueSoft,
     flexDirection: 'row',
@@ -67,32 +70,32 @@ const styles = StyleSheet.create({
   },
 
   mini: {
-    width: 48,
-    height: 56,
+    width: 40,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  miniCard: {
+  miniBehind: {
     position: 'absolute',
     width: 32,
     height: 44,
-    borderRadius: 8,
+    borderRadius: 6,
+    backgroundColor: colors.cardBackEdge,
+    transform: [{ translateX: 3 }, { translateY: -3 }, { rotate: '1.5deg' }],
+  },
+  miniCard: {
+    width: 32,
+    height: 44,
+    borderRadius: 6,
+    backgroundColor: colors.cardBack,
+    padding: 4,
+  },
+  miniInner: {
+    flex: 1,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.accentBlueMuted,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  miniCardFar: {
-    backgroundColor: colors.headerCard,
-    borderWidth: 1,
-    borderColor: colors.headerBorder,
-    transform: [{ rotate: '-14deg' }, { translateX: -4 }],
-  },
-  miniCardNear: {
-    backgroundColor: colors.headerCard,
-    borderWidth: 1,
-    borderColor: colors.headerBorder,
-    transform: [{ rotate: '8deg' }, { translateX: 4 }],
-  },
-  miniCardTop: {
-    backgroundColor: colors.background,
   },
 });

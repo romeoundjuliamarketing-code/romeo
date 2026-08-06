@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
-import { CARD_RADIUS, cardShadow } from './cardLayout';
+import ChallengeCardBack from './ChallengeCardBack';
+import { CARD_RADIUS } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
 const EXIT_MS  = 150;
@@ -21,39 +20,16 @@ const ENTER_MS = 180;
 // Total time the draw is blocked — exit plus enter, see SparringChallengeScreen.
 export const DRAW_ANIMATION_MS = EXIT_MS + ENTER_MS;
 
-interface BackProps {
-  size:    CardSize;
-  dimmed?: boolean;
-}
-
-// Face-down card — the top card before a draw and the two cards left in the deck.
-function CardBack({ size, dimmed = false }: BackProps): React.ReactElement {
-  return (
-    <View
-      style={[
-        styles.back,
-        { width: size.width, height: size.height },
-        dimmed ? styles.backDimmed : cardShadow,
-      ]}
-    >
-      <View style={styles.backBadge}>
-        <Ionicons name="flash" size={22} color={colors.accentBlue} />
-      </View>
-      <Text style={styles.backText}>SPARR</Text>
-    </View>
-  );
-}
-
 interface Props {
-  card:  SparringChallenge | null;
-  done:  boolean;
-  empty: boolean;
-  size:  CardSize;
+  card: SparringChallenge | null;
+  done: boolean;
+  size: CardSize;
 }
 
-// Stack of cards. A draw slides the current card out sideways while the deck behind
-// nudges forward — no 3D flip, which reads cleaner and behaves the same on Android.
-export default function ChallengeDeck({ card, done, empty, size }: Props): React.ReactElement {
+// Stack of cards. The two cards below are plain filled surfaces — no content, no
+// borders — so the stack reads as depth instead of overlapping outlines. Only the
+// top card animates, and it lives in its own view.
+export default function ChallengeDeck({ card, done, size }: Props): React.ReactElement {
   const [displayCard, setDisplayCard] = useState<SparringChallenge | null>(card);
 
   const translateX = useSharedValue(0);
@@ -61,20 +37,19 @@ export default function ChallengeDeck({ card, done, empty, size }: Props): React
   const rotate     = useSharedValue(0);
   const scale      = useSharedValue(1);
   const opacity    = useSharedValue(1);
-  const stackNudge = useSharedValue(0);
 
   const displayRef  = useRef<SparringChallenge | null>(card);
   const prevIdRef   = useRef<string | null>(card?.id ?? null);
   const firstRunRef = useRef(true);
 
-  // Sets the incoming card and lets it settle into the stack.
+  // Sets the incoming card and lets it settle onto the stack.
   const enterCard = (next: SparringChallenge | null): void => {
     displayRef.current = next;
     setDisplayCard(next);
     translateX.value = 0;
     rotate.value     = 0;
-    translateY.value = 10;
-    scale.value      = 0.94;
+    translateY.value = 8;
+    scale.value      = 0.96;
     opacity.value    = 0;
     opacity.value    = withTiming(1, { duration: ENTER_MS });
     translateY.value = withSpring(0, { damping: 16, stiffness: 200 });
@@ -102,15 +77,9 @@ export default function ChallengeDeck({ card, done, empty, size }: Props): React
       return;
     }
 
-    // The deck behind nudges forward while the old card leaves.
-    stackNudge.value = withSequence(
-      withTiming(1, { duration: EXIT_MS }),
-      withTiming(0, { duration: ENTER_MS }),
-    );
-
     opacity.value    = withTiming(0, { duration: EXIT_MS });
-    rotate.value     = withTiming(-6, { duration: EXIT_MS });
-    translateY.value = withTiming(-12, { duration: EXIT_MS });
+    rotate.value     = withTiming(-4, { duration: EXIT_MS });
+    translateY.value = withTiming(-8, { duration: EXIT_MS });
     translateX.value = withTiming(
       -(size.width * 1.15),
       { duration: EXIT_MS },
@@ -130,43 +99,18 @@ export default function ChallengeDeck({ card, done, empty, size }: Props): React
     ],
   }));
 
-  const nearStyle = useAnimatedStyle(() => ({
-    transform: [
-      { rotate: `${3 - stackNudge.value * 1.5}deg` },
-      { scale: 0.96 + stackNudge.value * 0.02 },
-    ],
-  }));
-
-  const farStyle = useAnimatedStyle(() => ({
-    transform: [
-      { rotate: `${-5 + stackNudge.value * 2}deg` },
-      { scale: 0.92 + stackNudge.value * 0.02 },
-    ],
-  }));
+  const layerSize = { width: size.width, height: size.height };
 
   return (
-    <View style={[styles.wrap, { width: size.width, height: size.height }]}>
-      {!empty ? (
-        <>
-          <Animated.View style={[styles.layer, farStyle]} pointerEvents="none">
-            <CardBack size={size} dimmed />
-          </Animated.View>
-          <Animated.View style={[styles.layer, nearStyle]} pointerEvents="none">
-            <CardBack size={size} dimmed />
-          </Animated.View>
-        </>
-      ) : null}
+    <View style={[styles.wrap, layerSize]}>
+      {/* Cards still in the deck — filled surfaces only */}
+      <View style={[styles.layer, styles.stackFar, layerSize]} pointerEvents="none" />
+      <View style={[styles.layer, styles.stackNear, layerSize]} pointerEvents="none" />
 
+      {/* Animated top card, isolated from the stack views */}
       <Animated.View style={[styles.layer, topStyle]}>
         {displayCard === null ? (
-          <View>
-            <CardBack size={size} />
-            {empty ? (
-              <View style={styles.emptyOverlay} pointerEvents="none">
-                <Text style={styles.emptyText}>Noch keine Karten in diesem Bereich</Text>
-              </View>
-            ) : null}
-          </View>
+          <ChallengeCardBack size={size} />
         ) : (
           <ChallengeCard challenge={displayCard} size={size} done={done} />
         )}
@@ -184,44 +128,14 @@ const styles = StyleSheet.create({
   layer: {
     position: 'absolute',
   },
-
-  back: {
+  stackFar: {
     borderRadius: CARD_RADIUS,
-    backgroundColor: colors.headerCard,
-    borderWidth: 1,
-    borderColor: colors.headerBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
+    backgroundColor: colors.cardBackEdge,
+    transform: [{ translateY: -6 }, { translateX: 6 }, { rotate: '1.5deg' }],
   },
-  backDimmed: {
-    opacity: 0.5,
-  },
-  backBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentBlueSoft,
-  },
-  backText: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 6,
-    color: colors.headerTextPrimary,
-  },
-
-  emptyOverlay: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 24,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 13,
-    textAlign: 'center',
-    color: colors.headerTextSecondary,
+  stackNear: {
+    borderRadius: CARD_RADIUS,
+    backgroundColor: colors.cardBack,
+    transform: [{ translateY: -3 }, { translateX: 3 }, { rotate: '0.8deg' }],
   },
 });

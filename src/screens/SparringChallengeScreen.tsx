@@ -51,8 +51,8 @@ export default function SparringChallengeScreen(): React.ReactElement {
   const hasCard   = current !== null;
   const cardDone  = current !== null && isDone(current.id);
 
-  const counter = deckEmpty
-    ? null
+  const status = deckEmpty
+    ? 'Noch keine Karten in diesem Bereich'
     : remaining === 0
       ? `Deck durchgespielt · ${doneCount} geschafft`
       : `${remaining} ${remaining === 1 ? 'Karte' : 'Karten'} übrig · ${doneCount} geschafft`;
@@ -82,16 +82,16 @@ export default function SparringChallengeScreen(): React.ReactElement {
           <ChallengeAreaTabs area={area} onSelect={setArea} />
 
           <View style={styles.deckArea}>
-            <ChallengeDeck card={current} done={cardDone} empty={deckEmpty} size={cardSize} />
+            <ChallengeDeck card={current} done={cardDone} size={cardSize} />
           </View>
 
           <View style={styles.actions}>
-            {counter !== null ? <Text style={styles.counter}>{counter}</Text> : null}
+            <Text style={styles.status}>{status}</Text>
 
             {hasCard ? (
-              <>
+              <View style={styles.actionRow}>
                 <TouchableOpacity
-                  style={[styles.primaryBtn, cardDone && styles.primaryBtnDone]}
+                  style={[styles.primaryBtn, styles.rowPrimary, cardDone && styles.primaryBtnDone]}
                   onPress={() => { if (current !== null) toggleDone(current.id); }}
                   activeOpacity={0.85}
                   accessibilityRole="button"
@@ -99,7 +99,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
                 >
                   <Ionicons
                     name={cardDone ? 'checkmark-circle' : 'checkmark'}
-                    size={20}
+                    size={18}
                     color={cardDone ? colors.accentBlue : colors.headerTextPrimary}
                   />
                   <Text style={[styles.primaryLabel, cardDone && styles.primaryLabelDone]}>
@@ -114,13 +114,12 @@ export default function SparringChallengeScreen(): React.ReactElement {
                   disabled={drawing}
                   accessibilityRole="button"
                 >
-                  <Ionicons name="shuffle" size={18} color={colors.headerTextPrimary} />
                   <Text style={styles.secondaryLabel}>Neue Karte</Text>
                 </TouchableOpacity>
-              </>
+              </View>
             ) : (
               <TouchableOpacity
-                style={[styles.primaryBtn, (deckEmpty || drawing) && styles.btnBusy]}
+                style={[styles.primaryBtn, styles.singlePrimary, (deckEmpty || drawing) && styles.btnBusy]}
                 onPress={handleDraw}
                 activeOpacity={0.85}
                 disabled={deckEmpty || drawing}
@@ -164,8 +163,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 8,
-    paddingTop: 8,
-    paddingBottom: 8,
+    paddingVertical: 8,
   },
   headerBtn: {
     width: 44,
@@ -192,30 +190,41 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 24,
   },
   actions: {
     alignItems: 'center',
-    gap: 8,
     paddingBottom: 8,
   },
-  counter: {
-    marginBottom: 8,
+  status: {
+    marginBottom: 16,
     fontSize: 13,
     fontWeight: '600',
     color: colors.headerTextSecondary,
   },
 
-  primaryBtn: {
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     width: '100%',
     maxWidth: 320,
-    minHeight: 52,
+  },
+  primaryBtn: {
+    height: 54,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     borderRadius: 14,
     backgroundColor: colors.accentBlue,
+  },
+  rowPrimary: {
+    flex: 1.3,
+  },
+  singlePrimary: {
+    width: '100%',
+    maxWidth: 320,
   },
   primaryBtnDone: {
     backgroundColor: colors.accentBlueSoft,
@@ -232,13 +241,10 @@ const styles = StyleSheet.create({
   },
 
   secondaryBtn: {
-    width: '100%',
-    maxWidth: 320,
-    minHeight: 48,
-    flexDirection: 'row',
+    flex: 1,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.headerBorder,
@@ -262,6 +268,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.headerTextSecondary,
-    textDecorationLine: 'underline',
   },
 });
