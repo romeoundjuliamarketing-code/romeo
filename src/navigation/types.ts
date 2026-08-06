@@ -61,6 +61,7 @@ export type RootStackParamList = {
     category?: Workout['category'];
   };
   Notifications: undefined;
+  SparringChallenge: undefined;
   EditProfile: undefined;
   Verification: undefined;
 };

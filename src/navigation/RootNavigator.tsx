@@ -21,6 +21,7 @@ import VenueDetailScreen from '../screens/VenueDetailScreen';
 import StudioRequestsScreen from '../screens/studio/StudioRequestsScreen';
 import StudioInviteScreen from '../screens/studio/StudioInviteScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import SparringChallengeScreen from '../screens/SparringChallengeScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import VerificationScreen from '../screens/VerificationScreen';
 import StudioMembersScreen from '../screens/studio/StudioMembersScreen';
@@ -107,6 +108,11 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen
         name="Notifications"
         component={NotificationsScreen}
+        options={{ presentation: 'modal' }}
+      />
+      <AppStack.Screen
+        name="SparringChallenge"
+        component={SparringChallengeScreen}
         options={{ presentation: 'modal' }}
       />
     </AppStack.Navigator>
