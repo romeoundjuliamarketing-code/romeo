@@ -6,10 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { areaLabel, challengePosition, challengesForArea } from '../data/sparringChallenges';
 import { useProfile } from '../hooks/useProfile';
 import { useSparringChallenge } from '../hooks/useSparringChallenge';
+import { useChallengeRating } from '../hooks/useChallengeRating';
 import ChallengeAreaTabs from '../components/challenge/ChallengeAreaTabs';
 import ChallengeHeader from '../components/challenge/ChallengeHeader';
 import ChallengeDeck, { DRAW_ANIMATION_MS } from '../components/challenge/ChallengeDeck';
 import ChallengeBrowser from '../components/challenge/ChallengeBrowser';
+import ChallengeClarityRating from '../components/challenge/ChallengeClarityRating';
 import { useCardSize } from '../components/challenge/cardLayout';
 import { colors } from '../theme/colors';
 
@@ -33,6 +35,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
     doneCount,
     loading,
   } = useSparringChallenge(profile?.disciplines ?? []);
+  const { ratedIds, submit: submitClarityRating } = useChallengeRating();
 
   useEffect(() => () => {
     if (drawTimer.current !== null) clearTimeout(drawTimer.current);
@@ -98,7 +101,14 @@ export default function SparringChallengeScreen(): React.ReactElement {
           </View>
 
           <View style={styles.actions}>
-            <Text style={styles.status}>{status}</Text>
+            {current !== null && cardDone && !ratedIds.has(current.id) ? (
+              <ChallengeClarityRating
+                key={current.id}
+                onRate={(clarity) => submitClarityRating(current.id, clarity)}
+              />
+            ) : (
+              <Text style={styles.status}>{status}</Text>
+            )}
 
             {hasCard ? (
               <View style={styles.actionRow}>

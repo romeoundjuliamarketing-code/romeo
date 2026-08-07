@@ -19,6 +19,9 @@ interface Props {
   onToggleDone?: () => void;
   // Off inside the deck, where the whole card is a tap target for drawing.
   scrollable?:   boolean;
+  // Off while the card rotates in 3D (ChallengeDeck) — a shadow without a shadowPath
+  // forces an offscreen render that blurs during the flip.
+  elevated?:     boolean;
 }
 
 // Front of a challenge card: a blue mission header over a warm off-white brief.
@@ -28,6 +31,7 @@ export default function ChallengeCard({
   done = false,
   onToggleDone,
   scrollable = true,
+  elevated = true,
 }: Props): React.ReactElement {
 
   const brief = (
@@ -56,7 +60,7 @@ export default function ChallengeCard({
   const number        = missionNumber(challenge);
 
   return (
-    <View style={[styles.card, { width: size.width, height: size.height }, cardShadow]}>
+    <View style={[styles.card, { width: size.width, height: size.height }, elevated && cardShadow]}>
       <View style={[styles.header, { height: headerHeight }]}>
         <View style={styles.watermark} pointerEvents="none">
           <SparrLogo size={watermarkSize} opacity={0.07} variant="texture" />

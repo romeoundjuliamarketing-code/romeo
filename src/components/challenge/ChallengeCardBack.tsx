@@ -6,17 +6,20 @@ import { CARD_RADIUS, cardShadow } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
 interface Props {
-  size: CardSize;
+  size:      CardSize;
+  // Off while the card rotates in 3D (ChallengeDeck) — a shadow without a shadowPath
+  // forces an offscreen render that blurs during the flip.
+  elevated?: boolean;
 }
 
 // Back of a challenge card: Sparr blue, dark outer edge, fine off-white inset line,
 // the mark centred over a very faint oversized watermark of itself.
-export default function ChallengeCardBack({ size }: Props): React.ReactElement {
+export default function ChallengeCardBack({ size, elevated = true }: Props): React.ReactElement {
   const logoSize      = Math.round(size.width * 0.36);
   const watermarkSize = Math.round(size.width * 1.05);
 
   return (
-    <View style={[styles.card, { width: size.width, height: size.height }, cardShadow]}>
+    <View style={[styles.card, { width: size.width, height: size.height }, elevated && cardShadow]}>
       {/* Oversized mark, offset and cropped by the card edge so it reads as a
           background texture instead of a second face behind the centred logo. */}
       <View style={styles.watermark} pointerEvents="none">

@@ -14,7 +14,7 @@ import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
 import ChallengeCardBack from './ChallengeCardBack';
-import { CARD_RADIUS } from './cardLayout';
+import { CARD_RADIUS, cardShadow } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
 const EXIT_MS = 120; // played card leaves
@@ -47,7 +47,6 @@ export default function ChallengeDeck({
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
   const rotate     = useSharedValue(0);
-  const scale      = useSharedValue(1);
   const opacity    = useSharedValue(1);
   // 0 = face down, 180 = face up
   const flip       = useSharedValue(card === null ? 0 : 180);
@@ -68,16 +67,11 @@ export default function ChallengeDeck({
     opacity.value    = 1;
     flip.value       = 0;
     translateY.value = 0;
-    scale.value      = 1;
 
     // 1. lift off the deck, settle back down once the turn is nearly through
     translateY.value = withSequence(
       withTiming(-14, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
       withDelay(FLIP_MS - 120, withSpring(0, { damping: 15, stiffness: 200 })),
-    );
-    scale.value = withSequence(
-      withTiming(1.03, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
-      withDelay(FLIP_MS - 120, withSpring(1, { damping: 15, stiffness: 200 })),
     );
 
     // 2. + 3. turn over, front appears at the halfway point
@@ -139,18 +133,17 @@ export default function ChallengeDeck({
       { translateX: translateX.value },
       { translateY: translateY.value },
       { rotate: `${rotate.value}deg` },
-      { scale: scale.value },
     ],
   }));
 
   const backStyle = useAnimatedStyle(() => ({
     opacity: flip.value < 90 ? 1 : 0,
-    transform: [{ perspective: 1000 }, { rotateY: `${flip.value}deg` }],
+    transform: [{ perspective: 1800 }, { rotateY: `${flip.value}deg` }],
   }));
 
   const frontStyle = useAnimatedStyle(() => ({
     opacity: flip.value < 90 ? 0 : 1,
-    transform: [{ perspective: 1000 }, { rotateY: `${flip.value - 180}deg` }],
+    transform: [{ perspective: 1800 }, { rotateY: `${flip.value - 180}deg` }],
   }));
 
   const nearStyle = useAnimatedStyle(() => ({
@@ -198,12 +191,12 @@ export default function ChallengeDeck({
         {/* Animated top card, isolated from the stack views */}
         <Animated.View style={[styles.layer, layerSize, containerStyle]}>
           <Animated.View style={[styles.face, backStyle]} pointerEvents="none">
-            <ChallengeCardBack size={size} />
+            <ChallengeCardBack size={size} elevated={false} />
           </Animated.View>
 
           {displayCard !== null ? (
             <Animated.View style={[styles.face, frontStyle]}>
-              <ChallengeCard challenge={displayCard} size={size} done={done} scrollable={false} />
+              <ChallengeCard challenge={displayCard} size={size} done={done} scrollable={false} elevated={false} />
             </Animated.View>
           ) : null}
         </Animated.View>
@@ -229,11 +222,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardStackFar,
     borderWidth: 2,
     borderColor: colors.dark,
+    ...cardShadow,
   },
   stackNear: {
     borderRadius: CARD_RADIUS,
     backgroundColor: colors.cardStackNear,
     borderWidth: 2,
     borderColor: colors.dark,
+    ...cardShadow,
   },
 });

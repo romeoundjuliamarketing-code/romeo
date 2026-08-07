@@ -176,6 +176,33 @@ export type Database = {
         }
         Relationships: []
       }
+      challenge_ratings: {
+        Row: {
+          id: string
+          user_id: string
+          challenge_id: string
+          clarity: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          challenge_id: string
+          clarity: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          challenge_id?: string
+          clarity?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       workout_logs: {
         Row: {
           category: string | null
