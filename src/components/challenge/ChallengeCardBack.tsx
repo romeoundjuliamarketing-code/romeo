@@ -13,29 +13,17 @@ interface Props {
 // the mark centred over a very faint oversized watermark of itself.
 export default function ChallengeCardBack({ size }: Props): React.ReactElement {
   const logoSize      = Math.round(size.width * 0.36);
-  const watermarkSize = Math.round(size.width * 1.15);
-  const cornerSize    = 10;
+  const watermarkSize = Math.round(size.width * 1.05);
 
   return (
     <View style={[styles.card, { width: size.width, height: size.height }, cardShadow]}>
+      {/* Oversized mark, offset and cropped by the card edge so it reads as a
+          background texture instead of a second face behind the centred logo. */}
       <View style={styles.watermark} pointerEvents="none">
-        <SparrLogo size={watermarkSize} opacity={0.08} />
+        <SparrLogo size={watermarkSize} opacity={0.05} />
       </View>
 
       <View style={styles.inset}>
-        <View style={[styles.corner, styles.cornerTopLeft]}>
-          <SparrLogo size={cornerSize} opacity={0.5} />
-        </View>
-        <View style={[styles.corner, styles.cornerTopRight]}>
-          <SparrLogo size={cornerSize} opacity={0.5} />
-        </View>
-        <View style={[styles.corner, styles.cornerBottomLeft]}>
-          <SparrLogo size={cornerSize} opacity={0.5} />
-        </View>
-        <View style={[styles.corner, styles.cornerBottomRight]}>
-          <SparrLogo size={cornerSize} opacity={0.5} />
-        </View>
-
         <View style={styles.center}>
           <SparrLogo size={logoSize} />
           <Text style={styles.label}>SPARRING CHALLENGE</Text>
@@ -56,12 +44,8 @@ const styles = StyleSheet.create({
   },
   watermark: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    right: -56,
+    bottom: -48,
   },
   inset: {
     flex: 1,
@@ -81,11 +65,4 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     color: colors.headerTextPrimary,
   },
-  corner: {
-    position: 'absolute',
-  },
-  cornerTopLeft:     { top: 8,    left: 8 },
-  cornerTopRight:    { top: 8,    right: 8 },
-  cornerBottomLeft:  { bottom: 8, left: 8 },
-  cornerBottomRight: { bottom: 8, right: 8 },
 });

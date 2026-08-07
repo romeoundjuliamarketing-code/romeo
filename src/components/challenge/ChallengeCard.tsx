@@ -29,14 +29,14 @@ export default function ChallengeCard({
   onToggleDone,
 }: Props): React.ReactElement {
   const headerHeight  = Math.round(size.height * 0.3);
-  const watermarkSize = Math.round(size.width * 0.85);
+  const watermarkSize = Math.round(size.width * 0.7);
   const number        = missionNumber(challenge);
 
   return (
     <View style={[styles.card, { width: size.width, height: size.height }, cardShadow]}>
       <View style={[styles.header, { height: headerHeight }]}>
         <View style={styles.watermark} pointerEvents="none">
-          <SparrLogo size={watermarkSize} opacity={0.12} />
+          <SparrLogo size={watermarkSize} opacity={0.07} />
         </View>
 
         <View style={styles.headerTop}>
@@ -124,14 +124,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     overflow: 'hidden',
   },
+  // Offset and cropped by the header edge — texture, not a second logo.
   watermark: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    right: -30,
+    top: -14,
   },
   headerTop: {
     flexDirection: 'row',
