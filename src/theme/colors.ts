@@ -33,8 +33,8 @@ export const colors = {
   headerDotFuture:     'rgba(255,255,255,0.1)',
 
   // ── Challenge cards (solid fills — stacked cards must not be translucent) ──
-  cardBack:     '#1A1A1A', // anthracite back of a challenge card
-  cardBackEdge: '#131313', // cards resting under the top one
+  cardStackNear: '#3B78B6', // card resting directly under the top one
+  cardStackFar:  '#2F6091', // the one below that
 
   // ── Module category left borders ──────────────────────────────────────────
   catSchlagkraft:      '#0A0A0A',

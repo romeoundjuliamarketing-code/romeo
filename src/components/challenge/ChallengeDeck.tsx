@@ -6,6 +6,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -16,12 +17,12 @@ import ChallengeCardBack from './ChallengeCardBack';
 import { CARD_RADIUS } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
-const EXIT_MS   = 160; // played card leaves the stack
-const SETTLE_MS = 90;  // new card lies face down for a beat
-const FLIP_MS   = 420; // and turns over
+const EXIT_MS = 120; // played card leaves
+const LIFT_MS = 130; // top back card lifts off the stack
+const FLIP_MS = 320; // and turns over
 
 // Total time a draw is blocked, see SparringChallengeScreen.
-export const DRAW_ANIMATION_MS = EXIT_MS + SETTLE_MS + FLIP_MS;
+export const DRAW_ANIMATION_MS = EXIT_MS + LIFT_MS + FLIP_MS;
 
 interface Props {
   card: SparringChallenge | null;
@@ -29,9 +30,9 @@ interface Props {
   size: CardSize;
 }
 
-// Stack of cards. Drawing plays out like a real deck: the played card slides off,
-// the next one lands face down and turns over. The turn uses two stacked faces whose
-// visibility flips at the halfway point — backfaceVisibility is unreliable on Android.
+// Stack of cards. A draw lifts the top card off the deck, turns it over with a short
+// 3D flip and lets the deck behind move up. The flip uses two stacked faces whose
+// visibility switches at 90 degrees — backfaceVisibility is unreliable on Android.
 export default function ChallengeDeck({ card, done, size }: Props): React.ReactElement {
   const [displayCard, setDisplayCard] = useState<SparringChallenge | null>(card);
 
@@ -42,13 +43,14 @@ export default function ChallengeDeck({ card, done, size }: Props): React.ReactE
   const opacity    = useSharedValue(1);
   // 0 = face down, 180 = face up
   const flip       = useSharedValue(card === null ? 0 : 180);
+  const stackNudge = useSharedValue(0);
 
   const displayRef  = useRef<SparringChallenge | null>(card);
   const prevIdRef   = useRef<string | null>(card?.id ?? null);
   const firstRunRef = useRef(true);
 
-  // Puts the next card face down on the stack and turns it over.
-  const dealCard = (next: SparringChallenge | null): void => {
+  // Lifts the next card off the deck and turns it over.
+  const revealCard = (next: SparringChallenge | null): void => {
     displayRef.current = next;
     setDisplayCard(next);
 
@@ -56,18 +58,35 @@ export default function ChallengeDeck({ card, done, size }: Props): React.ReactE
     rotate.value     = 0;
     opacity.value    = 1;
     flip.value       = 0;
-    translateY.value = -10;
-    scale.value      = 0.97;
+    translateY.value = 0;
+    scale.value      = 1;
 
-    translateY.value = withDelay(SETTLE_MS, withSpring(0, { damping: 15, stiffness: 190 }));
-    scale.value      = withDelay(SETTLE_MS, withSpring(1, { damping: 15, stiffness: 190 }));
+    // 1. lift off the deck, settle back down once the turn is nearly through
+    translateY.value = withSequence(
+      withTiming(-14, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
+      withDelay(FLIP_MS - 120, withSpring(0, { damping: 15, stiffness: 200 })),
+    );
+    scale.value = withSequence(
+      withTiming(1.03, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
+      withDelay(FLIP_MS - 120, withSpring(1, { damping: 15, stiffness: 200 })),
+    );
 
+    // 2. + 3. turn over, front appears at the halfway point
     if (next !== null) {
       flip.value = withDelay(
-        SETTLE_MS,
+        LIFT_MS,
         withTiming(180, { duration: FLIP_MS, easing: Easing.inOut(Easing.ease) }),
       );
     }
+
+    // 4. the deck behind moves up a few points
+    stackNudge.value = withDelay(
+      LIFT_MS,
+      withSequence(
+        withTiming(1, { duration: Math.round(FLIP_MS * 0.6) }),
+        withTiming(0, { duration: Math.round(FLIP_MS * 0.4) }),
+      ),
+    );
   };
 
   useEffect(() => {
@@ -87,20 +106,20 @@ export default function ChallengeDeck({ card, done, size }: Props): React.ReactE
       return;
     }
 
-    // Nothing on the stack yet: the top card simply turns over.
+    // Nothing on the stack yet: the top card is lifted and turned straight away.
     if (displayRef.current === null) {
-      dealCard(card);
+      revealCard(card);
       return;
     }
 
     // Otherwise the played card leaves first.
     opacity.value    = withTiming(0, { duration: EXIT_MS });
-    rotate.value     = withTiming(-5, { duration: EXIT_MS });
+    rotate.value     = withTiming(-4, { duration: EXIT_MS });
     translateX.value = withTiming(
-      -(size.width * 1.1),
+      -(size.width * 0.9),
       { duration: EXIT_MS },
       (finished) => {
-        if (finished === true) runOnJS(dealCard)(card);
+        if (finished === true) runOnJS(revealCard)(card);
       },
     );
   }, [card]);
@@ -125,13 +144,29 @@ export default function ChallengeDeck({ card, done, size }: Props): React.ReactE
     transform: [{ perspective: 1000 }, { rotateY: `${flip.value - 180}deg` }],
   }));
 
+  const nearStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: -4 - stackNudge.value * 3 },
+      { translateX: 4 - stackNudge.value * 2 },
+      { rotate: '1.2deg' },
+    ],
+  }));
+
+  const farStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: -8 - stackNudge.value * 3 },
+      { translateX: 8 - stackNudge.value * 2 },
+      { rotate: '2.4deg' },
+    ],
+  }));
+
   const layerSize = { width: size.width, height: size.height };
 
   return (
     <View style={[styles.wrap, layerSize]}>
-      {/* Cards still in the deck — filled surfaces only, no content */}
-      <View style={[styles.layer, styles.stackFar, layerSize]} pointerEvents="none" />
-      <View style={[styles.layer, styles.stackNear, layerSize]} pointerEvents="none" />
+      {/* Cards still in the deck — filled surfaces only, never any content */}
+      <Animated.View style={[styles.layer, styles.stackFar, layerSize, farStyle]} pointerEvents="none" />
+      <Animated.View style={[styles.layer, styles.stackNear, layerSize, nearStyle]} pointerEvents="none" />
 
       {/* Animated top card, isolated from the stack views */}
       <Animated.View style={[styles.layer, layerSize, containerStyle]}>
@@ -163,12 +198,14 @@ const styles = StyleSheet.create({
   },
   stackFar: {
     borderRadius: CARD_RADIUS,
-    backgroundColor: colors.cardBackEdge,
-    transform: [{ translateY: -6 }, { translateX: 6 }, { rotate: '1.5deg' }],
+    backgroundColor: colors.cardStackFar,
+    borderWidth: 2,
+    borderColor: colors.dark,
   },
   stackNear: {
     borderRadius: CARD_RADIUS,
-    backgroundColor: colors.cardBack,
-    transform: [{ translateY: -3 }, { translateX: 3 }, { rotate: '0.8deg' }],
+    backgroundColor: colors.cardStackNear,
+    borderWidth: 2,
+    borderColor: colors.dark,
   },
 });

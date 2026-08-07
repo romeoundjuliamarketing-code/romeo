@@ -10,16 +10,17 @@ const CONTENT_LEFT    = 145 / 1024;
 const CONTENT_TOP     = 332 / 1536;
 
 interface Props {
-  size: number;
+  size:     number;
+  opacity?: number;
 }
 
 // The Sparr brand mark, same asset as the home header and the map markers.
-export default function SparrLogo({ size }: Props): React.ReactElement {
+export default function SparrLogo({ size, opacity = 1 }: Props): React.ReactElement {
   const imageWidth  = size * CONTENT_SCALE;
   const imageHeight = imageWidth * IMAGE_RATIO;
 
   return (
-    <View style={[styles.clip, { width: size, height: size }]}>
+    <View style={[styles.clip, { width: size, height: size, opacity }]}>
       <Image
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         source={require('../../../assets/logo-home.png')}

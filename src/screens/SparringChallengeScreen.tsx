@@ -51,6 +51,11 @@ export default function SparringChallengeScreen(): React.ReactElement {
   const hasCard   = current !== null;
   const cardDone  = current !== null && isDone(current.id);
 
+  // Position of the drawn card inside its deck, e.g. "Karte 2 von 3".
+  const cardPosition = current === null
+    ? null
+    : `Karte ${areaCards.findIndex((c) => c.id === current.id) + 1} von ${deckSize}`;
+
   const status = deckEmpty
     ? 'Noch keine Karten in diesem Bereich'
     : remaining === 0
@@ -80,6 +85,13 @@ export default function SparringChallengeScreen(): React.ReactElement {
       ) : (
         <View style={styles.body}>
           <ChallengeAreaTabs area={area} onSelect={setArea} />
+
+          <View style={styles.missionRow}>
+            <Text style={styles.missionLabel}>DEINE MISSION</Text>
+            {cardPosition !== null ? (
+              <Text style={styles.missionCount}>{cardPosition}</Text>
+            ) : null}
+          </View>
 
           <View style={styles.deckArea}>
             <ChallengeDeck card={current} done={cardDone} size={cardSize} />
@@ -186,11 +198,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
+  missionRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  missionLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+    color: colors.headerTextSecondary,
+  },
+  missionCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.headerTextSecondary,
+  },
   deckArea: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 24,
+    paddingVertical: 16,
   },
   actions: {
     alignItems: 'center',

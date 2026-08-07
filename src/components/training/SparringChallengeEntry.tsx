@@ -1,19 +1,20 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import SparrLogo from '../common/SparrLogo';
-import { entryShadow } from '../challenge/cardLayout';
 
-// A miniature Sparr card — same anthracite back and blue inset line as the deck.
-function MiniCard(): React.ReactElement {
+const CARD_W = 74;
+const CARD_H = 104;
+
+// Fanned deck on the right of the hero. Only the front card carries the mark; the
+// two behind are filled surfaces so nothing shows through.
+function CardFan(): React.ReactElement {
   return (
-    <View style={styles.mini}>
-      <View style={styles.miniBehind} />
-      <View style={styles.miniCard}>
-        <View style={styles.miniInner}>
-          <SparrLogo size={18} />
-        </View>
+    <View style={styles.fan} pointerEvents="none">
+      <View style={[styles.fanCard, styles.fanFar]} />
+      <View style={[styles.fanCard, styles.fanNear]} />
+      <View style={[styles.fanCard, styles.fanFront]}>
+        <SparrLogo size={40} />
       </View>
     </View>
   );
@@ -26,76 +27,104 @@ interface Props {
 export default function SparringChallengeEntry({ onPress }: Props): React.ReactElement {
   return (
     <TouchableOpacity
-      style={[styles.card, entryShadow]}
+      style={styles.hero}
       onPress={onPress}
-      activeOpacity={0.85}
+      activeOpacity={0.9}
       accessibilityRole="button"
       accessibilityLabel="Sparrings-Challenge öffnen"
     >
-      <MiniCard />
-      <View style={styles.info}>
-        <Text style={styles.title}>Sparrings-Challenge</Text>
-        <Text style={styles.subtitle}>Zieh eine geheime Aufgabe für deine nächste Runde</Text>
+      <View style={styles.copy}>
+        <Text style={styles.eyebrow}>SPARRING GAME</Text>
+        <Text style={styles.headline}>Zieh deine Mission.</Text>
+        <Text style={styles.subline}>Eine geheime Aufgabe für deine nächste Runde.</Text>
+        <View style={styles.action}>
+          <Text style={styles.actionText}>Mission ziehen →</Text>
+        </View>
       </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.accentBlue} />
+
+      <CardFan />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  hero: {
     marginHorizontal: 16,
     marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    minHeight: 140,
     borderRadius: 16,
-    backgroundColor: colors.accentBlueSoft,
+    backgroundColor: colors.accentBlue,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
   },
-  info: {
+  copy: {
     flex: 1,
-    gap: 4,
+    paddingRight: 8,
   },
-  title: {
-    fontSize: 16,
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.6,
+    color: colors.headerTextSecondary,
+  },
+  headline: {
+    marginTop: 4,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '700',
     color: colors.headerTextPrimary,
   },
-  subtitle: {
+  subline: {
+    marginTop: 4,
     fontSize: 12,
     lineHeight: 16,
     color: colors.headerTextSecondary,
   },
+  action: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  actionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
 
-  mini: {
-    width: 40,
-    height: 52,
+  // ── Card fan ───────────────────────────────────────────────────────────────
+  fan: {
+    width: CARD_W + 24,
+    height: CARD_H,
+    // Lets the front card reach past the hero padding, as requested.
+    marginRight: -12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  miniBehind: {
+  fanCard: {
     position: 'absolute',
-    width: 32,
-    height: 44,
-    borderRadius: 6,
-    backgroundColor: colors.cardBackEdge,
-    transform: [{ translateX: 3 }, { translateY: -3 }, { rotate: '1.5deg' }],
-  },
-  miniCard: {
-    width: 32,
-    height: 44,
-    borderRadius: 6,
-    backgroundColor: colors.cardBack,
-    padding: 4,
-  },
-  miniInner: {
-    flex: 1,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.accentBlueMuted,
+    width: CARD_W,
+    height: CARD_H,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.dark,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fanFar: {
+    backgroundColor: colors.cardStackFar,
+    transform: [{ rotate: '-5deg' }, { translateX: -18 }],
+  },
+  fanNear: {
+    backgroundColor: colors.cardStackNear,
+    transform: [{ rotate: '3deg' }, { translateX: -8 }],
+  },
+  fanFront: {
+    backgroundColor: colors.background,
+    transform: [{ rotate: '5deg' }, { translateX: 6 }],
   },
 });
