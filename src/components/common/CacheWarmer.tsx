@@ -1,6 +1,9 @@
 // Invisible component: calls read-only data hooks once to warm the query cache
 // for the Training and Profil tabs while the user is on Home.
 // Returns null — no UI, no layout impact.
+import { useEffect } from 'react';
+import { Image } from 'react-native';
+import { SPARR_LOGO_SOURCE } from './SparrLogo';
 import { useWorkoutStats } from '../../hooks/useWorkoutStats';
 import { useFightRecord } from '../../hooks/useFightRecord';
 import { useStudio } from '../../hooks/useStudio';
@@ -18,7 +21,19 @@ import { useWeeklyVolume } from '../../hooks/useWeeklyVolume';
 //   provides no benefit and would cause a redundant network request.
 // - Sparring-map hooks: excluded per spec (too heavy).
 
+// Decodes the Sparr mark once at app start so it is already in the image cache when
+// the Training hero or a challenge card first renders.
+function useWarmSparrLogo(): void {
+  useEffect(() => {
+    const source = Image.resolveAssetSource(SPARR_LOGO_SOURCE);
+    if (source?.uri === undefined) return;
+    void Image.prefetch(source.uri).catch(() => undefined);
+  }, []);
+}
+
 export default function CacheWarmer(): null {
+  useWarmSparrLogo();
+
   // Mirror the same default argument (0) that screens pass on their first render
   useWorkoutStats(0);
   useFightRecord(0);

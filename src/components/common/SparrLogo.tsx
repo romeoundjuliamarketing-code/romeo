@@ -1,49 +1,31 @@
 import React from 'react';
-import { View, Image, StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 
-// assets/logo-home.png carries transparent padding around the mark: the opaque
-// content is a 735x735 square at x=145, y=332 inside a 1024x1536 canvas. The values
-// below crop to exactly that square so the logo fills the requested box.
-const CONTENT_SCALE   = 1024 / 735;  // box width -> image width
-const IMAGE_RATIO     = 1536 / 1024; // image height / image width
-const CONTENT_LEFT    = 145 / 1024;
-const CONTENT_TOP     = 332 / 1536;
+// Tightly cropped 512x512 version of the brand mark from assets/logo-home.png.
+// The source asset is 1024x1536 and 2.1 MB with a lot of transparent padding —
+// decoding that for a 14 pt logo made the mark appear with a visible delay.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+export const SPARR_LOGO_SOURCE = require('../../../assets/logo-mark.png');
 
 interface Props {
   size:     number;
   opacity?: number;
 }
 
-// The Sparr brand mark, same asset as the home header and the map markers.
+// The Sparr brand mark, same artwork as the home header and the map markers.
 export default function SparrLogo({ size, opacity = 1 }: Props): React.ReactElement {
-  const imageWidth  = size * CONTENT_SCALE;
-  const imageHeight = imageWidth * IMAGE_RATIO;
-
   return (
-    <View style={[styles.clip, { width: size, height: size, opacity }]}>
-      <Image
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        source={require('../../../assets/logo-home.png')}
-        style={[
-          styles.image,
-          {
-            width:  imageWidth,
-            height: imageHeight,
-            left:   -imageWidth * CONTENT_LEFT,
-            top:    -imageHeight * CONTENT_TOP,
-          },
-        ]}
-        resizeMode="contain"
-      />
-    </View>
+    <Image
+      source={SPARR_LOGO_SOURCE}
+      style={[styles.logo, { width: size, height: size, opacity }]}
+      resizeMode="contain"
+      fadeDuration={0}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  clip: {
-    overflow: 'hidden',
-  },
-  image: {
-    position: 'absolute',
+  logo: {
+    // Sizing comes from the props; kept here so no inline-only style is needed.
   },
 });
