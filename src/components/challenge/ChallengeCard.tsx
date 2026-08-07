@@ -1,17 +1,15 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { areaLabel, challengesForArea } from '../../data/sparringChallenges';
+import { areaLabel, challengePosition } from '../../data/sparringChallenges';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import SparrLogo from '../common/SparrLogo';
 import { CARD_RADIUS, cardShadow } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
-// Position of the card inside its own deck — presentation only, derived from the data.
 function missionNumber(challenge: SparringChallenge): string {
-  const index = challengesForArea(challenge.area).findIndex((c) => c.id === challenge.id);
-  return `#${String(index + 1).padStart(3, '0')}`;
+  return `#${String(challengePosition(challenge)).padStart(3, '0')}`;
 }
 
 interface Props {
@@ -61,7 +59,7 @@ export default function ChallengeCard({
     <View style={[styles.card, { width: size.width, height: size.height }, cardShadow]}>
       <View style={[styles.header, { height: headerHeight }]}>
         <View style={styles.watermark} pointerEvents="none">
-          <SparrLogo size={watermarkSize} opacity={0.07} />
+          <SparrLogo size={watermarkSize} opacity={0.07} variant="texture" />
         </View>
 
         <View style={styles.headerTop}>

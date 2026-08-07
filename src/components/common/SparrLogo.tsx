@@ -1,41 +1,52 @@
 import React from 'react';
-import { Image, StyleSheet } from 'react-native';
+import { Image, PixelRatio } from 'react-native';
 
-// Two sizes of the same mark, both cropped out of assets/logo-home.png (1024x1536,
-// 2.1 MB, mostly transparent padding). In a dev build every asset travels over HTTP
-// from the Metro server, so the small file is what keeps the logo instant on a
-// device over WiFi — only one place on the whole screen needs the large one.
+// Two sizes of the same mark, cropped out of assets/logo-home.png (1024x1536, 2.1 MB,
+// mostly transparent padding). In a dev build every asset travels over HTTP from the
+// Metro server, so the small file is what keeps the logo instant on a device over WiFi.
+// Note: HeroSection and the map markers still render logo-home.png directly.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-export const SPARR_LOGO_SOURCE_SM = require('../../../assets/logo-mark-sm.png'); // 128 px, 19 KB
+const LOGO_SM = require('../../../assets/logo-mark-sm.png');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-export const SPARR_LOGO_SOURCE = require('../../../assets/logo-mark.png');       // 384 px, 154 KB
+const LOGO_LG = require('../../../assets/logo-mark.png');
 
-// 128 px covers every logo up to 42 pt on a 3x screen.
-const SMALL_MAX_SIZE = 42;
-// Below this the mark is background texture — its resolution is not perceivable.
-const TEXTURE_OPACITY = 0.2;
+const LOGO_SM_PIXEL_WIDTH = 128;
+
+// Largest point size the small file still covers sharply on this device.
+const SMALL_MAX_SIZE = LOGO_SM_PIXEL_WIDTH / PixelRatio.get();
 
 interface Props {
-  size:     number;
+  size: number;
   opacity?: number;
+  // 'texture' is a faint background element — it always uses the small file, however
+  // large it is drawn. Keeping this explicit means changing `opacity` for design
+  // reasons can never silently switch which asset is loaded.
+  variant?: 'mark' | 'texture';
 }
 
-// The Sparr brand mark, same artwork as the home header and the map markers.
-export default function SparrLogo({ size, opacity = 1 }: Props): React.ReactElement {
-  const useSmall = size <= SMALL_MAX_SIZE || opacity < TEXTURE_OPACITY;
+// The Sparr brand mark.
+export default function SparrLogo({
+  size,
+  opacity = 1,
+  variant = 'mark',
+}: Props): React.ReactElement {
+  const useSmall = variant === 'texture' || size <= SMALL_MAX_SIZE;
 
   return (
     <Image
-      source={useSmall ? SPARR_LOGO_SOURCE_SM : SPARR_LOGO_SOURCE}
-      style={[styles.logo, { width: size, height: size, opacity }]}
+      source={useSmall ? LOGO_SM : LOGO_LG}
+      style={{ width: size, height: size, opacity }}
       resizeMode="contain"
       fadeDuration={0}
     />
   );
 }
 
-const styles = StyleSheet.create({
-  logo: {
-    // Sizing comes from the props; kept here so no inline-only style is needed.
-  },
-});
+// Warms both files so the mark is already decoded when a card first renders.
+export function prefetchSparrLogo(): void {
+  for (const asset of [LOGO_SM, LOGO_LG]) {
+    const source = Image.resolveAssetSource(asset);
+    if (source?.uri === undefined) continue;
+    void Image.prefetch(source.uri).catch(() => undefined);
+  }
+}

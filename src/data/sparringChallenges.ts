@@ -1,3 +1,5 @@
+import type { Discipline } from './disciplines';
+
 // Sparrings-Challenges: Karten, die man sich fuer ein Sparring zieht.
 // Die Inhalte werden vom Auftraggeber geliefert — die Eintraege unten sind reine
 // Platzhalter, damit das UI lauffaehig ist, und werden 1:1 ersetzt.
@@ -108,25 +110,60 @@ export const SPARRING_CHALLENGES: SparringChallenge[] = [
   },
 ];
 
+export const DEFAULT_AREA: ChallengeArea = 'boxen';
+
+// Indexed once at module load: the deck is static app data, so every lookup below is
+// O(1) and `challengesForArea` hands out a stable array instead of a fresh filter.
+const BY_AREA: Record<ChallengeArea, SparringChallenge[]> = emptyAreaRecord(() => []);
+const BY_ID = new Map<string, SparringChallenge>();
+const POSITION_IN_AREA = new Map<string, number>();
+
+for (const challenge of SPARRING_CHALLENGES) {
+  const deck = BY_AREA[challenge.area];
+  deck.push(challenge);
+  BY_ID.set(challenge.id, challenge);
+  POSITION_IN_AREA.set(challenge.id, deck.length);
+}
+
+// Builds a record keyed by every challenge area, so a new area only has to be added
+// to CHALLENGE_AREAS.
+export function emptyAreaRecord<T>(value: () => T): Record<ChallengeArea, T> {
+  const record = {} as Record<ChallengeArea, T>;
+  for (const area of CHALLENGE_AREAS) record[area.key] = value();
+  return record;
+}
+
 export function challengesForArea(area: ChallengeArea): SparringChallenge[] {
-  return SPARRING_CHALLENGES.filter((c) => c.area === area);
+  return BY_AREA[area];
 }
 
 export function challengeById(id: string): SparringChallenge | null {
-  return SPARRING_CHALLENGES.find((c) => c.id === id) ?? null;
+  return BY_ID.get(id) ?? null;
 }
 
 export function areaLabel(area: ChallengeArea): string {
   return CHALLENGE_AREAS.find((a) => a.key === area)?.label ?? '';
 }
 
+// Position of a card inside its own deck, 1-based — shown as the mission number on
+// the card and as "Karte n von m" on the screen.
+export function challengePosition(challenge: SparringChallenge): number {
+  return POSITION_IN_AREA.get(challenge.id) ?? 0;
+}
+
 // Maps the disciplines from the user profile onto a challenge area. Only the three
-// striking disciplines have decks; everything else falls back to Boxen.
+// striking disciplines have decks; everything else falls back to the default.
+// Typed against Discipline so renaming one there breaks the build here.
+const AREA_BY_DISCIPLINE: Partial<Record<Discipline, ChallengeArea>> = {
+  Boxen:     'boxen',
+  Kickboxen: 'kickboxen',
+  MMA:       'mma',
+};
+
 export function areaFromDisciplines(disciplines: string[]): ChallengeArea {
-  for (const d of disciplines) {
-    if (d === 'Boxen') return 'boxen';
-    if (d === 'Kickboxen') return 'kickboxen';
-    if (d === 'MMA') return 'mma';
+  for (const discipline of disciplines) {
+    const area = AREA_BY_DISCIPLINE[discipline as Discipline];
+    if (area !== undefined) return area;
   }
-  return 'boxen';
+  return DEFAULT_AREA;
 }

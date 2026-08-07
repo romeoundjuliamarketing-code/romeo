@@ -4,7 +4,6 @@ import {
   Text,
   Modal,
   StyleSheet,
-  TouchableOpacity,
   useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -18,10 +17,10 @@ import Animated, {
   useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
-import { Ionicons } from '@expo/vector-icons';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
+import ChallengeHeader from './ChallengeHeader';
 import { useCardSize } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
@@ -111,19 +110,12 @@ export default function ChallengeBrowser({
       statusBarTranslucent
     >
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={onClose}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Schliessen"
-          >
-            <Ionicons name="close" size={24} color={colors.headerTextPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{areaTitle}</Text>
-          <View style={styles.headerBtn} />
-        </View>
+        <ChallengeHeader
+          title={areaTitle}
+          icon="close"
+          iconLabel="Schliessen"
+          onPress={onClose}
+        />
 
         {cards.length === 0 ? (
           <View style={styles.empty}>
@@ -168,24 +160,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.dark,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  headerBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.headerTextPrimary,
   },
   scrollContent: {
     alignItems: 'center',

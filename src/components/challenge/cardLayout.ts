@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 import { colors } from '../../theme/colors';
 
@@ -17,21 +18,20 @@ export interface CardSize {
 // screens, where a full-width card would push the actions off the screen.
 export function useCardSize(maxHeightFraction = 0.5): CardSize {
   const { width, height } = useWindowDimensions();
-  const byWidth  = Math.min(width * 0.78, MAX_CARD_WIDTH);
-  const byHeight = height * maxHeightFraction * CARD_ASPECT;
-  const cardWidth = Math.max(170, Math.min(byWidth, byHeight));
-  return {
-    width:  Math.round(cardWidth),
-    height: Math.round(cardWidth / CARD_ASPECT),
-  };
+  // Memoised so the size keeps its identity between renders and does not invalidate
+  // every consumer that takes it as a prop.
+  return useMemo(() => {
+    const byWidth   = Math.min(width * 0.78, MAX_CARD_WIDTH);
+    const byHeight  = height * maxHeightFraction * CARD_ASPECT;
+    const cardWidth = Math.max(170, Math.min(byWidth, byHeight));
+    return {
+      width:  Math.round(cardWidth),
+      height: Math.round(cardWidth / CARD_ASPECT),
+    };
+  }, [width, height, maxHeightFraction]);
 }
 
 export const cardShadow = Platform.select({
   ios:     { shadowColor: colors.dark, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16 },
   android: { elevation: 8 },
-});
-
-export const entryShadow = Platform.select({
-  ios:     { shadowColor: colors.dark, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8 },
-  android: { elevation: 3 },
 });

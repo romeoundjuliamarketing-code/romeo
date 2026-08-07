@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   CHALLENGE_AREAS,
-  SPARRING_CHALLENGES,
+  DEFAULT_AREA,
   areaFromDisciplines,
   challengeById,
   challengesForArea,
+  emptyAreaRecord,
 } from '../data/sparringChallenges';
 import type { ChallengeArea, SparringChallenge } from '../data/sparringChallenges';
 import { drawChallenge } from '../utils/challengeDraw';
@@ -21,9 +22,9 @@ interface StoredState {
 
 function emptyState(): StoredState {
   return {
-    area:    'boxen',
-    drawn:   { boxen: [], kickboxen: [], mma: [] },
-    current: { boxen: null, kickboxen: null, mma: null },
+    area:    DEFAULT_AREA,
+    drawn:   emptyAreaRecord<string[]>(() => []),
+    current: emptyAreaRecord<string | null>(() => null),
     done:    [],
   };
 }
@@ -59,21 +60,19 @@ function parseState(raw: string | null): { state: StoredState; hadArea: boolean 
   const drawn = (typeof obj.drawn === 'object' && obj.drawn !== null ? obj.drawn : {}) as Record<string, unknown>;
   const current = (typeof obj.current === 'object' && obj.current !== null ? obj.current : {}) as Record<string, unknown>;
 
+  const rawArea = obj.area;
+  const hadArea = isArea(rawArea);
   const state: StoredState = {
-    area: isArea(obj.area) ? obj.area : 'boxen',
-    drawn: {
-      boxen:     knownIds(drawn.boxen),
-      kickboxen: knownIds(drawn.kickboxen),
-      mma:       knownIds(drawn.mma),
-    },
-    current: {
-      boxen:     knownId(current.boxen),
-      kickboxen: knownId(current.kickboxen),
-      mma:       knownId(current.mma),
-    },
-    done: knownIds(obj.done),
+    area:    hadArea ? rawArea : DEFAULT_AREA,
+    drawn:   emptyAreaRecord<string[]>(() => []),
+    current: emptyAreaRecord<string | null>(() => null),
+    done:    knownIds(obj.done),
   };
-  return { state, hadArea: isArea(obj.area) };
+  for (const { key } of CHALLENGE_AREAS) {
+    state.drawn[key]   = knownIds(drawn[key]);
+    state.current[key] = knownId(current[key]);
+  }
+  return { state, hadArea };
 }
 
 export interface UseSparringChallengeResult {
@@ -82,7 +81,7 @@ export interface UseSparringChallengeResult {
   current:   SparringChallenge | null;
   deckSize:  number;
   remaining: number;
-  draw:      () => SparringChallenge | null;
+  draw:      () => void;
   toggleDone: (id: string) => void;
   isDone:    (id: string) => boolean;
   doneCount: number;
@@ -94,8 +93,8 @@ export interface UseSparringChallengeResult {
 export function useSparringChallenge(disciplines: string[]): UseSparringChallengeResult {
   const [state, setState] = useState<StoredState>(emptyState);
   const [loading, setLoading] = useState(true);
-  // Mirrors `state` synchronously so callbacks can read and write in one go — a
-  // setState updater would not hand the drawn card back to the caller.
+  // Mirrors `state` synchronously so a callback can read the current value and write
+  // the next one in a single pass, without waiting for a re-render.
   const stateRef = useRef<StoredState>(state);
   // True once the user (or a previous session) picked an area explicitly — the profile
   // disciplines must not override that choice when the profile loads late.
@@ -141,16 +140,15 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     apply({ ...stateRef.current, area });
   }, [apply]);
 
-  const draw = useCallback((): SparringChallenge | null => {
+  const draw = useCallback((): void => {
     const prev = stateRef.current;
     const result = drawChallenge(challengesForArea(prev.area), prev.drawn[prev.area]);
-    if (result === null) return null;
+    if (result === null) return;
     apply({
       ...prev,
       drawn:   { ...prev.drawn, [prev.area]: result.drawnIds },
       current: { ...prev.current, [prev.area]: result.card.id },
     });
-    return result.card;
   }, [apply]);
 
   const toggleDone = useCallback((id: string): void => {
@@ -161,7 +159,8 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     apply({ ...prev, done });
   }, [apply]);
 
-  const isDone = useCallback((id: string): boolean => state.done.includes(id), [state.done]);
+  const doneIds = useMemo(() => new Set(state.done), [state.done]);
+  const isDone = useCallback((id: string): boolean => doneIds.has(id), [doneIds]);
 
   const currentId = state.current[state.area];
   const deckSize  = challengesForArea(state.area).length;
@@ -179,5 +178,3 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     loading,
   };
 }
-
-export const TOTAL_CHALLENGES = SPARRING_CHALLENGES.length;

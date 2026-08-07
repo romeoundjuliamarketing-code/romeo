@@ -3,10 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { areaLabel, challengesForArea } from '../data/sparringChallenges';
+import { areaLabel, challengePosition, challengesForArea } from '../data/sparringChallenges';
 import { useProfile } from '../hooks/useProfile';
 import { useSparringChallenge } from '../hooks/useSparringChallenge';
 import ChallengeAreaTabs from '../components/challenge/ChallengeAreaTabs';
+import ChallengeHeader from '../components/challenge/ChallengeHeader';
 import ChallengeDeck, { DRAW_ANIMATION_MS } from '../components/challenge/ChallengeDeck';
 import ChallengeBrowser from '../components/challenge/ChallengeBrowser';
 import { useCardSize } from '../components/challenge/cardLayout';
@@ -54,7 +55,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
   // Position of the drawn card inside its deck, e.g. "Karte 2 von 3".
   const cardPosition = current === null
     ? null
-    : `Karte ${areaCards.findIndex((c) => c.id === current.id) + 1} von ${deckSize}`;
+    : `Karte ${challengePosition(current)} von ${deckSize}`;
 
   const status = deckEmpty
     ? 'Noch keine Karten in diesem Bereich'
@@ -64,19 +65,12 @@ export default function SparringChallengeScreen(): React.ReactElement {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Zurück"
-        >
-          <Ionicons name="chevron-back" size={26} color={colors.headerTextPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sparrings-Challenge</Text>
-        <View style={styles.headerBtn} />
-      </View>
+      <ChallengeHeader
+        title="Sparrings-Challenge"
+        icon="chevron-back"
+        iconLabel="Zurück"
+        onPress={() => navigation.goBack()}
+      />
 
       {loading ? (
         <View style={styles.loading}>
@@ -110,7 +104,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
               <View style={styles.actionRow}>
                 <TouchableOpacity
                   style={[styles.primaryBtn, styles.rowPrimary, cardDone && styles.primaryBtnDone]}
-                  onPress={() => { if (current !== null) toggleDone(current.id); }}
+                  onPress={() => toggleDone(current.id)}
                   activeOpacity={0.85}
                   accessibilityRole="button"
                   accessibilityState={{ selected: cardDone }}
@@ -159,14 +153,16 @@ export default function SparringChallengeScreen(): React.ReactElement {
         </View>
       )}
 
-      <ChallengeBrowser
-        visible={browserVisible}
-        cards={areaCards}
-        areaTitle={areaLabel(area)}
-        onClose={() => setBrowserVisible(false)}
-        isDone={isDone}
-        onToggleDone={toggleDone}
-      />
+      {browserVisible ? (
+        <ChallengeBrowser
+          visible
+          cards={areaCards}
+          areaTitle={areaLabel(area)}
+          onClose={() => setBrowserVisible(false)}
+          isDone={isDone}
+          onToggleDone={toggleDone}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -175,24 +171,6 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.dark,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  headerBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.headerTextPrimary,
   },
   loading: {
     flex: 1,

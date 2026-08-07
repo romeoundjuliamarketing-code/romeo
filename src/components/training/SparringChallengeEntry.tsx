@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors } from '../../theme/colors';
-import SparrLogo from '../common/SparrLogo';
+import SparrLogo, { prefetchSparrLogo } from '../common/SparrLogo';
+import { CARD_ASPECT } from '../challenge/cardLayout';
 
+// Same proportion as the real deck. The radius is deliberately not scaled down with
+// it — at this size the card would stop reading as rounded.
 const CARD_W = 74;
-const CARD_H = 104;
+const CARD_H = Math.round(CARD_W / CARD_ASPECT);
+const CARD_R = 10;
 
 // Fanned deck on the right of the hero. Only the front card carries the mark; the
 // two behind are filled surfaces so nothing shows through.
@@ -25,6 +29,9 @@ interface Props {
 }
 
 export default function SparringChallengeEntry({ onPress }: Props): React.ReactElement {
+  // The deck is one tap away from here — warm the mark before the screen opens.
+  useEffect(() => { prefetchSparrLogo(); }, []);
+
   return (
     <TouchableOpacity
       style={styles.hero}
@@ -109,7 +116,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: CARD_W,
     height: CARD_H,
-    borderRadius: 10,
+    borderRadius: CARD_R,
     borderWidth: 2,
     borderColor: colors.dark,
     alignItems: 'center',

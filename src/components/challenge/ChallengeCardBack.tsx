@@ -20,7 +20,7 @@ export default function ChallengeCardBack({ size }: Props): React.ReactElement {
       {/* Oversized mark, offset and cropped by the card edge so it reads as a
           background texture instead of a second face behind the centred logo. */}
       <View style={styles.watermark} pointerEvents="none">
-        <SparrLogo size={watermarkSize} opacity={0.05} />
+        <SparrLogo size={watermarkSize} opacity={0.05} variant="texture" />
       </View>
 
       <View style={styles.inset}>
