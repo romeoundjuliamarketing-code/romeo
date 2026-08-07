@@ -3,7 +3,7 @@
 // Returns null — no UI, no layout impact.
 import { useEffect } from 'react';
 import { Image } from 'react-native';
-import { SPARR_LOGO_SOURCE } from './SparrLogo';
+import { SPARR_LOGO_SOURCE, SPARR_LOGO_SOURCE_SM } from './SparrLogo';
 import { useWorkoutStats } from '../../hooks/useWorkoutStats';
 import { useFightRecord } from '../../hooks/useFightRecord';
 import { useStudio } from '../../hooks/useStudio';
@@ -25,9 +25,11 @@ import { useWeeklyVolume } from '../../hooks/useWeeklyVolume';
 // the Training hero or a challenge card first renders.
 function useWarmSparrLogo(): void {
   useEffect(() => {
-    const source = Image.resolveAssetSource(SPARR_LOGO_SOURCE);
-    if (source?.uri === undefined) return;
-    void Image.prefetch(source.uri).catch(() => undefined);
+    for (const asset of [SPARR_LOGO_SOURCE_SM, SPARR_LOGO_SOURCE]) {
+      const source = Image.resolveAssetSource(asset);
+      if (source?.uri === undefined) continue;
+      void Image.prefetch(source.uri).catch(() => undefined);
+    }
   }, []);
 }
 
