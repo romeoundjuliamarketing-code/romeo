@@ -94,7 +94,13 @@ export default function SparringChallengeScreen(): React.ReactElement {
           </View>
 
           <View style={styles.deckArea}>
-            <ChallengeDeck card={current} done={cardDone} size={cardSize} />
+            <ChallengeDeck
+              card={current}
+              done={cardDone}
+              size={cardSize}
+              onPress={handleDraw}
+              disabled={deckEmpty || drawing}
+            />
           </View>
 
           <View style={styles.actions}>

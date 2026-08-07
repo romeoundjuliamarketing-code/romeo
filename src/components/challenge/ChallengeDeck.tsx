@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import Animated, {
   Easing,
   runOnJS,
@@ -25,15 +25,23 @@ const FLIP_MS = 320; // and turns over
 export const DRAW_ANIMATION_MS = EXIT_MS + LIFT_MS + FLIP_MS;
 
 interface Props {
-  card: SparringChallenge | null;
-  done: boolean;
-  size: CardSize;
+  card:      SparringChallenge | null;
+  done:      boolean;
+  size:      CardSize;
+  onPress?:  () => void;
+  disabled?: boolean;
 }
 
 // Stack of cards. A draw lifts the top card off the deck, turns it over with a short
 // 3D flip and lets the deck behind move up. The flip uses two stacked faces whose
 // visibility switches at 90 degrees — backfaceVisibility is unreliable on Android.
-export default function ChallengeDeck({ card, done, size }: Props): React.ReactElement {
+export default function ChallengeDeck({
+  card,
+  done,
+  size,
+  onPress,
+  disabled = false,
+}: Props): React.ReactElement {
   const [displayCard, setDisplayCard] = useState<SparringChallenge | null>(card);
 
   const translateX = useSharedValue(0);
@@ -44,6 +52,7 @@ export default function ChallengeDeck({ card, done, size }: Props): React.ReactE
   // 0 = face down, 180 = face up
   const flip       = useSharedValue(card === null ? 0 : 180);
   const stackNudge = useSharedValue(0);
+  const press      = useSharedValue(1);
 
   const displayRef  = useRef<SparringChallenge | null>(card);
   const prevIdRef   = useRef<string | null>(card?.id ?? null);
@@ -160,27 +169,46 @@ export default function ChallengeDeck({ card, done, size }: Props): React.ReactE
     ],
   }));
 
+  // Press feedback sits on its own view so it composes with the draw animation
+  // instead of fighting it for the same shared values.
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: press.value }],
+  }));
+
   const layerSize = { width: size.width, height: size.height };
 
   return (
-    <View style={[styles.wrap, layerSize]}>
-      {/* Cards still in the deck — filled surfaces only, never any content */}
-      <Animated.View style={[styles.layer, styles.stackFar, layerSize, farStyle]} pointerEvents="none" />
-      <Animated.View style={[styles.layer, styles.stackNear, layerSize, nearStyle]} pointerEvents="none" />
+    <Animated.View style={[styles.wrap, layerSize, pressStyle]}>
+      <Pressable
+        style={[styles.wrap, layerSize]}
+        onPress={onPress}
+        onPressIn={() => { press.value = withTiming(0.97, { duration: 90 }); }}
+        onPressOut={() => { press.value = withSpring(1, { damping: 14, stiffness: 220 }); }}
+        disabled={disabled || onPress === undefined}
+        // The card is one tap target — the brief inside must not swallow the tap.
+        pointerEvents="box-only"
+        accessibilityRole="button"
+        accessibilityLabel="Neue Karte ziehen"
+        accessibilityHint="Tippe auf die Karte, um eine neue Mission zu ziehen"
+      >
+        {/* Cards still in the deck — filled surfaces only, never any content */}
+        <Animated.View style={[styles.layer, styles.stackFar, layerSize, farStyle]} pointerEvents="none" />
+        <Animated.View style={[styles.layer, styles.stackNear, layerSize, nearStyle]} pointerEvents="none" />
 
-      {/* Animated top card, isolated from the stack views */}
-      <Animated.View style={[styles.layer, layerSize, containerStyle]}>
-        <Animated.View style={[styles.face, backStyle]} pointerEvents="none">
-          <ChallengeCardBack size={size} />
-        </Animated.View>
-
-        {displayCard !== null ? (
-          <Animated.View style={[styles.face, frontStyle]}>
-            <ChallengeCard challenge={displayCard} size={size} done={done} />
+        {/* Animated top card, isolated from the stack views */}
+        <Animated.View style={[styles.layer, layerSize, containerStyle]}>
+          <Animated.View style={[styles.face, backStyle]} pointerEvents="none">
+            <ChallengeCardBack size={size} />
           </Animated.View>
-        ) : null}
-      </Animated.View>
-    </View>
+
+          {displayCard !== null ? (
+            <Animated.View style={[styles.face, frontStyle]}>
+              <ChallengeCard challenge={displayCard} size={size} done={done} scrollable={false} />
+            </Animated.View>
+          ) : null}
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
   );
 }
 

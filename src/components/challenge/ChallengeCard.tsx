@@ -19,6 +19,8 @@ interface Props {
   size:          CardSize;
   done?:         boolean;
   onToggleDone?: () => void;
+  // Off inside the deck, where the whole card is a tap target for drawing.
+  scrollable?:   boolean;
 }
 
 // Front of a challenge card: a blue mission header over a warm off-white brief.
@@ -27,7 +29,30 @@ export default function ChallengeCard({
   size,
   done = false,
   onToggleDone,
+  scrollable = true,
 }: Props): React.ReactElement {
+
+  const brief = (
+    <>
+      <View style={styles.levelBadge}>
+        <Text style={styles.levelText}>{challenge.difficulty}</Text>
+      </View>
+
+      <Text style={styles.title}>{challenge.title}</Text>
+      {/* Inside the deck the brief cannot scroll (the card is a tap target), so a very
+          long text ellipsizes here and stays readable in full under "Alle Karten ansehen". */}
+      <Text style={styles.instruction} numberOfLines={scrollable ? undefined : 9}>
+        {challenge.instruction}
+      </Text>
+
+      {challenge.successCriteria !== undefined ? (
+        <View style={styles.successBox}>
+          <Text style={styles.successLabel}>Geschafft, wenn</Text>
+          <Text style={styles.successText}>{challenge.successCriteria}</Text>
+        </View>
+      ) : null}
+    </>
+  );
   const headerHeight  = Math.round(size.height * 0.3);
   const watermarkSize = Math.round(size.width * 0.7);
   const number        = missionNumber(challenge);
@@ -55,26 +80,18 @@ export default function ChallengeCard({
       </View>
 
       <View style={styles.body}>
-        <ScrollView
-          style={styles.bodyScroll}
-          contentContainerStyle={styles.bodyContent}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-        >
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>{challenge.difficulty}</Text>
-          </View>
-
-          <Text style={styles.title}>{challenge.title}</Text>
-          <Text style={styles.instruction}>{challenge.instruction}</Text>
-
-          {challenge.successCriteria !== undefined ? (
-            <View style={styles.successBox}>
-              <Text style={styles.successLabel}>Geschafft, wenn</Text>
-              <Text style={styles.successText}>{challenge.successCriteria}</Text>
-            </View>
-          ) : null}
-        </ScrollView>
+        {scrollable ? (
+          <ScrollView
+            style={styles.bodyScroll}
+            contentContainerStyle={styles.bodyContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {brief}
+          </ScrollView>
+        ) : (
+          <View style={[styles.bodyScroll, styles.bodyContent]}>{brief}</View>
+        )}
 
         {onToggleDone !== undefined ? (
           <TouchableOpacity
