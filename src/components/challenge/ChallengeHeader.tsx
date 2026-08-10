@@ -8,6 +8,7 @@ interface Props {
   icon:       React.ComponentProps<typeof Ionicons>['name'];
   iconLabel:  string;
   onPress:    () => void;
+  right?:     React.ReactNode;
 }
 
 // Shared header for the challenge screen and its card browser.
@@ -16,6 +17,7 @@ export default function ChallengeHeader({
   icon,
   iconLabel,
   onPress,
+  right,
 }: Props): React.ReactElement {
   return (
     <View style={styles.header}>
@@ -29,8 +31,8 @@ export default function ChallengeHeader({
         <Ionicons name={icon} size={26} color={colors.headerTextPrimary} />
       </TouchableOpacity>
       <Text style={styles.title}>{title}</Text>
-      {/* Balances the button so the title stays centred */}
-      <View style={styles.button} />
+      {/* Balances the button so the title stays centred, unless a right slot is given */}
+      {right ?? <View style={styles.button} />}
     </View>
   );
 }

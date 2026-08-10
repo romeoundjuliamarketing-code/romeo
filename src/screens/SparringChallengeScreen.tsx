@@ -7,7 +7,7 @@ import { areaLabel, challengePosition, challengesForArea } from '../data/sparrin
 import { useProfile } from '../hooks/useProfile';
 import { useSparringChallenge } from '../hooks/useSparringChallenge';
 import { useChallengeRating } from '../hooks/useChallengeRating';
-import ChallengeAreaTabs from '../components/challenge/ChallengeAreaTabs';
+import ChallengeAreaPicker from '../components/challenge/ChallengeAreaPicker';
 import ChallengeHeader from '../components/challenge/ChallengeHeader';
 import ChallengeDeck, { DRAW_ANIMATION_MS } from '../components/challenge/ChallengeDeck';
 import ChallengeBrowser from '../components/challenge/ChallengeBrowser';
@@ -19,6 +19,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
   const navigation = useNavigation();
   const { profile } = useProfile();
   const [browserVisible, setBrowserVisible] = useState(false);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const drawTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardSize = useCardSize();
@@ -34,6 +35,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
     isDone,
     doneCount,
     loading,
+    areaChosen,
   } = useSparringChallenge(profile?.disciplines ?? []);
   const { ratedIds, submit: submitClarityRating } = useChallengeRating();
 
@@ -73,16 +75,28 @@ export default function SparringChallengeScreen(): React.ReactElement {
         icon="chevron-back"
         iconLabel="Zurück"
         onPress={() => navigation.goBack()}
+        right={loading || !areaChosen ? undefined : (
+          <TouchableOpacity
+            style={styles.areaButton}
+            onPress={() => setPickerVisible(true)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Disziplin ändern"
+          >
+            <Text style={styles.areaButtonLabel} numberOfLines={1}>{areaLabel(area)}</Text>
+            <Ionicons name="chevron-down" size={16} color={colors.headerTextPrimary} />
+          </TouchableOpacity>
+        )}
       />
 
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accentBlue} />
         </View>
+      ) : !areaChosen ? (
+        <ChallengeAreaPicker current={area} onSelect={setArea} />
       ) : (
         <View style={styles.body}>
-          <ChallengeAreaTabs area={area} onSelect={setArea} />
-
           <View style={styles.missionRow}>
             <Text style={styles.missionLabel}>DEINE MISSION</Text>
             {cardPosition !== null ? (
@@ -173,6 +187,17 @@ export default function SparringChallengeScreen(): React.ReactElement {
           onToggleDone={toggleDone}
         />
       ) : null}
+
+      {pickerVisible ? (
+        <ChallengeAreaPicker
+          current={area}
+          onSelect={(next) => {
+            setArea(next);
+            setPickerVisible(false);
+          }}
+          onClose={() => setPickerVisible(false)}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -186,6 +211,21 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  areaButton: {
+    height: 44,
+    maxWidth: 120,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  areaButtonLabel: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.headerTextPrimary,
   },
   body: {
     flex: 1,

@@ -77,6 +77,7 @@ function parseState(raw: string | null): { state: StoredState; hadArea: boolean 
 
 export interface UseSparringChallengeResult {
   area:      ChallengeArea;
+  areaChosen: boolean;
   setArea:   (area: ChallengeArea) => void;
   current:   SparringChallenge | null;
   deckSize:  number;
@@ -97,8 +98,9 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
   // the next one in a single pass, without waiting for a re-render.
   const stateRef = useRef<StoredState>(state);
   // True once the user (or a previous session) picked an area explicitly — the profile
-  // disciplines must not override that choice when the profile loads late.
-  const areaChosen = useRef(false);
+  // disciplines must not override that choice when the profile loads late, and the
+  // screen shows the picker until it flips.
+  const [areaChosen, setAreaChosen] = useState(false);
 
   // In-memory state leads; the write is fire-and-forget so the UI never waits on disk.
   const apply = useCallback((next: StoredState): void => {
@@ -113,7 +115,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
       .then((raw) => {
         if (!active) return;
         const { state: loaded, hadArea } = parseState(raw);
-        areaChosen.current = hadArea;
+        setAreaChosen(hadArea);
         stateRef.current = loaded;
         setState(loaded);
         setLoading(false);
@@ -127,16 +129,16 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
 
   // Preselect the area from the profile disciplines, but only until a choice exists.
   useEffect(() => {
-    if (loading || areaChosen.current || disciplines.length === 0) return;
+    if (loading || areaChosen || disciplines.length === 0) return;
     const area = areaFromDisciplines(disciplines);
     if (area === stateRef.current.area) return;
     const next = { ...stateRef.current, area };
     stateRef.current = next;
     setState(next);
-  }, [loading, disciplines]);
+  }, [loading, areaChosen, disciplines]);
 
   const setArea = useCallback((area: ChallengeArea): void => {
-    areaChosen.current = true;
+    setAreaChosen(true);
     apply({ ...stateRef.current, area });
   }, [apply]);
 
@@ -167,6 +169,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
 
   return {
     area:       state.area,
+    areaChosen,
     setArea,
     current:    currentId === null ? null : challengeById(currentId),
     deckSize,
