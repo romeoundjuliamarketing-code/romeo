@@ -13,19 +13,28 @@ import { drawChallenge } from '../utils/challengeDraw';
 
 const STORAGE_KEY = 'sparr.challenge.v1';
 
-interface StoredState {
-  area:    ChallengeArea;
+// Only the chosen discipline survives an app restart — everything else lives for the
+// lifetime of the mounted screen, so every open is a fresh deck (see design spec).
+interface PersistedState {
+  area: ChallengeArea;
+}
+
+interface SessionState {
   drawn:   Record<ChallengeArea, string[]>;
   current: Record<ChallengeArea, string | null>;
   done:    string[];
+  draws:   number;
 }
 
-function emptyState(): StoredState {
+type State = PersistedState & SessionState;
+
+function emptyState(): State {
   return {
     area:    DEFAULT_AREA,
     drawn:   emptyAreaRecord<string[]>(() => []),
     current: emptyAreaRecord<string | null>(() => null),
     done:    [],
+    draws:   0,
   };
 }
 
@@ -33,19 +42,12 @@ function isArea(value: unknown): value is ChallengeArea {
   return CHALLENGE_AREAS.some((a) => a.key === value);
 }
 
-function knownIds(ids: unknown): string[] {
-  if (!Array.isArray(ids)) return [];
-  return ids.filter((id): id is string => typeof id === 'string' && challengeById(id) !== null);
-}
-
-function knownId(id: unknown): string | null {
-  return typeof id === 'string' && challengeById(id) !== null ? id : null;
-}
-
-// Parses the persisted blob defensively: anything unknown or stale (e.g. IDs from an
-// older card set) is dropped instead of throwing, so the feature always stays usable.
-function parseState(raw: string | null): { state: StoredState; hadArea: boolean } {
-  const fallback = { state: emptyState(), hadArea: false };
+// Parses the persisted blob defensively: anything unknown is dropped instead of
+// throwing, so the feature always stays usable. Older stored states carried more
+// fields (drawn/current/done) — those are simply ignored now, the session starts
+// fresh regardless of what is on disk.
+function parseState(raw: string | null): { area: ChallengeArea; hadArea: boolean } {
+  const fallback = { area: DEFAULT_AREA, hadArea: false };
   if (raw === null) return fallback;
 
   let parsed: unknown;
@@ -57,22 +59,9 @@ function parseState(raw: string | null): { state: StoredState; hadArea: boolean 
   if (typeof parsed !== 'object' || parsed === null) return fallback;
 
   const obj = parsed as Record<string, unknown>;
-  const drawn = (typeof obj.drawn === 'object' && obj.drawn !== null ? obj.drawn : {}) as Record<string, unknown>;
-  const current = (typeof obj.current === 'object' && obj.current !== null ? obj.current : {}) as Record<string, unknown>;
-
   const rawArea = obj.area;
   const hadArea = isArea(rawArea);
-  const state: StoredState = {
-    area:    hadArea ? rawArea : DEFAULT_AREA,
-    drawn:   emptyAreaRecord<string[]>(() => []),
-    current: emptyAreaRecord<string | null>(() => null),
-    done:    knownIds(obj.done),
-  };
-  for (const { key } of CHALLENGE_AREAS) {
-    state.drawn[key]   = knownIds(drawn[key]);
-    state.current[key] = knownId(current[key]);
-  }
-  return { state, hadArea };
+  return { area: hadArea ? rawArea : DEFAULT_AREA, hadArea };
 }
 
 export interface UseSparringChallengeResult {
@@ -82,6 +71,7 @@ export interface UseSparringChallengeResult {
   current:   SparringChallenge | null;
   deckSize:  number;
   remaining: number;
+  draws:     number;
   draw:      () => void;
   toggleDone: (id: string) => void;
   isDone:    (id: string) => boolean;
@@ -89,24 +79,29 @@ export interface UseSparringChallengeResult {
   loading:   boolean;
 }
 
-// Keeps the drawn card, the draw history and the done markers on the device.
-// No backend involved — the challenge deck is static app data.
+// Keeps the chosen discipline on the device; the drawn card, the draw history and the
+// done markers live only for as long as the screen is mounted. No backend involved —
+// the challenge deck is static app data.
 export function useSparringChallenge(disciplines: string[]): UseSparringChallengeResult {
-  const [state, setState] = useState<StoredState>(emptyState);
+  const [state, setState] = useState<State>(emptyState);
   const [loading, setLoading] = useState(true);
   // Mirrors `state` synchronously so a callback can read the current value and write
   // the next one in a single pass, without waiting for a re-render.
-  const stateRef = useRef<StoredState>(state);
+  const stateRef = useRef<State>(state);
   // True once the user (or a previous session) picked an area explicitly — the profile
   // disciplines must not override that choice when the profile loads late, and the
   // screen shows the picker until it flips.
   const [areaChosen, setAreaChosen] = useState(false);
 
-  // In-memory state leads; the write is fire-and-forget so the UI never waits on disk.
-  const apply = useCallback((next: StoredState): void => {
+  // In-memory state leads. Only the area is persisted, and only when it changes —
+  // drawn/current/done/draws never touch disk.
+  const apply = useCallback((next: State, persist: boolean): void => {
     stateRef.current = next;
     setState(next);
-    void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => undefined);
+    if (persist) {
+      const persisted: PersistedState = { area: next.area };
+      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persisted)).catch(() => undefined);
+    }
   }, []);
 
   useEffect(() => {
@@ -114,8 +109,9 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
         if (!active) return;
-        const { state: loaded, hadArea } = parseState(raw);
+        const { area, hadArea } = parseState(raw);
         setAreaChosen(hadArea);
+        const loaded = { ...emptyState(), area };
         stateRef.current = loaded;
         setState(loaded);
         setLoading(false);
@@ -139,7 +135,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
 
   const setArea = useCallback((area: ChallengeArea): void => {
     setAreaChosen(true);
-    apply({ ...stateRef.current, area });
+    apply({ ...stateRef.current, area }, true);
   }, [apply]);
 
   const draw = useCallback((): void => {
@@ -150,7 +146,8 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
       ...prev,
       drawn:   { ...prev.drawn, [prev.area]: result.drawnIds },
       current: { ...prev.current, [prev.area]: result.card.id },
-    });
+      draws:   prev.draws + 1,
+    }, false);
   }, [apply]);
 
   const toggleDone = useCallback((id: string): void => {
@@ -158,7 +155,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     const done = prev.done.includes(id)
       ? prev.done.filter((d) => d !== id)
       : [...prev.done, id];
-    apply({ ...prev, done });
+    apply({ ...prev, done }, false);
   }, [apply]);
 
   const doneIds = useMemo(() => new Set(state.done), [state.done]);
@@ -174,6 +171,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     current:    currentId === null ? null : challengeById(currentId),
     deckSize,
     remaining:  Math.max(0, deckSize - state.drawn[state.area].length),
+    draws:      state.draws,
     draw,
     toggleDone,
     isDone,

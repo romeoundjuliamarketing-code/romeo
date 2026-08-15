@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { areaLabel, challengePosition, challengesForArea } from '../data/sparringChallenges';
+import type { SparringChallenge } from '../data/sparringChallenges';
 import { useProfile } from '../hooks/useProfile';
 import { useSparringChallenge } from '../hooks/useSparringChallenge';
 import { useChallengeRating } from '../hooks/useChallengeRating';
@@ -12,8 +13,13 @@ import ChallengeHeader from '../components/challenge/ChallengeHeader';
 import ChallengeDeck, { DRAW_ANIMATION_MS } from '../components/challenge/ChallengeDeck';
 import ChallengeBrowser from '../components/challenge/ChallengeBrowser';
 import ChallengeClarityRating from '../components/challenge/ChallengeClarityRating';
+import ChallengeRatingOverlay from '../components/challenge/ChallengeRatingOverlay';
 import { useCardSize } from '../components/challenge/cardLayout';
 import { colors } from '../theme/colors';
+
+// Every 4th draw of the session, the card just put aside gets asked about — see
+// design spec "Bewertungs-Overlay beim Ziehen".
+const RATING_OVERLAY_EVERY_N_DRAWS = 4;
 
 export default function SparringChallengeScreen(): React.ReactElement {
   const navigation = useNavigation();
@@ -21,6 +27,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
   const [browserVisible, setBrowserVisible] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [drawing, setDrawing] = useState(false);
+  const [overlayChallenge, setOverlayChallenge] = useState<SparringChallenge | null>(null);
   const drawTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardSize = useCardSize();
 
@@ -30,6 +37,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
     current,
     deckSize,
     remaining,
+    draws,
     draw,
     toggleDone,
     isDone,
@@ -44,13 +52,25 @@ export default function SparringChallengeScreen(): React.ReactElement {
   }, []);
 
   // Blocks a second draw while the card is still moving, so rapid taps cannot
-  // burn through the deck.
+  // burn through the deck. The same timer that releases the lock also decides,
+  // after the flip has finished, whether the card just put aside should be rated.
   const handleDraw = useCallback((): void => {
     if (drawing || deckSize === 0) return;
+    const replacedCard = current;
+    const nextDraws = draws + 1;
     setDrawing(true);
     draw();
-    drawTimer.current = setTimeout(() => setDrawing(false), DRAW_ANIMATION_MS + 40);
-  }, [drawing, deckSize, draw]);
+    drawTimer.current = setTimeout(() => {
+      setDrawing(false);
+      if (
+        replacedCard !== null &&
+        nextDraws % RATING_OVERLAY_EVERY_N_DRAWS === 0 &&
+        !ratedIds.has(replacedCard.id)
+      ) {
+        setOverlayChallenge(replacedCard);
+      }
+    }, DRAW_ANIMATION_MS + 40);
+  }, [drawing, deckSize, draw, current, draws, ratedIds]);
 
   const areaCards = challengesForArea(area);
   const deckEmpty = deckSize === 0;
@@ -176,6 +196,17 @@ export default function SparringChallengeScreen(): React.ReactElement {
           </View>
         </View>
       )}
+
+      {overlayChallenge !== null ? (
+        <ChallengeRatingOverlay
+          challenge={overlayChallenge}
+          onRate={(clarity) => {
+            submitClarityRating(overlayChallenge.id, clarity);
+            setOverlayChallenge(null);
+          }}
+          onSkip={() => setOverlayChallenge(null)}
+        />
+      ) : null}
 
       {browserVisible ? (
         <ChallengeBrowser

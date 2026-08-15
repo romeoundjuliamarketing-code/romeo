@@ -2,22 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-
-type ClarityValue = 1 | 2 | 3;
-
-interface ClarityLevel {
-  value: ClarityValue;
-  icon:  React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  label: string;
-}
-
-// Single source of truth for the three clarity levels — swapping these icons for
-// penguin illustrations later only touches this array.
-const CLARITY_LEVELS: ClarityLevel[] = [
-  { value: 1, icon: 'emoticon-confused-outline', label: 'Unklar' },
-  { value: 2, icon: 'emoticon-neutral-outline',  label: 'Geht so' },
-  { value: 3, icon: 'emoticon-happy-outline',    label: 'Klar' },
-];
+import { CLARITY_LEVELS } from './clarityLevels';
+import type { ClarityValue } from './clarityLevels';
 
 const QUESTION_LABEL = 'Wie verständlich war die Aufgabe?';
 const THANKS_LABEL   = 'Danke';
