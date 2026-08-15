@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { CHALLENGE_AREAS, challengesForArea } from '../../data/sparringChallenges';
 import type { ChallengeArea } from '../../data/sparringChallenges';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import ChallengeHeader from './ChallengeHeader';
 
 interface Props {
   current:  ChallengeArea;
@@ -31,7 +32,7 @@ function AreaPickerContent({ current, onSelect }: Omit<Props, 'onClose'>): React
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
             >
-              <Text style={[styles.rowLabel, active && styles.rowLabelActive]}>
+              <Text style={styles.rowLabel}>
                 {entry.label}
               </Text>
               <Text style={[styles.rowCount, active && styles.rowCountActive]}>
@@ -60,20 +61,15 @@ export default function ChallengeAreaPicker({ current, onSelect, onClose }: Prop
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.modalSafe}>
-        <View style={styles.modalHeader}>
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Schliessen"
-          >
-            <Ionicons name="close" size={26} color={colors.headerTextPrimary} />
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
+        <ChallengeHeader
+          title="Disziplin"
+          icon="close"
+          iconLabel="Schliessen"
+          onPress={onClose}
+        />
         <AreaPickerContent current={current} onSelect={onSelect} />
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
@@ -82,18 +78,6 @@ const styles = StyleSheet.create({
   modalSafe: {
     flex: 1,
     backgroundColor: colors.dark,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  closeButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   content: {
     flex: 1,
@@ -126,9 +110,6 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.headerTextPrimary,
-  },
-  rowLabelActive: {
     color: colors.headerTextPrimary,
   },
   rowCount: {

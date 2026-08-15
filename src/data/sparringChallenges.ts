@@ -8,6 +8,9 @@ export type ChallengeArea = 'boxen' | 'kickboxen' | 'mma';
 
 export type ChallengeDifficulty = 'leicht' | 'mittel' | 'schwer';
 
+// Clarity rating scale, mirrored by the CHECK constraint on challenge_ratings.
+export type ClarityValue = 1 | 2 | 3;
+
 export interface SparringChallenge {
   id:          string;
   area:        ChallengeArea;

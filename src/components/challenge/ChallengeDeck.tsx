@@ -55,7 +55,6 @@ export default function ChallengeDeck({
 
   const displayRef  = useRef<SparringChallenge | null>(card);
   const prevIdRef   = useRef<string | null>(card?.id ?? null);
-  const firstRunRef = useRef(true);
 
   // Lifts the next card off the deck and turns it over.
   const revealCard = (next: SparringChallenge | null): void => {
@@ -94,20 +93,9 @@ export default function ChallengeDeck({
 
   useEffect(() => {
     const id = card?.id ?? null;
-    // Consumed on the very first run regardless of outcome, so a later draw animates.
-    const isFirstRun = firstRunRef.current;
-    firstRunRef.current = false;
-
-    if (id === prevIdRef.current && !isFirstRun) return;
+    // On mount the refs already hold this card, so the guard covers the first run too.
+    if (id === prevIdRef.current) return;
     prevIdRef.current = id;
-
-    // A card restored from storage on mount is not a new card — show it face up.
-    if (isFirstRun) {
-      displayRef.current = card;
-      setDisplayCard(card);
-      flip.value = card === null ? 0 : 180;
-      return;
-    }
 
     // Nothing on the stack yet: the top card is lifted and turned straight away.
     if (displayRef.current === null) {

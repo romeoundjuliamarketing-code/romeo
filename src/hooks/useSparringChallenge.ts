@@ -23,7 +23,6 @@ interface SessionState {
   drawn:   Record<ChallengeArea, string[]>;
   current: Record<ChallengeArea, string | null>;
   done:    string[];
-  draws:   number;
 }
 
 type State = PersistedState & SessionState;
@@ -34,7 +33,6 @@ function emptyState(): State {
     drawn:   emptyAreaRecord<string[]>(() => []),
     current: emptyAreaRecord<string | null>(() => null),
     done:    [],
-    draws:   0,
   };
 }
 
@@ -42,26 +40,22 @@ function isArea(value: unknown): value is ChallengeArea {
   return CHALLENGE_AREAS.some((a) => a.key === value);
 }
 
-// Parses the persisted blob defensively: anything unknown is dropped instead of
-// throwing, so the feature always stays usable. Older stored states carried more
-// fields (drawn/current/done) — those are simply ignored now, the session starts
-// fresh regardless of what is on disk.
-function parseState(raw: string | null): { area: ChallengeArea; hadArea: boolean } {
-  const fallback = { area: DEFAULT_AREA, hadArea: false };
-  if (raw === null) return fallback;
+// Reads the one persisted field defensively — null means "never chosen", which is
+// what makes the screen show the picker. Older stored states carried more fields
+// (drawn/current/done); those are simply ignored, the session always starts fresh.
+function storedArea(raw: string | null): ChallengeArea | null {
+  if (raw === null) return null;
 
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return fallback;
+    return null;
   }
-  if (typeof parsed !== 'object' || parsed === null) return fallback;
+  if (typeof parsed !== 'object' || parsed === null) return null;
 
-  const obj = parsed as Record<string, unknown>;
-  const rawArea = obj.area;
-  const hadArea = isArea(rawArea);
-  return { area: hadArea ? rawArea : DEFAULT_AREA, hadArea };
+  const area = (parsed as Record<string, unknown>).area;
+  return isArea(area) ? area : null;
 }
 
 export interface UseSparringChallengeResult {
@@ -71,7 +65,6 @@ export interface UseSparringChallengeResult {
   current:   SparringChallenge | null;
   deckSize:  number;
   remaining: number;
-  draws:     number;
   draw:      () => void;
   toggleDone: (id: string) => void;
   isDone:    (id: string) => boolean;
@@ -93,15 +86,11 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
   // screen shows the picker until it flips.
   const [areaChosen, setAreaChosen] = useState(false);
 
-  // In-memory state leads. Only the area is persisted, and only when it changes —
-  // drawn/current/done/draws never touch disk.
-  const apply = useCallback((next: State, persist: boolean): void => {
+  // In-memory state leads; the ref mirror lets a callback read and write in one pass.
+  // Nothing here touches disk — see setArea for the single persisted field.
+  const apply = useCallback((next: State): void => {
     stateRef.current = next;
     setState(next);
-    if (persist) {
-      const persisted: PersistedState = { area: next.area };
-      void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persisted)).catch(() => undefined);
-    }
   }, []);
 
   useEffect(() => {
@@ -109,11 +98,9 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
         if (!active) return;
-        const { area, hadArea } = parseState(raw);
-        setAreaChosen(hadArea);
-        const loaded = { ...emptyState(), area };
-        stateRef.current = loaded;
-        setState(loaded);
+        const chosen = storedArea(raw);
+        setAreaChosen(chosen !== null);
+        apply({ ...emptyState(), area: chosen ?? DEFAULT_AREA });
         setLoading(false);
       })
       .catch(() => {
@@ -121,21 +108,21 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
         setLoading(false);
       });
     return () => { active = false; };
-  }, []);
+  }, [apply]);
 
   // Preselect the area from the profile disciplines, but only until a choice exists.
   useEffect(() => {
     if (loading || areaChosen || disciplines.length === 0) return;
     const area = areaFromDisciplines(disciplines);
     if (area === stateRef.current.area) return;
-    const next = { ...stateRef.current, area };
-    stateRef.current = next;
-    setState(next);
-  }, [loading, areaChosen, disciplines]);
+    apply({ ...stateRef.current, area });
+  }, [loading, areaChosen, disciplines, apply]);
 
   const setArea = useCallback((area: ChallengeArea): void => {
     setAreaChosen(true);
-    apply({ ...stateRef.current, area }, true);
+    apply({ ...stateRef.current, area });
+    const persisted: PersistedState = { area };
+    void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persisted)).catch(() => undefined);
   }, [apply]);
 
   const draw = useCallback((): void => {
@@ -146,8 +133,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
       ...prev,
       drawn:   { ...prev.drawn, [prev.area]: result.drawnIds },
       current: { ...prev.current, [prev.area]: result.card.id },
-      draws:   prev.draws + 1,
-    }, false);
+    });
   }, [apply]);
 
   const toggleDone = useCallback((id: string): void => {
@@ -155,7 +141,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     const done = prev.done.includes(id)
       ? prev.done.filter((d) => d !== id)
       : [...prev.done, id];
-    apply({ ...prev, done }, false);
+    apply({ ...prev, done });
   }, [apply]);
 
   const doneIds = useMemo(() => new Set(state.done), [state.done]);
@@ -171,7 +157,6 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
     current:    currentId === null ? null : challengeById(currentId),
     deckSize,
     remaining:  Math.max(0, deckSize - state.drawn[state.area].length),
-    draws:      state.draws,
     draw,
     toggleDone,
     isDone,

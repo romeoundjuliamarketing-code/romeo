@@ -63,7 +63,7 @@ export default function ChallengeCard({
     <View style={[styles.card, { width: size.width, height: size.height }, elevated && cardShadow]}>
       <View style={[styles.header, { height: headerHeight }]}>
         <View style={styles.watermark} pointerEvents="none">
-          <SparrLogo size={watermarkSize} opacity={0.07} variant="texture" />
+          <SparrLogo size={watermarkSize} opacity={0.07} />
         </View>
 
         <View style={styles.headerTop}>

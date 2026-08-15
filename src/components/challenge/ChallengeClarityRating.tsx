@@ -1,60 +1,33 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import type { ClarityValue } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
-import { CLARITY_LEVELS } from './clarityLevels';
-import type { ClarityValue } from './clarityLevels';
+import { useClarityChoice } from './clarityLevels';
+import ClarityButtons from './ClarityButtons';
 
 const QUESTION_LABEL = 'Wie verständlich war die Aufgabe?';
 const THANKS_LABEL   = 'Danke';
-const THANKS_DURATION_MS = 1500;
 
 interface Props {
   onRate: (clarity: ClarityValue) => void;
 }
 
-// One-line clarity rating shown after a card is marked as done. Selecting a
-// level shows a brief "Danke" before the parent hides the row (once it calls
-// onRate, which optimistically removes the card from the rated set).
+// One-line clarity rating shown after a card is marked as done. Selecting a level
+// shows a brief confirmation before the parent hides the row.
 export default function ChallengeClarityRating({ onRate }: Props): React.ReactElement {
-  const [selected, setSelected] = useState<ClarityValue | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
-  }, []);
-
-  const handleSelect = useCallback((value: ClarityValue): void => {
-    if (selected !== null) return;
-    setSelected(value);
-    timerRef.current = setTimeout(() => onRate(value), THANKS_DURATION_MS);
-  }, [selected, onRate]);
+  const { selected, choose } = useClarityChoice(onRate);
 
   return (
     <View style={styles.row}>
       <Text style={styles.question} numberOfLines={2}>
         {selected === null ? QUESTION_LABEL : THANKS_LABEL}
       </Text>
-      <View style={styles.buttons}>
-        {CLARITY_LEVELS.map((level) => (
-          <TouchableOpacity
-            key={level.value}
-            style={styles.button}
-            onPress={() => handleSelect(level.value)}
-            activeOpacity={0.7}
-            disabled={selected !== null}
-            accessibilityRole="button"
-            accessibilityLabel={level.label}
-            accessibilityState={{ selected: selected === level.value }}
-          >
-            <MaterialCommunityIcons
-              name={level.icon}
-              size={24}
-              color={selected === level.value ? colors.accentBlue : colors.headerTextSecondary}
-            />
-          </TouchableOpacity>
-        ))}
-      </View>
+      <ClarityButtons
+        selected={selected}
+        onSelect={choose}
+        iconSize={24}
+        inactiveColor={colors.headerTextSecondary}
+      />
     </View>
   );
 }
@@ -74,15 +47,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.headerTextSecondary,
-  },
-  buttons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  button: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
