@@ -17,9 +17,12 @@ import ChallengeCardBack from './ChallengeCardBack';
 import { CARD_RADIUS, cardShadow } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
-const EXIT_MS = 120; // played card leaves
-const LIFT_MS = 130; // top back card lifts off the stack
-const FLIP_MS = 320; // and turns over
+const EXIT_MS = 160; // played card arcs away
+const LIFT_MS = 150; // next card rises off the deck
+const FLIP_MS = 330; // and turns over, overshooting a little
+
+// How far the turn carries past face-up before springing back.
+const FLIP_OVERSHOOT_DEG = 188;
 
 // Total time a draw is blocked, see SparringChallengeScreen.
 export const DRAW_ANIMATION_MS = EXIT_MS + LIFT_MS + FLIP_MS;
@@ -51,6 +54,8 @@ export default function ChallengeDeck({
   // 0 = face down, 180 = face up
   const flip       = useSharedValue(card === null ? 0 : 180);
   const stackNudge = useSharedValue(0);
+  // 0 = deck sits flat, 1 = deck has receded behind the lifted card
+  const stackRecede = useSharedValue(0);
   const press      = useSharedValue(1);
 
   const displayRef  = useRef<SparringChallenge | null>(card);
@@ -67,26 +72,40 @@ export default function ChallengeDeck({
     flip.value       = 0;
     translateY.value = 0;
 
-    // 1. lift off the deck, settle back down once the turn is nearly through
+    // 1. rise off the deck and settle back down once the turn is nearly through
     translateY.value = withSequence(
-      withTiming(-14, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
-      withDelay(FLIP_MS - 120, withSpring(0, { damping: 15, stiffness: 200 })),
+      withTiming(-20, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
+      withDelay(FLIP_MS - 140, withSpring(0, { damping: 14, stiffness: 190 })),
     );
 
-    // 2. + 3. turn over, front appears at the halfway point
+    // On a near-black screen a drop shadow would be invisible, so depth comes from
+    // parallax instead: the deck recedes while the top card is up.
+    stackRecede.value = withSequence(
+      withTiming(1, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
+      withDelay(FLIP_MS - 140, withSpring(0, { damping: 14, stiffness: 190 })),
+    );
+
+    // 2. + 3. turn over past face-up, then spring back — the overshoot is what makes
+    // the flip read as weight rather than a slide.
     if (next !== null) {
       flip.value = withDelay(
         LIFT_MS,
-        withTiming(180, { duration: FLIP_MS, easing: Easing.inOut(Easing.ease) }),
+        withSequence(
+          withTiming(FLIP_OVERSHOOT_DEG, {
+            duration: Math.round(FLIP_MS * 0.82),
+            easing: Easing.out(Easing.cubic),
+          }),
+          withSpring(180, { damping: 12, stiffness: 170 }),
+        ),
       );
     }
 
-    // 4. the deck behind moves up a few points
+    // 4. the deck behind fans out and snaps back
     stackNudge.value = withDelay(
       LIFT_MS,
       withSequence(
         withTiming(1, { duration: Math.round(FLIP_MS * 0.6) }),
-        withTiming(0, { duration: Math.round(FLIP_MS * 0.4) }),
+        withSpring(0, { damping: 13, stiffness: 180 }),
       ),
     );
   };
@@ -103,12 +122,17 @@ export default function ChallengeDeck({
       return;
     }
 
-    // Otherwise the played card leaves first.
-    opacity.value    = withTiming(0, { duration: EXIT_MS });
-    rotate.value     = withTiming(-4, { duration: EXIT_MS });
+    // Otherwise the played card is flicked away first: it tips, rises and drops
+    // along a shallow arc instead of sliding out flat.
+    opacity.value = withTiming(0, { duration: EXIT_MS });
+    rotate.value  = withTiming(-12, { duration: EXIT_MS, easing: Easing.in(Easing.quad) });
+    translateY.value = withSequence(
+      withTiming(-16, { duration: Math.round(EXIT_MS * 0.45) }),
+      withTiming(14, { duration: Math.round(EXIT_MS * 0.55) }),
+    );
     translateX.value = withTiming(
-      -(size.width * 0.9),
-      { duration: EXIT_MS },
+      -(size.width * 1.05),
+      { duration: EXIT_MS, easing: Easing.in(Easing.quad) },
       (finished) => {
         if (finished === true) runOnJS(revealCard)(card);
       },
@@ -135,18 +159,22 @@ export default function ChallengeDeck({
   }));
 
   const nearStyle = useAnimatedStyle(() => ({
+    opacity: 1 - stackRecede.value * 0.35,
     transform: [
       { translateY: -4 - stackNudge.value * 3 },
       { translateX: 4 - stackNudge.value * 2 },
-      { rotate: '1.2deg' },
+      { rotate: `${1.2 + stackNudge.value * 1.6}deg` },
+      { scale: 1 - stackRecede.value * 0.05 },
     ],
   }));
 
   const farStyle = useAnimatedStyle(() => ({
+    opacity: 1 - stackRecede.value * 0.5,
     transform: [
       { translateY: -8 - stackNudge.value * 3 },
       { translateX: 8 - stackNudge.value * 2 },
-      { rotate: '2.4deg' },
+      { rotate: `${2.4 + stackNudge.value * 2.4}deg` },
+      { scale: 1 - stackRecede.value * 0.09 },
     ],
   }));
 
