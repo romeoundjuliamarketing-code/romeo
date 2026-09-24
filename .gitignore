@@ -46,3 +46,8 @@ supabase/.temp/
 
 # Lokale Claude-Worktrees nie committen
 .claude/worktrees/
+
+# Editor-/FUSE-Leichen (entstehen beim Loeschen geoeffneter Dateien auf Sync-Mounts)
+*.bak
+*.bak[0-9]
+.fuse_hidden*
