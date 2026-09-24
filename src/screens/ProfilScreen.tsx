@@ -24,6 +24,7 @@ import { colors } from '../theme/colors';
 import FightRecordCard from '../components/profil/FightRecordCard';
 import AddFightSheet from '../components/profil/AddFightSheet';
 import ProfileHero from '../components/profil/ProfileHero';
+import SparringReliabilityRow from '../components/profil/SparringReliabilityRow';
 import ProfileTabBar from '../components/profil/ProfileTabBar';
 import type { ProfileTab } from '../components/profil/ProfileTabBar';
 import OverviewTab from '../components/profil/OverviewTab';
@@ -191,6 +192,11 @@ export default function ProfilScreen(): React.ReactElement {
           onPressPoints={() => navigation.navigate('PointsBreakdown')}
           onPressStreak={() => navigation.navigate('AttendanceHistory')}
         />
+
+        {/* ── Zuverlässigkeit ── */}
+        <View style={styles.reliabilityRow}>
+          <SparringReliabilityRow userId={profile?.id ?? null} refetchTrigger={focusTrigger} />
+        </View>
 
         {/* ── Tab bar ── */}
         <ProfileTabBar activeTab={activeTab} onTabPress={setActiveTab} />
@@ -438,6 +444,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabContent: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  reliabilityRow: {
     paddingHorizontal: 16,
     paddingTop: 8,
     maxWidth: 600,

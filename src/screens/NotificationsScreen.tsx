@@ -9,14 +9,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useNotificationsContext } from '../context/NotificationsContext';
 import NotificationRow from '../components/notifications/NotificationRow';
 import type { AppNotification } from '../types/database.types';
+import type { RootStackParamList } from '../navigation/types';
 
 export default function NotificationsScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { notifications, loading, refetch, markAllRead } = useNotificationsContext();
 
   // Mark all read and refetch when the screen comes into focus
@@ -26,8 +28,18 @@ export default function NotificationsScreen() {
     }, [markAllRead]),
   );
 
+  // Sparring-related notifications carry data.sparring_id — tap opens the
+  // matching detail sheet on the map (fallback fetch handles started/past
+  // sparrings not in the upcoming list, see useOpenSparrings.fetchSparringById).
+  function handlePressNotification(item: AppNotification): void {
+    const sparringId = item.data.sparring_id;
+    if (typeof sparringId === 'string') {
+      navigation.navigate('SparringMap', { focusSparringId: sparringId });
+    }
+  }
+
   function renderItem({ item }: { item: AppNotification }) {
-    return <NotificationRow item={item} />;
+    return <NotificationRow item={item} onPress={handlePressNotification} />;
   }
 
   function keyExtractor(item: AppNotification) {

@@ -27,7 +27,9 @@ import type { FightRecord, ReportReason } from '../types/database.types';
 import { supabase } from '../lib/supabase';
 import { useSparringRatings } from '../hooks/useSparringRatings';
 import { useUserReport }      from '../hooks/useUserReport';
+import { SHOW_SPARRING_STARS } from '../data/sparringConfig';
 import FightRecordCard        from '../components/profil/FightRecordCard';
+import SparringReliabilityRow from '../components/profil/SparringReliabilityRow';
 import { useAuth }            from '../context/AuthContext';
 import { getInitials }        from '../components/profil/ProfileHero';
 import { stanceLabel }        from '../utils/stance';
@@ -286,6 +288,7 @@ export default function PublicProfileScreen(): React.ReactElement {
   // ── derived values ────────────────────────────────────────────────────────────
 
   const canRateNow =
+    SHOW_SPARRING_STARS &&
     sparringId !== undefined &&
     sparringScheduledAt !== undefined &&
     canRate(sparringScheduledAt) &&
@@ -434,21 +437,28 @@ export default function PublicProfileScreen(): React.ReactElement {
               </View>
             </View>
 
-            {/* Average rating */}
+            {/* Average rating (hidden behind SHOW_SPARRING_STARS in favour of the reliability quote) */}
+            {SHOW_SPARRING_STARS && (
+              <View style={styles.ratingRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Ionicons
+                    key={s}
+                    name={averageStars !== null && s <= Math.round(averageStars) ? 'star' : 'star-outline'}
+                    size={18}
+                    color={colors.accent}
+                  />
+                ))}
+                <Text style={styles.ratingCount}>
+                  {ratingCount === 0
+                    ? 'Noch keine Bewertungen'
+                    : `(${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'})`}
+                </Text>
+              </View>
+            )}
+
+            {/* Objective reliability quote — replaces the sparring star average */}
             <View style={styles.ratingRow}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <Ionicons
-                  key={s}
-                  name={averageStars !== null && s <= Math.round(averageStars) ? 'star' : 'star-outline'}
-                  size={18}
-                  color={colors.accent}
-                />
-              ))}
-              <Text style={styles.ratingCount}>
-                {ratingCount === 0
-                  ? 'Noch keine Bewertungen'
-                  : `(${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'})`}
-              </Text>
+              <SparringReliabilityRow userId={userId} />
             </View>
 
             {/* Action row: rate + vouch */}
@@ -563,7 +573,7 @@ export default function PublicProfileScreen(): React.ReactElement {
               )}
 
               {/* Own existing rating */}
-              {existingRating !== null && (
+              {SHOW_SPARRING_STARS && existingRating !== null && (
                 <View style={styles.card}>
                   <Text style={styles.sectionTitle}>Deine Bewertung</Text>
                   <View style={styles.starsRow}>
@@ -598,74 +608,76 @@ export default function PublicProfileScreen(): React.ReactElement {
         </View>
       </ScrollView>
 
-      {/* ── Rating Modal ──────────────────────────────────────────────── */}
-      <Modal
-        visible={ratingModalVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setRatingModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalBackdrop}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      {/* ── Rating Modal (hidden behind SHOW_SPARRING_STARS) ────────────── */}
+      {SHOW_SPARRING_STARS && (
+        <Modal
+          visible={ratingModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setRatingModalVisible(false)}
         >
-          <TouchableOpacity
-            style={styles.modalDismiss}
-            activeOpacity={1}
-            onPress={() => setRatingModalVisible(false)}
-          />
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Bewertung abgeben</Text>
-            <Text style={styles.ratingSubtext}>Bewerte das Verhalten – nicht den Skill</Text>
-
-            <View style={styles.starsRow}>
-              {[1, 2, 3, 4, 5].map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  onPress={() => setSelectedStars(s)}
-                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                >
-                  <Ionicons
-                    name={s <= selectedStars ? 'star' : 'star-outline'}
-                    size={36}
-                    color={colors.accent}
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {selectedStars > 0 && (
-              <Text style={styles.starLabel}>{STAR_LABELS[selectedStars]}</Text>
-            )}
-
-            <TextInput
-              style={styles.commentInput}
-              placeholder="Kurzer Kommentar..."
-              placeholderTextColor={colors.textSecondary}
-              value={ratingComment}
-              onChangeText={setRatingComment}
-              maxLength={200}
-              multiline
-            />
-            <Text style={styles.charCount}>{ratingComment.length}/200</Text>
-
+          <KeyboardAvoidingView
+            style={styles.modalBackdrop}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
             <TouchableOpacity
-              style={[
-                styles.submitBtn,
-                (selectedStars === 0 || ratingComment.trim().length === 0) && styles.submitBtnDisabled,
-              ]}
-              onPress={() => { void handleSubmitRating(); }}
-              disabled={ratingSubmitting || selectedStars === 0 || ratingComment.trim().length === 0}
-            >
-              {ratingSubmitting
-                ? <ActivityIndicator color={colors.card} />
-                : <Text style={styles.submitBtnText}>Speichern</Text>
-              }
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+              style={styles.modalDismiss}
+              activeOpacity={1}
+              onPress={() => setRatingModalVisible(false)}
+            />
+            <View style={styles.modalSheet}>
+              <View style={styles.modalHandle} />
+              <Text style={styles.modalTitle}>Bewertung abgeben</Text>
+              <Text style={styles.ratingSubtext}>Bewerte das Verhalten – nicht den Skill</Text>
+
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    onPress={() => setSelectedStars(s)}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  >
+                    <Ionicons
+                      name={s <= selectedStars ? 'star' : 'star-outline'}
+                      size={36}
+                      color={colors.accent}
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {selectedStars > 0 && (
+                <Text style={styles.starLabel}>{STAR_LABELS[selectedStars]}</Text>
+              )}
+
+              <TextInput
+                style={styles.commentInput}
+                placeholder="Kurzer Kommentar..."
+                placeholderTextColor={colors.textSecondary}
+                value={ratingComment}
+                onChangeText={setRatingComment}
+                maxLength={200}
+                multiline
+              />
+              <Text style={styles.charCount}>{ratingComment.length}/200</Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.submitBtn,
+                  (selectedStars === 0 || ratingComment.trim().length === 0) && styles.submitBtnDisabled,
+                ]}
+                onPress={() => { void handleSubmitRating(); }}
+                disabled={ratingSubmitting || selectedStars === 0 || ratingComment.trim().length === 0}
+              >
+                {ratingSubmitting
+                  ? <ActivityIndicator color={colors.card} />
+                  : <Text style={styles.submitBtnText}>Speichern</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
 
       {/* ── Report Modal ──────────────────────────────────────────────── */}
       <Modal

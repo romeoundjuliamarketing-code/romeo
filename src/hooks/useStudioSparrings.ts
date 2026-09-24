@@ -54,7 +54,8 @@ export function useStudioSparrings(studioId: string): {
       const { data: signups } = await supabase
         .from('sparring_signups')
         .select('sparring_id')
-        .in('sparring_id', rows.map((r) => r.id));
+        .in('sparring_id', rows.map((r) => r.id))
+        .in('status', ['pending', 'confirmed']);
 
       if (cancelled) return;
 

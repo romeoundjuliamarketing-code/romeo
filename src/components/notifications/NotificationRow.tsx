@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import type { AppNotification } from '../../types/database.types';
 
 interface Props {
   item: AppNotification;
+  onPress?: (item: AppNotification) => void;
 }
 
 // Formats a timestamptz ISO string as a short local date/time label.
@@ -22,17 +23,22 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-export default function NotificationRow({ item }: Props) {
+export default function NotificationRow({ item, onPress }: Props) {
   const isUnread = item.read_at === null;
   return (
-    <View style={[styles.row, isUnread && styles.rowUnread]}>
+    <TouchableOpacity
+      style={[styles.row, isUnread && styles.rowUnread]}
+      activeOpacity={onPress !== undefined ? 0.7 : 1}
+      disabled={onPress === undefined}
+      onPress={() => onPress?.(item)}
+    >
       {isUnread && <View style={styles.unreadDot} />}
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.body}>{item.body}</Text>
         <Text style={styles.time}>{formatDate(item.created_at)}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

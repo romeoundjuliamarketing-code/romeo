@@ -322,6 +322,24 @@ export default function SettingsScreen(): React.ReactElement {
             label="Impressum"
             onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Impressum'); }}
           />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="handshake-outline"
+            label="Sparr-Grundregeln"
+            onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('SparringRules'); }}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="shield-lock-outline"
+            label="Datenschutzerklärung"
+            onPress={() => { void Linking.openURL('https://www.notion.so/Datenschutzerkl-rung-Sparr-34f1f56f1531804ebd59ec7351220d82?source=copy_link'); }}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="file-document-outline"
+            label="Nutzungsbedingungen"
+            onPress={() => { void Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'); }}
+          />
         </View>
 
         {/* ── Konto-Aktionen ── */}

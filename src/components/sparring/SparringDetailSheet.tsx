@@ -4,9 +4,7 @@ import {
   Text,
   Modal,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
-  Alert,
   Dimensions,
 } from 'react-native';
 import Animated, {
@@ -30,10 +28,13 @@ import ViewShot from 'react-native-view-shot';
 import Share from 'react-native-share';
 import { colors } from '../../theme/colors';
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
+import { useSparringParticipants } from '../../hooks/useSparringParticipants';
 import type { RootStackParamList } from '../../navigation/types';
 import type { VerificationTier } from '../../utils/verificationTier';
 import { buildSparringShareUrl, coarseAreaLabel } from '../../utils/sparringShare';
+import { resolveCommitmentCta, isSparringChatMember } from '../../utils/sparringCommitment';
 import SparringParticipantsList from './SparringParticipantsList';
+import SparringCommitmentActions from './SparringCommitmentActions';
 import SparringStoryCard from './SparringStoryCard';
 import MapBoostSheet from './MapBoostSheet';
 
@@ -42,8 +43,11 @@ interface Props {
   currentUserId:     string | null;
   userTier:          VerificationTier;
   onClose:           () => void;
-  onToggleSignup:    () => Promise<void>;
+  onJoin:            () => void;
+  onConfirm:         () => void;
+  onCancelSignup:    () => void;
   onDeactivate:      () => void;
+  onOpenChat:        () => void;
   onBoostActivated?: () => void;
   loading:           boolean;
 }
@@ -77,9 +81,12 @@ function formatDateTime(iso: string): string {
 }
 
 export default function SparringDetailSheet({
-  sparring, currentUserId, userTier, onClose, onToggleSignup, onDeactivate, onBoostActivated, loading,
+  sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onOpenChat, onBoostActivated, loading,
 }: Props) {
   const [boostSheetVisible, setBoostSheetVisible] = useState(false);
+  // Only needed to resolve the current user's own waitlist position — a
+  // second call to the same RPC SparringParticipantsList uses internally.
+  const { participants } = useSparringParticipants(sparring?.id ?? null);
   // Track whether the sheet is fully expanded so we can toggle scrollEnabled on JS side
   const [isFullyExpanded, setIsFullyExpanded] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -215,6 +222,18 @@ export default function SparringDetailSheet({
     sparring.verified_only && userTier !== 'verified' && !sparring.is_signed_up;
   const fillPct     = `${Math.min(100, Math.round((sparring.signup_count / sparring.max_slots) * 100))}%` as const;
 
+  const cta = resolveCommitmentCta({
+    myStatus:      sparring.my_status,
+    scheduledAt:   sparring.scheduled_at,
+    now:           new Date(),
+    isFull,
+    isCreator,
+    verifiedBlock,
+  });
+  const myWaitlistEntry = participants.find((p) => p.user_id === currentUserId);
+  const waitlistPosition = myWaitlistEntry?.waitlist_position ?? null;
+  const canOpenChat = isSparringChatMember(isCreator, sparring.my_status);
+
   // sparring is guaranteed non-null here (guarded above)
   const s = sparring;
 
@@ -225,20 +244,6 @@ export default function SparringDetailSheet({
       sparringId:          s.id,
       sparringScheduledAt: s.scheduled_at,
     });
-  }
-
-  function handleSignupPress(): void {
-    if (s.is_signed_up) {
-      Alert.alert('Abmelden', `Möchtest du dich von „${s.title}" abmelden?`, [
-        { text: 'Zurück', style: 'cancel' },
-        { text: 'Abmelden', style: 'destructive', onPress: () => { void onToggleSignup(); } },
-      ]);
-    } else {
-      Alert.alert('Anmelden', `Möchtest du dich für „${s.title}" anmelden?`, [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Anmelden', onPress: () => { void onToggleSignup(); } },
-      ]);
-    }
   }
 
   async function handleShare(): Promise<void> {
@@ -357,38 +362,37 @@ export default function SparringDetailSheet({
                     sparringId={sparring.id}
                     currentUserId={currentUserId}
                     sparringScheduledAt={sparring.scheduled_at}
+                    isOrganizer={isCreator}
                     onPressProfile={handlePressProfile}
                   />
 
-                  <TouchableOpacity
-                    style={[
-                      styles.btn,
-                      sparring.is_signed_up && styles.btnCancel,
-                      isFull && !sparring.is_signed_up && !verifiedBlock && styles.btnDisabled,
-                      verifiedBlock && styles.btnVerifyRequired,
-                    ]}
-                    onPress={handleSignupPress}
-                    disabled={loading || (isFull && !sparring.is_signed_up && !verifiedBlock)}
-                  >
-                    {loading ? (
-                      <ActivityIndicator color={colors.card} />
-                    ) : (
-                      <Text style={styles.btnText}>
-                        {sparring.is_signed_up
-                          ? 'Abmelden'
-                          : verifiedBlock
-                          ? 'Verifizierung erforderlich'
-                          : isFull
-                          ? 'Ausgebucht'
-                          : 'Anmelden'}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
+                  <SparringCommitmentActions
+                    cta={cta}
+                    confirmedCount={sparring.confirmed_count}
+                    waitlistPosition={waitlistPosition}
+                    loading={loading}
+                    onJoin={onJoin}
+                    onConfirm={onConfirm}
+                    onCancel={onCancelSignup}
+                  />
 
                   <TouchableOpacity style={styles.shareBtn} onPress={() => { void handleShare(); }} activeOpacity={0.8}>
                     <Ionicons name="share-outline" size={18} color={colors.accentBlue} />
                     <Text style={styles.shareBtnText}>Teilen</Text>
                   </TouchableOpacity>
+
+                  {/* Chat is only readable for slot holders, attended/no_show and the organizer */}
+                  {canOpenChat && (
+                    <TouchableOpacity
+                      style={styles.chatBtn}
+                      onPress={onOpenChat}
+                      disabled={loading}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
+                      <Text style={styles.chatBtnText}>Zum Chat</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {isCreator && (
                     <TouchableOpacity
@@ -580,25 +584,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  btn: {
-    backgroundColor: colors.accentBlue,
-    borderRadius:    14,
-    height:          50,
-    alignItems:      'center',
-    justifyContent:  'center',
-    marginTop:       4,
-  },
-  btnCancel: {
-    backgroundColor: colors.deleteRed,
-  },
-  btnDisabled: {
-    backgroundColor: colors.textSecondary,
-  },
-  btnText: {
-    fontSize:   16,
-    fontWeight: '700',
-    color:      colors.card,
-  },
   shareBtn: {
     flexDirection:   'row',
     alignItems:      'center',
@@ -611,6 +596,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accentBlueSoft,
   },
   shareBtnText: {
+    fontSize:   15,
+    fontWeight: '600',
+    color:      colors.accentBlue,
+  },
+  chatBtn: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
+    gap:             8,
+    borderRadius:    14,
+    height:          44,
+    borderWidth:     1,
+    borderColor:     colors.accentBlue,
+    backgroundColor: colors.accentBlueSoft,
+  },
+  chatBtnText: {
     fontSize:   15,
     fontWeight: '600',
     color:      colors.accentBlue,
@@ -666,8 +667,5 @@ const styles = StyleSheet.create({
     fontSize:   12,
     fontWeight: '600',
     color:      colors.difficultyGreen,
-  },
-  btnVerifyRequired: {
-    backgroundColor: colors.sparringsOrange,
   },
 });

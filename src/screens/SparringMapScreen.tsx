@@ -7,7 +7,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
-import { useOpenSparrings } from '../hooks/useOpenSparrings';
+import { useOpenSparrings, fetchSparringById } from '../hooks/useOpenSparrings';
 import { useSparringActions } from '../hooks/useSparringActions';
 import { useStudio } from '../hooks/useStudio';
 import { useStudioAddress } from '../hooks/useStudioAddress';
@@ -17,6 +17,7 @@ import { useSparringChatList } from '../hooks/useSparringChatList';
 import { useOpenEvents } from '../hooks/useOpenEvents';
 import { useEventActions } from '../hooks/useEventActions';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
+import SparringRulesConsentSheet from '../components/sparring/SparringRulesConsentSheet';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import MapBoostSheet from '../components/sparring/MapBoostSheet';
 import CreateEventSheet from '../components/sparring/CreateEventSheet';
@@ -31,6 +32,7 @@ import { supabase } from '../lib/supabase';
 import { parseStudioQr } from '../utils/studioQr';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
 import { canJoinSparring } from '../utils/sparringAccess';
+import { isBeforeCancelDeadline } from '../utils/sparringCommitment';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
 import type { EventWithMeta } from '../hooks/useOpenEvents';
 import type { RootStackParamList } from '../navigation/types';
@@ -52,7 +54,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
   // ── Sparring data ─────────────────────────────────────────────────────────
   const { sparrings, refetch: refetchSparrings } = useOpenSparrings();
-  const { signUp, cancelSignup, createSparring, deactivateSparring } = useSparringActions();
+  const { signUp, cancelSignup, confirmSparring, createSparring, deactivateSparring } = useSparringActions();
   const { totalUnread } = useSparringChatList();
 
   // ── Event data ────────────────────────────────────────────────────────────
@@ -76,6 +78,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const [selected, setSelected]         = useState<SparringWithMeta | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventWithMeta | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  // Sparring the user is joining, held while the rules consent sheet is open
+  const [consentFor, setConsentFor] = useState<SparringWithMeta | null>(null);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [createEventVisible, setCreateEventVisible] = useState(false);
   const [scanVisible, setScanVisible] = useState(false);
@@ -173,7 +177,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (requireVerified()) setCreateSheetVisible(true);
   }, [route.params?.openCreate]);
 
-  // Open the detail sheet when arriving via a deep link (https://DOMAIN/s/<id>).
+  // Open the detail sheet when arriving via a deep link (https://DOMAIN/s/<id>)
+  // or a push tap. Falls back to a direct fetch when the sparring is not in
+  // the upcoming list (e.g. it already started, or a push arrived before the
+  // list refreshed).
   useEffect(() => {
     const id = route.params?.focusSparringId;
     if (id === undefined) return;
@@ -181,22 +188,95 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (match) {
       setSelected(match);
       navigation.setParams({ focusSparringId: undefined });
+      return;
     }
-  }, [route.params?.focusSparringId, sparrings, navigation]);
+    if (user === null) return;
+    void (async () => {
+      const fetched = await fetchSparringById(id, user.id);
+      navigation.setParams({ focusSparringId: undefined });
+      if (fetched !== null) {
+        setSelected(fetched);
+      } else {
+        Alert.alert('Nicht gefunden', 'Dieses Sparring existiert nicht mehr.');
+      }
+    })();
+  }, [route.params?.focusSparringId, sparrings, navigation, user]);
 
   // ── Sparring handlers ─────────────────────────────────────────────────────
-  async function handleToggleSparringSignup(): Promise<void> {
+  function handleJoinSparring(): void {
     if (selected === null) return;
-    if (!selected.is_signed_up && !canJoinSparring(selected.verified_only, tier)) {
+    if (!canJoinSparring(selected.verified_only, tier)) {
       requireVerified();
       return;
     }
+    // Joining always requires accepting the Sparr-Grundregeln first.
+    setConsentFor(selected);
+  }
+
+  async function handleConfirmSparringConsent(rulesVersion: number): Promise<void> {
+    if (consentFor === null) return;
     setActionLoading(true);
-    const { error } = await (selected.is_signed_up
-      ? cancelSignup(selected.id)
-      : signUp(selected.id));
+    const { error, status } = await signUp(consentFor.id, rulesVersion);
     setActionLoading(false);
-    if (error !== null) return;
+    setConsentFor(null);
+    if (error !== null) {
+      Alert.alert('Hinweis', error);
+      return;
+    }
+    refetchSparrings();
+    setSelected(null);
+    if (status === 'waitlisted') {
+      Alert.alert('Warteliste', 'Du stehst auf der Warteliste. Wird ein Platz frei, rückst du automatisch nach.');
+    } else if (status === 'confirmed') {
+      Alert.alert('Angemeldet', 'Du bist dabei.');
+    } else if (status === 'pending') {
+      Alert.alert('Angemeldet', 'Du bist dabei. Bitte bestätige 24 Stunden vorher, dass du kommst.');
+    }
+  }
+
+  function handleCancelSparringSignup(): void {
+    if (selected === null) return;
+    const free = isBeforeCancelDeadline(selected.scheduled_at, new Date());
+    Alert.alert(
+      'Kann doch nicht teilnehmen?',
+      free
+        ? `Möchtest du dich von „${selected.title}" abmelden? Rechtzeitige Absage zählt nicht negativ.`
+        : `Möchtest du dich von „${selected.title}" abmelden?`,
+      [
+        { text: 'Zurück', style: 'cancel' },
+        {
+          text: 'Abmelden',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            const { error, status } = await cancelSignup(selected.id);
+            setActionLoading(false);
+            if (error !== null) {
+              Alert.alert('Fehler', error);
+              return;
+            }
+            refetchSparrings();
+            setSelected(null);
+            if (status === 'cancelled') {
+              Alert.alert('Danke', 'Danke fürs rechtzeitige Absagen.');
+            } else if (status === 'cancelled_late') {
+              Alert.alert('Abgemeldet', 'Du wurdest abgemeldet.');
+            }
+          },
+        },
+      ],
+    );
+  }
+
+  async function handleConfirmSparring(): Promise<void> {
+    if (selected === null) return;
+    setActionLoading(true);
+    const { error } = await confirmSparring(selected.id);
+    setActionLoading(false);
+    if (error !== null) {
+      Alert.alert('Fehler', error);
+      return;
+    }
     refetchSparrings();
     setSelected(null);
   }
@@ -335,10 +415,31 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         currentUserId={user?.id ?? null}
         userTier={tier}
         onClose={() => setSelected(null)}
-        onToggleSignup={handleToggleSparringSignup}
+        onJoin={handleJoinSparring}
+        onConfirm={() => { void handleConfirmSparring(); }}
+        onCancelSignup={handleCancelSparringSignup}
         onDeactivate={handleDeactivateSparring}
+        onOpenChat={() => {
+          if (selected === null) return;
+          navigation.navigate('SparringGroupChat', {
+            sparringId:    selected.id,
+            sparringTitle: selected.title,
+            scheduledAt:   selected.scheduled_at,
+            durationMin:   selected.duration_min,
+            isOrganizer:   selected.created_by === user?.id,
+          });
+        }}
         onBoostActivated={refetchSparrings}
         loading={actionLoading}
+      />
+
+      {/* ── Sparring rules consent (gate before every signup) ── */}
+      <SparringRulesConsentSheet
+        visible={consentFor !== null}
+        sparringTitle={consentFor?.title ?? null}
+        loading={actionLoading}
+        onClose={() => setConsentFor(null)}
+        onConfirm={(rulesVersion) => { void handleConfirmSparringConsent(rulesVersion); }}
       />
 
       {/* ── Event detail sheet ── */}

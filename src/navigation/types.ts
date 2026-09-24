@@ -23,6 +23,7 @@ export type RootStackParamList = {
   };
   Settings: undefined;
   Impressum: undefined;
+  SparringRules: undefined;
   Paywall: undefined;
   WeightHistory: undefined;
   PointsBreakdown: undefined;

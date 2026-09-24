@@ -530,18 +530,48 @@ export type Database = {
           sparring_id: string
           user_id: string
           signed_up_at: string
+          rules_version: number
+          rules_accepted_at: string
+          status: SparringSignupStatus
+          slot_granted_at: string | null
+          confirmed_at: string | null
+          cancelled_at: string | null
+          checked_in_at: string | null
+          reminder_7d_sent_at: string | null
+          reminder_24h_sent_at: string | null
+          reminder_3h_sent_at: string | null
         }
         Insert: {
           id?: string
           sparring_id: string
           user_id: string
           signed_up_at?: string
+          rules_version: number
+          rules_accepted_at: string
+          status?: SparringSignupStatus
+          slot_granted_at?: string | null
+          confirmed_at?: string | null
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          reminder_7d_sent_at?: string | null
+          reminder_24h_sent_at?: string | null
+          reminder_3h_sent_at?: string | null
         }
         Update: {
           id?: string
           sparring_id?: string
           user_id?: string
           signed_up_at?: string
+          rules_version?: number
+          rules_accepted_at?: string
+          status?: SparringSignupStatus
+          slot_granted_at?: string | null
+          confirmed_at?: string | null
+          cancelled_at?: string | null
+          checked_in_at?: string | null
+          reminder_7d_sent_at?: string | null
+          reminder_24h_sent_at?: string | null
+          reminder_3h_sent_at?: string | null
         }
         Relationships: [
           {
@@ -1968,6 +1998,42 @@ export type Database = {
         Args: { p_id: string }
         Returns: undefined
       }
+      join_sparring: {
+        Args: { p_sparring_id: string; p_rules_version: number }
+        Returns: 'pending' | 'waitlisted' | 'confirmed'
+      }
+      confirm_sparring: {
+        Args: { p_sparring_id: string }
+        Returns: undefined
+      }
+      cancel_sparring_signup: {
+        Args: { p_sparring_id: string }
+        Returns: 'cancelled' | 'cancelled_late'
+      }
+      mark_sparring_attendance: {
+        Args: { p_sparring_id: string; p_user_id: string; p_present: boolean }
+        Returns: undefined
+      }
+      get_sparring_participants: {
+        Args: { p_sparring_id: string }
+        Returns: {
+          user_id: string
+          name: string | null
+          avatar_url: string | null
+          gender: string | null
+          status: SparringSignupStatus
+          is_confirmed: boolean
+          signed_up_at: string
+          waitlist_position: number | null
+        }[]
+      }
+      get_reliability: {
+        Args: { p_user_id: string }
+        Returns: {
+          attended: number
+          committed: number
+        }[]
+      }
       get_subscribed_studios: {
         Args: Record<string, never>
         Returns: {
@@ -2362,3 +2428,15 @@ export interface CoachNominationDetails {
   can_confirm: boolean    // current user is eligible to confirm
   can_reject: boolean     // current user is eligible to reject
 }
+
+// Sparring commitment lifecycle (see supabase/migrations/20260911120000_sparring_commitment_schema.sql)
+export type SparringSignupStatus =
+  | 'pending'
+  | 'waitlisted'
+  | 'confirmed'
+  | 'attended'
+  | 'no_show'
+  | 'cancelled'
+  | 'cancelled_late'
+  | 'expired'
+export type SparringParticipant = Database['public']['Functions']['get_sparring_participants']['Returns'][number]

@@ -64,12 +64,25 @@ export function useProximitySparringNotifications(): void {
     void checkProximitySparrings();
   }, [user]);
 
-  // Handle taps on the "no sparrings nearby" notification — open the create flow.
+  // Handle notification taps:
+  //  - the local "no sparrings nearby" nudge opens the create flow
+  //  - a server push carrying data.sparring_id opens that sparring's detail
+  //    sheet (sparring_signup, ..._cancelled, ..._promoted, confirm_7d/24h,
+  //    slot_expired, attendance_reminder — see push payload contract).
+  //    Chat pushes (kind === 'sparring_message') keep their own tap behaviour.
   useEffect(() => {
     function handleResponse(response: Notifications.NotificationResponse): void {
-      const data = response.notification.request.content.data as { type?: string };
+      const data = response.notification.request.content.data as {
+        type?: string;
+        sparring_id?: string;
+        kind?: string;
+      };
       if (data.type === 'no_sparrings_nearby') {
         navigation.navigate('SparringMap', { openCreate: true });
+        return;
+      }
+      if (typeof data.sparring_id === 'string' && data.kind !== 'sparring_message') {
+        navigation.navigate('SparringMap', { focusSparringId: data.sparring_id });
       }
     }
 

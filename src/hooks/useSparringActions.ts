@@ -2,6 +2,11 @@ import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { geocodeAddress } from '../utils/geocoding';
+import { SPARRING_RULES_VERSION } from '../data/sparringRules';
+import type { Database } from '../types/database.types';
+
+type JoinSparringStatus   = Database['public']['Functions']['join_sparring']['Returns']
+type CancelSparringStatus = Database['public']['Functions']['cancel_sparring_signup']['Returns']
 
 export type CreateSparringInput =
   | {
@@ -35,35 +40,60 @@ export type CreateSparringInput =
     };
 
 export function useSparringActions(): {
-  signUp: (sparringId: string) => Promise<{ error: string | null }>;
-  cancelSignup: (sparringId: string) => Promise<{ error: string | null }>;
+  signUp: (sparringId: string, rulesVersion: number) => Promise<{ error: string | null; status: JoinSparringStatus | null }>;
+  cancelSignup: (sparringId: string) => Promise<{ error: string | null; status: CancelSparringStatus | null }>;
+  confirmSparring: (sparringId: string) => Promise<{ error: string | null }>;
+  markAttendance: (sparringId: string, userId: string, present: boolean) => Promise<{ error: string | null }>;
   createSparring: (params: CreateSparringInput) => Promise<{ error: string | null; sparringId?: string }>;
   deactivateSparring: (sparringId: string) => Promise<{ error: string | null }>;
 } {
   const { user } = useAuth();
 
-  const signUp = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
-    const { error } = await supabase
-      .from('sparring_signups')
-      .insert({ sparring_id: sparringId, user_id: user.id });
-    if (error !== null) {
-      // Map RLS denial to a user-friendly German message
-      if (error.code === '42501' || /row-level security|policy/i.test(error.message)) {
-        return { error: 'Dieses Sparring ist nur für verifizierte Mitglieder.' };
-      }
-      return { error: error.message };
+  const signUp = useCallback(async (
+    sparringId: string,
+    rulesVersion: number,
+  ): Promise<{ error: string | null; status: JoinSparringStatus | null }> => {
+    if (user === null) return { error: 'Nicht eingeloggt', status: null };
+    // The signup is only valid together with the accepted rules version — the
+    // RPC rejects anything below the current one, but check early so we don't
+    // round-trip for an obviously stale consent.
+    if (rulesVersion < SPARRING_RULES_VERSION) {
+      return { error: 'Bitte stimme zuerst den Sparr-Grundregeln zu.', status: null };
     }
-    return { error: null };
+    const { data, error } = await supabase.rpc('join_sparring', {
+      p_sparring_id:   sparringId,
+      p_rules_version: rulesVersion,
+    });
+    if (error !== null) return { error: error.message, status: null };
+    return { error: null, status: data };
   }, [user]);
 
-  const cancelSignup = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
+  const cancelSignup = useCallback(async (
+    sparringId: string,
+  ): Promise<{ error: string | null; status: CancelSparringStatus | null }> => {
+    if (user === null) return { error: 'Nicht eingeloggt', status: null };
+    const { data, error } = await supabase.rpc('cancel_sparring_signup', { p_sparring_id: sparringId });
+    if (error !== null) return { error: error.message, status: null };
+    return { error: null, status: data };
+  }, [user]);
+
+  const confirmSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
     if (user === null) return { error: 'Nicht eingeloggt' };
-    const { error } = await supabase
-      .from('sparring_signups')
-      .delete()
-      .eq('sparring_id', sparringId)
-      .eq('user_id', user.id);
+    const { error } = await supabase.rpc('confirm_sparring', { p_sparring_id: sparringId });
+    return { error: error?.message ?? null };
+  }, [user]);
+
+  const markAttendance = useCallback(async (
+    sparringId: string,
+    userId: string,
+    present: boolean,
+  ): Promise<{ error: string | null }> => {
+    if (user === null) return { error: 'Nicht eingeloggt' };
+    const { error } = await supabase.rpc('mark_sparring_attendance', {
+      p_sparring_id: sparringId,
+      p_user_id:     userId,
+      p_present:     present,
+    });
     return { error: error?.message ?? null };
   }, [user]);
 
@@ -155,5 +185,5 @@ export function useSparringActions(): {
     return { error: error?.message ?? null };
   }, [user]);
 
-  return { signUp, cancelSignup, createSparring, deactivateSparring };
+  return { signUp, cancelSignup, confirmSparring, markAttendance, createSparring, deactivateSparring };
 }

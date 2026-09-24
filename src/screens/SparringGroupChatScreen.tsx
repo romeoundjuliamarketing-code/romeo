@@ -27,6 +27,7 @@ import ChatDateSeparator from '../components/chat/ChatDateSeparator';
 import ChatImagePicker from '../components/chat/ChatImagePicker';
 import SparringChatInfoBanner from '../components/chat/SparringChatInfoBanner';
 import SparringChatParticipantBar from '../components/chat/SparringChatParticipantBar';
+import SparringRulesConsentSheet from '../components/sparring/SparringRulesConsentSheet';
 import type { Participant } from '../components/chat/SparringChatParticipantBar';
 import type { RootStackParamList } from '../navigation/types';
 import type { GroupMessageWithSender } from '../hooks/useSparringGroupChat';
@@ -74,6 +75,8 @@ export default function SparringGroupChatScreen() {
   const [participants,   setParticipants]   = useState<Participant[]>([]);
   const [isSignedUp,     setIsSignedUp]     = useState(false);
   const [signupLoading,  setSignupLoading]  = useState(false);
+  // Open while the user confirms the Sparr-Grundregeln before joining
+  const [consentVisible, setConsentVisible] = useState(false);
 
   const loadDetails = useCallback(async () => {
     const [sparringRes, signupsRes] = await Promise.all([
@@ -85,7 +88,8 @@ export default function SparringGroupChatScreen() {
       supabase
         .from('sparring_signups')
         .select('user_id, profiles!user_id(name, avatar_url)')
-        .eq('sparring_id', sparringId),
+        .eq('sparring_id', sparringId)
+        .in('status', ['pending', 'confirmed', 'attended', 'no_show']),
     ]);
 
     if (sparringRes.data !== null) {
@@ -118,16 +122,25 @@ export default function SparringGroupChatScreen() {
 
   async function handleToggleSignup() {
     if (signupLoading) return;
+    // Joining requires accepting the Sparr-Grundregeln first; cancelling does not.
+    if (!isSignedUp) {
+      setConsentVisible(true);
+      return;
+    }
     setSignupLoading(true);
-    if (isSignedUp) {
-      await cancelSignup(sparringId);
-    } else {
-      const { error } = await signUp(sparringId);
-      if (error !== null) {
-        setSignupLoading(false);
-        Alert.alert('Hinweis', error);
-        return;
-      }
+    await cancelSignup(sparringId);
+    await loadDetails();
+    setSignupLoading(false);
+  }
+
+  async function handleConfirmConsent(rulesVersion: number) {
+    setSignupLoading(true);
+    const { error } = await signUp(sparringId, rulesVersion);
+    setConsentVisible(false);
+    if (error !== null) {
+      setSignupLoading(false);
+      Alert.alert('Hinweis', error);
+      return;
     }
     await loadDetails();
     setSignupLoading(false);
@@ -254,6 +267,15 @@ export default function SparringGroupChatScreen() {
           onToggle={() => { void handleToggleSignup(); }}
         />
       )}
+
+      {/* Sparring rules consent (gate before every signup) */}
+      <SparringRulesConsentSheet
+        visible={consentVisible}
+        sparringTitle={sparringTitle}
+        loading={signupLoading}
+        onClose={() => setConsentVisible(false)}
+        onConfirm={(rulesVersion) => { void handleConfirmConsent(rulesVersion); }}
+      />
 
       {/* Read-only banner or input row */}
       {isReadOnly ? (
