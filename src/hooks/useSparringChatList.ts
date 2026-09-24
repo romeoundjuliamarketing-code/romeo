@@ -23,8 +23,7 @@ export interface EventChatEntry {
   isOrganizer:     boolean;
   lastMessageText: string | null;
   lastMessageAt:   string | null;
-  // Unread tracking for event chats is not implemented — no reads table exists.
-  unreadCount:     0;
+  unreadCount:     number;
 }
 
 /** Unified entry type rendered in the chat list. */
@@ -50,86 +49,39 @@ export function useSparringChatList(): UseSparringChatList {
     if (user === null) return;
     if (showLoading) setLoading(true);
 
-    // ── Sparring chats via existing RPC ─────────────────────────────────────
-    const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_chat_list');
-    const sparringEntries: SparringChatEntry[] = rpcError === null
-      ? (rpcData ?? []).map((row) => ({
-          kind:            'sparring' as const,
-          sparringId:      row.sparring_id,
-          sparringTitle:   row.sparring_title,
-          scheduledAt:     row.scheduled_at,
-          durationMin:     row.duration_min,
-          isOrganizer:     row.is_organizer,
-          lastMessageText: row.last_message_text,
-          lastMessageAt:   row.last_message_at,
-          unreadCount:     row.unread_count,
-        }))
+    // Sparring and event chats come from a single RPC, including chats that
+    // have no message yet — those are only reachable through this list.
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_my_chats');
+    const entries: ChatListEntry[] = rpcError === null
+      ? (rpcData ?? []).map((row) => (
+          row.kind === 'event'
+            ? {
+                kind:            'event' as const,
+                eventId:         row.chat_id,
+                title:           row.title,
+                scheduledAt:     row.scheduled_at,
+                durationMin:     row.duration_min,
+                isOrganizer:     row.is_organizer,
+                lastMessageText: row.last_message_text,
+                lastMessageAt:   row.last_message_at,
+                unreadCount:     row.unread_count,
+              }
+            : {
+                kind:            'sparring' as const,
+                sparringId:      row.chat_id,
+                sparringTitle:   row.title,
+                scheduledAt:     row.scheduled_at,
+                durationMin:     row.duration_min,
+                isOrganizer:     row.is_organizer,
+                lastMessageText: row.last_message_text,
+                lastMessageAt:   row.last_message_at,
+                unreadCount:     row.unread_count,
+              }
+        ))
       : [];
 
-    // ── Event chats fetched client-side ─────────────────────────────────────
-    // a. Find events the user is involved in: created by user OR signed up.
-    const [{ data: createdEvents }, { data: signupRows }] = await Promise.all([
-      supabase
-        .from('events')
-        .select('id, title, scheduled_at, duration_min, created_by')
-        .eq('created_by', user.id),
-      supabase
-        .from('event_signups')
-        .select('event_id')
-        .eq('user_id', user.id),
-    ]);
-
-    const signedUpIds = new Set((signupRows ?? []).map((s) => s.event_id));
-
-    // Fetch events signed up to (that are not already in createdEvents).
-    const createdIds = new Set((createdEvents ?? []).map((e) => e.id));
-    const signedUpOnly = [...signedUpIds].filter((id) => !createdIds.has(id));
-
-    let signedUpEvents: Array<{
-      id: string; title: string; scheduled_at: string; duration_min: number; created_by: string;
-    }> = [];
-    if (signedUpOnly.length > 0) {
-      const { data: rows } = await supabase
-        .from('events')
-        .select('id, title, scheduled_at, duration_min, created_by')
-        .in('id', signedUpOnly);
-      signedUpEvents = rows ?? [];
-    }
-
-    const allInvolvedEvents = [...(createdEvents ?? []), ...signedUpEvents];
-
-    // b. For each event, fetch the newest message to get lastMessageText/At.
-    //    Only include events with at least one message (mirrors sparring behaviour).
-    const eventEntries: EventChatEntry[] = [];
-    await Promise.all(
-      allInvolvedEvents.map(async (ev) => {
-        const { data: msgs } = await supabase
-          .from('event_messages')
-          .select('body, created_at')
-          .eq('event_id', ev.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if ((msgs ?? []).length === 0) return; // no messages yet — skip
-        const newest = msgs![0];
-
-        eventEntries.push({
-          kind:            'event',
-          eventId:         ev.id,
-          title:           ev.title,
-          scheduledAt:     ev.scheduled_at,
-          durationMin:     ev.duration_min,
-          isOrganizer:     ev.created_by === user.id,
-          lastMessageText: newest.body,
-          lastMessageAt:   newest.created_at,
-          // Unread tracking for event chats is not implemented — no reads table exists.
-          unreadCount:     0,
-        });
-      }),
-    );
-
-    // ── Merge and sort by lastMessageAt descending (nulls last) ────────────
-    const merged: ChatListEntry[] = [...sparringEntries, ...eventEntries].sort((a, b) => {
+    // ── Sort by lastMessageAt descending (nulls last) ──────────────────────
+    const merged: ChatListEntry[] = [...entries].sort((a, b) => {
       if (a.lastMessageAt === null && b.lastMessageAt === null) return 0;
       if (a.lastMessageAt === null) return 1;
       if (b.lastMessageAt === null) return -1;

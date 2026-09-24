@@ -360,16 +360,18 @@ export default function EventDetailSheet({
                     </TouchableOpacity>
                   )}
 
-                  {/* Chat button */}
-                  <TouchableOpacity
-                    style={styles.chatBtn}
-                    onPress={onOpenChat}
-                    disabled={loading}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
-                    <Text style={styles.chatBtnText}>Zum Chat</Text>
-                  </TouchableOpacity>
+                  {/* Chat is only readable for participants and the organizer (enforced by RLS) */}
+                  {(isCreator || ev.is_signed_up) && (
+                    <TouchableOpacity
+                      style={styles.chatBtn}
+                      onPress={onOpenChat}
+                      disabled={loading}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
+                      <Text style={styles.chatBtnText}>Zum Chat</Text>
+                    </TouchableOpacity>
+                  )}
 
                   {/* Creator: deactivate */}
                   {isCreator && (

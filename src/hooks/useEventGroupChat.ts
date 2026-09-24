@@ -72,8 +72,12 @@ export function useEventGroupChat(
   }, [eventId, user]);
 
   const markRead = useCallback(async () => {
-    // No dedicated read-tracking table for event messages — no-op placeholder.
-  }, []);
+    if (user === null) return;
+    await supabase.from('event_chat_reads').upsert(
+      { user_id: user.id, event_id: eventId, last_read_at: new Date().toISOString() },
+      { onConflict: 'user_id,event_id' },
+    );
+  }, [eventId, user]);
 
   useEffect(() => {
     void loadMessages();

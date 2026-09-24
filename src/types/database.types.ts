@@ -750,6 +750,24 @@ export type Database = {
         }
         Relationships: []
       }
+      event_chat_reads: {
+        Row: {
+          user_id:      string
+          event_id:     string
+          last_read_at: string
+        }
+        Insert: {
+          user_id:       string
+          event_id:      string
+          last_read_at?: string
+        }
+        Update: {
+          user_id?:      string
+          event_id?:     string
+          last_read_at?: string
+        }
+        Relationships: []
+      }
       user_reports: {
         Row: {
           id:               string
@@ -2045,6 +2063,20 @@ export type Database = {
           unread_count:      number
         }[]
       }
+      get_my_chats: {
+        Args: Record<string, never>
+        Returns: {
+          kind:              'sparring' | 'event'
+          chat_id:           string
+          title:             string
+          scheduled_at:      string
+          duration_min:      number
+          is_organizer:      boolean
+          last_message_text: string | null
+          last_message_at:   string | null
+          unread_count:      number
+        }[]
+      }
       get_my_verification: {
         Args: Record<string, never>
         Returns: {
@@ -2231,6 +2263,8 @@ export type SparringChatSettings        = Database['public']['Tables']['sparring
 export type SparringChatSettingsInsert  = Database['public']['Tables']['sparring_chat_settings']['Insert']
 export type SparringChatReads           = Database['public']['Tables']['sparring_chat_reads']['Row']
 export type SparringChatReadsInsert     = Database['public']['Tables']['sparring_chat_reads']['Insert']
+export type EventChatReads              = Database['public']['Tables']['event_chat_reads']['Row']
+export type EventChatReadsInsert        = Database['public']['Tables']['event_chat_reads']['Insert']
 
 export type TrialBooking = Database['public']['Tables']['trial_bookings']['Row']
 export type TrialBookingInsert = Database['public']['Tables']['trial_bookings']['Insert']
