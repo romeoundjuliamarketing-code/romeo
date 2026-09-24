@@ -6,6 +6,7 @@ import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { reportNetworkError } from '../lib/networkStatus';
 import { useWaterTracking } from '../hooks/useWaterTracking';
 import { useNutritionTargets } from '../hooks/useNutritionTargets';
 import { useWeightGoalCoach } from '../hooks/useWeightGoalCoach';
@@ -178,7 +179,8 @@ export default function ErnährungScreen() {
   async function handleFrequencyChange(tier: FrequencyTier): Promise<void> {
     if (user === null || frequencySaving) return;
     setFrequencySaving(true);
-    await supabase.from('profiles').update({ training_frequency: tier }).eq('id', user.id);
+    const { error } = await supabase.from('profiles').update({ training_frequency: tier }).eq('id', user.id);
+    if (error !== null) reportNetworkError(error);
     setProfileTrigger(n => n + 1);
     setFrequencySaving(false);
   }

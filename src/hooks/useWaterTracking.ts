@@ -171,19 +171,21 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
 
             // Only sync if the widget value is higher than what Supabase has
             if (widgetTotal > (data?.amount_ml ?? 0)) {
-              await supabase.from('water_logs').upsert(
+              const { error: widgetUpsertError } = await supabase.from('water_logs').upsert(
                 { user_id: user.id, date: todayDate, amount_ml: widgetTotal },
                 { onConflict: 'user_id,date' },
               );
+              if (widgetUpsertError !== null) reportNetworkError(widgetUpsertError);
 
               // Award goal points if goal was crossed via widget
               const prevAmount = data?.amount_ml ?? 0;
               if (prevAmount < dynamicGoalMl && widgetTotal >= dynamicGoalMl) {
-                await supabase.rpc('add_workout_points', {
+                const { error: widgetPointsError } = await supabase.rpc('add_workout_points', {
                   p_user_id: user.id,
                   p_date: todayDate,
                   p_points: WATER_GOAL_POINTS,
                 });
+                if (widgetPointsError !== null) reportNetworkError(widgetPointsError);
                 onGoalReached?.();
               }
 
@@ -282,11 +284,12 @@ export function useWaterTracking(onGoalReached?: () => void, refetchTrigger = 0)
     reportNetworkSuccess();
 
     if (crossedGoal) {
-      await supabase.rpc('add_workout_points', {
+      const { error: goalPointsError } = await supabase.rpc('add_workout_points', {
         p_user_id: user.id,
         p_date: today,
         p_points: WATER_GOAL_POINTS,
       });
+      if (goalPointsError !== null) reportNetworkError(goalPointsError);
     }
   }, [goalMl, onGoalReached, user, cacheKey, commitAmount]);
 

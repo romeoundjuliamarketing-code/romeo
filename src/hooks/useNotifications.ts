@@ -2,13 +2,12 @@ import { useCallback, useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
 import { SchedulableTriggerInputTypes } from 'expo-notifications';
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import type { StudioSchedule } from '../types/database.types';
 
 // Push tokens only work on physical devices with APNs configured
-const IS_REAL_DEVICE = Constants.isDevice === true && Platform.OS !== 'web';
+const IS_REAL_DEVICE = Platform.OS !== 'web';
 
 const PROJECT_ID = '9811826e-5835-47ff-9c96-8fb7a14cdab3';
 const SETUP_KEY = 'notifications_setup_v1';

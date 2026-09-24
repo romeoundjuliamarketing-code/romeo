@@ -70,28 +70,34 @@ export default function TimerScreen({ route, navigation }: Props) {
 
     const today = todayIso();
 
-    // Insert workout log (category logged as training_type for recommendation engine)
-    supabase
-      .from('workout_logs')
-      .insert({
-        user_id: user.id,
-        date: today,
-        source: 'module',
-        completed: true,
-        points: earnedPoints,
-        duration_min: Math.round((TOTAL_ROUNDS * WORK_SECONDS) / 60),
-        title: workoutTitle,
-        training_type: category ?? null,
-        category: 'Spezifisch',
-      })
-      .then(() => undefined);
+    void (async () => {
+      // Insert workout log first — it drives history/stats/streak.
+      // (category logged as training_type for the recommendation engine)
+      const { error: logError } = await supabase
+        .from('workout_logs')
+        .insert({
+          user_id: user.id,
+          date: today,
+          source: 'module',
+          completed: true,
+          points: earnedPoints,
+          duration_min: Math.round((TOTAL_ROUNDS * WORK_SECONDS) / 60),
+          title: workoutTitle,
+          training_type: category ?? null,
+          category: 'Spezifisch',
+        });
 
-    // Credit profile points atomically
-    supabase
-      .rpc('add_workout_points', { p_user_id: user.id, p_date: today, p_points: earnedPoints })
-      .then(({ error }) => {
-        if (error !== null) setSaveError(true);
-      });
+      if (logError !== null) {
+        // Surface the failure instead of silently losing the workout.
+        setSaveError(true);
+        return; // do not credit points without a persisted log
+      }
+
+      // Credit profile points only after the log is saved.
+      const { error: pointsError } = await supabase
+        .rpc('add_workout_points', { p_user_id: user.id, p_date: today, p_points: earnedPoints });
+      if (pointsError !== null) setSaveError(true);
+    })();
   }, [phase, user, earnedPoints, category]);
 
   function handleNextExercise() {
@@ -116,7 +122,7 @@ export default function TimerScreen({ route, navigation }: Props) {
             <Text style={styles.pointsBadgeLabel}>Punkte verdient</Text>
           </View>
           {saveError && (
-            <Text style={styles.saveErrorText}>Punkte konnten nicht gespeichert werden.</Text>
+            <Text style={styles.saveErrorText}>Training konnte nicht gespeichert werden.</Text>
           )}
           <TouchableOpacity
             style={styles.doneButton}

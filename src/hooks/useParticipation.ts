@@ -112,8 +112,8 @@ export function useParticipation(): UseParticipationResult {
         prev.map((p) => (p.id === optimistic.id ? newParticipation : p)),
       );
 
-      // 2. Insert workout log
-      await supabase.from('workout_logs').insert({
+      // 2. Insert workout log (source of truth for streak/stats/history)
+      const { error: logError } = await supabase.from('workout_logs').insert({
         user_id: user.id,
         date: sessionDate,
         source: 'plan',
@@ -125,15 +125,34 @@ export function useParticipation(): UseParticipationResult {
         category: 'Studio',
       });
 
-      // 3. Credit profile points atomically + update last training date
-      await Promise.all([
-        supabase.rpc('add_workout_points', {
-          p_user_id: user.id,
-          p_date: sessionDate,
-          p_points: pointsEarned,
-        }),
-        supabase.from('profiles').update({ last_training_date: sessionDate }).eq('id', user.id),
-      ]);
+      if (logError !== null) {
+        // Log write failed — roll back the participation row and UI so the user
+        // is not credited without a workout log (which drives streak/stats).
+        console.warn('workout_logs insert failed', logError.message);
+        await supabase
+          .from('schedule_participations')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('schedule_id', scheduleId)
+          .eq('session_date', sessionDate);
+        setParticipations((prev) =>
+          prev.filter(
+            (p) => !(p.schedule_id === scheduleId && p.session_date === sessionDate),
+          ),
+        );
+        return;
+      }
+
+      // 3. Credit profile points. last_training_date + streak_days are now
+      //    maintained by the sync_training_streak DB trigger on workout_logs.
+      const { error: pointsError } = await supabase.rpc('add_workout_points', {
+        p_user_id: user.id,
+        p_date: sessionDate,
+        p_points: pointsEarned,
+      });
+      if (pointsError !== null) {
+        console.warn('add_workout_points failed', pointsError.message);
+      }
     },
     [user],
   );
@@ -180,20 +199,22 @@ export function useParticipation(): UseParticipationResult {
         .single();
 
       if (scheduleRow !== null) {
-        await supabase
+        const { error: logDeleteError } = await supabase
           .from('workout_logs')
           .delete()
           .eq('user_id', user.id)
           .eq('date', sessionDate)
           .eq('source', 'plan')
           .eq('title', scheduleRow.training_name);
+        if (logDeleteError !== null) console.warn('workout_logs delete failed', logDeleteError.message);
       }
 
       // 3. Deduct points from profile atomically
-      await supabase.rpc('deduct_workout_points', {
+      const { error: deductError } = await supabase.rpc('deduct_workout_points', {
         p_user_id: user.id,
         p_points: pointsToDeduct,
       });
+      if (deductError !== null) console.warn('deduct_workout_points failed', deductError.message);
     },
     [user, participations],
   );

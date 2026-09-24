@@ -59,7 +59,7 @@ export function useCustomWorkouts(refetchTrigger = 0): UseCustomWorkouts {
 
   async function create(payload: CreateCustomWorkoutPayload): Promise<void> {
     if (user === null) return;
-    await supabase.from('custom_workouts').insert({
+    const { error } = await supabase.from('custom_workouts').insert({
       user_id: user.id,
       title: payload.title,
       training_type: payload.training_type,
@@ -67,11 +67,13 @@ export function useCustomWorkouts(refetchTrigger = 0): UseCustomWorkouts {
       duration_min: payload.duration_min,
       exercises: payload.exercises as unknown as import('../types/database.types').Json,
     });
+    if (error !== null) reportNetworkError(error);
     refetch();
   }
 
   async function remove(id: string): Promise<void> {
-    await supabase.from('custom_workouts').delete().eq('id', id);
+    const { error } = await supabase.from('custom_workouts').delete().eq('id', id);
+    if (error !== null) reportNetworkError(error);
     refetch();
   }
 
