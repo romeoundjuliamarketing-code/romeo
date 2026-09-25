@@ -1,26 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
   Modal,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  withTiming,
-  runOnJS,
-  useAnimatedScrollHandler,
-} from 'react-native-reanimated';
-import {
-  Gesture,
-  GestureDetector,
-  GestureHandlerRootView,
-  ScrollView as GHScrollView,
-} from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,11 +22,16 @@ import { useSparringParticipants } from '../../hooks/useSparringParticipants';
 import type { RootStackParamList } from '../../navigation/types';
 import type { VerificationTier } from '../../utils/verificationTier';
 import { buildSparringShareUrl, coarseAreaLabel } from '../../utils/sparringShare';
-import { resolveCommitmentCta, isSparringChatMember } from '../../utils/sparringCommitment';
+import { resolveCommitmentCta, isSparringChatMember, isBeforeCancelDeadline } from '../../utils/sparringCommitment';
 import SparringParticipantsList from './SparringParticipantsList';
 import SparringCommitmentActions from './SparringCommitmentActions';
+import SparringRulesConsentSheet from './SparringRulesConsentSheet';
+import SparringCommitmentResultCard from './SparringCommitmentResultCard';
+import type { SparringCommitmentResult } from './SparringCommitmentResultCard';
+import SparringCancelConfirmCard from './SparringCancelConfirmCard';
 import SparringStoryCard from './SparringStoryCard';
 import MapBoostSheet from './MapBoostSheet';
+import { usePopAnimation } from './SparringPopCard';
 
 interface Props {
   sparring:          SparringWithMeta | null;
@@ -48,18 +43,25 @@ interface Props {
   onCancelSignup:    () => void;
   onDeactivate:      () => void;
   onOpenChat:        () => void;
+  /** Rules consent gate — rendered inside this sheet's Modal (see below). */
+  consentVisible:    boolean;
+  onConsentClose:    () => void;
+  onConsentConfirm:  (rulesVersion: number) => void;
+  /** Result of a just-completed join/cancel — shows the result card while set. */
+  commitmentResult:        SparringCommitmentResult | null;
+  onCommitmentResultClose: () => void;
+  /** "Really cancel?" card — onCancelAskConfirm runs after it popped out. */
+  cancelAskVisible:        boolean;
+  onCancelAskClose:        () => void;
+  onCancelAskConfirm:      () => void;
   onBoostActivated?: () => void;
   loading:           boolean;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const AnimatedGHScrollView = Animated.createAnimatedComponent(GHScrollView);
-const SNAP_FULL    = 0;
-const SNAP_HALF    = SCREEN_HEIGHT * 0.42; // shows bottom ~50%
-const SNAP_DISMISS = SCREEN_HEIGHT;
-const SNAP_POINTS  = [SNAP_FULL, SNAP_HALF, SNAP_DISMISS]; // settle anchors, ordered top -> bottom
-const DRAG_CLAIM   = 6;   // px of movement before a content drag is claimed from the ScrollView
-const VELOCITY_PROJECTION = 150; // ms of velocity look-ahead used when settling to a snap point
+// Centered pop-up window: 85% of the screen, but never under the system bars.
+const WINDOW_HEIGHT_RATIO = 0.85;
+const WINDOW_MARGIN       = 16;
 
 function getBannerColor(scheduledAt: string, isFeatured: boolean): string {
   if (isFeatured) return colors.accentBlue;
@@ -81,135 +83,31 @@ function formatDateTime(iso: string): string {
 }
 
 export default function SparringDetailSheet({
-  sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onOpenChat, onBoostActivated, loading,
+  sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onOpenChat,
+  consentVisible, onConsentClose, onConsentConfirm, commitmentResult, onCommitmentResultClose,
+  cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
+  onBoostActivated, loading,
 }: Props) {
   const [boostSheetVisible, setBoostSheetVisible] = useState(false);
   // Only needed to resolve the current user's own waitlist position — a
   // second call to the same RPC SparringParticipantsList uses internally.
   const { participants } = useSparringParticipants(sparring?.id ?? null);
-  // Track whether the sheet is fully expanded so we can toggle scrollEnabled on JS side
-  const [isFullyExpanded, setIsFullyExpanded] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-
-  // Reanimated shared values — run on the UI thread
-  const translateY  = useSharedValue(SNAP_DISMISS);
-  const currentSnap = useSharedValue(SNAP_HALF);
-  const startY      = useSharedValue(0);   // translateY at gesture start
-  const scrollY     = useSharedValue(0);   // content scroll offset
-  // Ref to the inner scroll view so the content pan can run simultaneously with
-  // it — without this the active pan would block list scrolling when expanded.
-  const scrollRef   = useRef<React.ComponentRef<typeof GHScrollView>>(null);
+  const insets = useSafeAreaInsets();
   const storyShotRef = useRef<ViewShot>(null);
 
-  // Clamp helper — worklet version used inside gesture handlers
-  function clampYWorklet(v: number): number {
-    'worklet';
-    return Math.min(SNAP_DISMISS, Math.max(SNAP_FULL, v));
-  }
+  // Pops in whenever a (new) sparring is selected; close() pops out first.
+  const { overlayStyle, cardStyle, close } = usePopAnimation(onClose, sparring?.id ?? null);
 
-  // Notify JS side whether we are at SNAP_FULL so scrollEnabled can update
-  function notifyExpansionState(target: number): void {
-    setIsFullyExpanded(target === SNAP_FULL);
-  }
-
-  // Core settle worklet — projects with velocity, finds nearest snap, animates there
-  function settle(position: number, vy: number): void {
-    'worklet';
-    const projected = clampYWorklet(position + vy * VELOCITY_PROJECTION);
-    let target = SNAP_POINTS[0];
-    for (const s of SNAP_POINTS) {
-      if (Math.abs(s - projected) < Math.abs(target - projected)) target = s;
-    }
-    if (target === SNAP_DISMISS) {
-      translateY.value = withTiming(SNAP_DISMISS, { duration: 220 }, (finished) => {
-        if (finished) runOnJS(onClose)();
-      });
-    } else {
-      currentSnap.value = target;
-      translateY.value = withSpring(target, { damping: 18, stiffness: 140 });
-      runOnJS(notifyExpansionState)(target);
-    }
-  }
-
-  // JS dismiss — used by backdrop press, close button, and handlePressProfile
+  // Used by the X button, the backdrop and Android back.
   function dismiss(): void {
-    translateY.value = withTiming(SNAP_DISMISS, { duration: 220 }, (finished) => {
-      if (finished) runOnJS(onClose)();
-    });
+    close();
   }
 
-  // Animate in when a new sparring is selected (keyed on sparring.id)
-  useEffect(() => {
-    if (sparring !== null) {
-      translateY.value = SNAP_DISMISS;
-      currentSnap.value = SNAP_HALF;
-      setIsFullyExpanded(false);
-      translateY.value = withSpring(SNAP_HALF, { damping: 18, stiffness: 140 });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sparring?.id]);
-
-  // Banner / handle pan — always active, moves the entire sheet
-  const handlePan = Gesture.Pan()
-    .onStart(() => {
-      'worklet';
-      startY.value = translateY.value;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      translateY.value = clampYWorklet(startY.value + e.translationY);
-    })
-    .onEnd((e) => {
-      'worklet';
-      settle(translateY.value, e.velocityY);
-    });
-
-  // Scroll handler — updates scrollY on the UI thread
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
-
-  // Content pan — mirrors the existing shouldClaimContent logic:
-  //   • Sheet not fully expanded: claim vertical drag (both directions) once > DRAG_CLAIM px
-  //   • Sheet fully expanded + at top: claim downward drags to collapse
-  //   • Otherwise: let the ScrollView handle it
-  const contentPan = Gesture.Pan()
-    // Run together with the inner scroll so the pan does not block list
-    // scrolling when expanded. gesture-handler types the ref param as a
-    // ComponentType ref, but at runtime it accepts the ScrollView instance ref —
-    // hence the assertion (a known typing gap, not a logic cast).
-    .simultaneousWithExternalGesture(
-      scrollRef as unknown as React.RefObject<React.ComponentType | null | undefined>,
-    )
-    .activeOffsetY([-DRAG_CLAIM, DRAG_CLAIM])
-    .onStart(() => {
-      'worklet';
-      startY.value = translateY.value;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      const shouldClaim =
-        currentSnap.value !== SNAP_FULL ||
-        (scrollY.value <= 1 && e.translationY > 0);
-      if (shouldClaim) {
-        translateY.value = clampYWorklet(startY.value + e.translationY);
-      }
-    })
-    .onEnd((e) => {
-      'worklet';
-      const shouldClaim =
-        currentSnap.value !== SNAP_FULL ||
-        (scrollY.value <= 1 && e.velocityY > 0);
-      if (shouldClaim) {
-        settle(translateY.value, e.velocityY);
-      }
-    });
-
-  const animatedSheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
+  const windowHeight = Math.min(
+    SCREEN_HEIGHT * WINDOW_HEIGHT_RATIO,
+    SCREEN_HEIGHT - insets.top - insets.bottom - 2 * WINDOW_MARGIN,
+  );
 
   if (sparring === null) return null;
 
@@ -238,11 +136,13 @@ export default function SparringDetailSheet({
   const s = sparring;
 
   function handlePressProfile(userId: string): void {
-    dismiss();
-    navigation.navigate('PublicProfile', {
-      userId,
-      sparringId:          s.id,
-      sparringScheduledAt: s.scheduled_at,
+    // Navigate only after the window popped out, so the profile opens on top.
+    close(() => {
+      navigation.navigate('PublicProfile', {
+        userId,
+        sparringId:          s.id,
+        sparringScheduledAt: s.scheduled_at,
+      });
     });
   }
 
@@ -265,159 +165,153 @@ export default function SparringDetailSheet({
     await Share.open({ message: `${s.title} – jetzt mitmachen: ${url}`, failOnCancel: false });
   }
 
-  // scrollEnabled: only allow inner scroll when the sheet is fully expanded
-  const scrollEnabled = isFullyExpanded;
-
   return (
-    <Modal visible animationType="none" transparent onRequestClose={dismiss}>
+    <Modal
+      visible
+      animationType="none"
+      transparent
+      // Android back closes an open card first, then the sheet.
+      onRequestClose={
+        commitmentResult !== null ? onCommitmentResultClose
+          : cancelAskVisible ? onCancelAskClose
+          : dismiss
+      }
+    >
       {/* gesture-handler inside an RN Modal requires its own GestureHandlerRootView */}
       <GestureHandlerRootView style={styles.gestureRoot}>
         <View style={styles.container}>
-          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={dismiss} />
+          {/* Dim layer covers the whole screen (no bright edges at the corners) */}
+          <Animated.View style={[styles.overlay, overlayStyle]}>
+            <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={dismiss} />
+          </Animated.View>
 
-          <Animated.View style={[styles.sheet, animatedSheetStyle]}>
+          <Animated.View style={[styles.window, { height: windowHeight }, cardStyle]}>
 
-            {/* Banner + handle — drag here to expand or dismiss */}
-            <GestureDetector gesture={handlePan}>
-              <View style={[styles.banner, { backgroundColor: bannerColor }]}>
-                <View style={styles.handleRow}>
-                  <View style={styles.handle} />
+            <View style={[styles.banner, { backgroundColor: bannerColor }]}>
+              <Text style={styles.bannerTitle} numberOfLines={2}>{sparring.title}</Text>
+              <TouchableOpacity
+                style={styles.bannerClose}
+                onPress={dismiss}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name="close" size={22} color={colors.card} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.content}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.badgesRow}>
+                {sparring.is_featured && (
+                  <View style={styles.featuredBadge}>
+                    <Ionicons name="checkmark-circle" size={14} color={colors.accentBlue} />
+                    <Text style={styles.featuredBadgeText}>Sparr Pick</Text>
+                  </View>
+                )}
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{sparring.discipline}</Text>
                 </View>
+                {sparring.verified_only && (
+                  <View style={styles.verifiedOnlyBadge}>
+                    <Ionicons name="shield-checkmark-outline" size={13} color={colors.difficultyGreen} />
+                    <Text style={styles.verifiedOnlyBadgeText}>Nur verifizierte Mitglieder</Text>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.infoRow}>
+                <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{sparring.studio_name} · {sparring.address}</Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{formatDateTime(sparring.scheduled_at)}</Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>{sparring.duration_min} Minuten</Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
+                <Text style={styles.infoText}>
+                  {sparring.signup_count}/{sparring.max_slots} Angemeldet
+                  {!isFull && (
+                    <Text style={styles.slotsLeft}>{`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}</Text>
+                  )}
+                </Text>
+              </View>
+
+              <View style={styles.slotsBar}>
+                <View style={[styles.slotsBarFill, isFull && styles.slotsBarFull, { width: fillPct }]} />
+              </View>
+
+              {sparring.notes !== null && sparring.notes.length > 0 && (
+                <Text style={styles.notes}>{sparring.notes}</Text>
+              )}
+
+              <SparringParticipantsList
+                sparringId={sparring.id}
+                currentUserId={currentUserId}
+                sparringScheduledAt={sparring.scheduled_at}
+                isOrganizer={isCreator}
+                onPressProfile={handlePressProfile}
+              />
+
+              <SparringCommitmentActions
+                cta={cta}
+                confirmedCount={sparring.confirmed_count}
+                waitlistPosition={waitlistPosition}
+                loading={loading}
+                onJoin={onJoin}
+                onConfirm={onConfirm}
+                onCancel={onCancelSignup}
+              />
+
+              <TouchableOpacity style={styles.shareBtn} onPress={() => { void handleShare(); }} activeOpacity={0.8}>
+                <Ionicons name="share-outline" size={18} color={colors.accentBlue} />
+                <Text style={styles.shareBtnText}>Teilen</Text>
+              </TouchableOpacity>
+
+              {/* Chat is only readable for slot holders, attended/no_show and the organizer */}
+              {canOpenChat && (
                 <TouchableOpacity
-                  style={styles.bannerClose}
-                  onPress={dismiss}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.chatBtn}
+                  onPress={onOpenChat}
+                  disabled={loading}
+                  activeOpacity={0.8}
                 >
-                  <Ionicons name="close" size={22} color={colors.card} />
+                  <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
+                  <Text style={styles.chatBtnText}>Zum Chat</Text>
                 </TouchableOpacity>
-                <Text style={styles.bannerTitle} numberOfLines={2}>{sparring.title}</Text>
-              </View>
-            </GestureDetector>
+              )}
 
-            {/* Content — drag down at top also dismisses */}
-            <GestureDetector gesture={contentPan}>
-              <View style={styles.contentWrapper}>
-                <AnimatedGHScrollView
-                  ref={scrollRef}
-                  style={styles.scrollView}
-                  contentContainerStyle={styles.content}
-                  scrollEventThrottle={16}
-                  onScroll={onScroll}
-                  bounces={false}
-                  showsVerticalScrollIndicator={false}
-                  scrollEnabled={scrollEnabled}
+              {isCreator && (
+                <TouchableOpacity
+                  style={styles.boostBtn}
+                  onPress={() => setBoostSheetVisible(true)}
+                  disabled={loading}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.badgesRow}>
-                    {sparring.is_featured && (
-                      <View style={styles.featuredBadge}>
-                        <Ionicons name="checkmark-circle" size={14} color={colors.accentBlue} />
-                        <Text style={styles.featuredBadgeText}>Sparr Pick</Text>
-                      </View>
-                    )}
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{sparring.discipline}</Text>
-                    </View>
-                    {sparring.verified_only && (
-                      <View style={styles.verifiedOnlyBadge}>
-                        <Ionicons name="shield-checkmark-outline" size={13} color={colors.difficultyGreen} />
-                        <Text style={styles.verifiedOnlyBadgeText}>Nur verifizierte Mitglieder</Text>
-                      </View>
-                    )}
-                  </View>
+                  <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
+                  <Text style={styles.boostBtnText}>Karten-Boost</Text>
+                </TouchableOpacity>
+              )}
 
-                  <View style={styles.infoRow}>
-                    <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.infoText}>{sparring.studio_name} · {sparring.address}</Text>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.infoText}>{formatDateTime(sparring.scheduled_at)}</Text>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.infoText}>{sparring.duration_min} Minuten</Text>
-                  </View>
-
-                  <View style={styles.infoRow}>
-                    <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.infoText}>
-                      {sparring.signup_count}/{sparring.max_slots} Angemeldet
-                      {!isFull && (
-                        <Text style={styles.slotsLeft}>{`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}</Text>
-                      )}
-                    </Text>
-                  </View>
-
-                  <View style={styles.slotsBar}>
-                    <View style={[styles.slotsBarFill, isFull && styles.slotsBarFull, { width: fillPct }]} />
-                  </View>
-
-                  {sparring.notes !== null && sparring.notes.length > 0 && (
-                    <Text style={styles.notes}>{sparring.notes}</Text>
-                  )}
-
-                  <SparringParticipantsList
-                    sparringId={sparring.id}
-                    currentUserId={currentUserId}
-                    sparringScheduledAt={sparring.scheduled_at}
-                    isOrganizer={isCreator}
-                    onPressProfile={handlePressProfile}
-                  />
-
-                  <SparringCommitmentActions
-                    cta={cta}
-                    confirmedCount={sparring.confirmed_count}
-                    waitlistPosition={waitlistPosition}
-                    loading={loading}
-                    onJoin={onJoin}
-                    onConfirm={onConfirm}
-                    onCancel={onCancelSignup}
-                  />
-
-                  <TouchableOpacity style={styles.shareBtn} onPress={() => { void handleShare(); }} activeOpacity={0.8}>
-                    <Ionicons name="share-outline" size={18} color={colors.accentBlue} />
-                    <Text style={styles.shareBtnText}>Teilen</Text>
-                  </TouchableOpacity>
-
-                  {/* Chat is only readable for slot holders, attended/no_show and the organizer */}
-                  {canOpenChat && (
-                    <TouchableOpacity
-                      style={styles.chatBtn}
-                      onPress={onOpenChat}
-                      disabled={loading}
-                      activeOpacity={0.8}
-                    >
-                      <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
-                      <Text style={styles.chatBtnText}>Zum Chat</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {isCreator && (
-                    <TouchableOpacity
-                      style={styles.boostBtn}
-                      onPress={() => setBoostSheetVisible(true)}
-                      disabled={loading}
-                      activeOpacity={0.8}
-                    >
-                      <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
-                      <Text style={styles.boostBtnText}>Karten-Boost</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {isCreator && (
-                    <TouchableOpacity
-                      style={styles.btnDeactivate}
-                      onPress={onDeactivate}
-                      disabled={loading}
-                    >
-                      <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
-                    </TouchableOpacity>
-                  )}
-                </AnimatedGHScrollView>
-              </View>
-            </GestureDetector>
+              {isCreator && (
+                <TouchableOpacity
+                  style={styles.btnDeactivate}
+                  onPress={onDeactivate}
+                  disabled={loading}
+                >
+                  <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
           </Animated.View>
 
           <View style={styles.storyCapture} pointerEvents="none">
@@ -431,6 +325,38 @@ export default function SparringDetailSheet({
               />
             </ViewShot>
           </View>
+
+          {/* Must be a child of this Modal: iOS cannot present a second
+              Modal from the map screen while this one is presented — a
+              sibling Modal never shows and leaves an invisible host view
+              that swallows every touch on the map. */}
+          <SparringRulesConsentSheet
+            visible={consentVisible}
+            sparringTitle={sparring.title}
+            loading={loading}
+            onClose={onConsentClose}
+            onConfirm={onConsentConfirm}
+          />
+
+          {cancelAskVisible && (
+            <SparringCancelConfirmCard
+              sparringTitle={sparring.title}
+              dateTimeLabel={formatDateTime(sparring.scheduled_at)}
+              isWaitlisted={sparring.my_status === 'waitlisted'}
+              cancelIsFree={isBeforeCancelDeadline(sparring.scheduled_at, new Date())}
+              onClose={onCancelAskClose}
+              onConfirm={onCancelAskConfirm}
+            />
+          )}
+
+          {commitmentResult !== null && (
+            <SparringCommitmentResultCard
+              result={commitmentResult}
+              sparringTitle={sparring.title}
+              dateTimeLabel={formatDateTime(sparring.scheduled_at)}
+              onClose={onCommitmentResultClose}
+            />
+          )}
 
           {isCreator && boostSheetVisible && (
             <MapBoostSheet
@@ -454,53 +380,47 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex:           1,
-    justifyContent: 'flex-end',
+    flex:              1,
+    alignItems:        'center',
+    justifyContent:    'center',
+    paddingHorizontal: WINDOW_MARGIN,
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.mapOverlay,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  sheet: {
-    height:               SCREEN_HEIGHT * 0.92,
-    backgroundColor:      colors.card,
-    borderTopLeftRadius:  24,
-    borderTopRightRadius: 24,
-    overflow:             'hidden',
-  },
-  handleRow: {
-    alignItems:    'center',
-    paddingTop:    12,
-    paddingBottom: 4,
-  },
-  handle: {
-    width:           36,
-    height:          4,
-    borderRadius:    2,
-    backgroundColor: 'rgba(255,255,255,0.45)',
+  window: {
+    width:           '100%',
+    maxWidth:        520,
+    backgroundColor: colors.card,
+    borderRadius:    24,
+    overflow:        'hidden',
   },
   banner: {
+    flexDirection:     'row',
+    alignItems:        'flex-start',
+    gap:               16,
     paddingHorizontal: 24,
-    paddingBottom:     20,
-    justifyContent:    'flex-end',
+    paddingTop:        24,
+    paddingBottom:     24,
   },
   bannerClose: {
-    position:       'absolute',
-    top:            8,
-    right:          16,
-    width:          36,
-    height:         36,
-    alignItems:     'center',
-    justifyContent: 'center',
+    width:           36,
+    height:          36,
+    borderRadius:    18,
+    backgroundColor: colors.headerBorder,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
   bannerTitle: {
+    flex:       1,
     fontSize:   22,
     fontWeight: '700',
     color:      colors.card,
     lineHeight: 28,
-  },
-  contentWrapper: {
-    flex: 1,
   },
   scrollView: {
     flex: 1,
@@ -508,7 +428,7 @@ const styles = StyleSheet.create({
   content: {
     padding:       24,
     paddingTop:    16,
-    paddingBottom: 48,
+    paddingBottom: 24,
     gap:           14,
   },
   badgesRow: {

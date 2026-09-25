@@ -17,7 +17,9 @@ import { useSparringChatList } from '../hooks/useSparringChatList';
 import { useOpenEvents } from '../hooks/useOpenEvents';
 import { useEventActions } from '../hooks/useEventActions';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
-import SparringRulesConsentSheet from '../components/sparring/SparringRulesConsentSheet';
+import { MARKER_GROW_MS } from '../components/sparring/ActiveMarkerScale';
+import { useReducedMotion } from 'react-native-reanimated';
+import type { SparringCommitmentResult } from '../components/sparring/SparringCommitmentResultCard';
 import CreateSparringSheet from '../components/sparring/CreateSparringSheet';
 import MapBoostSheet from '../components/sparring/MapBoostSheet';
 import CreateEventSheet from '../components/sparring/CreateEventSheet';
@@ -32,7 +34,6 @@ import { supabase } from '../lib/supabase';
 import { parseStudioQr } from '../utils/studioQr';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
 import { canJoinSparring } from '../utils/sparringAccess';
-import { isBeforeCancelDeadline } from '../utils/sparringCommitment';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
 import type { EventWithMeta } from '../hooks/useOpenEvents';
 import type { RootStackParamList } from '../navigation/types';
@@ -78,8 +79,12 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const [selected, setSelected]         = useState<SparringWithMeta | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventWithMeta | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
-  // Sparring the user is joining, held while the rules consent sheet is open
-  const [consentFor, setConsentFor] = useState<SparringWithMeta | null>(null);
+  // Rules consent sheet for the selected sparring (rendered inside the detail sheet)
+  const [consentVisible, setConsentVisible] = useState(false);
+  // Branded result card after a successful join/cancel (inside the detail sheet)
+  const [commitmentResult, setCommitmentResult] = useState<SparringCommitmentResult | null>(null);
+  // Branded "really cancel?" card (inside the detail sheet)
+  const [cancelAskVisible, setCancelAskVisible] = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
   const [createEventVisible, setCreateEventVisible] = useState(false);
   const [scanVisible, setScanVisible] = useState(false);
@@ -93,11 +98,17 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const [paymentEventId, setPaymentEventId] = useState<string | null>(null);
   const paymentTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Tapped marker grows first, the detail window opens once it has grown.
+  const reduceMotion = useReducedMotion();
+  const [pressedSparringId, setPressedSparringId] = useState<string | null>(null);
+  const markerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Cleanup timers on unmount.
   useEffect(() => {
     return () => {
       if (boostTimerRef.current !== null) clearTimeout(boostTimerRef.current);
       if (paymentTimerRef.current !== null) clearTimeout(paymentTimerRef.current);
+      if (markerTimerRef.current !== null) clearTimeout(markerTimerRef.current);
     };
   }, []);
 
@@ -202,7 +213,28 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     })();
   }, [route.params?.focusSparringId, sparrings, navigation, user]);
 
+  // Keep the open detail sheet in sync with refetched data (e.g. after joining),
+  // so status and counts update in place. Sparrings outside the upcoming list
+  // (opened via fetchSparringById) keep their snapshot.
+  useEffect(() => {
+    setSelected((prev) => (prev === null ? prev : sparrings.find((s) => s.id === prev.id) ?? prev));
+  }, [sparrings]);
+
   // ── Sparring handlers ─────────────────────────────────────────────────────
+  function handleSparringMarkerPress(s: SparringWithMeta): void {
+    if (markerTimerRef.current !== null) clearTimeout(markerTimerRef.current);
+    if (reduceMotion) {
+      setSelected(s);
+      return;
+    }
+    setPressedSparringId(s.id);
+    markerTimerRef.current = setTimeout(() => {
+      markerTimerRef.current = null;
+      setSelected(s);
+      setPressedSparringId(null);
+    }, MARKER_GROW_MS);
+  }
+
   function handleJoinSparring(): void {
     if (selected === null) return;
     if (!canJoinSparring(selected.verified_only, tier)) {
@@ -210,62 +242,47 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       return;
     }
     // Joining always requires accepting the Sparr-Grundregeln first.
-    setConsentFor(selected);
+    setConsentVisible(true);
   }
 
   async function handleConfirmSparringConsent(rulesVersion: number): Promise<void> {
-    if (consentFor === null) return;
+    if (selected === null) return;
     setActionLoading(true);
-    const { error, status } = await signUp(consentFor.id, rulesVersion);
+    const { error, status } = await signUp(selected.id, rulesVersion);
     setActionLoading(false);
-    setConsentFor(null);
+    setConsentVisible(false);
     if (error !== null) {
       Alert.alert('Hinweis', error);
       return;
     }
+    // Keep the detail sheet open: the refetch below updates `selected`
+    // (see the sync effect), so the CTA switches to the new status in place.
     refetchSparrings();
-    setSelected(null);
-    if (status === 'waitlisted') {
-      Alert.alert('Warteliste', 'Du stehst auf der Warteliste. Wird ein Platz frei, rückst du automatisch nach.');
-    } else if (status === 'confirmed') {
-      Alert.alert('Angemeldet', 'Du bist dabei.');
-    } else if (status === 'pending') {
-      Alert.alert('Angemeldet', 'Du bist dabei. Bitte bestätige 24 Stunden vorher, dass du kommst.');
-    }
+    setCommitmentResult(status);
   }
 
   function handleCancelSparringSignup(): void {
     if (selected === null) return;
-    const free = isBeforeCancelDeadline(selected.scheduled_at, new Date());
-    Alert.alert(
-      'Kann doch nicht teilnehmen?',
-      free
-        ? `Möchtest du dich von „${selected.title}" abmelden? Rechtzeitige Absage zählt nicht negativ.`
-        : `Möchtest du dich von „${selected.title}" abmelden?`,
-      [
-        { text: 'Zurück', style: 'cancel' },
-        {
-          text: 'Abmelden',
-          style: 'destructive',
-          onPress: async () => {
-            setActionLoading(true);
-            const { error, status } = await cancelSignup(selected.id);
-            setActionLoading(false);
-            if (error !== null) {
-              Alert.alert('Fehler', error);
-              return;
-            }
-            refetchSparrings();
-            setSelected(null);
-            if (status === 'cancelled') {
-              Alert.alert('Danke', 'Danke fürs rechtzeitige Absagen.');
-            } else if (status === 'cancelled_late') {
-              Alert.alert('Abgemeldet', 'Du wurdest abgemeldet.');
-            }
-          },
-        },
-      ],
-    );
+    // Ask first — the branded question card lives inside the detail sheet.
+    setCancelAskVisible(true);
+  }
+
+  async function performCancelSparringSignup(): Promise<void> {
+    if (selected === null) return;
+    setActionLoading(true);
+    const wasWaitlisted = selected.my_status === 'waitlisted';
+    const { error, status } = await cancelSignup(selected.id);
+    setActionLoading(false);
+    if (error !== null) {
+      Alert.alert('Fehler', error);
+      return;
+    }
+    // Keep the sheet open (the sync effect refreshes it) and show the result
+    // card on top of it.
+    refetchSparrings();
+    if (status !== null) {
+      setCommitmentResult(wasWaitlisted ? 'left_waitlist' : status);
+    }
   }
 
   async function handleConfirmSparring(): Promise<void> {
@@ -384,7 +401,9 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         sparrings={mapSparrings}
         studioDots={mapStudioDots}
         events={mapEvents}
-        onSparringPress={setSelected}
+        onSparringPress={handleSparringMarkerPress}
+        // Enlarged while tapped and while its window is open; shrinks on close.
+        activeSparringId={selected?.id ?? pressedSparringId}
         onStudioPress={(studio) => navigation.navigate('StudioDetail', { studioId: studio.id })}
         onEventPress={setSelectedEvent}
         totalUnread={totalUnread}
@@ -414,13 +433,23 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         sparring={selected}
         currentUserId={user?.id ?? null}
         userTier={tier}
-        onClose={() => setSelected(null)}
+        onClose={() => {
+          setConsentVisible(false);
+          setCommitmentResult(null);
+          setCancelAskVisible(false);
+          setSelected(null);
+        }}
         onJoin={handleJoinSparring}
         onConfirm={() => { void handleConfirmSparring(); }}
         onCancelSignup={handleCancelSparringSignup}
         onDeactivate={handleDeactivateSparring}
         onOpenChat={() => {
           if (selected === null) return;
+          // Close the sheet first: it is a Modal above the navigator, so a
+          // pushed screen would otherwise open underneath it.
+          setConsentVisible(false);
+          setCommitmentResult(null);
+          setSelected(null);
           navigation.navigate('SparringGroupChat', {
             sparringId:    selected.id,
             sparringTitle: selected.title,
@@ -429,17 +458,16 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             isOrganizer:   selected.created_by === user?.id,
           });
         }}
+        consentVisible={consentVisible}
+        onConsentClose={() => setConsentVisible(false)}
+        onConsentConfirm={(rulesVersion) => { void handleConfirmSparringConsent(rulesVersion); }}
+        commitmentResult={commitmentResult}
+        onCommitmentResultClose={() => setCommitmentResult(null)}
+        cancelAskVisible={cancelAskVisible}
+        onCancelAskClose={() => setCancelAskVisible(false)}
+        onCancelAskConfirm={() => { void performCancelSparringSignup(); }}
         onBoostActivated={refetchSparrings}
         loading={actionLoading}
-      />
-
-      {/* ── Sparring rules consent (gate before every signup) ── */}
-      <SparringRulesConsentSheet
-        visible={consentFor !== null}
-        sparringTitle={consentFor?.title ?? null}
-        loading={actionLoading}
-        onClose={() => setConsentFor(null)}
-        onConfirm={(rulesVersion) => { void handleConfirmSparringConsent(rulesVersion); }}
       />
 
       {/* ── Event detail sheet ── */}
@@ -451,6 +479,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onDeactivate={handleDeactivateEvent}
         onOpenChat={() => {
           if (selectedEvent === null) return;
+          // Close the sheet first (Modal above the navigator, see sparring chat).
+          setSelectedEvent(null);
           navigation.navigate('EventGroupChat', {
             eventId:     selectedEvent.id,
             eventTitle:  selectedEvent.title,

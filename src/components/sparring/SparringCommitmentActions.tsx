@@ -63,7 +63,7 @@ export default function SparringCommitmentActions({
     return (
       <View style={styles.container}>
         {socialProof}
-        <Text style={styles.waitlistText}>
+        <Text style={styles.statusText}>
           Du stehst auf der Warteliste{waitlistPosition !== null ? ` (Platz ${waitlistPosition})` : ''}
         </Text>
         <TouchableOpacity style={styles.btnCancel} onPress={onCancel} disabled={loading}>
@@ -90,9 +90,10 @@ export default function SparringCommitmentActions({
             )}
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.btnSecondary} onPress={onConfirm} disabled={loading}>
-            <Text style={styles.btnSecondaryText}>Schon jetzt bestätigen</Text>
-          </TouchableOpacity>
+          // No early confirmation: the regular flow asks 24h before the start.
+          <Text style={styles.statusText}>
+            Du bist dabei. 24 Stunden vorher bittet dich die App, deine Teilnahme zu bestätigen.
+          </Text>
         )}
         <TouchableOpacity style={styles.btnCancel} onPress={onCancel} disabled={loading}>
           <Text style={styles.btnCancelText}>Kann doch nicht teilnehmen</Text>
@@ -150,20 +151,6 @@ const styles = StyleSheet.create({
   btnVerifyRequired: {
     backgroundColor: colors.sparringsOrange,
   },
-  btnSecondary: {
-    borderRadius:    14,
-    height:          44,
-    alignItems:      'center',
-    justifyContent:  'center',
-    borderWidth:     1,
-    borderColor:     colors.accentBlue,
-    backgroundColor: colors.accentBlueSoft,
-  },
-  btnSecondaryText: {
-    fontSize:   15,
-    fontWeight: '600',
-    color:      colors.accentBlue,
-  },
   btnCancel: {
     borderRadius:    14,
     height:          44,
@@ -178,7 +165,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color:      colors.deleteRed,
   },
-  waitlistText: {
+  statusText: {
     fontSize:   14,
     fontWeight: '600',
     color:      colors.text,

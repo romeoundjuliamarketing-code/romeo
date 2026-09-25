@@ -7,6 +7,8 @@ export interface SparringMapViewProps {
   sparrings:           SparringWithMeta[];
   studioDots:          StudioMapMarker[];
   onSparringPress:     (s: SparringWithMeta) => void;
+  /** Sparring whose marker is shown enlarged (tapped / its window is open). */
+  activeSparringId:    string | null;
   onStudioPress:       (st: StudioMapMarker) => void;
   totalUnread:         number;
   onChatPress:         () => void;

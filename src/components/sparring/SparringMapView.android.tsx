@@ -14,6 +14,7 @@ import { colors } from '../../theme/colors';
 import { getTimeWindow } from '../../utils/sparringTimeWindow';
 import type { SparringMapViewProps } from './SparringMapView.types';
 import type { VenueMapMarker } from '../../hooks/useVenueMapMarkers';
+import ActiveMarkerScale from './ActiveMarkerScale';
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
@@ -97,6 +98,7 @@ export default function SparringMapView({
   sparrings,
   studioDots,
   onSparringPress,
+  activeSparringId,
   onStudioPress,
   totalUnread,
   onChatPress,
@@ -167,12 +169,14 @@ export default function SparringMapView({
             lngLat={[s.lng!, s.lat!]}
             onPress={() => onSparringPress(s)}
           >
-            {s.is_featured
-              ? <FeaturedMarker isAtStudio={s.is_at_studio} />
-              : s.is_at_studio
-                ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
-                : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
-            }
+            <ActiveMarkerScale active={s.id === activeSparringId}>
+              {s.is_featured
+                ? <FeaturedMarker isAtStudio={s.is_at_studio} />
+                : s.is_at_studio
+                  ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
+                  : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
+              }
+            </ActiveMarkerScale>
           </Marker>
         ))}
 

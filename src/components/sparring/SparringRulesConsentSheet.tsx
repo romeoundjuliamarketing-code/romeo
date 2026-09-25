@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import {
   Modal,
   ScrollView,
@@ -9,10 +10,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
-import type { RootStackParamList } from '../../navigation/types';
+import SparringRulesContent from './SparringRulesContent';
 import {
   SPARRING_CONSENT_CHECKBOX_LABEL,
   SPARRING_CONSENT_ITEMS,
@@ -41,11 +41,31 @@ export default function SparringRulesConsentSheet({
   onConfirm,
 }: Props): React.ReactElement | null {
   const [accepted, setAccepted] = useState(false);
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  // Full rules text shown as an overlay on top of this sheet. Navigating to the
+  // SparringRules screen would land behind the open Modals and stay invisible.
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  // "Ganz nach unten" hint: visible while the consent list overflows and the
+  // user has not reached its end yet. Tapping it scrolls there.
+  const scrollRef = useRef<ScrollView>(null);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight,  setContentHeight]  = useState(0);
+  const [scrollOffset,   setScrollOffset]   = useState(0);
+  const showScrollHint =
+    viewportHeight > 0 && scrollOffset + viewportHeight < contentHeight - SCROLL_END_TOLERANCE;
+
+  function handleScroll(e: NativeSyntheticEvent<NativeScrollEvent>): void {
+    setScrollOffset(e.nativeEvent.contentOffset.y);
+  }
 
   // Consent is per signup — never carry a tick over to the next sparring.
   useEffect(() => {
-    if (!visible) setAccepted(false);
+    if (!visible) {
+      setAccepted(false);
+      setRulesOpen(false);
+      setScrollOffset(0);
+    }
   }, [visible]);
 
   if (!visible) return null;
@@ -57,91 +77,191 @@ export default function SparringRulesConsentSheet({
 
   return (
     // onRequestClose covers the Android hardware back button — it closes the
-    // sheet without signing the user up.
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-      <View style={styles.sheet}>
+    // rules overlay first, otherwise the sheet without signing the user up.
+    <Modal
+      visible
+      animationType="slide"
+      transparent
+      onRequestClose={rulesOpen ? () => setRulesOpen(false) : onClose}
+    >
+      {/* The dim overlay fills the whole screen (not just the area above the
+          sheet), so nothing bright shows through behind the rounded corners. */}
+      <View style={styles.overlay}>
+        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
+        <View style={styles.sheet}>
 
-        <View style={styles.handleRow}>
-          <View style={styles.handle} />
-        </View>
-
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="close" size={22} color={colors.textSecondary} />
-        </TouchableOpacity>
-
-        <Text style={styles.title}>Bevor du teilnimmst</Text>
-        {sparringTitle !== null && (
-          <Text style={styles.subtitle}>{sparringTitle}</Text>
-        )}
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.introCard}>
-            <Text style={styles.introTitle}>{SPARRING_RULES_INTRO.title}</Text>
-            <Text style={styles.introBody}>{SPARRING_RULES_INTRO.paragraphs[0]}</Text>
+          <View style={styles.handleRow}>
+            <View style={styles.handle} />
           </View>
-
-          <Text style={styles.listIntro}>Mit deiner Zusage bestätigst du:</Text>
-
-          {SPARRING_CONSENT_ITEMS.map((item) => (
-            <View key={item} style={styles.item}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={18}
-                color={colors.accentBlue}
-              />
-              <Text style={styles.itemText}>{item}</Text>
-            </View>
-          ))}
 
           <TouchableOpacity
-            style={styles.rulesLink}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('SparringRules')}
+            style={styles.closeBtn}
+            onPress={onClose}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="document-text-outline" size={16} color={colors.accentBlue} />
-            <Text style={styles.rulesLinkText}>Alle Sparr-Grundregeln lesen</Text>
+            <Ionicons name="close" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
-        </ScrollView>
 
-        <TouchableOpacity
-          style={styles.checkboxRow}
-          activeOpacity={0.7}
-          onPress={() => setAccepted((prev) => !prev)}
-        >
-          <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
-            {accepted && <Ionicons name="checkmark" size={16} color={colors.headerTextPrimary} />}
-          </View>
-          <Text style={styles.checkboxLabel}>{SPARRING_CONSENT_CHECKBOX_LABEL}</Text>
-        </TouchableOpacity>
+          <Text style={styles.title}>Bevor du teilnimmst</Text>
+          {sparringTitle !== null && (
+            <Text style={styles.subtitle}>{sparringTitle}</Text>
+          )}
 
-        <TouchableOpacity
-          style={[styles.confirmBtn, (!accepted || loading) && styles.confirmBtnDisabled]}
-          activeOpacity={0.8}
-          disabled={!accepted || loading}
-          onPress={handleConfirm}
-        >
-          {loading
-            ? <ActivityIndicator color={colors.headerTextPrimary} />
-            : <Text style={styles.confirmBtnText}>Teilnahme bestätigen</Text>}
-        </TouchableOpacity>
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            onLayout={(e) => setViewportHeight(e.nativeEvent.layout.height)}
+            onContentSizeChange={(_w, h) => setContentHeight(h)}
+            onScroll={handleScroll}
+            scrollEventThrottle={32}
+          >
+            <View style={styles.introCard}>
+              <Text style={styles.introTitle}>{SPARRING_RULES_INTRO.title}</Text>
+              <Text style={styles.introBody}>{SPARRING_RULES_INTRO.paragraphs[0]}</Text>
+            </View>
+
+            <Text style={styles.listIntro}>Mit deiner Zusage bestätigst du:</Text>
+
+            {SPARRING_CONSENT_ITEMS.map((item) => (
+              <View key={item} style={styles.item}>
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={18}
+                  color={colors.accentBlue}
+                />
+                <Text style={styles.itemText}>{item}</Text>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.rulesLink}
+              activeOpacity={0.7}
+              onPress={() => setRulesOpen(true)}
+            >
+              <Ionicons name="document-text-outline" size={16} color={colors.accentBlue} />
+              <Text style={styles.rulesLinkText}>Alle Sparr-Grundregeln lesen</Text>
+            </TouchableOpacity>
+          </ScrollView>
+
+          {showScrollHint && (
+            <TouchableOpacity
+              style={styles.scrollHint}
+              activeOpacity={0.7}
+              onPress={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            >
+              <Ionicons name="arrow-down-circle" size={22} color={colors.accentBlue} />
+              <Text style={styles.scrollHintText}>Ganz nach unten</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            activeOpacity={0.7}
+            onPress={() => setAccepted((prev) => !prev)}
+          >
+            <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
+              {accepted && <Ionicons name="checkmark" size={16} color={colors.headerTextPrimary} />}
+            </View>
+            <Text style={styles.checkboxLabel}>{SPARRING_CONSENT_CHECKBOX_LABEL}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.confirmBtn, (!accepted || loading) && styles.confirmBtnDisabled]}
+            activeOpacity={0.8}
+            disabled={!accepted || loading}
+            onPress={handleConfirm}
+          >
+            {loading
+              ? <ActivityIndicator color={colors.headerTextPrimary} />
+              : <Text style={styles.confirmBtnText}>Teilnahme bestätigen</Text>}
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {rulesOpen && (
+        <View style={[styles.rulesOverlay, { paddingTop: insets.top }]}>
+          <View style={styles.rulesHeader}>
+            <Text style={styles.rulesHeaderTitle}>Sparr-Grundregeln</Text>
+            <TouchableOpacity
+              style={styles.rulesCloseBtn}
+              onPress={() => setRulesOpen(false)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close" size={20} color={colors.headerTextPrimary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            style={styles.rulesScroll}
+            contentContainerStyle={[styles.rulesContent, { paddingBottom: insets.bottom + 24 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            <SparringRulesContent />
+          </ScrollView>
+        </View>
+      )}
     </Modal>
   );
 }
 
+// Distance from the end (px) that already counts as "scrolled to the bottom".
+const SCROLL_END_TOLERANCE = 8;
+
 const styles = StyleSheet.create({
-  backdrop: {
+  scrollHint: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:            8,
+    minHeight:      44,
+  },
+  scrollHintText: {
+    fontSize:   15,
+    fontWeight: '600',
+    color:      colors.accentBlue,
+  },
+  rulesOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.dark,
+  },
+  rulesHeader: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'space-between',
+    paddingHorizontal: 16,
+    paddingTop:        8,
+    paddingBottom:     16,
+  },
+  rulesHeaderTitle: {
+    color:      colors.headerTextPrimary,
+    fontSize:   22,
+    fontWeight: '700',
+  },
+  rulesCloseBtn: {
+    width:           36,
+    height:          36,
+    borderRadius:    18,
+    backgroundColor: colors.headerCard,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  rulesScroll: {
     flex:            1,
+    backgroundColor: colors.background,
+  },
+  rulesContent: {
+    paddingHorizontal: 16,
+    paddingTop:        24,
+  },
+  overlay: {
+    flex:            1,
+    justifyContent:  'flex-end',
     backgroundColor: colors.mapOverlay,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
   },
   sheet: {
     backgroundColor:      colors.card,

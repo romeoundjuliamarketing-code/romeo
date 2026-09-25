@@ -8,6 +8,7 @@ import { colors } from '../../theme/colors';
 import { getTimeWindow } from '../../utils/sparringTimeWindow';
 import type { SparringMapViewProps } from './SparringMapView.types';
 import type { VenueMapMarker } from '../../hooks/useVenueMapMarkers';
+import ActiveMarkerScale from './ActiveMarkerScale';
 
 const FALLBACK_REGION = {
   latitude: 48.14,
@@ -93,6 +94,7 @@ export default function SparringMapView({
   sparrings,
   studioDots,
   onSparringPress,
+  activeSparringId,
   onStudioPress,
   totalUnread,
   onChatPress,
@@ -171,12 +173,14 @@ export default function SparringMapView({
             tracksViewChanges={false}
             zIndex={s.is_featured ? 1 : 0}
           >
-            {s.is_featured
-              ? <FeaturedMarker isAtStudio={s.is_at_studio} />
-              : s.is_at_studio
-                ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
-                : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
-            }
+            <ActiveMarkerScale active={s.id === activeSparringId}>
+              {s.is_featured
+                ? <FeaturedMarker isAtStudio={s.is_at_studio} />
+                : s.is_at_studio
+                  ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
+                  : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
+              }
+            </ActiveMarkerScale>
           </Marker>
         ))}
 

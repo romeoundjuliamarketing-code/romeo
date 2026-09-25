@@ -597,3 +597,29 @@ Eine Phase ist erst fertig, wenn **alle** Punkte erfuellt sind. Sonst nicht weit
 **Finales Abnahme-Gate:** alle Punkte aus Abschnitt 12 erfuellt, `npx tsc --noEmit && npx jest`
 gruen, Release-Checkliste aus `CLAUDE.md` fuer den naechsten Store-Build beachtet.
 
+
+---
+
+## Legacy-Kompatibilitaet (Prod-Deploy 2026-09-24)
+
+Die Migrationen 0906/0910/0911 laufen seit 2026-09-24 auf Prod, **vor** dem Release von 1.2.7.
+Damit Store-Builds <= 1.2.6 weiter funktionieren, gilt voruebergehend
+`20260924120000_sparring_legacy_client_compat.sql`:
+
+- Direkter INSERT (alte App) wird per Trigger zu `pending`, `rules_version = 0`; Organisator wird benachrichtigt.
+- Direkter DELETE der eigenen Zeile ist erlaubt (Warteliste rueckt nach, Chat-Systemnachricht wie gehabt).
+- Der Cron `sparring-lifecycle` ist **pausiert** (alte App kann nicht bestaetigen, Plaetze wuerden verfallen).
+
+**Aufraeumen, sobald 1.2.7+ die Mindestversion ist** (als neue Migration):
+
+```sql
+DROP POLICY  IF EXISTS "legacy insert own signup" ON sparring_signups;
+DROP POLICY  IF EXISTS "legacy delete own signup" ON sparring_signups;
+DROP TRIGGER IF EXISTS trg_sparring_signup_legacy_insert ON sparring_signups;
+DROP TRIGGER IF EXISTS trg_sparring_signup_legacy_notify ON sparring_signups;
+DROP FUNCTION IF EXISTS trg_sparring_signup_legacy_insert();
+DROP FUNCTION IF EXISTS trg_sparring_signup_legacy_notify();
+SELECT cron.schedule('sparring-lifecycle', '*/15 * * * *', $$SELECT public.process_sparring_lifecycle()$$);
+```
+
+Danach `cron.job_run_details` pruefen. Bestehende `rules_version = 0`-Zeilen bleiben gueltig.

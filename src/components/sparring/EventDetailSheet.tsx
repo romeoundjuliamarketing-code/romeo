@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -89,10 +89,6 @@ export default function EventDetailSheet({
     const total = bannerH.current + contentInnerH.current;
     setSheetHeight(Math.min(total, MAX_SHEET_H));
     setOverflow(total > MAX_SHEET_H + 1);
-    if (!hasEnteredRef.current) {
-      hasEnteredRef.current = true;
-      translateY.value = withSpring(0, { damping: 18, stiffness: 140 });
-    }
   }
 
   // Mirrors the latest overflow flag onto the UI thread without re-creating gestures.
@@ -123,16 +119,29 @@ export default function EventDetailSheet({
     });
   }
 
-  useEffect(() => {
+  // New event: drop the previous event's measurements. Layout effect so the
+  // reset runs before the fresh onLayout/onContentSizeChange events arrive —
+  // sliding in with a stale height and resizing mid-animation made it stutter.
+  useLayoutEffect(() => {
     if (event !== null) {
       hasEnteredRef.current = false;
       translateY.value = OFF_SCREEN;
-      // If the content was already measured (re-open with the component mounted),
-      // size + slide in immediately; otherwise the layout callbacks below do it.
-      recomputeSize();
+      bannerH.current = 0;
+      contentInnerH.current = 0;
+      setSheetHeight(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [event?.id]);
+
+  // Slide in only once the measured height is committed, so the spring runs on
+  // a sheet that no longer changes size.
+  useEffect(() => {
+    if (event !== null && sheetHeight !== null && !hasEnteredRef.current) {
+      hasEnteredRef.current = true;
+      translateY.value = withSpring(0, { damping: 18, stiffness: 140 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetHeight, event?.id]);
 
   const handlePan = Gesture.Pan()
     .onStart(() => {
@@ -224,6 +233,9 @@ export default function EventDetailSheet({
           <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={dismiss} />
 
           <Animated.View
+            // Remount per event: guarantees fresh onLayout/onContentSizeChange,
+            // which the slide-in waits for.
+            key={ev.id}
             style={[styles.sheet, sheetHeight !== null && { height: sheetHeight }, animatedSheetStyle]}
           >
 
