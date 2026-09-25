@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { ListRenderItemInfo } from 'react-native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
 import { useSparringGroupChat } from '../hooks/useSparringGroupChat';
@@ -25,13 +25,17 @@ import { useAuth } from '../context/AuthContext';
 import GroupMessageBubble from '../components/chat/GroupMessageBubble';
 import ChatDateSeparator from '../components/chat/ChatDateSeparator';
 import ChatImagePicker from '../components/chat/ChatImagePicker';
+import ChatComposer from '../components/chat/ChatComposer';
+import NewMessagesPill from '../components/chat/NewMessagesPill';
 import SparringChatInfoBanner from '../components/chat/SparringChatInfoBanner';
 import SparringChatParticipantBar from '../components/chat/SparringChatParticipantBar';
 import SparringRulesConsentSheet from '../components/sparring/SparringRulesConsentSheet';
 import type { Participant } from '../components/chat/SparringChatParticipantBar';
 import type { RootStackParamList } from '../navigation/types';
 import type { GroupMessageWithSender } from '../hooks/useSparringGroupChat';
-import { isSameDay, chatDateLabel } from '../utils/chatDate';
+import { chatDateLabel } from '../utils/chatDate';
+import { computeLayoutFlags } from '../utils/chatMessages';
+import { useChatListScroll, NEAR_LATEST_PX } from '../hooks/useChatListScroll';
 import { checkText, filterErrorMessage } from '../utils/contentFilter';
 import { useBannedWords } from '../hooks/useBannedWords';
 
@@ -48,6 +52,16 @@ function getCountdown(iso: string): string {
   return `In ${diff} Tagen · ${time} Uhr`;
 }
 
+const MAINTAIN_POSITION = { minIndexForVisible: 0, autoscrollToTopThreshold: NEAR_LATEST_PX };
+
+function keyExtractor(m: GroupMessageWithSender): string {
+  return m.id;
+}
+
+function sameSenderGroup(a: GroupMessageWithSender, b: GroupMessageWithSender): boolean {
+  return a.sender_id === b.sender_id && !a.is_system && !b.is_system;
+}
+
 export default function SparringGroupChatScreen() {
   const insets     = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -56,17 +70,39 @@ export default function SparringGroupChatScreen() {
 
   const { sparringId, sparringTitle, scheduledAt, durationMin, isOrganizer } = params;
 
-  const { messages, loading, sending, isReadOnly, sendError, sendText, sendImage, clearSendError } =
-    useSparringGroupChat(sparringId, scheduledAt, durationMin);
+  const {
+    messages, loading, loadingOlder, hasMore, loadOlder,
+    sending, isReadOnly, sendError, sendText, sendImage, clearSendError,
+  } = useSparringGroupChat(sparringId, scheduledAt, durationMin);
   const { mediaEnabled, toggleMedia } =
     useSparringChatSettings(sparringId, isOrganizer);
   const { signUp, cancelSignup } = useSparringActions();
   const { bannedWords } = useBannedWords();
 
-  const [inputText,       setInputText]       = useState('');
   const [settingsVisible, setSettingsVisible] = useState(false);
-  const listRef         = useRef<FlatList<GroupMessageWithSender>>(null);
-  const isNearBottomRef = useRef(true);
+
+  // Inverted list: index 0 is the newest message and sits at the bottom.
+  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
+  const userId      = user?.id ?? null;
+  const isOwnMsg    = useCallback((m: GroupMessageWithSender) => m.sender_id === userId, [userId]);
+  const { listRef, onScroll, showHint, scrollToLatest } = useChatListScroll(newestFirst, isOwnMsg);
+
+  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<GroupMessageWithSender>) => {
+    const flags = computeLayoutFlags(newestFirst, index, sameSenderGroup);
+    return (
+      <>
+        {flags.showDateSeparator && (
+          <ChatDateSeparator label={chatDateLabel(item.created_at)} />
+        )}
+        <GroupMessageBubble
+          message={item}
+          isOwn={item.sender_id === userId}
+          isFirstInGroup={flags.isFirstInGroup}
+          isLastInGroup={flags.isLastInGroup}
+        />
+      </>
+    );
+  }, [newestFirst, userId]);
 
   // Sparring info + participants
   const [sparringInfo, setSparringInfo] = useState<{
@@ -146,17 +182,14 @@ export default function SparringGroupChatScreen() {
     setSignupLoading(false);
   }
 
-  async function handleSend() {
-    const text = inputText.trim();
-    if (text.length === 0 || sending) return;
+  async function handleSend(text: string): Promise<boolean> {
     const verdict = checkText(text, bannedWords);
     if (!verdict.ok) {
       Alert.alert('Nachricht blockiert', filterErrorMessage(verdict.category));
-      return;
+      return false;
     }
-    isNearBottomRef.current = true;
     const { error } = await sendText(text);
-    if (error === null) setInputText('');
+    return error === null;
   }
 
   const isFull = sparringInfo !== null
@@ -202,59 +235,28 @@ export default function SparringGroupChatScreen() {
       {loading ? (
         <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
       ) : (
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(m) => m.id}
-          renderItem={({ item, index }) => {
-            const prev = index > 0 ? messages[index - 1] : null;
-            const next = index < messages.length - 1 ? messages[index + 1] : null;
-
-            const showDateSeparator =
-              index === 0 ||
-              (prev !== null && !isSameDay(new Date(prev.created_at), new Date(item.created_at)));
-
-            const isFirstInGroup =
-              prev === null ||
-              prev.sender_id !== item.sender_id ||
-              !!prev.is_system ||
-              !!item.is_system ||
-              showDateSeparator;
-
-            const isLastInGroup =
-              next === null ||
-              next.sender_id !== item.sender_id ||
-              !!next.is_system ||
-              !!item.is_system ||
-              !isSameDay(new Date(item.created_at), new Date(next.created_at));
-
-            return (
-              <>
-                {showDateSeparator && (
-                  <ChatDateSeparator label={chatDateLabel(item.created_at)} />
-                )}
-                <GroupMessageBubble
-                  message={item}
-                  isOwn={user?.id === item.sender_id}
-                  isFirstInGroup={isFirstInGroup}
-                  isLastInGroup={isLastInGroup}
-                />
-              </>
-            );
-          }}
-          contentContainerStyle={styles.messageList}
-          onScroll={(e) => {
-            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-            isNearBottomRef.current =
-              contentSize.height - contentOffset.y - layoutMeasurement.height < 80;
-          }}
-          scrollEventThrottle={100}
-          onContentSizeChange={() => {
-            if (isNearBottomRef.current) {
-              listRef.current?.scrollToEnd({ animated: true });
-            }
-          }}
-        />
+        <View style={styles.listWrap}>
+          <FlatList
+            ref={listRef}
+            inverted
+            data={newestFirst}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            contentContainerStyle={styles.messageList}
+            onScroll={onScroll}
+            scrollEventThrottle={100}
+            // Keeps the reading position when messages arrive; follows them near the bottom.
+            maintainVisibleContentPosition={MAINTAIN_POSITION}
+            onEndReached={hasMore ? loadOlder : undefined}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={loadingOlder
+              ? <ActivityIndicator style={styles.olderLoader} color={colors.accentBlue} />
+              : null}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+          />
+          {showHint && <NewMessagesPill onPress={scrollToLatest} />}
+        </View>
       )}
 
       {/* Participant bar + Ich bin dabei (only when not organizer + active sparring) */}
@@ -283,35 +285,17 @@ export default function SparringGroupChatScreen() {
           <Text style={styles.readOnlyText}>Dieses Sparring hat stattgefunden.</Text>
         </View>
       ) : (
-        <View style={[styles.inputRow, { paddingBottom: insets.bottom + 8 }]}>
-          {mediaEnabled && (
+        <ChatComposer
+          sending={sending}
+          bottomInset={insets.bottom}
+          onSend={handleSend}
+          leading={mediaEnabled ? (
             <ChatImagePicker
               onImageSelected={(uri) => { void sendImage(uri); }}
               disabled={sending}
             />
-          )}
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Nachricht..."
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            returnKeyType="send"
-            onSubmitEditing={() => { void handleSend(); }}
-            blurOnSubmit
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, (inputText.trim().length === 0 || sending) && styles.sendBtnDisabled]}
-            onPress={() => { void handleSend(); }}
-            disabled={inputText.trim().length === 0 || sending}
-          >
-            {sending
-              ? <ActivityIndicator size="small" color={colors.card} />
-              : <Ionicons name="send" size={18} color={colors.card} />
-            }
-          </TouchableOpacity>
-        </View>
+          ) : null}
+        />
       )}
 
       {/* Settings Sheet */}
@@ -379,8 +363,14 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 48,
   },
+  listWrap: {
+    flex: 1,
+  },
   messageList: {
     paddingVertical: 8,
+  },
+  olderLoader: {
+    paddingVertical: 16,
   },
   readOnlyBanner: {
     paddingHorizontal: 24,
@@ -393,40 +383,6 @@ const styles = StyleSheet.create({
     fontSize:  14,
     color:     colors.textSecondary,
     textAlign: 'center',
-  },
-  inputRow: {
-    flexDirection:     'row',
-    alignItems:        'flex-end',
-    paddingHorizontal: 8,
-    paddingTop:        8,
-    borderTopWidth:    1,
-    borderTopColor:    colors.border,
-    backgroundColor:   colors.background,
-    gap:               8,
-  },
-  input: {
-    flex:              1,
-    minHeight:         40,
-    maxHeight:         120,
-    backgroundColor:   colors.card,
-    borderRadius:      20,
-    paddingHorizontal: 16,
-    paddingVertical:   10,
-    fontSize:          15,
-    color:             colors.text,
-    borderWidth:       1,
-    borderColor:       colors.border,
-  },
-  sendBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    20,
-    backgroundColor: colors.accentBlue,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  sendBtnDisabled: {
-    opacity: 0.4,
   },
   settingsOverlay: {
     ...StyleSheet.absoluteFillObject,

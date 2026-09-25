@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { canonicalIso, keysetOrFilter } from '../utils/chatMessages';
+import type { PageQuery } from '../utils/chatSync';
+import { useChatMessageStream } from './useChatMessageStream';
 import type { EventMessage } from '../types/database.types';
 
 export interface EventMessageWithSender extends EventMessage {
@@ -11,6 +14,9 @@ export interface EventMessageWithSender extends EventMessage {
 export interface UseEventGroupChat {
   messages:       EventMessageWithSender[];
   loading:        boolean;
+  loadingOlder:   boolean;
+  hasMore:        boolean;
+  loadOlder:      () => void;
   sending:        boolean;
   isReadOnly:     boolean;
   sendError:      string | null;
@@ -29,111 +35,89 @@ export function useEventGroupChat(
   durationMin: number,
 ): UseEventGroupChat {
   const { user } = useAuth();
-  const [messages,  setMessages]  = useState<EventMessageWithSender[]>([]);
-  const [loading,   setLoading]   = useState(true);
+  // Depend on the id, not the user object: a token refresh creates a new object.
+  const userId = user?.id ?? null;
   const [sending,   setSending]   = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const channelRef       = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const senderNamesRef   = useRef<Map<string, string | null>>(new Map());
   const senderAvatarsRef = useRef<Map<string, string | null>>(new Map());
 
   const isReadOnly = computeIsReadOnly(scheduledAt, durationMin);
 
-  const loadMessages = useCallback(async () => {
-    const { data: rows } = await supabase
-      .from('event_messages')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('created_at', { ascending: true });
+  const fetchPage = useCallback(async (query: PageQuery, limit: number): Promise<EventMessage[]> => {
+    let q = supabase.from('event_messages').select('*').eq('event_id', eventId);
+    const ascending = query.kind === 'after';
+    if (query.kind !== 'latest') {
+      const keyset = keysetOrFilter(query.kind, query.cursor);
+      const ts     = canonicalIso(query.cursor.created_at);
+      if (keyset !== null)             q = q.or(keyset);
+      else if (query.kind === 'after') q = q.gte('created_at', ts);
+      else                             q = q.lt('created_at', ts);
+    }
+    const { data, error } = await q
+      .order('created_at', { ascending })
+      .order('id',         { ascending })
+      .limit(limit);
+    if (error !== null) throw error;
+    const rows = data ?? [];
+    return ascending ? rows : rows.reverse();
+  }, [eventId]);
 
-    const senderIdSet = new Set((rows ?? []).map((r) => r.user_id));
-    // Include the current user so their avatar/name is seeded even if they have no prior messages.
-    if (user !== null) senderIdSet.add(user.id);
-    const senderIds = [...senderIdSet];
-    const { data: profiles } = senderIds.length > 0
-      ? await supabase.from('profiles').select('id, name, avatar_url').in('id', senderIds)
-      : { data: [] };
-    const nameMap   = new Map((profiles ?? []).map((p) => [p.id, p.name]));
-    const avatarMap = new Map((profiles ?? []).map((p) => [p.id, p.avatar_url]));
-    for (const [id, name] of nameMap)   senderNamesRef.current.set(id, name);
-    for (const [id, url]  of avatarMap) senderAvatarsRef.current.set(id, url ?? null);
-
-    const enriched: EventMessageWithSender[] = (rows ?? []).map((row) => ({
-      id:              row.id,
-      event_id:        row.event_id,
-      user_id:         row.user_id,
-      body:            row.body,
-      created_at:      row.created_at,
-      senderName:      nameMap.get(row.user_id) ?? null,
-      senderAvatarUrl: avatarMap.get(row.user_id) ?? null,
+  // Resolves names/avatars for unknown senders once and caches them.
+  const enrich = useCallback(async (rows: EventMessage[]): Promise<EventMessageWithSender[]> => {
+    const missing = new Set(rows.map((r) => r.user_id).filter((id) => !senderNamesRef.current.has(id)));
+    // Seed the current user so own messages show avatar/name even before they wrote anything.
+    if (userId !== null && !senderNamesRef.current.has(userId)) missing.add(userId);
+    if (missing.size > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url')
+        .in('id', [...missing]);
+      for (const p of profiles ?? []) {
+        senderNamesRef.current.set(p.id, p.name);
+        senderAvatarsRef.current.set(p.id, p.avatar_url ?? null);
+      }
+    }
+    return rows.map((row) => ({
+      ...row,
+      senderName:      senderNamesRef.current.get(row.user_id) ?? null,
+      senderAvatarUrl: senderAvatarsRef.current.get(row.user_id) ?? null,
     }));
-    setMessages(enriched);
-    setLoading(false);
-  }, [eventId, user]);
+  }, [userId]);
 
   const markRead = useCallback(async () => {
-    if (user === null) return;
+    if (userId === null) return;
     await supabase.from('event_chat_reads').upsert(
-      { user_id: user.id, event_id: eventId, last_read_at: new Date().toISOString() },
+      { user_id: userId, event_id: eventId, last_read_at: new Date().toISOString() },
       { onConflict: 'user_id,event_id' },
     );
-  }, [eventId, user]);
+  }, [eventId, userId]);
 
-  useEffect(() => {
-    void loadMessages();
-    void markRead();
+  const stream = useChatMessageStream<EventMessage, EventMessageWithSender>({
+    streamKey:      `${eventId}:${userId ?? ''}`,
+    channelName:    `event-group-chat-${eventId}`,
+    table:          'event_messages',
+    filter:         `event_id=eq.${eventId}`,
+    fetchPage,
+    enrich,
+    onMessagesSeen: () => { void markRead(); },
+  });
 
-    channelRef.current = supabase
-      .channel(`event-group-chat-${eventId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'event_messages', filter: `event_id=eq.${eventId}` },
-        async (payload) => {
-          const newRow = payload.new as unknown as EventMessage;
-          if (!newRow?.id) return;
+  const { currentSync } = stream;
 
-          let senderName:      string | null = null;
-          let senderAvatarUrl: string | null = null;
-          if (senderNamesRef.current.has(newRow.user_id)) {
-            senderName      = senderNamesRef.current.get(newRow.user_id) ?? null;
-            senderAvatarUrl = senderAvatarsRef.current.get(newRow.user_id) ?? null;
-          } else {
-            const { data } = await supabase
-              .from('profiles')
-              .select('name, avatar_url')
-              .eq('id', newRow.user_id)
-              .single();
-            senderName      = data?.name ?? null;
-            senderAvatarUrl = data?.avatar_url ?? null;
-            senderNamesRef.current.set(newRow.user_id,   senderName);
-            senderAvatarsRef.current.set(newRow.user_id, senderAvatarUrl);
-          }
-
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newRow.id)) return prev;
-            return [...prev, { ...newRow, senderName, senderAvatarUrl }];
-          });
-          await markRead();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      if (channelRef.current !== null) {
-        void supabase.removeChannel(channelRef.current);
-      }
-    };
-  }, [eventId, loadMessages, markRead]);
+  useEffect(() => { void markRead(); }, [markRead]);
 
   const clearSendError = useCallback(() => setSendError(null), []);
 
   const sendText = useCallback(async (content: string): Promise<{ error: string | null }> => {
-    if (user === null || isReadOnly) return { error: null };
+    if (userId === null || isReadOnly) return { error: null };
+    // Captured before awaiting: a late response must not land in another chat.
+    const sync = currentSync();
     setSending(true);
     setSendError(null);
     const { data: newRow, error } = await supabase
       .from('event_messages')
-      .insert({ event_id: eventId, user_id: user.id, body: content })
+      .insert({ event_id: eventId, user_id: userId, body: content })
       .select('*')
       .single();
     if (error !== null) {
@@ -141,17 +125,20 @@ export function useEventGroupChat(
       setSending(false);
       return { error: error.message };
     }
-    if (newRow !== null) {
-      const senderName      = senderNamesRef.current.get(user.id) ?? null;
-      const senderAvatarUrl = senderAvatarsRef.current.get(user.id) ?? null;
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newRow.id)) return prev;
-        return [...prev, { ...newRow, senderName, senderAvatarUrl }];
-      });
+    if (newRow !== null && sync !== null) {
+      const [msg] = await enrich([newRow]);
+      if (msg !== undefined) sync.receive(msg);
     }
     setSending(false);
     return { error: null };
-  }, [isReadOnly, eventId, user]);
+  }, [currentSync, enrich, isReadOnly, eventId, userId]);
 
-  return { messages, loading, sending, isReadOnly, sendError, sendText, markRead, clearSendError };
+  return {
+    messages:     stream.messages,
+    loading:      stream.loading,
+    loadingOlder: stream.loadingOlder,
+    hasMore:      stream.hasMore,
+    loadOlder:    stream.loadOlder,
+    sending, isReadOnly, sendError, sendText, markRead, clearSendError,
+  };
 }

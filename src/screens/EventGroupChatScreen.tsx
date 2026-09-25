@@ -1,9 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
   FlatList,
-  TextInput,
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,12 +14,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import type { ListRenderItemInfo } from 'react-native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors } from '../theme/colors';
 import { useEventGroupChat } from '../hooks/useEventGroupChat';
 import { useAuth } from '../context/AuthContext';
-import { isSameDay, chatDateLabel } from '../utils/chatDate';
+import { chatDateLabel } from '../utils/chatDate';
+import { computeLayoutFlags } from '../utils/chatMessages';
+import { useChatListScroll, NEAR_LATEST_PX } from '../hooks/useChatListScroll';
 import ChatDateSeparator from '../components/chat/ChatDateSeparator';
+import ChatComposer from '../components/chat/ChatComposer';
+import NewMessagesPill from '../components/chat/NewMessagesPill';
 import type { RootStackParamList } from '../navigation/types';
 import type { EventMessageWithSender } from '../hooks/useEventGroupChat';
 
@@ -56,7 +60,8 @@ interface MessageBubbleProps {
   isLastInGroup:  boolean;
 }
 
-function EventMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: MessageBubbleProps) {
+// Memoized list cell: merged messages keep their object identity, so settled cells skip re-rendering.
+const EventMessageBubble = React.memo(function EventMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: MessageBubbleProps) {
   const rowStyle = [
     styles.msgRow,
     isOwn ? styles.msgRowOwn : styles.msgRowOther,
@@ -100,6 +105,16 @@ function EventMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: M
       </View>
     </View>
   );
+});
+
+const MAINTAIN_POSITION = { minIndexForVisible: 0, autoscrollToTopThreshold: NEAR_LATEST_PX };
+
+function keyExtractor(m: EventMessageWithSender): string {
+  return m.id;
+}
+
+function sameSenderGroup(a: EventMessageWithSender, b: EventMessageWithSender): boolean {
+  return a.user_id === b.user_id;
 }
 
 export default function EventGroupChatScreen() {
@@ -110,12 +125,33 @@ export default function EventGroupChatScreen() {
 
   const { eventId, eventTitle, scheduledAt, durationMin } = params;
 
-  const { messages, loading, sending, isReadOnly, sendError, sendText, clearSendError } =
-    useEventGroupChat(eventId, scheduledAt, durationMin);
+  const {
+    messages, loading, loadingOlder, hasMore, loadOlder,
+    sending, isReadOnly, sendError, sendText, clearSendError,
+  } = useEventGroupChat(eventId, scheduledAt, durationMin);
 
-  const [inputText, setInputText] = useState('');
-  const listRef         = useRef<FlatList<EventMessageWithSender>>(null);
-  const isNearBottomRef = useRef(true);
+  // Inverted list: index 0 is the newest message and sits at the bottom.
+  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
+  const userId      = user?.id ?? null;
+  const isOwnMsg    = useCallback((m: EventMessageWithSender) => m.user_id === userId, [userId]);
+  const { listRef, onScroll, showHint, scrollToLatest } = useChatListScroll(newestFirst, isOwnMsg);
+
+  const renderItem = useCallback(({ item, index }: ListRenderItemInfo<EventMessageWithSender>) => {
+    const flags = computeLayoutFlags(newestFirst, index, sameSenderGroup);
+    return (
+      <>
+        {flags.showDateSeparator && (
+          <ChatDateSeparator label={chatDateLabel(item.created_at)} />
+        )}
+        <EventMessageBubble
+          message={item}
+          isOwn={item.user_id === userId}
+          isFirstInGroup={flags.isFirstInGroup}
+          isLastInGroup={flags.isLastInGroup}
+        />
+      </>
+    );
+  }, [newestFirst, userId]);
 
   useEffect(() => {
     if (sendError !== null) {
@@ -123,12 +159,9 @@ export default function EventGroupChatScreen() {
     }
   }, [sendError, clearSendError]);
 
-  async function handleSend() {
-    const text = inputText.trim();
-    if (text.length === 0 || sending) return;
-    isNearBottomRef.current = true;
+  async function handleSend(text: string): Promise<boolean> {
     const { error } = await sendText(text);
-    if (error === null) setInputText('');
+    return error === null;
   }
 
   return (
@@ -153,60 +186,33 @@ export default function EventGroupChatScreen() {
       {loading ? (
         <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
       ) : (
-        <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(m) => m.id}
-          renderItem={({ item, index }) => {
-            const prev = index > 0 ? messages[index - 1] : null;
-            const next = index < messages.length - 1 ? messages[index + 1] : null;
-
-            const showDateSeparator =
-              index === 0 ||
-              (prev !== null && !isSameDay(new Date(prev.created_at), new Date(item.created_at)));
-
-            const isFirstInGroup =
-              prev === null ||
-              prev.user_id !== item.user_id ||
-              showDateSeparator;
-
-            const isLastInGroup =
-              next === null ||
-              next.user_id !== item.user_id ||
-              !isSameDay(new Date(item.created_at), new Date(next.created_at));
-
-            return (
-              <>
-                {showDateSeparator && (
-                  <ChatDateSeparator label={chatDateLabel(item.created_at)} />
-                )}
-                <EventMessageBubble
-                  message={item}
-                  isOwn={user?.id === item.user_id}
-                  isFirstInGroup={isFirstInGroup}
-                  isLastInGroup={isLastInGroup}
-                />
-              </>
-            );
-          }}
-          contentContainerStyle={styles.messageList}
-          onScroll={(e) => {
-            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-            isNearBottomRef.current =
-              contentSize.height - contentOffset.y - layoutMeasurement.height < 80;
-          }}
-          scrollEventThrottle={100}
-          onContentSizeChange={() => {
-            if (isNearBottomRef.current) {
-              listRef.current?.scrollToEnd({ animated: true });
+        <View style={styles.listWrap}>
+          <FlatList
+            ref={listRef}
+            inverted
+            data={newestFirst}
+            keyExtractor={keyExtractor}
+            renderItem={renderItem}
+            contentContainerStyle={styles.messageList}
+            onScroll={onScroll}
+            scrollEventThrottle={100}
+            // Keeps the reading position when messages arrive; follows them near the bottom.
+            maintainVisibleContentPosition={MAINTAIN_POSITION}
+            onEndReached={hasMore ? loadOlder : undefined}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={loadingOlder
+              ? <ActivityIndicator style={styles.olderLoader} color={colors.accentBlue} />
+              : null}
+            keyboardDismissMode="interactive"
+            keyboardShouldPersistTaps="handled"
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>Noch keine Nachrichten.</Text>
+              </View>
             }
-          }}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Noch keine Nachrichten.</Text>
-            </View>
-          }
-        />
+          />
+          {showHint && <NewMessagesPill onPress={scrollToLatest} />}
+        </View>
       )}
 
       {/* Read-only banner or input row */}
@@ -215,29 +221,11 @@ export default function EventGroupChatScreen() {
           <Text style={styles.readOnlyText}>Dieses Event hat stattgefunden.</Text>
         </View>
       ) : (
-        <View style={[styles.inputRow, { paddingBottom: insets.bottom + 8 }]}>
-          <TextInput
-            style={styles.input}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Nachricht..."
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            returnKeyType="send"
-            onSubmitEditing={() => { void handleSend(); }}
-            blurOnSubmit
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, (inputText.trim().length === 0 || sending) && styles.sendBtnDisabled]}
-            onPress={() => { void handleSend(); }}
-            disabled={inputText.trim().length === 0 || sending}
-          >
-            {sending
-              ? <ActivityIndicator size="small" color={colors.card} />
-              : <Ionicons name="send" size={18} color={colors.card} />
-            }
-          </TouchableOpacity>
-        </View>
+        <ChatComposer
+          sending={sending}
+          bottomInset={insets.bottom}
+          onSend={handleSend}
+        />
       )}
     </KeyboardAvoidingView>
   );
@@ -277,8 +265,14 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: 48,
   },
+  listWrap: {
+    flex: 1,
+  },
   messageList: {
     paddingVertical: 8,
+  },
+  olderLoader: {
+    paddingVertical: 16,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -300,40 +294,6 @@ const styles = StyleSheet.create({
     fontSize:  14,
     color:     colors.textSecondary,
     textAlign: 'center',
-  },
-  inputRow: {
-    flexDirection:     'row',
-    alignItems:        'flex-end',
-    paddingHorizontal: 8,
-    paddingTop:        8,
-    borderTopWidth:    1,
-    borderTopColor:    colors.border,
-    backgroundColor:   colors.background,
-    gap:               8,
-  },
-  input: {
-    flex:              1,
-    minHeight:         40,
-    maxHeight:         120,
-    backgroundColor:   colors.card,
-    borderRadius:      20,
-    paddingHorizontal: 16,
-    paddingVertical:   10,
-    fontSize:          15,
-    color:             colors.text,
-    borderWidth:       1,
-    borderColor:       colors.border,
-  },
-  sendBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    20,
-    backgroundColor: colors.accentBlue,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  sendBtnDisabled: {
-    opacity: 0.4,
   },
   // Message rows
   msgRow: {

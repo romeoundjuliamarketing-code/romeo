@@ -3,6 +3,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import { canonicalIso, keysetOrFilter } from '../utils/chatMessages';
+import type { PageQuery } from '../utils/chatSync';
+import { useChatMessageStream } from './useChatMessageStream';
 import type { SparringGroupMessage } from '../types/database.types';
 
 export interface GroupMessageWithSender extends SparringGroupMessage {
@@ -13,6 +16,9 @@ export interface GroupMessageWithSender extends SparringGroupMessage {
 export interface UseSparringGroupChat {
   messages:       GroupMessageWithSender[];
   loading:        boolean;
+  loadingOlder:   boolean;
+  hasMore:        boolean;
+  loadOlder:      () => void;
   sending:        boolean;
   isReadOnly:     boolean;
   sendError:      string | null;
@@ -32,113 +38,89 @@ export function useSparringGroupChat(
   durationMin: number,
 ): UseSparringGroupChat {
   const { user } = useAuth();
-  const [messages,   setMessages]   = useState<GroupMessageWithSender[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  // Depend on the id, not the user object: a token refresh creates a new object.
+  const userId = user?.id ?? null;
   const [sending,    setSending]    = useState(false);
   const [sendError,  setSendError]  = useState<string | null>(null);
-  const channelRef       = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const senderNamesRef   = useRef<Map<string, string | null>>(new Map());
   const senderAvatarsRef = useRef<Map<string, string | null>>(new Map());
 
   const isReadOnly = computeIsReadOnly(scheduledAt, durationMin);
 
-  const loadMessages = useCallback(async () => {
-    const { data: rows } = await supabase
-      .from('sparring_group_messages')
-      .select('*')
-      .eq('sparring_id', sparringId)
-      .order('created_at', { ascending: true });
-
-    const senderIdSet = new Set((rows ?? []).map((r) => r.sender_id));
-    // Include the current user so their avatar/name is seeded even if they have no prior messages.
-    if (user !== null) senderIdSet.add(user.id);
-    const senderIds = [...senderIdSet];
-    const { data: profiles } = senderIds.length > 0
-      ? await supabase.from('profiles').select('id, name, avatar_url').in('id', senderIds)
-      : { data: [] };
-    const nameMap   = new Map((profiles ?? []).map((p) => [p.id, p.name]));
-    const avatarMap = new Map((profiles ?? []).map((p) => [p.id, p.avatar_url]));
-    for (const [id, name] of nameMap)     senderNamesRef.current.set(id, name);
-    for (const [id, url]  of avatarMap)   senderAvatarsRef.current.set(id, url ?? null);
-
-    const enriched: GroupMessageWithSender[] = (rows ?? []).map((row) => ({
-      id:              row.id,
-      sparring_id:     row.sparring_id,
-      sender_id:       row.sender_id,
-      content:         row.content,
-      image_url:       row.image_url,
-      is_system:       row.is_system,
-      created_at:      row.created_at,
-      senderName:      nameMap.get(row.sender_id) ?? null,
-      senderAvatarUrl: avatarMap.get(row.sender_id) ?? null,
-    }));
-    setMessages(enriched);
-    setLoading(false);
+  const fetchPage = useCallback(async (query: PageQuery, limit: number): Promise<SparringGroupMessage[]> => {
+    let q = supabase.from('sparring_group_messages').select('*').eq('sparring_id', sparringId);
+    const ascending = query.kind === 'after';
+    if (query.kind !== 'latest') {
+      const keyset = keysetOrFilter(query.kind, query.cursor);
+      const ts     = canonicalIso(query.cursor.created_at);
+      if (keyset !== null)             q = q.or(keyset);
+      else if (query.kind === 'after') q = q.gte('created_at', ts);
+      else                             q = q.lt('created_at', ts);
+    }
+    const { data, error } = await q
+      .order('created_at', { ascending })
+      .order('id',         { ascending })
+      .limit(limit);
+    if (error !== null) throw error;
+    const rows = data ?? [];
+    return ascending ? rows : rows.reverse();
   }, [sparringId]);
 
+  // Resolves names/avatars for unknown senders once and caches them.
+  const enrich = useCallback(async (rows: SparringGroupMessage[]): Promise<GroupMessageWithSender[]> => {
+    const missing = new Set(rows.map((r) => r.sender_id).filter((id) => !senderNamesRef.current.has(id)));
+    // Seed the current user so own messages show avatar/name even before they wrote anything.
+    if (userId !== null && !senderNamesRef.current.has(userId)) missing.add(userId);
+    if (missing.size > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, avatar_url')
+        .in('id', [...missing]);
+      for (const p of profiles ?? []) {
+        senderNamesRef.current.set(p.id, p.name);
+        senderAvatarsRef.current.set(p.id, p.avatar_url ?? null);
+      }
+    }
+    return rows.map((row) => ({
+      ...row,
+      senderName:      senderNamesRef.current.get(row.sender_id) ?? null,
+      senderAvatarUrl: senderAvatarsRef.current.get(row.sender_id) ?? null,
+    }));
+  }, [userId]);
+
   const markRead = useCallback(async () => {
-    if (user === null) return;
+    if (userId === null) return;
     await supabase.from('sparring_chat_reads').upsert(
-      { user_id: user.id, sparring_id: sparringId, last_read_at: new Date().toISOString() },
+      { user_id: userId, sparring_id: sparringId, last_read_at: new Date().toISOString() },
       { onConflict: 'user_id,sparring_id' },
     );
-  }, [sparringId, user]);
+  }, [sparringId, userId]);
 
-  useEffect(() => {
-    void loadMessages();
-    void markRead();
+  const stream = useChatMessageStream<SparringGroupMessage, GroupMessageWithSender>({
+    streamKey:      `${sparringId}:${userId ?? ''}`,
+    channelName:    `sparring-group-chat-${sparringId}`,
+    table:          'sparring_group_messages',
+    filter:         `sparring_id=eq.${sparringId}`,
+    fetchPage,
+    enrich,
+    onMessagesSeen: () => { void markRead(); },
+  });
 
-    channelRef.current = supabase
-      .channel(`sparring-group-chat-${sparringId}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'sparring_group_messages', filter: `sparring_id=eq.${sparringId}` },
-        async (payload) => {
-          const newRow = payload.new as unknown as SparringGroupMessage;
-          if (!newRow?.id) return;
+  const { currentSync } = stream;
 
-          let senderName:      string | null = null;
-          let senderAvatarUrl: string | null = null;
-          if (senderNamesRef.current.has(newRow.sender_id)) {
-            senderName      = senderNamesRef.current.get(newRow.sender_id) ?? null;
-            senderAvatarUrl = senderAvatarsRef.current.get(newRow.sender_id) ?? null;
-          } else {
-            const { data } = await supabase
-              .from('profiles')
-              .select('name, avatar_url')
-              .eq('id', newRow.sender_id)
-              .single();
-            senderName      = data?.name ?? null;
-            senderAvatarUrl = data?.avatar_url ?? null;
-            senderNamesRef.current.set(newRow.sender_id,   senderName);
-            senderAvatarsRef.current.set(newRow.sender_id, senderAvatarUrl);
-          }
-
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newRow.id)) return prev;
-            return [...prev, { ...newRow, senderName, senderAvatarUrl }];
-          });
-          await markRead();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      if (channelRef.current !== null) {
-        void supabase.removeChannel(channelRef.current);
-      }
-    };
-  }, [sparringId, loadMessages, markRead]);
+  useEffect(() => { void markRead(); }, [markRead]);
 
   const clearSendError = useCallback(() => setSendError(null), []);
 
   const sendText = useCallback(async (content: string): Promise<{ error: string | null }> => {
-    if (user === null || isReadOnly) return { error: null };
+    if (userId === null || isReadOnly) return { error: null };
+    // Captured before awaiting: a late response must not land in another chat.
+    const sync = currentSync();
     setSending(true);
     setSendError(null);
     const { data: newRow, error } = await supabase
       .from('sparring_group_messages')
-      .insert({ sparring_id: sparringId, sender_id: user.id, content })
+      .insert({ sparring_id: sparringId, sender_id: userId, content })
       .select('*')
       .single();
     if (error !== null) {
@@ -146,20 +128,16 @@ export function useSparringGroupChat(
       setSending(false);
       return { error: error.message };
     }
-    if (newRow !== null) {
-      const senderName      = senderNamesRef.current.get(user.id) ?? null;
-      const senderAvatarUrl = senderAvatarsRef.current.get(user.id) ?? null;
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === newRow.id)) return prev;
-        return [...prev, { ...newRow, senderName, senderAvatarUrl }];
-      });
+    if (newRow !== null && sync !== null) {
+      const [msg] = await enrich([newRow]);
+      if (msg !== undefined) sync.receive(msg);
     }
     setSending(false);
     return { error: null };
-  }, [isReadOnly, sparringId, user]);
+  }, [currentSync, enrich, isReadOnly, sparringId, userId]);
 
   const sendImage = useCallback(async (localUri: string) => {
-    if (user === null || isReadOnly) return;
+    if (userId === null || isReadOnly) return;
     setSending(true);
     setSendError(null);
     try {
@@ -183,14 +161,21 @@ export function useSparringGroupChat(
 
       const { error: insertError } = await supabase.from('sparring_group_messages').insert({
         sparring_id: sparringId,
-        sender_id:   user.id,
+        sender_id:   userId,
         image_url:   urlData.publicUrl,
       });
       if (insertError !== null) setSendError(insertError.message);
     } finally {
       setSending(false);
     }
-  }, [isReadOnly, sparringId, user]);
+  }, [isReadOnly, sparringId, userId]);
 
-  return { messages, loading, sending, isReadOnly, sendError, sendText, sendImage, markRead, clearSendError };
+  return {
+    messages:     stream.messages,
+    loading:      stream.loading,
+    loadingOlder: stream.loadingOlder,
+    hasMore:      stream.hasMore,
+    loadOlder:    stream.loadOlder,
+    sending, isReadOnly, sendError, sendText, sendImage, markRead, clearSendError,
+  };
 }
