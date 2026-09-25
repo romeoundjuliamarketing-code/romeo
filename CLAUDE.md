@@ -52,7 +52,17 @@ Test-Setup (`babel.config.js` + `jest.config.js`) ist environment-aware. In Test
 **Kritische Fallstricke:**
 - **Avatar-Upload:** `expo-file-system` + `base64-arraybuffer` direkt in Storage (`avatars`-Bucket). **Nie** `fetch().blob()` (geht im Expo-Kontext nicht).
 - **Maps:** Kein Google Maps (kein Key). iOS `react-native-maps`/Apple Maps (`PROVIDER_DEFAULT`); Android `@maplibre/maplibre-react-native` + OpenFreeMap. Plattform-Split via `.ios.tsx`/`.android.tsx` + TS-Stub `Name.tsx`.
+- **Modals/Sheets vs. Navigation (iOS):** RN-`<Modal>` liegt UEBER dem ganzen Navigator. Ein aus einem Sheet heraus aufgerufener Screen (`navigation.navigate`) oeffnet sonst UNTER dem Sheet und ist unsichtbar. Regel: neue Seite muss immer ueber dem aktuellen Inhalt erscheinen — vor `navigate` das Sheet schliessen (State auf `null`, wie `onOpenVenue`/`onOpenChat` in `SparringMapScreen`), oder den Inhalt als Overlay im selben Modal zeigen (wie die Grundregeln im `SparringRulesConsentSheet`). Ein zweites Modal nie als Geschwister eines offenen Modals rendern (iOS zeigt es nicht, der unsichtbare Host blockiert danach alle Touches) — als Kind im offenen Modal rendern oder erst nach dem Schliessen oeffnen.
 - **MapLibre Android (v11+):** `<Map>` OHNE `androidView`-Prop rendern (Default `GLSurfaceView` ist stabil). `androidView="texture"` verursacht SIGSEGV-Crashes. Richtig: `<Map mapStyle={MAP_STYLE} style={styles.map}>`
+
+## UI-Performance
+Vor Arbeit an Chats, Listen, Animationen, Sheets oder geteiltem State `docs/ui-performance.md` lesen
+und die passenden Prüfszenarien durchführen (Umfang nach Änderung: Textänderung = keine).
+Kernregeln: Listen virtualisiert + paginiert; Chat-Daten nur über `useChatMessageStream`/`mergeMessages`
+(Sortierung `(created_at, id)`); Deps auf `user?.id` statt `user`; Draft-State nicht im Listen-Screen;
+zeitkritische Animationen auf dem UI-Thread, kein setState pro Frame. React Compiler ist nicht aktiv.
+tsc/jest belegen keine flüssige Darstellung – Laufzeit nur per Release-Build auf Gerät bewerten.
+Agenten: Haiku = Fundstellensuche, Sonnet = Umsetzung/Analyse, Opus = schwierige Ursachen/Review (Details in der Datei).
 
 ## Android-Pflicht (immer mitbauen)
 
@@ -149,6 +159,8 @@ ODER ein `SENTRY_AUTH_TOKEN`-EAS-Secret — sonst bricht der Build am `sentry-cl
 | Font | Inter | — |
 
 **Styling:** Kein Inline-`style={{}}` — immer `StyleSheet.create`. Abstaende nur in 8px-Vielfachen (8, 16, 24, …).
+
+**Raender/Ecken sauber:** Karten, Sheets und Overlays duerfen an Rundungen und Kanten keine hellen Saeume oder durchscheinenden Flaechen zeigen. Bei Bottom-Sheets liegt die Abdunklung vollflaechig HINTER dem Sheet (Wrapper mit Overlay-Farbe + `justifyContent: 'flex-end'`, Backdrop `absoluteFill`), nicht nur ueber ihm; Kinder mit eigenem Hintergrund in gerundeten Containern per `overflow: 'hidden'` beschneiden. Bei jeder Karte/jedem Sheet die Ecken bewusst pruefen (auch vor hellem Untergrund, z. B. Sheet ueber Sheet).
 
 **TypeScript:** Strict, `any` verboten, Typen explizit.
 
