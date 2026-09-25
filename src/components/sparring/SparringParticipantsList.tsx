@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Alert, View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
-import { useSparringParticipants } from '../../hooks/useSparringParticipants';
 import { useSparringActions } from '../../hooks/useSparringActions';
 import { hasStarted } from '../../utils/sparringCommitment';
+import { initialsOf } from '../../utils/sparringDetail';
 import type { SparringParticipant, SparringSignupStatus } from '../../types/database.types';
 
 // Maps DB gender value to short display label
@@ -32,18 +32,12 @@ interface Props {
   currentUserId:       string | null;
   sparringScheduledAt: string;
   isOrganizer:         boolean;
+  /** Loaded once by the detail window (shared with the summary above). */
+  participants:        SparringParticipant[];
+  loading:             boolean;
+  /** Called after attendance was recorded, so the window reloads the list. */
+  onAttendanceChanged: () => void;
   onPressProfile:      (userId: string) => void;
-}
-
-// Derive up-to-2-letter initials from a display name
-function getInitials(name: string | null): string {
-  if (name === null || name.trim().length === 0) return '?';
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0].toUpperCase())
-    .join('');
 }
 
 function statusLabel(p: SparringParticipant): string {
@@ -58,10 +52,11 @@ export default function SparringParticipantsList({
   currentUserId,
   sparringScheduledAt,
   isOrganizer,
+  participants,
+  loading,
+  onAttendanceChanged,
   onPressProfile,
 }: Props): React.ReactElement | null {
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const { participants, loading } = useSparringParticipants(sparringId, refreshTrigger);
   const { markAttendance } = useSparringActions();
   const [markingUserId, setMarkingUserId] = useState<string | null>(null);
 
@@ -75,10 +70,11 @@ export default function SparringParticipantsList({
       Alert.alert('Fehler', error);
       return;
     }
-    setRefreshTrigger((n) => n + 1);
+    onAttendanceChanged();
   }
 
-  if (loading) {
+  // Spinner only on the first load; a background reload keeps the rows.
+  if (loading && participants.length === 0) {
     return (
       <View style={styles.loadingRow}>
         <ActivityIndicator size="small" color={colors.accentBlue} />
@@ -90,8 +86,8 @@ export default function SparringParticipantsList({
   if (visible.length === 0) return null;
 
   return (
+    // Rendered expanded below SparringParticipantsSummary (which is the heading).
     <View style={styles.container}>
-      <Text style={styles.sectionLabel}>Teilnehmer</Text>
       {visible.map((p) => (
         <View key={p.user_id} style={styles.row}>
           <TouchableOpacity
@@ -100,7 +96,7 @@ export default function SparringParticipantsList({
             onPress={() => { onPressProfile(p.user_id); }}
           >
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{getInitials(p.name)}</Text>
+              <Text style={styles.avatarText}>{initialsOf(p.name)}</Text>
             </View>
             <View style={styles.nameRow}>
               <Text style={styles.name}>{p.name ?? 'Unbekannt'}</Text>
@@ -149,16 +145,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   container: {
-    borderTopWidth:  1,
-    borderTopColor:  colors.border,
-    paddingTop:      16,
-    gap:             8,
-  },
-  sectionLabel: {
-    fontSize:   13,
-    fontWeight: '600',
-    color:      colors.textSecondary,
-    marginBottom: 8,
+    gap: 8,
   },
   row: {
     gap: 8,

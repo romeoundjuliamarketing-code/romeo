@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -22,8 +22,12 @@ import { useSparringParticipants } from '../../hooks/useSparringParticipants';
 import type { RootStackParamList } from '../../navigation/types';
 import type { VerificationTier } from '../../utils/verificationTier';
 import { buildSparringShareUrl, coarseAreaLabel } from '../../utils/sparringShare';
-import { resolveCommitmentCta, isSparringChatMember, isBeforeCancelDeadline } from '../../utils/sparringCommitment';
+import { resolveCommitmentCta, isSparringChatMember, isBeforeCancelDeadline, hasStarted } from '../../utils/sparringCommitment';
+import { compactDateLabel, sparringLocationLines } from '../../utils/sparringDetail';
 import SparringParticipantsList from './SparringParticipantsList';
+import SparringParticipantsSummary from './SparringParticipantsSummary';
+import SparringDetailHeader from './SparringDetailHeader';
+import SparringLocationRow from './SparringLocationRow';
 import SparringCommitmentActions from './SparringCommitmentActions';
 import SparringRulesConsentSheet from './SparringRulesConsentSheet';
 import SparringCommitmentResultCard from './SparringCommitmentResultCard';
@@ -62,6 +66,9 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Centered pop-up window: 85% of the screen, but never under the system bars.
 const WINDOW_HEIGHT_RATIO = 0.85;
 const WINDOW_MARGIN       = 16;
+// Organizer descriptions longer than this are collapsed behind "Mehr lesen".
+const NOTES_CLAMP_LINES   = 4;
+const NOTES_CLAMP_CHARS   = 180;
 
 function getBannerColor(scheduledAt: string, isFeatured: boolean): string {
   if (isFeatured) return colors.accentBlue;
@@ -89,9 +96,30 @@ export default function SparringDetailSheet({
   onBoostActivated, loading,
 }: Props) {
   const [boostSheetVisible, setBoostSheetVisible] = useState(false);
-  // Only needed to resolve the current user's own waitlist position — a
-  // second call to the same RPC SparringParticipantsList uses internally.
-  const { participants } = useSparringParticipants(sparring?.id ?? null);
+  // Reload participants when the slot count or the user's own status changes
+  // (join/cancel/confirm keep the window open and refresh `sparring`).
+  const [participantsVersion, setParticipantsVersion] = useState(0);
+  const lastSnapshotRef = useRef<string | null>(null);
+  const snapshot = sparring !== null ? `${sparring.id}|${sparring.signup_count}|${sparring.my_status ?? ''}` : null;
+  useEffect(() => {
+    const prev = lastSnapshotRef.current;
+    lastSnapshotRef.current = snapshot;
+    // Only a change of the SAME sparring needs a refetch; a new id loads anyway.
+    if (prev !== null && snapshot !== null && prev.split('|')[0] === snapshot.split('|')[0] && prev !== snapshot) {
+      setParticipantsVersion((v) => v + 1);
+    }
+  }, [snapshot]);
+  // Summary (avatars, counts) + the user's own waitlist position.
+  const { participants, loading: participantsLoading } =
+    useSparringParticipants(sparring?.id ?? null, participantsVersion);
+
+  // Full participant list and long description are collapsed per sparring.
+  const [listExpanded, setListExpanded] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
+  useEffect(() => {
+    setListExpanded(false);
+    setNotesExpanded(false);
+  }, [sparring?.id]);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const storyShotRef = useRef<ViewShot>(null);
@@ -118,7 +146,17 @@ export default function SparringDetailSheet({
   // Block joining when this sparring requires verification and user is not verified
   const verifiedBlock =
     sparring.verified_only && userTier !== 'verified' && !sparring.is_signed_up;
-  const fillPct     = `${Math.min(100, Math.round((sparring.signup_count / sparring.max_slots) * 100))}%` as const;
+  const started      = hasStarted(sparring.scheduled_at, new Date());
+  // The organizer records attendance in the full list once it has started.
+  const showFullList = listExpanded || (isCreator && started);
+  const location     = sparringLocationLines({
+    studioId:   sparring.studio_id,
+    studioName: sparring.studio_name,
+    studioCity: sparring.studio_city,
+    address:    sparring.address,
+  });
+  const notes     = sparring.notes?.trim() ?? '';
+  const notesLong = notes.length > NOTES_CLAMP_CHARS || notes.split('\n').length > NOTES_CLAMP_LINES;
 
   const cta = resolveCommitmentCta({
     myStatus:      sparring.my_status,
@@ -187,84 +225,55 @@ export default function SparringDetailSheet({
 
           <Animated.View style={[styles.window, { height: windowHeight }, cardStyle]}>
 
-            <View style={[styles.banner, { backgroundColor: bannerColor }]}>
-              <Text style={styles.bannerTitle} numberOfLines={2}>{sparring.title}</Text>
-              <TouchableOpacity
-                style={styles.bannerClose}
-                onPress={dismiss}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="close" size={22} color={colors.card} />
-              </TouchableOpacity>
-            </View>
+            <SparringDetailHeader
+              title={sparring.title}
+              discipline={sparring.discipline}
+              bannerColor={bannerColor}
+              dateLabel={compactDateLabel(sparring.scheduled_at)}
+              takingPart={sparring.signup_count}
+              slotsLeft={slotsLeft}
+              durationMin={sparring.duration_min}
+              isFeatured={sparring.is_featured}
+              verifiedOnly={sparring.verified_only}
+              isCreator={isCreator}
+              hasStarted={started}
+              onClose={dismiss}
+            />
 
             <ScrollView
               style={styles.scrollView}
               contentContainerStyle={styles.content}
               showsVerticalScrollIndicator={false}
             >
-              <View style={styles.badgesRow}>
-                {sparring.is_featured && (
-                  <View style={styles.featuredBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color={colors.accentBlue} />
-                    <Text style={styles.featuredBadgeText}>Sparr Pick</Text>
-                  </View>
+              <SparringLocationRow primary={location.primary} secondary={location.secondary} />
+
+              <View style={styles.section}>
+                <SparringParticipantsSummary
+                  participants={participants}
+                  currentUserId={currentUserId}
+                  hasStarted={started}
+                  fallbackCount={sparring.signup_count}
+                  loading={participantsLoading}
+                  expanded={showFullList}
+                  onToggleExpanded={() => setListExpanded((v) => !v)}
+                />
+                {showFullList && (
+                  <SparringParticipantsList
+                    sparringId={sparring.id}
+                    currentUserId={currentUserId}
+                    sparringScheduledAt={sparring.scheduled_at}
+                    isOrganizer={isCreator}
+                    participants={participants}
+                    loading={participantsLoading}
+                    onAttendanceChanged={() => setParticipantsVersion((v) => v + 1)}
+                    onPressProfile={handlePressProfile}
+                  />
                 )}
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{sparring.discipline}</Text>
-                </View>
-                {sparring.verified_only && (
-                  <View style={styles.verifiedOnlyBadge}>
-                    <Ionicons name="shield-checkmark-outline" size={13} color={colors.difficultyGreen} />
-                    <Text style={styles.verifiedOnlyBadgeText}>Nur verifizierte Mitglieder</Text>
-                  </View>
-                )}
               </View>
-
-              <View style={styles.infoRow}>
-                <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-                <Text style={styles.infoText}>{sparring.studio_name} · {sparring.address}</Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                <Text style={styles.infoText}>{formatDateTime(sparring.scheduled_at)}</Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                <Text style={styles.infoText}>{sparring.duration_min} Minuten</Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
-                <Text style={styles.infoText}>
-                  {sparring.signup_count}/{sparring.max_slots} Angemeldet
-                  {!isFull && (
-                    <Text style={styles.slotsLeft}>{`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}</Text>
-                  )}
-                </Text>
-              </View>
-
-              <View style={styles.slotsBar}>
-                <View style={[styles.slotsBarFill, isFull && styles.slotsBarFull, { width: fillPct }]} />
-              </View>
-
-              {sparring.notes !== null && sparring.notes.length > 0 && (
-                <Text style={styles.notes}>{sparring.notes}</Text>
-              )}
-
-              <SparringParticipantsList
-                sparringId={sparring.id}
-                currentUserId={currentUserId}
-                sparringScheduledAt={sparring.scheduled_at}
-                isOrganizer={isCreator}
-                onPressProfile={handlePressProfile}
-              />
 
               <SparringCommitmentActions
                 cta={cta}
-                confirmedCount={sparring.confirmed_count}
+                scheduledAt={sparring.scheduled_at}
                 waitlistPosition={waitlistPosition}
                 loading={loading}
                 onJoin={onJoin}
@@ -272,44 +281,76 @@ export default function SparringDetailSheet({
                 onCancel={onCancelSignup}
               />
 
-              <TouchableOpacity style={styles.shareBtn} onPress={() => { void handleShare(); }} activeOpacity={0.8}>
-                <Ionicons name="share-outline" size={18} color={colors.accentBlue} />
-                <Text style={styles.shareBtnText}>Teilen</Text>
-              </TouchableOpacity>
-
-              {/* Chat is only readable for slot holders, attended/no_show and the organizer */}
-              {canOpenChat && (
-                <TouchableOpacity
-                  style={styles.chatBtn}
-                  onPress={onOpenChat}
-                  disabled={loading}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
-                  <Text style={styles.chatBtnText}>Zum Chat</Text>
-                </TouchableOpacity>
+              {notes.length > 0 && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionLabel}>Vom Organisator</Text>
+                  {/* User content: shown exactly as written, long texts collapsed */}
+                  <Text
+                    style={styles.notes}
+                    numberOfLines={notesLong && !notesExpanded ? NOTES_CLAMP_LINES : undefined}
+                  >
+                    {notes}
+                  </Text>
+                  {notesLong && (
+                    <TouchableOpacity
+                      onPress={() => setNotesExpanded((v) => !v)}
+                      accessibilityRole="button"
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.moreText}>{notesExpanded ? 'Weniger anzeigen' : 'Mehr lesen'}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               )}
 
-              {isCreator && (
+              <View style={styles.actions}>
+                {/* Chat is only readable for slot holders, attended/no_show and the organizer */}
+                {canOpenChat && (
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={onOpenChat}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
+                    <Text style={styles.actionBtnText}>Zum Chat</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                  style={styles.boostBtn}
-                  onPress={() => setBoostSheetVisible(true)}
-                  disabled={loading}
+                  style={styles.actionBtn}
+                  onPress={() => { void handleShare(); }}
                   activeOpacity={0.8}
+                  accessibilityRole="button"
                 >
-                  <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
-                  <Text style={styles.boostBtnText}>Karten-Boost</Text>
+                  <Ionicons name="share-outline" size={18} color={colors.accentBlue} />
+                  <Text style={styles.actionBtnText}>Teilen</Text>
                 </TouchableOpacity>
-              )}
+              </View>
 
               {isCreator && (
-                <TouchableOpacity
-                  style={styles.btnDeactivate}
-                  onPress={onDeactivate}
-                  disabled={loading}
-                >
-                  <Text style={styles.btnDeactivateText}>Sparring absagen</Text>
-                </TouchableOpacity>
+                <View style={styles.actions}>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={() => setBoostSheetVisible(true)}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                  >
+                    <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
+                    <Text style={styles.actionBtnText}>Karten-Boost</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionBtn}
+                    onPress={onDeactivate}
+                    disabled={loading}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={colors.deleteRed} />
+                    <Text style={styles.deactivateText}>Sparring absagen</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </ScrollView>
           </Animated.View>
@@ -399,142 +440,58 @@ const styles = StyleSheet.create({
     borderRadius:    24,
     overflow:        'hidden',
   },
-  banner: {
-    flexDirection:     'row',
-    alignItems:        'flex-start',
-    gap:               16,
-    paddingHorizontal: 24,
-    paddingTop:        24,
-    paddingBottom:     24,
-  },
-  bannerClose: {
-    width:           36,
-    height:          36,
-    borderRadius:    18,
-    backgroundColor: colors.headerBorder,
-    alignItems:      'center',
-    justifyContent:  'center',
-  },
-  bannerTitle: {
-    flex:       1,
-    fontSize:   22,
-    fontWeight: '700',
-    color:      colors.card,
-    lineHeight: 28,
-  },
   scrollView: {
     flex: 1,
   },
   content: {
-    padding:       24,
-    paddingTop:    16,
-    paddingBottom: 24,
-    gap:           14,
+    padding: 24,
+    // Sections are separated by space, not divider lines.
+    gap:     24,
   },
-  badgesRow: {
-    flexDirection: 'row',
-    gap:           8,
-    flexWrap:      'wrap',
+  section: {
+    gap: 8,
   },
-  featuredBadge: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               5,
-    backgroundColor:   colors.accentBlueSoft,
-    borderRadius:      8,
-    paddingHorizontal: 10,
-    paddingVertical:   4,
-    borderWidth:       1,
-    borderColor:       colors.accentBlue,
-  },
-  featuredBadgeText: {
-    fontSize:   13,
-    fontWeight: '700',
-    color:      colors.accentBlue,
-  },
-  badge: {
-    alignSelf:         'flex-start',
-    backgroundColor:   colors.accentBlueSoft,
-    borderRadius:      8,
-    paddingHorizontal: 12,
-    paddingVertical:   4,
-  },
-  badgeText: {
+  sectionLabel: {
     fontSize:   13,
     fontWeight: '600',
-    color:      colors.accentBlue,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems:    'flex-start',
-    gap:           8,
-  },
-  infoText: {
-    fontSize:   14,
     color:      colors.textSecondary,
-    flex:       1,
-    lineHeight: 20,
-  },
-  slotsLeft: {
-    color:      colors.difficultyGreen,
-    fontWeight: '600',
-  },
-  slotsBar: {
-    height:          4,
-    borderRadius:    2,
-    backgroundColor: colors.border,
-    overflow:        'hidden',
-    marginTop:       -6,
-  },
-  slotsBarFill: {
-    position:        'absolute',
-    top:             0,
-    left:            0,
-    bottom:          0,
-    backgroundColor: colors.accentBlue,
-  },
-  slotsBarFull: {
-    backgroundColor: colors.deleteRed,
   },
   notes: {
-    fontSize:       14,
-    color:          colors.text,
-    lineHeight:     20,
-    paddingTop:     4,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    fontSize:   15,
+    lineHeight: 22,
+    color:      colors.text,
   },
-  shareBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
-    gap:             8,
-    borderRadius:    14,
-    height:          44,
-    borderWidth:     1,
-    borderColor:     colors.accentBlue,
-    backgroundColor: colors.accentBlueSoft,
+  moreText: {
+    fontSize:   14,
+    fontWeight: '600',
+    color:      colors.accentBlue,
   },
-  shareBtnText: {
+  actions: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           8,
+  },
+  actionBtn: {
+    flexGrow:          1,
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'center',
+    gap:               8,
+    minHeight:         44,
+    paddingHorizontal: 16,
+    paddingVertical:   8,
+    borderRadius:      16,
+    backgroundColor:   colors.background,
+  },
+  actionBtnText: {
     fontSize:   15,
     fontWeight: '600',
     color:      colors.accentBlue,
   },
-  chatBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
-    gap:             8,
-    borderRadius:    14,
-    height:          44,
-    borderWidth:     1,
-    borderColor:     colors.accentBlue,
-    backgroundColor: colors.accentBlueSoft,
-  },
-  chatBtnText: {
+  deactivateText: {
     fontSize:   15,
     fontWeight: '600',
-    color:      colors.accentBlue,
+    color:      colors.deleteRed,
   },
   storyCapture: {
     position: 'absolute',
@@ -542,50 +499,5 @@ const styles = StyleSheet.create({
     top:      0,
     width:    1080,
     height:   1920,
-  },
-  boostBtn: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    justifyContent:  'center',
-    gap:             8,
-    borderRadius:    14,
-    height:          44,
-    borderWidth:     1,
-    borderColor:     colors.accentBlue,
-    backgroundColor: colors.accentBlueSoft,
-  },
-  boostBtnText: {
-    fontSize:   15,
-    fontWeight: '600',
-    color:      colors.accentBlue,
-  },
-  btnDeactivate: {
-    borderRadius:   14,
-    height:         44,
-    alignItems:     'center',
-    justifyContent: 'center',
-    borderWidth:    1,
-    borderColor:    'rgba(217,74,74,0.4)',
-  },
-  btnDeactivateText: {
-    fontSize:   15,
-    fontWeight: '600',
-    color:      colors.deleteRed,
-  },
-  verifiedOnlyBadge: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               5,
-    backgroundColor:   colors.background,
-    borderRadius:      8,
-    paddingHorizontal: 10,
-    paddingVertical:   4,
-    borderWidth:       1,
-    borderColor:       colors.difficultyGreen,
-  },
-  verifiedOnlyBadgeText: {
-    fontSize:   12,
-    fontWeight: '600',
-    color:      colors.difficultyGreen,
   },
 });
