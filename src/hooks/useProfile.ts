@@ -13,7 +13,7 @@ interface UseProfileResult {
   profile: Profile | null;
   loading: boolean;
   error: string | null;
-  updateProfile: (updates: ProfileUpdate) => Promise<void>;
+  updateProfile: (updates: ProfileUpdate) => Promise<{ error: string | null }>;
   uploadAvatar: (localUri: string) => Promise<{ error: string | null }>;
 }
 
@@ -52,8 +52,9 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
       });
   }, [user, refetchTrigger]);
 
-  async function updateProfile(updates: ProfileUpdate): Promise<void> {
-    if (user === null) return;
+  // Resolves with the error so callers can tell the user whether it worked.
+  async function updateProfile(updates: ProfileUpdate): Promise<{ error: string | null }> {
+    if (user === null) return { error: 'Nicht eingeloggt.' };
 
     const { data, error: err } = await supabase
       .from('profiles')
@@ -64,12 +65,13 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
 
     if (err !== null) {
       setError(err.message);
-      return;
+      return { error: err.message };
     }
     setProfile(data);
     // Keep the shared cache in sync so other useProfile consumers
     // (ProfilScreen, HomeScreen, ...) don't read stale data on re-focus.
     if (cacheKey) setCached<ProfileSnapshot>(cacheKey, { profile: data });
+    return { error: null };
   }
 
   async function uploadAvatar(localUri: string): Promise<{ error: string | null }> {

@@ -2,20 +2,13 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { FREQUENCY_OPTIONS } from '../../data/trainingProfileOptions';
+import type { FrequencyTier } from '../../data/trainingProfileOptions';
 
-export type FrequencyTier = 'low' | 'medium' | 'high';
+// Options + type live in src/data/trainingProfileOptions.ts (shared with the profile).
+export type { FrequencyTier };
 
-interface Option {
-  value:    FrequencyTier;
-  label:    string;
-  sub:      string;
-}
-
-const OPTIONS: Option[] = [
-  { value: 'low',    label: 'ca. 3x pro Woche',  sub: 'Moderat aktiv'       },
-  { value: 'medium', label: 'ca. 5x pro Woche',  sub: 'Sehr aktiv'          },
-  { value: 'high',   label: 'ca. 10x pro Woche', sub: '2x täglich'          },
-];
+const OPTIONS = FREQUENCY_OPTIONS;
 
 interface Props {
   value:    FrequencyTier | null;

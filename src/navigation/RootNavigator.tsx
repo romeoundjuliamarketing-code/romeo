@@ -56,11 +56,8 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen name="Settings" component={SettingsScreen} />
       <AppStack.Screen name="Impressum" component={ImpressumScreen} />
       <AppStack.Screen name="SparringRules" component={SparringRulesScreen} />
-      <AppStack.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{ presentation: 'modal' }}
-      />
+      {/* Regular push: editing is part of the profile flow, not a stacked sheet */}
+      <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
       <AppStack.Screen
         name="Verification"
         component={VerificationScreen}

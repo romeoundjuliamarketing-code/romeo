@@ -35,6 +35,10 @@ export type Database = {
           show_weight_in_group: boolean
           streak_days: number
           arm_span_cm: number | null
+          card_frame: 'klassik' | 'blau' | 'nacht'
+          motto: string | null
+          favorite_move: string | null
+          training_focus: string | null
           stance: 'orthodox' | 'southpaw' | 'switch' | null
           is_professional: boolean | null
           studio_id: string | null
@@ -80,6 +84,10 @@ export type Database = {
           show_weight_in_group?: boolean
           streak_days?: number
           arm_span_cm?: number | null
+          card_frame?: 'klassik' | 'blau' | 'nacht'
+          motto?: string | null
+          favorite_move?: string | null
+          training_focus?: string | null
           stance?: 'orthodox' | 'southpaw' | 'switch' | null
           is_professional?: boolean | null
           studio_id?: string | null
@@ -125,6 +133,10 @@ export type Database = {
           show_weight_in_group?: boolean
           streak_days?: number
           arm_span_cm?: number | null
+          card_frame?: 'klassik' | 'blau' | 'nacht'
+          motto?: string | null
+          favorite_move?: string | null
+          training_focus?: string | null
           stance?: 'orthodox' | 'southpaw' | 'switch' | null
           is_professional?: boolean | null
           studio_id?: string | null

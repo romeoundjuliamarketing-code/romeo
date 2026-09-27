@@ -99,13 +99,5 @@ function firstName(name: string | null): string {
   return trimmed.length > 0 ? trimmed.split(/\s+/)[0] : 'Unbekannt';
 }
 
-// Up to 2-letter initials for avatar fallbacks.
-export function initialsOf(name: string | null): string {
-  if (name === null || name.trim().length === 0) return '?';
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0].toUpperCase())
-    .join('');
-}
+// Up to 2-letter initials for avatar fallbacks (shared implementation).
+export { getInitials as initialsOf } from './initials';

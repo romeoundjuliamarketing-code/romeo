@@ -11,10 +11,8 @@ import {
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
-  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import QRCode from 'react-native-qrcode-svg';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -23,11 +21,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import FightRecordCard from '../components/profil/FightRecordCard';
 import AddFightSheet from '../components/profil/AddFightSheet';
-import ProfileHero from '../components/profil/ProfileHero';
-import SparringReliabilityRow from '../components/profil/SparringReliabilityRow';
-import ProfileTabBar from '../components/profil/ProfileTabBar';
-import type { ProfileTab } from '../components/profil/ProfileTabBar';
-import OverviewTab from '../components/profil/OverviewTab';
+import type { FighterCardData } from '../components/profil/FighterCard';
+import ProfileHeader from '../components/profil/ProfileHeader';
+import ProfileShareSheet from '../components/profil/ProfileShareSheet';
+import TeamPickerCard from '../components/profil/TeamPickerCard';
+import SparringActivityCard from '../components/profil/SparringActivityCard';
+import {
+  ProfileToolbar,
+  SecondaryButton,
+  ProfileSection,
+  SectionDivider,
+  AddPrompt,
+  FactList,
+} from '../components/profil/ProfileParts';
+import { cardBackFacts, trainingFacts } from '../utils/athleteProfile';
 import StatsTab from '../components/profil/StatsTab';
 import { useWorkoutStats } from '../hooks/useWorkoutStats';
 import { useFightRecord } from '../hooks/useFightRecord';
@@ -41,6 +48,7 @@ import { useVerification } from '../hooks/useVerification';
 import { useMyVenue } from '../hooks/useMyVenue';
 import { supabase } from '../lib/supabase';
 import QRScannerModal from '../components/profil/QRScannerModal';
+import ProfileQrShareSheet from '../components/profil/ProfileQrShareSheet';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -53,7 +61,7 @@ export default function ProfilScreen(): React.ReactElement {
   const { totalPoints, totalWorkouts, streak, rank } = useWorkoutStats(focusTrigger);
   const { currentStudio, requestJoin, leaveStudio, removeMember: _removeMember, searchStudios, createStudio } = useStudio(focusTrigger);
   const { joinRequests, cancelJoinRequest, refetch: refetchMyRequests } = useMyStudioRequests(focusTrigger);
-  const { profile, uploadAvatar, updateProfile } = useProfile(focusTrigger);
+  const { profile, updateProfile } = useProfile(focusTrigger);
   const { acceptInvite } = useStudioInvite();
   const { currentWeight, isNewWeek, logWeight } = useWeight(focusTrigger);
   const { entitlement } = useEntitlement(focusTrigger);
@@ -62,7 +70,8 @@ export default function ProfilScreen(): React.ReactElement {
   const { venueId } = useMyVenue(focusTrigger);
 
   // ── Local state ──
-  const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
+  // "Profil teilen": preview of the collectible fighter card
+  const [shareVisible, setShareVisible] = useState(false);
   const [fightSheetVisible, setFightSheetVisible] = useState(false);
   const [qrSheetVisible, setQrSheetVisible] = useState(false);
 
@@ -159,111 +168,167 @@ export default function ProfilScreen(): React.ReactElement {
     setWeightDraft('');
   }
 
-  async function handleShare(): Promise<void> {
-    if (profile === null) return;
-    await Share.share({
-      message: `Kämpferprofil: ${profile.name ?? 'Unbekannt'} — Code: ${profile.profile_code}`,
-    });
-  }
+
+  const cardData: FighterCardData = {
+    name:          profile?.name ?? null,
+    nickname:      profile?.nickname ?? null,
+    avatarUrl:     profile?.avatar_url ?? null,
+    isVerified:    tier === 'verified',
+    disciplines:   profile?.disciplines ?? [],
+    weightKg:      profile?.weight_kg ?? null,
+    heightCm:      profile?.height_cm ?? null,
+    stance:        profile?.stance ?? null,
+    gymName:       currentStudio?.name ?? null,
+    location:      currentStudio?.city ?? profile?.hometown ?? null,
+    frame:         profile?.card_frame ?? null,
+    motto:         profile?.motto ?? null,
+    favoriteMove:  profile?.favorite_move ?? null,
+    trainingFocus: profile?.training_focus ?? null,
+    backFacts:     profile !== null ? cardBackFacts(profile) : [],
+  };
+  const bio = profile?.bio?.trim() ?? '';
+  const training = profile !== null ? trainingFacts(profile) : [];
+  const openEdit = () => navigation.navigate('EditProfile');
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
+      <ProfileToolbar
+        title="Profil"
+        actions={[
+          {
+            icon: 'search',
+            label: 'Kämpfer suchen',
+            onPress: () => {
+              setSearchCode('');
+              setSearchError(null);
+              setSearchModalVisible(true);
+            },
+          },
+          { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
+          { icon: 'settings-outline', label: 'Einstellungen', onPress: () => navigation.navigate('Settings') },
+        ]}
+      />
       <ScrollView
         style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Hero header ── */}
-        <ProfileHero
-          profile={profile}
-          tier={tier}
-          fights={fights}
-          totalPoints={totalPoints}
-          streak={streak}
-          onPressSettings={() => navigation.navigate('Settings')}
-          onPressSearch={() => {
-            setSearchCode('');
-            setSearchError(null);
-            setSearchModalVisible(true);
-          }}
-          onPressShare={() => setQrSheetVisible(true)}
-          onPressEdit={() => navigation.navigate('EditProfile')}
-          onUploadAvatar={uploadAvatar}
-          onPressFights={() => setActiveTab('record')}
-          onPressPoints={() => navigation.navigate('PointsBreakdown')}
-          onPressStreak={() => navigation.navigate('AttendanceHistory')}
-        />
+        <View style={styles.page}>
+          <ProfileHeader
+            data={cardData}
+            actions={(
+              <View style={styles.headerActions}>
+                <View style={styles.flex}>
+                  <SecondaryButton icon="create-outline" label="Profil bearbeiten" onPress={openEdit} />
+                </View>
+                <View style={styles.flex}>
+                  <SecondaryButton icon="share-social-outline" label="Profil teilen" onPress={() => setShareVisible(true)} />
+                </View>
+              </View>
+            )}
+          />
 
-        {/* ── Zuverlässigkeit ── */}
-        <View style={styles.reliabilityRow}>
-          <SparringReliabilityRow userId={profile?.id ?? null} refetchTrigger={focusTrigger} />
-        </View>
+          <SectionDivider />
+          <ProfileSection title="Über mich">
+            {bio.length > 0
+              ? <Text style={styles.bio}>{bio}</Text>
+              : <AddPrompt label="Erzähl Trainingspartnern kurz, wer du bist" onPress={openEdit} />}
+          </ProfileSection>
 
-        {/* ── Tab bar ── */}
-        <ProfileTabBar activeTab={activeTab} onTabPress={setActiveTab} />
+          <SectionDivider />
+          <ProfileSection title="So trainiere ich">
+            {training.length > 0
+              ? <FactList rows={training} />
+              : <AddPrompt label="Erfahrung ergänzen" onPress={openEdit} />}
+          </ProfileSection>
 
-        {/* ── Tab content ── */}
-        <View style={styles.tabContent}>
-          {activeTab === 'overview' && (
-            <OverviewTab
-              profile={profile}
-              tier={tier}
-              currentStudio={currentStudio}
-              focusTrigger={focusTrigger}
-              onRequestJoin={handleRequestJoin}
-              onLeaveStudio={handleLeaveStudio}
-              onSearchStudios={searchStudios}
-              onCreateStudio={createStudio}
-              onRedeemCode={handleRedeemCode}
-              pendingStudioName={pendingStudioName}
-              onCancelRequest={handleCancelJoinRequest}
-              onViewTeam={
-                currentStudio !== null
-                  ? () => navigation.navigate('StudioDetail', { studioId: currentStudio.id })
-                  : undefined
+          <SectionDivider />
+          <TeamPickerCard
+            currentStudio={currentStudio}
+            onRequestJoin={handleRequestJoin}
+            onLeave={handleLeaveStudio}
+            onSearch={searchStudios}
+            onRedeemCode={handleRedeemCode}
+            pendingStudioName={pendingStudioName}
+            onCancelRequest={handleCancelJoinRequest}
+            onCreate={async (name, city) => {
+              const created = await createStudio(name, city);
+              if (created === null) {
+                Alert.alert('Fehler', 'Studio konnte nicht erstellt werden.');
               }
-              onOpenVerification={() => navigation.navigate('Verification')}
-              venueId={venueId}
-              onOpenVenue={
-                venueId !== null
-                  ? () => navigation.navigate('VenueDetail', { venueId })
-                  : undefined
-              }
-            />
-          )}
+              return created;
+            }}
+            onViewTeam={
+              currentStudio !== null
+                ? () => navigation.navigate('StudioDetail', { studioId: currentStudio.id })
+                : undefined
+            }
+            inline
+          />
 
-          {activeTab === 'record' && (
-            <View style={styles.recordTab}>
-              <FightRecordCard
-                fights={fights}
-                loading={fightsLoading}
-                onAdd={() => setFightSheetVisible(true)}
-                onDelete={async (id) => { await deleteFight(id); }}
-              />
-            </View>
-          )}
+          <SectionDivider />
+          <FightRecordCard
+            fights={fights}
+            loading={fightsLoading}
+            compact
+            onAdd={() => setFightSheetVisible(true)}
+            onDelete={async (id) => { await deleteFight(id); }}
+          />
 
-          {activeTab === 'stats' && (
-            <StatsTab
-              totalPoints={totalPoints}
-              streak={streak}
-              totalWorkouts={totalWorkouts}
-              rank={rank}
-              hasAccess={entitlement.hasAccess}
-              currentWeight={currentWeight}
-              isNewWeek={isNewWeek}
-              onPressPoints={() => navigation.navigate('PointsBreakdown')}
-              onPressStreak={() => navigation.navigate('AttendanceHistory')}
-              onPressWorkouts={() => navigation.navigate('WorkoutHistory')}
-              onPressWeightLog={() => {
-                setWeightDraft(currentWeight !== null ? String(currentWeight) : '');
-                setWeightModalVisible(true);
-              }}
-              onPressWeightHistory={() => navigation.navigate('WeightHistory')}
-              onPressPaywall={() => navigation.navigate('Paywall')}
-            />
+          <SectionDivider />
+          <SparringActivityCard userId={profile?.id ?? null} isOwn refetchTrigger={focusTrigger} />
+
+          <SectionDivider />
+          <StatsTab
+            totalPoints={totalPoints}
+            streak={streak}
+            totalWorkouts={totalWorkouts}
+            rank={rank}
+            hasAccess={entitlement.hasAccess}
+            currentWeight={currentWeight}
+            isNewWeek={isNewWeek}
+            onPressPoints={() => navigation.navigate('PointsBreakdown')}
+            onPressStreak={() => navigation.navigate('AttendanceHistory')}
+            onPressWorkouts={() => navigation.navigate('WorkoutHistory')}
+            onPressWeightLog={() => {
+              setWeightDraft(currentWeight !== null ? String(currentWeight) : '');
+              setWeightModalVisible(true);
+            }}
+            onPressWeightHistory={() => navigation.navigate('WeightHistory')}
+            onPressPaywall={() => navigation.navigate('Paywall')}
+          />
+
+          {(tier !== 'verified' || venueId !== null) && <SectionDivider />}
+          {tier !== 'verified' && (
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Verification')} accessibilityRole="button">
+              <Ionicons name="shield-checkmark-outline" size={22} color={colors.accentBlue} />
+              <View style={styles.flex}>
+                <Text style={styles.linkTitle}>Verifizierung</Text>
+                <Text style={styles.linkSub}>{tier === 'basic' ? 'Fast geschafft – ein Nachweis fehlt' : 'Nicht verifiziert'}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+          {venueId !== null && (
+            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('VenueDetail', { venueId })} accessibilityRole="button">
+              <Ionicons name="business-outline" size={22} color={colors.accentBlue} />
+              <View style={styles.flex}>
+                <Text style={styles.linkTitle}>Meine Location</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+
+      <ProfileShareSheet
+        visible={shareVisible}
+        onClose={() => setShareVisible(false)}
+        data={cardData}
+        profileCode={profile?.profile_code ?? null}
+        isOwn
+        onSelectFrame={(frame) => updateProfile({ card_frame: frame })}
+      />
 
       {/* ── AddFight Sheet ── */}
       <AddFightSheet
@@ -274,40 +339,13 @@ export default function ProfilScreen(): React.ReactElement {
       />
 
       {/* ── QR / Share Sheet ── */}
-      <Modal
+      <ProfileQrShareSheet
         visible={qrSheetVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setQrSheetVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setQrSheetVisible(false)}
-        >
-          <View style={styles.qrSheet}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Profil teilen</Text>
-            {profile !== null && (
-              <QRCode
-                value={profile.profile_code}
-                size={200}
-                color={colors.text}
-                backgroundColor={colors.card}
-              />
-            )}
-            <Text style={styles.qrCodeLabel}>{profile?.profile_code ?? ''}</Text>
-            <TouchableOpacity
-              style={styles.shareBtn}
-              onPress={() => { void handleShare(); }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="share-outline" size={18} color={colors.card} />
-              <Text style={styles.shareBtnText}>Teilen</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setQrSheetVisible(false)}
+        name={profile?.name ?? null}
+        profileCode={profile?.profile_code ?? null}
+        isOwn
+      />
 
       {/* ── Fighter search modal ── */}
       <Modal
@@ -335,7 +373,7 @@ export default function ProfilScreen(): React.ReactElement {
                 value={searchCode}
                 onChangeText={(t) => { setSearchCode(t.toUpperCase()); setSearchError(null); }}
                 placeholder="Code eingeben..."
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={colors.brandMuted}
                 autoCapitalize="characters"
                 maxLength={12}
                 autoFocus
@@ -359,7 +397,7 @@ export default function ProfilScreen(): React.ReactElement {
               onPress={() => setScannerVisible(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="qr-code-outline" size={18} color={colors.accentBlue} />
+              <Ionicons name="qr-code-outline" size={18} color={colors.brandPrimary} />
               <Text style={styles.qrScanBtnText}>QR scannen</Text>
             </TouchableOpacity>
             {searchError !== null && (
@@ -408,7 +446,7 @@ export default function ProfilScreen(): React.ReactElement {
             <TextInput
               style={styles.weightInput}
               placeholder="z. B. 82.5"
-              placeholderTextColor={colors.inactive}
+              placeholderTextColor={colors.brandMuted}
               value={weightDraft}
               onChangeText={setWeightDraft}
               keyboardType="decimal-pad"
@@ -443,39 +481,45 @@ const styles = StyleSheet.create({
   scroll: {
     flex: 1,
   },
-  tabContent: {
+  scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
-    maxWidth: 600,
+    paddingBottom: 48,
+  },
+  page: {
     width: '100%',
-    alignSelf: 'center',
-  },
-  reliabilityRow: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
     maxWidth: 600,
-    width: '100%',
     alignSelf: 'center',
+    gap: 24,
   },
-  recordTab: {
-    paddingBottom: 32,
-  },
-
-  // QR Sheet
-  modalBackdrop: {
+  flex: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: colors.mapOverlay,
   },
-  qrSheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  bio: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: colors.text,
+  },
+  linkRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    minHeight: 48,
   },
+  linkTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  linkSub: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+
   modalHandle: {
     width: 32,
     height: 4,
@@ -487,28 +531,8 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.brandInk,
     textAlign: 'center',
-  },
-  qrCodeLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: 2,
-  },
-  shareBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.accentBlue,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  shareBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.card,
   },
 
   // Search modal
@@ -530,7 +554,7 @@ const styles = StyleSheet.create({
   },
   searchSubtitle: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.brandMuted,
     marginTop: -4,
   },
   codeSearchRow: {
@@ -544,19 +568,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: colors.text,
+    color: colors.brandInk,
     letterSpacing: 2,
   },
   codeSearchBtn: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: colors.accentBlue,
+    backgroundColor: colors.brandPrimary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   codeSearchBtnDisabled: {
-    backgroundColor: colors.accentBlueMuted,
+    backgroundColor: colors.brandPrimarySoft,
   },
   codeSearchError: {
     fontSize: 13,
@@ -569,13 +593,13 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: colors.accentBlue,
+    borderColor: colors.brandPrimary,
     paddingVertical: 12,
   },
   qrScanBtnText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.accentBlue,
+    color: colors.brandPrimary,
   },
   ownCodeRow: {
     flexDirection: 'row',
@@ -587,18 +611,18 @@ const styles = StyleSheet.create({
   },
   ownCodeLabel: {
     fontSize: 13,
-    color: colors.textSecondary,
+    color: colors.brandMuted,
   },
   ownCodeValue: {
     fontSize: 16,
     fontWeight: '700',
-    color: colors.accentBlue,
+    color: colors.brandPrimary,
     letterSpacing: 2,
   },
 
   // Weekly weight modal
   weightOverlay: { flex: 1, justifyContent: 'flex-end' },
-  weightBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)' },
+  weightBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.mapOverlay },
   weightSheet: {
     backgroundColor: colors.card,
     borderTopLeftRadius: 24,
@@ -611,12 +635,12 @@ const styles = StyleSheet.create({
   weightSheetTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.brandInk,
     textAlign: 'center',
   },
   weightSheetSubtitle: {
     fontSize: 13,
-    color: colors.inactive,
+    color: colors.brandMuted,
     fontWeight: '400',
     marginBottom: 8,
     textAlign: 'center',
@@ -627,7 +651,7 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 24,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.brandInk,
     borderWidth: 1,
     borderColor: colors.border,
     textAlign: 'center',
@@ -636,7 +660,7 @@ const styles = StyleSheet.create({
   weightSaveBtn: {
     height: 52,
     borderRadius: 14,
-    backgroundColor: colors.text,
+    backgroundColor: colors.brandPrimary,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,

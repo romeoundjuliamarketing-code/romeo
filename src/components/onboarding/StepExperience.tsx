@@ -2,25 +2,13 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { EXPERIENCE_OPTIONS } from '../../data/trainingProfileOptions';
+import type { TrainingSince } from '../../data/trainingProfileOptions';
 
-export type TrainingSince =
-  | 'under_1_year'
-  | '1_3_years'
-  | '3_5_years'
-  | 'over_5_years';
+// Options + type live in src/data/trainingProfileOptions.ts (shared with the profile).
+export type { TrainingSince };
 
-interface Option {
-  value: TrainingSince;
-  label: string;
-  sub: string;
-}
-
-const OPTIONS: Option[] = [
-  { value: 'under_1_year', label: 'Einsteiger',  sub: 'Weniger als 1 Jahr'   },
-  { value: '1_3_years',    label: 'Fortgeschritten', sub: '1 bis 3 Jahre'    },
-  { value: '3_5_years',    label: 'Erfahren',    sub: '3 bis 5 Jahre'        },
-  { value: 'over_5_years', label: 'Veteran',     sub: 'Mehr als 5 Jahre'     },
-];
+const OPTIONS = EXPERIENCE_OPTIONS;
 
 interface Props {
   value: TrainingSince | null;

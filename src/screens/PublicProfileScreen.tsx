@@ -11,16 +11,13 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Image,
   Linking,
-  Share,
 } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
 import type { FightRecord, ReportReason } from '../types/database.types';
@@ -29,17 +26,27 @@ import { useSparringRatings } from '../hooks/useSparringRatings';
 import { useUserReport }      from '../hooks/useUserReport';
 import { SHOW_SPARRING_STARS } from '../data/sparringConfig';
 import FightRecordCard        from '../components/profil/FightRecordCard';
-import SparringReliabilityRow from '../components/profil/SparringReliabilityRow';
+import type { FighterCardData } from '../components/profil/FighterCard';
+import ProfileHeader          from '../components/profil/ProfileHeader';
+import ProfileShareSheet      from '../components/profil/ProfileShareSheet';
+import {
+  ProfileToolbar,
+  PrimaryButton,
+  SecondaryButton,
+  ProfileSection,
+  SectionDivider,
+  FactList,
+} from '../components/profil/ProfileParts';
+import SparringActivityCard   from '../components/profil/SparringActivityCard';
+import ProfileQrShareSheet    from '../components/profil/ProfileQrShareSheet';
 import { useAuth }            from '../context/AuthContext';
-import { getInitials }        from '../components/profil/ProfileHero';
-import { stanceLabel }        from '../utils/stance';
+import { getInitials }        from '../utils/initials';
+import { cardBackFacts, trainingFacts } from '../utils/athleteProfile';
+import { instagramProfileUrl } from '../utils/profileDraft';
+import type { CardFrameId }   from '../data/cardFrames';
 import type { Stance }        from '../utils/stance';
 
 // ── constants ──────────────────────────────────────────────────────────────────
-
-const BANNER_HEIGHT = 120;
-const AVATAR_SIZE   = 80;
-const AVATAR_OFFSET = AVATAR_SIZE / 2;
 
 const STAR_LABELS: Record<number, string> = {
   1: 'Nicht empfehlenswert',
@@ -57,7 +64,6 @@ const REPORT_OPTIONS: { value: ReportReason; label: string }[] = [
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
-type PublicTab = 'overview' | 'record';
 
 interface PublicProfile {
   name:              string | null;
@@ -80,6 +86,12 @@ interface PublicProfile {
   profile_code:      string;
   stance:            Stance | null;
   training_since:    string | null;
+  training_frequency: string | null;
+  is_professional:   boolean | null;
+  card_frame:        CardFrameId | null;
+  motto:             string | null;
+  favorite_move:     string | null;
+  training_focus:    string | null;
 }
 
 interface CurrentUserCoachInfo {
@@ -90,26 +102,6 @@ interface CurrentUserCoachInfo {
 interface StudioInfo {
   name: string;
   city: string;
-}
-
-// ── helper components ──────────────────────────────────────────────────────────
-
-function SteckbriefRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  label: string;
-  value: string;
-}): React.ReactElement {
-  return (
-    <View style={styles.steckbriefRow}>
-      <MaterialCommunityIcons name={icon} size={16} color={colors.textSecondary} />
-      <Text style={styles.steckbriefLabel}>{label}</Text>
-      <Text style={styles.steckbriefValue}>{value}</Text>
-    </View>
-  );
 }
 
 // ── component ──────────────────────────────────────────────────────────────────
@@ -128,7 +120,8 @@ export default function PublicProfileScreen(): React.ReactElement {
   const [profile,        setProfile]        = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [studio,         setStudio]         = useState<StudioInfo | null>(null);
-  const [activeTab,      setActiveTab]      = useState<PublicTab>('overview');
+  // "Profil teilen": preview of the collectible fighter card
+  const [shareVisible,   setShareVisible]   = useState(false);
 
   const [currentUserCoach, setCurrentUserCoach] = useState<CurrentUserCoachInfo | null>(null);
 
@@ -163,7 +156,7 @@ export default function PublicProfileScreen(): React.ReactElement {
     setProfileLoading(true);
     void supabase
       .from('profiles')
-      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, coach_verified_at, studio_id, nickname, weight_class, weight_kg, height_cm, arm_span_cm, nationality, hometown, bio, instagram_url, profile_code, stance, training_since')
+      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, coach_verified_at, studio_id, nickname, weight_class, weight_kg, height_cm, arm_span_cm, nationality, hometown, bio, instagram_url, profile_code, stance, training_since, training_frequency, is_professional, card_frame, motto, favorite_move, training_focus')
       .eq('id', userId)
       .single()
       .then(({ data }) => {
@@ -190,6 +183,12 @@ export default function PublicProfileScreen(): React.ReactElement {
             profile_code:      (data.profile_code as string) ?? '',
             stance:            (data.stance as Stance | null) ?? null,
             training_since:    data.training_since ?? null,
+            training_frequency: data.training_frequency ?? null,
+            is_professional:   data.is_professional ?? null,
+            card_frame:        data.card_frame ?? null,
+            motto:             data.motto ?? null,
+            favorite_move:     data.favorite_move ?? null,
+            training_focus:    data.training_focus ?? null,
           });
         }
         setProfileLoading(false);
@@ -254,12 +253,6 @@ export default function PublicProfileScreen(): React.ReactElement {
     if (error === null) setVouched(true);
   }, [userId]);
 
-  const handleShare = useCallback(async () => {
-    if (profile === null) return;
-    await Share.share({
-      message: `Kämpferprofil: ${profile.name ?? 'Unbekannt'} — Code: ${profile.profile_code}`,
-    });
-  }, [profile]);
 
   const handleSubmitRating = useCallback(async () => {
     if (selectedStars === 0 || ratingComment.trim().length === 0) return;
@@ -302,45 +295,10 @@ export default function PublicProfileScreen(): React.ReactElement {
     currentUserId !== userId &&
     profile?.coach_verified_at == null;
 
-  const isVerified     = profile?.coach_verified_at != null || vouched;
-  const totalFights    = targetFights.length;
-  const totalWins      = targetFights.filter((f) => f.result === 'win').length;
-
-  const stanceText = stanceLabel(profile?.stance);
-
-  const metaParts = [profile?.weight_class, profile?.nationality, stanceText]
-    .filter((v): v is string => v !== null && v !== undefined && v.length > 0);
-
-  // Steckbrief rows — same fields as OverviewTab
-  const steckbriefRows: { icon: React.ComponentProps<typeof MaterialCommunityIcons>['name']; label: string; value: string }[] = [];
-  if (profile?.weight_class !== null && profile?.weight_class !== undefined && profile.weight_class.length > 0) {
-    steckbriefRows.push({ icon: 'trophy-outline', label: 'Gewichtsklasse', value: profile.weight_class });
-  }
-  if (profile?.weight_kg !== null && profile?.weight_kg !== undefined) {
-    steckbriefRows.push({ icon: 'weight-kilogram', label: 'Kampfgewicht', value: `${profile.weight_kg} kg` });
-  }
-  if (profile?.height_cm !== null && profile?.height_cm !== undefined) {
-    steckbriefRows.push({ icon: 'human-male-height', label: 'Körpergrösse', value: `${profile.height_cm} cm` });
-  }
-  if (profile?.arm_span_cm !== null && profile?.arm_span_cm !== undefined) {
-    steckbriefRows.push({ icon: 'arrow-left-right', label: 'Spannweite', value: `${profile.arm_span_cm} cm` });
-  }
-  if (profile?.age_years !== null && profile?.age_years !== undefined) {
-    steckbriefRows.push({ icon: 'calendar-account-outline', label: 'Alter', value: `${profile.age_years} Jahre` });
-  }
-  if (profile?.nationality !== null && profile?.nationality !== undefined && profile.nationality.length > 0) {
-    steckbriefRows.push({ icon: 'flag-outline', label: 'Nationalität', value: profile.nationality });
-  }
-  if (profile?.hometown !== null && profile?.hometown !== undefined && profile.hometown.length > 0) {
-    steckbriefRows.push({ icon: 'map-marker-outline', label: 'Heimatstadt', value: profile.hometown });
-  }
-  if (profile?.stance !== null && profile?.stance !== undefined) {
-    steckbriefRows.push({
-      icon: 'boxing-glove',
-      label: 'Auslage',
-      value: stanceLabel(profile.stance) ?? '',
-    });
-  }
+  // Existing meaning: confirmed by a coach of the studio (or just vouched).
+  const isVerified = profile?.coach_verified_at != null || vouched;
+  const training   = profile !== null ? trainingFacts(profile) : [];
+  const bio        = profile?.bio?.trim() ?? '';
 
   // ── render ────────────────────────────────────────────────────────────────────
 
@@ -352,261 +310,183 @@ export default function PublicProfileScreen(): React.ReactElement {
     );
   }
 
-  const initials = getInitials(profile?.name ?? null);
+  const cardData: FighterCardData = {
+    name:          profile?.name ?? null,
+    nickname:      profile?.nickname ?? null,
+    avatarUrl:     profile?.avatar_url ?? null,
+    isVerified,
+    disciplines:   profile?.disciplines ?? [],
+    weightKg:      profile?.weight_kg ?? null,
+    heightCm:      profile?.height_cm ?? null,
+    stance:        profile?.stance ?? null,
+    gymName:       studio?.name ?? null,
+    location:      studio?.city ?? profile?.hometown ?? null,
+    frame:         profile?.card_frame ?? null,
+    motto:         profile?.motto ?? null,
+    favoriteMove:  profile?.favorite_move ?? null,
+    trainingFocus: profile?.training_focus ?? null,
+    backFacts:     profile !== null ? cardBackFacts(profile) : [],
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <ProfileToolbar
+        onBack={() => navigation.goBack()}
+        actions={[
+          { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
+          {
+            icon: 'flag-outline',
+            label: 'Profil melden',
+            onPress: () => { setReportModalVisible(true); setReportConfirmed(false); },
+          },
+        ]}
+      />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Hero ──────────────────────────────────────────────────────── */}
-        <View style={styles.heroContainer}>
-          {/* Dark banner with navigation and action icons */}
-          <View style={styles.banner}>
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-              style={styles.topBarBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="chevron-back" size={22} color={colors.headerTextPrimary} />
-            </TouchableOpacity>
-            <View style={styles.topBarRight}>
-              <TouchableOpacity
-                onPress={() => { setReportModalVisible(true); setReportConfirmed(false); }}
-                style={styles.topBarBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="flag-outline" size={20} color={colors.deleteRed} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setQrSheetVisible(true)}
-                style={styles.topBarBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="qr-code-outline" size={20} color={colors.headerTextPrimary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Avatar overlapping the banner */}
-          <View style={styles.avatarTouch}>
-            <View style={styles.avatarWrapper}>
-              {profile?.avatar_url !== null && profile?.avatar_url !== undefined ? (
-                <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.avatarCircle}>
-                  <Text style={styles.avatarInitials}>{initials}</Text>
-                </View>
-              )}
-            </View>
-          </View>
-
-          {/* Name, meta, counters, actions */}
-          <View style={styles.heroBody}>
-            <View style={styles.nameRow}>
-              <Text style={styles.name}>{profile?.name ?? 'Kämpfer'}</Text>
-              {isVerified && (
-                <Ionicons name="checkmark-circle" size={20} color={colors.accentBlue} />
-              )}
-            </View>
-
-            {profile?.nickname !== null && profile?.nickname !== undefined && profile.nickname.length > 0 && (
-              <Text style={styles.nickname}>"{profile.nickname}"</Text>
-            )}
-
-            {profile?.profile_code !== undefined && profile.profile_code.length > 0 && (
-              <Text style={styles.handle}>@{profile.profile_code}</Text>
-            )}
-
-            {metaParts.length > 0 && (
-              <Text style={styles.meta}>{metaParts.join(' · ')}</Text>
-            )}
-
-            {/* Kämpfe / Siege counters */}
-            <View style={styles.countersRow}>
-              <View style={styles.counterItem}>
-                <Text style={styles.counterValue}>{totalFights}</Text>
-                <Text style={styles.counterLabel}>Kämpfe</Text>
-              </View>
-              <View style={styles.counterDivider} />
-              <View style={styles.counterItem}>
-                <Text style={styles.counterValue}>{totalWins}</Text>
-                <Text style={styles.counterLabel}>Siege</Text>
-              </View>
-            </View>
-
-            {/* Average rating (hidden behind SHOW_SPARRING_STARS in favour of the reliability quote) */}
-            {SHOW_SPARRING_STARS && (
-              <View style={styles.ratingRow}>
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Ionicons
-                    key={s}
-                    name={averageStars !== null && s <= Math.round(averageStars) ? 'star' : 'star-outline'}
-                    size={18}
-                    color={colors.accent}
+        <View style={styles.page}>
+          <ProfileHeader
+            data={cardData}
+            actions={(
+              <View style={styles.cardActions}>
+                {/* Main action: only what this viewer can actually do here */}
+                {canVouch && !vouched && (
+                  <PrimaryButton
+                    icon="shield-checkmark-outline"
+                    label="Als Mitglied bestätigen"
+                    loading={vouching}
+                    onPress={() => { void handleVouch(); }}
                   />
-                ))}
-                <Text style={styles.ratingCount}>
-                  {ratingCount === 0
-                    ? 'Noch keine Bewertungen'
-                    : `(${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'})`}
-                </Text>
+                )}
+                {canRateNow && (
+                  <PrimaryButton icon="star-outline" label="Jetzt bewerten" onPress={() => setRatingModalVisible(true)} />
+                )}
+                <SecondaryButton icon="share-social-outline" label="Profil teilen" onPress={() => setShareVisible(true)} />
               </View>
             )}
+          />
 
-            {/* Objective reliability quote — replaces the sparring star average */}
-            <View style={styles.ratingRow}>
-              <SparringReliabilityRow userId={userId} />
-            </View>
-
-            {/* Action row: rate + vouch */}
-            <View style={styles.actionsRow}>
-              {canRateNow && (
-                <TouchableOpacity
-                  style={styles.rateBtn}
-                  activeOpacity={0.8}
-                  onPress={() => setRatingModalVisible(true)}
-                >
-                  <Text style={styles.rateBtnText}>Jetzt bewerten</Text>
-                </TouchableOpacity>
-              )}
-              {canVouch && !vouched && (
-                <TouchableOpacity
-                  style={styles.vouchBtn}
-                  onPress={() => { void handleVouch(); }}
-                  disabled={vouching}
-                  activeOpacity={0.8}
-                >
-                  {vouching
-                    ? <ActivityIndicator size="small" color={colors.headerTextPrimary} />
-                    : (
-                      <>
-                        <Ionicons name="shield-checkmark-outline" size={16} color={colors.headerTextPrimary} />
-                        <Text style={styles.vouchBtnText}>Als Mitglied bestätigen</Text>
-                      </>
-                    )
-                  }
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* ── Tab bar: ÜBERSICHT | REKORD ─────────────────────────────── */}
-        <View style={styles.tabBar}>
-          {(['overview', 'record'] as PublicTab[]).map((tab) => {
-            const label = tab === 'overview' ? 'ÜBERSICHT' : 'REKORD';
-            const isActive = activeTab === tab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.tab, isActive && styles.tabActive]}
-                onPress={() => setActiveTab(tab)}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ── Tab content ──────────────────────────────────────────────── */}
-        <View style={styles.tabContent}>
-          {activeTab === 'overview' && (
+          {bio.length > 0 && (
             <>
-              {/* Bio */}
-              {profile?.bio !== null && profile?.bio !== undefined && profile.bio.length > 0 && (
-                <View style={styles.card}>
-                  <Text style={styles.bioText}>{profile.bio}</Text>
-                </View>
-              )}
-
-              {/* Team (read-only) */}
-              {studio !== null && (
-                <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Team</Text>
-                  <View style={styles.teamRow}>
-                    <Text style={styles.teamName}>{studio.name}</Text>
-                    <Text style={styles.teamCity}>{studio.city}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Steckbrief */}
-              {steckbriefRows.length > 0 && (
-                <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Steckbrief</Text>
-                  {steckbriefRows.map((row) => (
-                    <SteckbriefRow key={row.label} icon={row.icon} label={row.label} value={row.value} />
-                  ))}
-                </View>
-              )}
-
-              {/* Disciplines */}
-              {profile?.disciplines !== null && profile?.disciplines !== undefined && profile.disciplines.length > 0 && (
-                <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Disziplinen</Text>
-                  <View style={styles.chipsRow}>
-                    {profile.disciplines.map((d) => (
-                      <View key={d} style={styles.chip}>
-                        <Text style={styles.chipText}>{d}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Instagram */}
-              {profile?.instagram_url !== null && profile?.instagram_url !== undefined && (
-                <TouchableOpacity
-                  style={styles.instagramBtn}
-                  onPress={() => { void Linking.openURL(profile.instagram_url as string); }}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="logo-instagram" size={18} color={colors.text} />
-                  <Text style={styles.instagramBtnText}>Instagram</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Own existing rating */}
-              {SHOW_SPARRING_STARS && existingRating !== null && (
-                <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Deine Bewertung</Text>
-                  <View style={styles.starsRow}>
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Ionicons
-                        key={s}
-                        name={s <= existingRating.stars ? 'star' : 'star-outline'}
-                        size={16}
-                        color={colors.accent}
-                      />
-                    ))}
-                  </View>
-                  <Text style={styles.existingRatingComment}>{existingRating.comment}</Text>
-                </View>
-              )}
+              <SectionDivider />
+              <ProfileSection title="Über mich">
+                <Text style={styles.bioText}>{bio}</Text>
+              </ProfileSection>
             </>
           )}
 
-          {activeTab === 'record' && (
-            profile?.show_fight_record === true ? (
-              <FightRecordCard
-                fights={targetFights}
-                loading={targetFightsLoading}
-                readOnly
-              />
-            ) : (
-              <View style={styles.emptyRecord}>
-                <Text style={styles.emptyRecordText}>Kämpfe werden nicht öffentlich gezeigt.</Text>
+          {training.length > 0 && (
+            <>
+              <SectionDivider />
+              <ProfileSection title="So trainiere ich">
+                <FactList rows={training} />
+              </ProfileSection>
+            </>
+          )}
+
+          {/* Gym (read-only). Studios have no logo — initials instead. */}
+          {studio !== null && (
+            <>
+              <SectionDivider />
+              <ProfileSection title="Gym">
+                <View style={styles.teamRow}>
+                  <View style={styles.teamLogo}>
+                    <Text style={styles.teamLogoText}>{getInitials(studio.name)}</Text>
+                  </View>
+                  <View style={styles.flex}>
+                    <Text style={styles.teamName} numberOfLines={2}>{studio.name}</Text>
+                    {studio.city.length > 0 && <Text style={styles.teamCity}>{studio.city}</Text>}
+                  </View>
+                </View>
+              </ProfileSection>
+            </>
+          )}
+
+          <SectionDivider />
+          {profile?.show_fight_record === true ? (
+            <FightRecordCard
+              fights={targetFights}
+              loading={targetFightsLoading}
+              ownerName={profile.nickname ?? profile.name}
+              compact
+              readOnly
+            />
+          ) : (
+            <ProfileSection title="Kampfrekord">
+              <Text style={styles.emptyRecordText}>Die Kämpfe werden in diesem Profil nicht öffentlich gezeigt.</Text>
+            </ProfileSection>
+          )}
+
+          <SectionDivider />
+          <SparringActivityCard userId={userId} isOwn={false} />
+
+          {/* Star average — hidden behind SHOW_SPARRING_STARS in favour of the reliability quote */}
+          {SHOW_SPARRING_STARS && (
+            <>
+              <SectionDivider />
+              <ProfileSection title="Bewertungen">
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Ionicons
+                      key={s}
+                      name={averageStars !== null && s <= Math.round(averageStars) ? 'star' : 'star-outline'}
+                      size={18}
+                      color={colors.accentBlue}
+                    />
+                  ))}
+                </View>
+                <Text style={styles.existingRatingComment}>
+                  {ratingCount === 0
+                    ? 'Noch keine Bewertungen'
+                    : `${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'}`}
+                </Text>
+              </ProfileSection>
+            </>
+          )}
+
+          {SHOW_SPARRING_STARS && existingRating !== null && (
+            <ProfileSection title="Deine Bewertung">
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((s) => (
+                  <Ionicons
+                    key={s}
+                    name={s <= existingRating.stars ? 'star' : 'star-outline'}
+                    size={16}
+                    color={colors.accentBlue}
+                  />
+                ))}
               </View>
-            )
+              <Text style={styles.existingRatingComment}>{existingRating.comment}</Text>
+            </ProfileSection>
+          )}
+
+          {profile?.instagram_url !== null && profile?.instagram_url !== undefined && (
+            <TouchableOpacity
+              style={styles.instagramRow}
+              onPress={() => {
+                // Stored as the bare handle — build the real profile URL.
+                const url = instagramProfileUrl(profile.instagram_url as string);
+                if (url !== null) void Linking.openURL(url);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="link"
+            >
+              <Ionicons name="logo-instagram" size={20} color={colors.accentBlue} />
+              <Text style={styles.instagramText}>Instagram</Text>
+            </TouchableOpacity>
           )}
         </View>
       </ScrollView>
+
+      <ProfileShareSheet
+        visible={shareVisible}
+        onClose={() => setShareVisible(false)}
+        data={cardData}
+        profileCode={profile?.profile_code ?? null}
+        isOwn={false}
+      />
 
       {/* ── Rating Modal (hidden behind SHOW_SPARRING_STARS) ────────────── */}
       {SHOW_SPARRING_STARS && (
@@ -757,56 +637,20 @@ export default function PublicProfileScreen(): React.ReactElement {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── QR Share Modal ────────────────────────────────────────────── */}
-      <Modal
+      {/* ── QR Share Sheet ──────────────────────────────────────────── */}
+      <ProfileQrShareSheet
         visible={qrSheetVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setQrSheetVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalBackdrop}
-          activeOpacity={1}
-          onPress={() => setQrSheetVisible(false)}
-        >
-          <View style={styles.qrSheet}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Profil teilen</Text>
-            {profile !== null && (
-              <QRCode
-                value={profile.profile_code}
-                size={200}
-                color={colors.text}
-                backgroundColor={colors.card}
-              />
-            )}
-            <Text style={styles.qrCodeLabel}>{profile?.profile_code ?? ''}</Text>
-            <TouchableOpacity
-              style={styles.shareBtn}
-              onPress={() => { void handleShare(); }}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="share-outline" size={18} color={colors.card} />
-              <Text style={styles.shareBtnText}>Teilen</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
+        onClose={() => setQrSheetVisible(false)}
+        name={profile?.name ?? null}
+        profileCode={profile?.profile_code ?? null}
+        isOwn={false}
+      />
     </SafeAreaView>
   );
 }
 
 // ── styles ────────────────────────────────────────────────────────────────────
 
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-  },
-  android: { elevation: 1 },
-});
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -823,305 +667,67 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
-    backgroundColor: colors.background,
-  },
-
-  // ── Hero ──────────────────────────────────────────────────────────────────
-  heroContainer: {
-    backgroundColor: colors.card,
-    marginBottom: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.dark,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  banner: {
-    height: BANNER_HEIGHT,
-    backgroundColor: colors.dark,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingHorizontal: 12,
-  },
-  topBarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topBarRight: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  avatarTouch: {
-    marginTop: -AVATAR_OFFSET,
-    marginLeft: 16,
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-  },
-  avatarWrapper: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    borderWidth: 3,
-    borderColor: colors.card,
-    overflow: 'hidden',
-    backgroundColor: colors.accentBlueSoft,
-  },
-  avatarImage: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-  },
-  avatarCircle: {
-    width: AVATAR_SIZE,
-    height: AVATAR_SIZE,
-    borderRadius: AVATAR_SIZE / 2,
-    backgroundColor: colors.accentBlueSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarInitials: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.accentBlue,
-  },
-  heroBody: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 4,
+    paddingTop: 8,
+    paddingBottom: 48,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 8,
+  page: {
+    width: '100%',
+    maxWidth: 600,
+    alignSelf: 'center',
+    gap: 24,
   },
-  name: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.3,
-  },
-  nickname: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  handle: {
-    fontSize: 13,
-    color: colors.inactive,
-    fontWeight: '500',
-  },
-  meta: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  countersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignSelf: 'stretch',
-  },
-  counterItem: {
+  flex: {
     flex: 1,
-    alignItems: 'center',
-    gap: 2,
   },
-  counterDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: colors.border,
-  },
-  counterValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.5,
-  },
-  counterLabel: {
-    fontSize: 11,
-    color: colors.inactive,
-    fontWeight: '500',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  ratingCount: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginLeft: 4,
-  },
-  actionsRow: {
-    flexDirection: 'row',
+  cardActions: {
     gap: 8,
-    marginTop: 12,
-  },
-  rateBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.accentBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rateBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.card,
-  },
-  vouchBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: colors.dark,
-  },
-  vouchBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.headerTextPrimary,
-  },
-
-  // ── Tab bar ───────────────────────────────────────────────────────────────
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    marginBottom: 8,
-  },
-  tab: {
-    flex: 1,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: colors.accentBlue,
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.inactive,
-    letterSpacing: 0.5,
-  },
-  tabTextActive: {
-    color: colors.accentBlue,
-  },
-
-  // ── Tab content ───────────────────────────────────────────────────────────
-  tabContent: {
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-    ...cardShadow,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
   },
   bioText: {
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 24,
     color: colors.text,
-    lineHeight: 22,
   },
 
-  // Team row (read-only)
+  // Gym (read-only)
   teamRow: {
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  teamLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  teamLogoText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.card,
   },
   teamName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.text,
   },
   teamCity: {
     fontSize: 13,
-    color: colors.inactive,
-  },
-
-  // Steckbrief
-  steckbriefRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 4,
-  },
-  steckbriefLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  steckbriefValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-
-  // Disciplines
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    backgroundColor: colors.accentBlueSoft,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.accentBlue,
+    color: colors.textMuted,
   },
 
   // Instagram
-  instagramBtn: {
+  instagramRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    ...cardShadow,
+    minHeight: 44,
   },
-  instagramBtnText: {
-    fontSize: 14,
-    fontWeight: '500',
+  instagramText: {
+    fontSize: 15,
+    fontWeight: '700',
     color: colors.text,
   },
 
@@ -1135,15 +741,11 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
 
-  // Empty record
-  emptyRecord: {
-    paddingVertical: 48,
-    alignItems: 'center',
-  },
+  // Record hidden by the owner
   emptyRecordText: {
     fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
+    lineHeight: 20,
+    color: colors.textMuted,
   },
 
   // ── Modals ────────────────────────────────────────────────────────────────
@@ -1209,7 +811,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitBtnDisabled: {
-    backgroundColor: colors.accentBlueMuted,
+    backgroundColor: colors.background,
   },
   submitBtnText: {
     fontSize: 16,
@@ -1228,7 +830,7 @@ const styles = StyleSheet.create({
   },
   reportOptionSelected: {
     borderColor: colors.accentBlue,
-    backgroundColor: colors.accentBlueSoft,
+    backgroundColor: colors.background,
   },
   reportOptionText: {
     fontSize: 14,
@@ -1247,34 +849,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-  },
-  qrSheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 40,
-    alignItems: 'center',
-    gap: 16,
-  },
-  qrCodeLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: 2,
-  },
-  shareBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.accentBlue,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-  },
-  shareBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.card,
   },
 });

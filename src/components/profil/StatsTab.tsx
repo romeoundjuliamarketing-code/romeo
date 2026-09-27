@@ -1,16 +1,8 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Platform,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import PaywallCard from '../common/PaywallCard';
-
-type StatIcon = 'fire' | 'star' | 'dumbbell' | 'trophy';
 
 interface StatsTabProps {
   totalPoints: number;
@@ -28,23 +20,6 @@ interface StatsTabProps {
   onPressPaywall: () => void;
 }
 
-const STATS: { key: 'punkte' | 'streak' | 'workouts' | 'rang'; label: string; unit: string; icon: StatIcon }[] = [
-  { key: 'streak',   label: 'Streak',   unit: 'Tage',   icon: 'fire'     },
-  { key: 'punkte',   label: 'Punkte',   unit: 'XP',     icon: 'star'     },
-  { key: 'workouts', label: 'Workouts', unit: 'gesamt', icon: 'dumbbell' },
-  { key: 'rang',     label: 'Rang',     unit: 'Gruppe', icon: 'trophy'   },
-];
-
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: '#0A0A0A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  android: { elevation: 2 },
-});
-
 export default function StatsTab({
   totalPoints,
   streak,
@@ -60,116 +35,178 @@ export default function StatsTab({
   onPressWeightHistory,
   onPressPaywall,
 }: StatsTabProps): React.ReactElement {
-  const statValues: Record<string, string> = {
-    streak:   String(streak),
-    punkte:   String(totalPoints),
-    workouts: String(totalWorkouts),
-    rang:     rank !== null ? `#${rank}` : '–',
-  };
-
   if (!hasAccess) {
     return (
       <View style={styles.container}>
-        <PaywallCard
-          title="Stats & Punkte im Abo"
-          message="Punkte, Rang und detaillierte Auswertungen sind nur mit einem aktiven Abo verfügbar."
-          onPressCta={onPressPaywall}
-        />
+        <View style={styles.paywallContainer}>
+          <PaywallCard
+            title="Stats & Punkte im Abo"
+            message="Punkte, Rang und detaillierte Auswertungen sind nur mit einem aktiven Abo verfügbar."
+            onPressCta={onPressPaywall}
+          />
+        </View>
       </View>
     );
   }
 
+  const streakCaption =
+    streak > 0
+      ? 'Ununterbrochene Trainingstage bis heute oder gestern.'
+      : 'Trainiere heute, um eine Serie zu starten.';
+
   return (
     <View style={styles.container}>
-      {/* Stats grid */}
-      <View style={styles.statsGrid}>
-        {STATS.map((stat) => {
-          const isTappable = stat.key === 'punkte' || stat.key === 'streak' || stat.key === 'workouts';
-          const onPress =
-            stat.key === 'punkte'   ? onPressPoints
-            : stat.key === 'streak'   ? onPressStreak
-            : stat.key === 'workouts' ? onPressWorkouts
-            : undefined;
+      <Text style={styles.title}>Training & Punkte</Text>
 
-          const cardContent = (
+      <View style={styles.surface}>
+        {/* Training */}
+        <View style={styles.twoCol}>
+          <TouchableOpacity
+            style={styles.colItem}
+            onPress={onPressStreak}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Trainingsserie anzeigen"
+          >
+            <View style={styles.colHeaderRow}>
+              <MaterialCommunityIcons name="fire" size={18} color={colors.accentBlue} />
+              <Text style={styles.colLabel}>Trainingsserie</Text>
+            </View>
+            <Text
+              style={styles.colValue}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {streak} Tage
+            </Text>
+            <Text style={styles.colCaption}>{streakCaption}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.colDivider} />
+
+          <TouchableOpacity
+            style={styles.colItem}
+            onPress={onPressWorkouts}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Trainings gesamt anzeigen"
+          >
+            <View style={styles.colHeaderRow}>
+              <MaterialCommunityIcons name="dumbbell" size={18} color={colors.accentBlue} />
+              <Text style={styles.colLabel}>Trainings gesamt</Text>
+            </View>
+            <Text
+              style={styles.colValue}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {totalWorkouts}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.hDivider} />
+
+        {/* App-Punkte */}
+        <View style={styles.twoCol}>
+          <TouchableOpacity
+            style={styles.colItem}
+            onPress={onPressPoints}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Punkte anzeigen"
+          >
+            <View style={styles.colHeaderRow}>
+              <MaterialCommunityIcons name="star" size={18} color={colors.accentBlue} />
+              <Text style={styles.colLabel}>Punkte</Text>
+            </View>
+            <Text
+              style={styles.colValue}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {totalPoints} XP
+            </Text>
+          </TouchableOpacity>
+
+          {rank !== null && (
             <>
-              <MaterialCommunityIcons
-                name={stat.icon}
-                size={22}
-                color={colors.accentBlue}
-                style={styles.statIcon}
-              />
-              <Text style={styles.statValue}>{statValues[stat.key]}</Text>
-              <Text style={styles.statUnit}>{stat.unit}</Text>
-              <View style={styles.statLabelRow}>
-                <Text style={styles.statLabel}>{stat.label}</Text>
-                {isTappable && (
-                  <MaterialCommunityIcons name="chevron-right" size={14} color={colors.inactive} />
-                )}
+              <View style={styles.colDivider} />
+              <View style={styles.colItem}>
+                <View style={styles.colHeaderRow}>
+                  <MaterialCommunityIcons name="trophy" size={18} color={colors.accentBlue} />
+                  <Text style={styles.colLabel}>Rang im Studio</Text>
+                </View>
+                <Text
+                  style={styles.colValue}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
+                  #{rank}
+                </Text>
               </View>
             </>
-          );
+          )}
+        </View>
 
-          if (isTappable && onPress !== undefined) {
-            return (
-              <TouchableOpacity
-                key={stat.key}
-                style={styles.statCard}
-                onPress={onPress}
-                activeOpacity={0.7}
-              >
-                {cardContent}
-              </TouchableOpacity>
-            );
-          }
-          return (
-            <View key={stat.key} style={styles.statCard}>
-              {cardContent}
-            </View>
-          );
-        })}
-      </View>
+        <Text style={styles.pointsExplanation}>
+          Punkte sammelst du für Trainings, die du in der App abschliesst – sie sind keine Wertung
+          deines Könnens.
+        </Text>
+        <TouchableOpacity
+          onPress={onPressPoints}
+          activeOpacity={0.7}
+          accessibilityRole="link"
+          accessibilityLabel="So entstehen Punkte"
+          style={styles.linkRow}
+        >
+          <Text style={styles.link}>So entstehen Punkte</Text>
+          <MaterialCommunityIcons name="chevron-right" size={16} color={colors.accentBlue} />
+        </TouchableOpacity>
 
-      {/* Weekly tracking section */}
-      <View style={styles.trackingCard}>
-        <Text style={styles.trackingSectionTitle}>Wochen-Tracking</Text>
+        <View style={styles.hDivider} />
 
-        {/* Weekly body weight */}
+        {/* Weekly weight tracking */}
         <TouchableOpacity
           style={[styles.trackingRow, isNewWeek && styles.trackingRowHighlight]}
           onPress={onPressWeightLog}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Gewicht eintragen"
         >
           <MaterialCommunityIcons
             name="scale-bathroom"
             size={20}
-            color={isNewWeek ? colors.accentBlue : colors.inactive}
+            color={isNewWeek ? colors.accentBlue : colors.textMuted}
           />
           <View style={styles.trackingInfo}>
             <Text style={[styles.trackingLabel, isNewWeek && styles.trackingLabelHighlight]}>
               Gewicht
             </Text>
-            {isNewWeek && (
-              <Text style={styles.trackingHint}>Neuer Eintrag fällig</Text>
-            )}
+            {isNewWeek && <Text style={styles.trackingHint}>Neuer Eintrag fällig</Text>}
           </View>
-          <Text style={[styles.trackingValue, currentWeight === null && styles.trackingValueEmpty]}>
+          <Text
+            style={[styles.trackingValue, currentWeight === null && styles.trackingValueEmpty]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
             {currentWeight !== null ? `${currentWeight} kg` : 'Eintragen'}
           </Text>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.inactive} />
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
         </TouchableOpacity>
 
-        {/* Weight history */}
         <TouchableOpacity
-          style={styles.trackingRow}
+          style={[styles.trackingRow, styles.trackingRowBordered]}
           onPress={onPressWeightHistory}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Gewichtsverlauf anzeigen"
         >
-          <MaterialCommunityIcons name="chart-line" size={20} color={colors.inactive} />
+          <MaterialCommunityIcons name="chart-line" size={20} color={colors.textMuted} />
           <View style={styles.trackingInfo}>
             <Text style={styles.trackingLabel}>Gewichtsverlauf</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.inactive} />
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
     </View>
@@ -178,79 +215,110 @@ export default function StatsTab({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 8,
+    gap: 16,
     paddingBottom: 32,
   },
-
-  // Stats grid
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  paywallContainer: {
+    paddingTop: 8,
   },
-  statCard: {
+
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+  },
+
+  surface: {
     backgroundColor: colors.card,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.hairline,
     padding: 16,
-    width: '48.5%',
-    ...cardShadow,
   },
-  statIcon: {
-    marginBottom: 8,
+  hDivider: {
+    height: 1,
+    backgroundColor: colors.hairline,
+    marginVertical: 16,
   },
-  statValue: {
-    fontSize: 26,
+
+  // Two-column stat layout (shared by Training + App-Punkte)
+  twoCol: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  colItem: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    gap: 4,
+  },
+  colDivider: {
+    width: 1,
+    backgroundColor: colors.hairline,
+    marginHorizontal: 16,
+  },
+  colHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  colLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  colValue: {
+    fontSize: 24,
     fontWeight: '800',
     color: colors.text,
     letterSpacing: -0.5,
-    marginBottom: 2,
   },
-  statUnit: {
-    fontSize: 11,
-    color: colors.inactive,
+  colCaption: {
+    fontSize: 12,
     fontWeight: '500',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  statLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
+    color: colors.textMuted,
+    lineHeight: 16,
   },
 
-  // Tracking card
-  trackingCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-    ...cardShadow,
-  },
-  trackingSectionTitle: {
+  pointsExplanation: {
     fontSize: 13,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    marginBottom: 8,
+    fontWeight: '500',
+    color: colors.textMuted,
+    lineHeight: 18,
+    marginTop: 16,
   },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    minHeight: 44,
+  },
+  link: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+
+  // Weekly tracking rows
   trackingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
+    minHeight: 44,
+    paddingVertical: 8,
+  },
+  trackingRowBordered: {
+    marginTop: 8,
+    paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.hairline,
   },
   trackingRowHighlight: {
     backgroundColor: colors.accentBlueSoft,
     marginHorizontal: -16,
     paddingHorizontal: 16,
-    borderTopWidth: 0,
+    borderRadius: 12,
   },
   trackingInfo: {
     flex: 1,
@@ -262,20 +330,22 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   trackingLabelHighlight: {
-    color: colors.accentBlue,
+    color: colors.text,
+    fontWeight: '700',
   },
   trackingHint: {
     fontSize: 11,
-    color: colors.accentBlue,
-    fontWeight: '500',
+    color: colors.text,
+    fontWeight: '700',
   },
   trackingValue: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
+    maxWidth: 100,
   },
   trackingValueEmpty: {
-    color: colors.accentBlue,
-    fontWeight: '600',
+    color: colors.text,
+    fontWeight: '700',
   },
 });

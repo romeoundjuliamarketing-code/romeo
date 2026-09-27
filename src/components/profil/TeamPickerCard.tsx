@@ -8,12 +8,12 @@ import {
   TextInput,
   FlatList,
   ActivityIndicator,
-  Platform,
   SafeAreaView,
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { getInitials } from '../../utils/initials';
 import type { Studio } from '../../hooks/useStudio';
 
 interface Props {
@@ -56,6 +56,8 @@ export default function TeamPickerCard({
   const [results, setResults] = useState<Studio[]>([]);
   const [searching, setSearching] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Quiet management menu (switch / leave) behind the ellipsis button
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Create-studio form state
   const [createMode, setCreateMode] = useState(false);
@@ -178,28 +180,70 @@ export default function TeamPickerCard({
     closeModal();
   }
 
+  const studioInitials = currentStudio !== null ? getInitials(currentStudio.name) : '';
+
   const cardContent = (
     <>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>Mein Studio</Text>
+        <Text style={styles.sectionLabel}>Mein Gym</Text>
         {currentStudio !== null && (
-          <TouchableOpacity style={styles.changeBtn} onPress={() => setModalVisible(true)}>
-            <Text style={styles.changeBtnText}>Wechseln</Text>
+          <TouchableOpacity
+            style={styles.menuBtn}
+            onPress={() => setMenuOpen((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel="Gym verwalten"
+            accessibilityState={{ expanded: menuOpen }}
+          >
+            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       {currentStudio !== null ? (
         <>
-          <TouchableOpacity style={styles.studioInfo} onPress={onViewTeam} activeOpacity={0.7} disabled={onViewTeam === undefined}>
-            <Text style={styles.studioName}>{currentStudio.name}</Text>
-            <Text style={styles.studioCity}>{currentStudio.city}</Text>
+          <TouchableOpacity
+            style={styles.studioRow}
+            onPress={onViewTeam}
+            activeOpacity={0.7}
+            disabled={onViewTeam === undefined}
+            accessibilityRole="button"
+          >
+            {/* Studios have no logo in the data model — initials instead */}
+            <View style={styles.studioLogo}>
+              <Text style={styles.studioLogoText}>{studioInitials}</Text>
+            </View>
+            <View style={styles.studioInfo}>
+              <Text style={styles.studioName} numberOfLines={2}>{currentStudio.name}</Text>
+              {currentStudio.city.length > 0 && (
+                <Text style={styles.studioCity} numberOfLines={1}>{currentStudio.city}</Text>
+              )}
+            </View>
+            {onViewTeam !== undefined && (
+              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+            )}
           </TouchableOpacity>
-          {onLeave !== undefined && (
-            <TouchableOpacity style={styles.leaveBtn} onPress={() => { void handleLeave(); }} activeOpacity={0.7} disabled={saving}>
-              <Ionicons name="exit-outline" size={16} color={colors.deleteRed} />
-              <Text style={styles.leaveBtnText}>Team verlassen</Text>
-            </TouchableOpacity>
+          {menuOpen && (
+            <View style={styles.menu}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => { setMenuOpen(false); setModalVisible(true); }}
+                accessibilityRole="button"
+              >
+                <Ionicons name="swap-horizontal" size={18} color={colors.accentBlue} />
+                <Text style={styles.menuItemText}>Gym wechseln</Text>
+              </TouchableOpacity>
+              {onLeave !== undefined && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => { setMenuOpen(false); void handleLeave(); }}
+                  disabled={saving}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="exit-outline" size={18} color={colors.deleteRed} />
+                  <Text style={styles.leaveBtnText}>Team verlassen</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </>
       ) : pendingStudioName !== null && pendingStudioName !== undefined ? (
@@ -215,15 +259,17 @@ export default function TeamPickerCard({
               style={styles.cancelRequestBtn}
               onPress={() => { void onCancelRequest(); }}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Beitrittsanfrage abbrechen"
             >
               <Text style={styles.cancelRequestBtnText}>Abbrechen</Text>
             </TouchableOpacity>
           )}
         </View>
       ) : (
-        <TouchableOpacity style={styles.joinBtn} onPress={() => setModalVisible(true)}>
-          <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
-          <Text style={styles.joinBtnText}>Studio beitreten</Text>
+        <TouchableOpacity style={styles.joinBtn} onPress={() => setModalVisible(true)} accessibilityRole="button">
+          <Ionicons name="add-circle-outline" size={20} color={colors.accentBlue} />
+          <Text style={styles.joinBtnText}>Gym beitreten</Text>
         </TouchableOpacity>
       )}
     </>
@@ -396,29 +442,14 @@ export default function TeamPickerCard({
   );
 }
 
-const RADIUS = 16;
-
-const cardShadow = Platform.select({
-  ios: {
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-  },
-  android: { elevation: 2 },
-});
 
 const styles = StyleSheet.create({
   // ── Card ──────────────────────────────────────────────────────────────────
   inlineWrapper: {
-    gap: 8,
+    gap: 16,
   },
   card: {
-    backgroundColor: colors.card,
-    borderRadius: RADIUS,
-    padding: 16,
-    marginBottom: 16,
-    ...cardShadow,
+    gap: 16,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -426,14 +457,40 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  menuBtn: {
+    width: 44,
+    height: 44,
+    marginVertical: -8,
+    marginRight: -8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    minHeight: 48,
+  },
+  studioLogo: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  studioLogoText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.card,
   },
   studioInfo: {
     flex: 1,
+    gap: 4,
   },
   studioName: {
     fontSize: 16,
@@ -442,28 +499,28 @@ const styles = StyleSheet.create({
   },
   studioCity: {
     fontSize: 13,
-    color: colors.inactive,
-    marginTop: 2,
+    color: colors.textMuted,
   },
-  changeBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: colors.accentBlueSoft,
+  menu: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    paddingHorizontal: 16,
   },
-  changeBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.accentBlue,
-  },
-  leaveBtn: {
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    minHeight: 48,
+  },
+  menuItemText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
   },
   leaveBtnText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.deleteRed,
   },
@@ -474,8 +531,8 @@ const styles = StyleSheet.create({
   },
   joinBtnText: {
     fontSize: 15,
-    fontWeight: '600',
-    color: colors.accentBlue,
+    fontWeight: '700',
+    color: colors.text,
   },
   pendingBanner: {
     backgroundColor: colors.accentBlueSoft,
@@ -492,20 +549,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '500',
-    color: colors.accentBlue,
+    color: colors.text,
     lineHeight: 18,
   },
   cancelRequestBtn: {
     alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: colors.accentBlue,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.card,
   },
   cancelRequestBtnText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.headerTextPrimary,
+    fontWeight: '700',
+    color: colors.text,
   },
 
   // ── Modal ─────────────────────────────────────────────────────────────────
@@ -582,7 +642,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   resultNameActive: {
-    color: colors.accentBlue,
+    color: colors.text,
   },
   resultCity: {
     fontSize: 13,
@@ -608,7 +668,7 @@ const styles = StyleSheet.create({
   createHintLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.accentBlue,
+    color: colors.text,
   },
   createForm: {
     backgroundColor: colors.card,

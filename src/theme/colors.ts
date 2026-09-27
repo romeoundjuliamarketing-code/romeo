@@ -9,6 +9,8 @@ export const colors = {
   textSecondary: '#8A8A8A',
   textTertiary:  '#8A8A8A',
   inactive:      '#8A8A8A', // alias → textTertiary
+  textMuted:     '#6B6B6B', // small secondary text on off-white (≥ 4.5:1)
+  hairline:      '#E2DFD8', // fine section divider on off-white
 
   // ── Accent ────────────────────────────────────────────────────────────────
   accent:          '#C8A882', // warm gold (legacy, prefer accentBlue)
@@ -78,6 +80,21 @@ export const colors = {
   paletteCrimson: '#C42828',
   paletteNavy:    '#1A5296',
   paletteForest:  '#1A7A3C',
+
+  // ── Brand (login/register, profile) ───────────────────────────────────────
+  brandNight:       '#101C36',                  // hero gradient, top-left
+  brandRoyalDeep:   '#234DB5',                  // hero gradient, bottom-right
+  brandGlow:        '#5B8BFF',                  // soft light bloom in the hero
+  brandHeroLine:    'rgba(255,255,255,0.10)',   // abstract motion lines
+  brandHeroText:    '#B7C4E3',                  // light blue-grey on the hero
+  brandHeroChip:    'rgba(255,255,255,0.12)',   // back button / logo backdrop
+  brandSurface:     '#F5F7FC',                  // light page / form surface
+  brandInk:         '#15213F',                  // dark blue labels on the surface
+  brandBorder:      '#D3DBEA',                  // fine blue-grey field border
+  brandMuted:       '#8C98B5',
+  brandPrimary:     '#2455DB',                  // royal blue: main button + links
+  brandPrimarySoft: 'rgba(36,85,219,0.14)',     // focus ring / info background
+  brandAccent:      '#F7C21A',                  // penguin-beak yellow, tiny accents only
 
   // ── Overlays ──────────────────────────────────────────────────────────────
   mapOverlay:       'rgba(0,0,0,0.55)',
