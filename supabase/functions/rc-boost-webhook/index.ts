@@ -1,12 +1,13 @@
 // rc-boost-webhook/index.ts
-// Receives RevenueCat purchase webhooks and activates map boosts.
+// Receives RevenueCat webhooks: subscription entitlements (store_entitlements), map boosts and event unlocks.
 //
 // Required secrets (Supabase Dashboard → Settings → Edge Functions):
-//   REVENUECAT_WEBHOOK_SECRET — from RC Dashboard → Project Settings → Webhooks
+//   REVENUECAT_WEBHOOK_SECRET — same value as "Authorization header value" in RC → Integrations → Webhooks
 //   SUPABASE_SERVICE_ROLE_KEY — from Supabase Dashboard → Settings → API
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isSupabaseUserId, subscriptionChange } from './storeEntitlementEvents.ts';
 
 const BOOST_PRODUCT_ID   = 'com.deinebundle.sparr.mapbadge_30d';
 const BOOST_DURATION_DAYS = 30;
@@ -23,6 +24,11 @@ interface RcEvent {
   type:                  string;
   product_id:            string;
   app_user_id:           string;
+  new_product_id?:       string | null;
+  expiration_at_ms?:     number | null;
+  cancel_reason?:        string | null;
+  transferred_from?:     string[] | null;
+  transferred_to?:       string[] | null;
   subscriber_attributes?: Record<string, RcSubscriberAttribute>;
 }
 
@@ -31,26 +37,21 @@ interface RcWebhookPayload {
   api_version: string;
 }
 
-// HMAC-SHA256 verification against the X-RevenueCat-Signature header.
-// RC signs the raw request body with the webhook secret (hex-encoded output).
-async function verifySignature(
-  secret:            string,
-  rawBody:           string,
-  receivedSignature: string,
-): Promise<boolean> {
-  const enc     = new TextEncoder();
-  const key     = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const sigBuf  = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody));
-  const computed = Array.from(new Uint8Array(sigBuf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-  return computed === receivedSignature.toLowerCase();
+// RC sends the dashboard's "Authorization header value" verbatim on every
+// delivery; it must equal the secret (optionally with a "Bearer " prefix).
+// Compared via SHA-256 digests so the check runs in constant time.
+async function verifyAuthorization(secret: string, header: string): Promise<boolean> {
+  const received = header.startsWith('Bearer ') ? header.slice('Bearer '.length) : header;
+  const enc = new TextEncoder();
+  const [a, b] = await Promise.all([
+    crypto.subtle.digest('SHA-256', enc.encode(received)),
+    crypto.subtle.digest('SHA-256', enc.encode(secret)),
+  ]);
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -67,18 +68,13 @@ serve(async (req: Request): Promise<Response> => {
     return new Response('Internal Server Error', { status: 500 });
   }
 
-  // Read raw body once; needed for both signature verification and JSON parsing.
-  const rawBody = await req.text();
+  // Verify the shared secret from the RC webhook's Authorization header.
+  const authorization = req.headers.get('Authorization') ?? '';
+  if (!(await verifyAuthorization(webhookSecret, authorization))) {
+    return new Response('Unauthorized', { status: 401 });
+  }
 
-  // Verify RC signature.
-  const signature = req.headers.get('X-RevenueCat-Signature') ?? '';
-  if (signature.length === 0) {
-    return new Response('Bad Request: missing signature', { status: 400 });
-  }
-  const valid = await verifySignature(webhookSecret, rawBody, signature);
-  if (!valid) {
-    return new Response('Unauthorized: invalid signature', { status: 401 });
-  }
+  const rawBody = await req.text();
 
   // Parse and validate payload.
   let payload: RcWebhookPayload;
@@ -89,6 +85,52 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const event = payload.event;
+
+  // ── Subscriptions: mirror creator / cards entitlements into Postgres ───────
+  const change = subscriptionChange(event);
+  if (change.kind === 'transfer') {
+    const transferClient = createClient(supabaseUrl, serviceRoleKey);
+    const { error: transferError } = await transferClient.rpc('transfer_store_entitlements', {
+      p_from: change.fromUserIds,
+      p_to:   change.toUserId,
+    });
+    if (transferError !== null) {
+      console.error('[rc-boost-webhook] transfer_store_entitlements error', transferError.message);
+      return new Response('Internal Server Error', { status: 500 });
+    }
+    console.log('[rc-boost-webhook] store entitlements transferred', change.fromUserIds, change.toUserId);
+    return new Response(JSON.stringify({ ok: true, change: 'transfer' }), {
+      status:  200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (change.kind !== 'ignore') {
+    if (!isSupabaseUserId(event.app_user_id)) {
+      // Anonymous RC user (purchase before login): nothing to attach it to.
+      console.warn('[rc-boost-webhook] subscription event for non-uuid user', event.app_user_id);
+      return new Response(JSON.stringify({ skipped: true, reason: 'anonymous user' }), {
+        status:  200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    const subClient = createClient(supabaseUrl, serviceRoleKey);
+    const { error: subError } = await subClient.rpc('apply_store_entitlement', {
+      p_user_id:      event.app_user_id,
+      p_entitlements: change.entitlements,
+      p_product_id:   change.productId,
+      p_expires_at:   change.kind === 'grant' ? change.expiresAt : null,
+    });
+    if (subError !== null) {
+      console.error('[rc-boost-webhook] apply_store_entitlement error', subError.message);
+      // 500 so RevenueCat retries: a missed grant would lock a paying user out.
+      return new Response('Internal Server Error', { status: 500 });
+    }
+    console.log('[rc-boost-webhook] store entitlement', change.kind, change.entitlements, event.app_user_id);
+    return new Response(JSON.stringify({ ok: true, change: change.kind }), {
+      status:  200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   // Ignore non-purchase events silently. Subscriptions fire INITIAL_PURCHASE;
   // consumables (boost, event creation) fire NON_RENEWING_PURCHASE.

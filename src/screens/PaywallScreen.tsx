@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,204 +16,137 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
+import PlanCard from '../components/paywall/PlanCard';
+import { useStoreEntitlements } from '../hooks/useStoreEntitlements';
+import { useAuth } from '../context/AuthContext';
+import { loginRevenueCat } from '../lib/revenuecat';
+import {
+  activePlan, bundleSavings, formatSavings, orderPlans, planForProduct, planSwitchNotice, replacedProductId,
+  RC_ENTITLEMENT_CARDS, RC_ENTITLEMENT_CREATOR, type PlanKey,
+} from '../utils/subscriptionPlans';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
-type BillingCycle = 'monthly' | 'yearly';
 
-type PlanKey = 'individual' | 'studio';
-
-// Primary product ID lookup — must match App Store Connect product identifiers exactly.
-// If these differ in RC, the fuzzy-fallback below picks up the right package anyway.
-const PACKAGE_IDS: Record<PlanKey, Record<BillingCycle, string>> = {
-  individual: {
-    monthly: 'sparr_individual_monthly',
-    yearly: 'sparr_individual_yearly',
+const PLAN_COPY: Record<PlanKey, { title: string; subtitle: string; details: string[] }> = {
+  creator: {
+    title: 'Ersteller',
+    subtitle: 'Eigene Sparrings erstellen',
+    details: ['Sparrings anlegen und auf der Karte zeigen', 'Beitreten bleibt für alle kostenlos'],
   },
-  studio: {
-    monthly: 'sparr_studio_monthly',
-    yearly: 'sparr_studio_yearly',
+  cards: {
+    title: 'Karten',
+    subtitle: 'Kartenspiel für Kickboxen / K1',
+    details: ['Alle verfügbaren Karten für Kickboxen / K1', 'Karten ziehen und im Sparring umsetzen'],
+  },
+  bundle: {
+    title: 'Ersteller + Karten',
+    subtitle: 'Beides in einem Abo',
+    details: ['Sparrings erstellen', 'Komplettes Kartenspiel'],
   },
 };
 
-// Fuzzy-fallback: find a package by matching plan + cycle keywords in
-// both the RC package identifier and the App Store product identifier.
-function findPackageFuzzy(
-  pkgs: Partial<Record<string, PurchasesPackage>>,
-  plan: PlanKey,
-  cycle: BillingCycle
-): PurchasesPackage | undefined {
-  const cycleKw = cycle === 'monthly' ? 'month' : 'year';
-  for (const pkg of Object.values(pkgs)) {
-    if (pkg === undefined) continue;
-    const prodId = pkg.product.identifier.toLowerCase();
-    const rcId = pkg.identifier.toLowerCase();
-    const matchesPlan = prodId.includes(plan) || rcId.includes(plan);
-    const matchesCycle = prodId.includes(cycleKw) || rcId.includes(cycleKw);
-    if (matchesPlan && matchesCycle) return pkg;
-  }
-  return undefined;
+function priceLabel(pkg: PurchasesPackage | undefined): string {
+  return pkg === undefined ? 'Preis derzeit nicht verfügbar' : `${pkg.product.priceString} / Monat`;
 }
 
-// Returns true when the package has a free-trial introductory offer (price === 0).
-function hasFreeTrial(pkg: PurchasesPackage | undefined): boolean {
-  if (pkg === undefined) return false;
-  return pkg.product.introPrice !== null && pkg.product.introPrice?.price === 0;
-}
-
-type PlanCardProps = {
-  title: string;
-  subtitle: string;
-  price: string;
-  details: string[];
-  loading?: boolean;
-  highlighted?: boolean;
-  hasTrialOffer?: boolean;
-  onPress: () => void;
-};
-
-function PlanCard({
-  title,
-  subtitle,
-  price,
-  details,
-  loading = false,
-  highlighted = false,
-  hasTrialOffer = false,
-  onPress,
-}: PlanCardProps): React.ReactElement {
-  return (
-    <View style={[styles.planCard, highlighted && styles.planCardHighlighted]}>
-      <Text style={styles.planTitle}>{title}</Text>
-      <Text style={styles.planSubtitle}>{subtitle}</Text>
-      <Text style={styles.planPrice}>{hasTrialOffer ? 'Kostenlos' : price}</Text>
-
-      <View style={styles.detailList}>
-        {details.map((item) => (
-          <View key={item} style={styles.detailRow}>
-            <MaterialCommunityIcons name="check-circle-outline" size={16} color={colors.accentBlue} />
-            <Text style={styles.detailText}>{item}</Text>
-          </View>
-        ))}
-      </View>
-
-      <TouchableOpacity
-        style={[styles.planButton, highlighted && styles.planButtonHighlighted]}
-        onPress={onPress}
-        disabled={loading}
-        activeOpacity={0.8}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color={highlighted ? colors.card : colors.accentBlue} />
-        ) : (
-          <Text style={[styles.planButtonLabel, highlighted && styles.planButtonLabelHighlighted]}>
-            {hasTrialOffer ? 'Kostenlos starten' : 'Abo auswählen'}
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      {hasTrialOffer && (
-        <Text style={styles.trialNote}>Danach {price} — jederzeit kündbar.</Text>
-      )}
-    </View>
-  );
-}
-
-function priceLabel(pkg: PurchasesPackage | undefined, billingCycle: BillingCycle): string {
-  if (pkg === undefined) return billingCycle === 'monthly' ? '–– / Monat' : '–– / Jahr';
-  const priceString = pkg.product.priceString;
-  return billingCycle === 'monthly' ? `${priceString} / Monat` : `${priceString} / Jahr`;
-}
-
-export default function PaywallScreen({ navigation }: Props): React.ReactElement {
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
-  const [packages, setPackages] = useState<Partial<Record<string, PurchasesPackage>>>({});
+export default function PaywallScreen({ navigation, route }: Props): React.ReactElement {
+  const focus = route.params?.focus;
+  const { user } = useAuth();
+  const { entitlements, refetch } = useStoreEntitlements();
+  const [packages, setPackages] = useState<Partial<Record<PlanKey, PurchasesPackage>>>({});
   const [pendingPlan, setPendingPlan] = useState<PlanKey | null>(null);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     async function loadOfferings(): Promise<void> {
       try {
         const offerings = await Purchases.getOfferings();
-        const current = offerings.current;
-
-        // Debug: log all available offerings and packages
-        console.log('[Paywall] offerings.current:', current?.identifier ?? 'null');
-        const allKeys = Object.keys(offerings.all);
-        console.log('[Paywall] offerings.all keys:', allKeys);
-
-        // Use current offering first; fall back to any available offering
-        const source = current ?? (allKeys.length > 0 ? offerings.all[allKeys[0]] : null);
-        if (source === null || source === undefined) {
-          console.log('[Paywall] No offerings available at all.');
-          Alert.alert(
-            'RC Debug: keine Offerings',
-            `offerings.current: ${current?.identifier ?? 'null'}\nofferings.all keys: [${allKeys.join(', ')}]\n\nIn RevenueCat Dashboard ein "current" Offering anlegen und Pakete verknüpfen.`,
-          );
-          return;
+        const source = offerings.current ?? Object.values(offerings.all)[0];
+        const map: Partial<Record<PlanKey, PurchasesPackage>> = {};
+        for (const pkg of source?.availablePackages ?? []) {
+          const plan = planForProduct(pkg.product.identifier);
+          if (plan !== null && map[plan] === undefined) map[plan] = pkg;
         }
-
-        const map: Partial<Record<string, PurchasesPackage>> = {};
-        for (const pkg of source.availablePackages) {
-          console.log('[Paywall] package id:', pkg.identifier, '| product id:', pkg.product.identifier);
-          // Map by both App Store product ID and RC package identifier for maximum compatibility
-          map[pkg.product.identifier] = pkg;
-          map[pkg.identifier] = pkg;
-        }
-
-        if (Object.keys(map).length === 0) {
-          const allIds = source.availablePackages.map((p) => `rc=${p.identifier} / store=${p.product.identifier}`).join('\n');
-          console.log('[Paywall] No packages found. Raw list:\n' + allIds);
-          Alert.alert(
-            'RC Debug: keine Pakete',
-            `Offering "${source.identifier}" hat ${source.availablePackages.length} Pakete.\n\n${allIds || 'Leer'}`,
-          );
-        }
-
-        setPackages(map);
-      } catch (err) {
-        console.log('[Paywall] loadOfferings error:', err);
-        // offerings unavailable (e.g. simulator without StoreKit config)
+        if (active) setPackages(map);
+      } catch {
+        // Offerings unavailable (e.g. simulator without StoreKit config): cards show "not available".
       } finally {
-        setOfferingsLoading(false);
+        if (active) setOfferingsLoading(false);
       }
     }
     void loadOfferings();
+    return () => { active = false; };
   }, []);
 
-  async function handlePlanSelect(plan: PlanKey): Promise<void> {
-    const pkgId = PACKAGE_IDS[plan][billingCycle];
-    // Try exact match first, then fuzzy fallback
-    const pkg = packages[pkgId] ?? findPackageFuzzy(packages, plan, billingCycle);
-
-    if (pkg === undefined) {
-      const available = Object.keys(packages).join(', ') || 'keine';
-      Alert.alert('Fehler', `Paket nicht gefunden.\n\nVerfügbar: ${available}`);
+  function handlePurchase(plan: PlanKey): void {
+    const notice = planSwitchNotice(activePlan(entitlements.creatorActive, entitlements.cardsActive), plan);
+    if (notice === null) {
+      void buy(plan);
       return;
     }
+    Alert.alert('Abo wechseln?', notice, [
+      { text: 'Abbrechen', style: 'cancel' },
+      { text: 'Wechseln', onPress: () => { void buy(plan); } },
+    ]);
+  }
 
+  async function buy(plan: PlanKey): Promise<void> {
+    const pkg = packages[plan];
+    if (pkg === undefined || user === null) return;
     setPendingPlan(plan);
     try {
-      await Purchases.purchasePackage(pkg);
+      // Never buy anonymously: the webhook could not attach it to this account.
+      await loginRevenueCat(user.id);
+      // Play has no subscription groups: name the plan being replaced (without base plan).
+      const info = Platform.OS === 'android' ? await Purchases.getCustomerInfo() : null;
+      const oldProduct = info !== null ? replacedProductId(info.activeSubscriptions) : null;
+      await Purchases.purchasePackage(
+        pkg,
+        null,
+        oldProduct !== null ? { oldProductIdentifier: oldProduct.split(':')[0] } : null,
+      );
+      await refetch();
       navigation.goBack();
     } catch (err: unknown) {
       const isCancelled =
-        typeof err === 'object' &&
-        err !== null &&
-        'userCancelled' in err &&
+        typeof err === 'object' && err !== null && 'userCancelled' in err &&
         (err as { userCancelled: boolean }).userCancelled;
       if (!isCancelled) {
-        const message = err instanceof Error ? err.message : 'Kauf fehlgeschlagen.';
-        Alert.alert('Fehler', message);
+        Alert.alert('Kauf fehlgeschlagen', err instanceof Error ? err.message : 'Bitte versuche es erneut.');
       }
     } finally {
       setPendingPlan(null);
     }
   }
 
-  const indPkg = packages[PACKAGE_IDS.individual[billingCycle]] ?? findPackageFuzzy(packages, 'individual', billingCycle);
-  const studioPkg = packages[PACKAGE_IDS.studio[billingCycle]] ?? findPackageFuzzy(packages, 'studio', billingCycle);
-  // Trial is available when at least one package carries a free introductory offer.
-  const trialAvailable = hasFreeTrial(indPkg) || hasFreeTrial(studioPkg);
+  async function handleRestorePurchases(): Promise<void> {
+    try {
+      const info = await Purchases.restorePurchases();
+      const restored =
+        info.entitlements.active[RC_ENTITLEMENT_CARDS] !== undefined ||
+        info.entitlements.active[RC_ENTITLEMENT_CREATOR] !== undefined;
+      if (restored) {
+        await refetch();
+        Alert.alert('Käufe wiederhergestellt', 'Dein Zugang ist wieder aktiv.');
+        navigation.goBack();
+      } else {
+        Alert.alert('Keine Käufe gefunden', 'Für dieses Konto wurde kein aktives Abo gefunden.');
+      }
+    } catch (error: unknown) {
+      Alert.alert('Wiederherstellung fehlgeschlagen', error instanceof Error ? error.message : 'Bitte versuche es erneut.');
+    }
+  }
+
+  const current = activePlan(entitlements.creatorActive, entitlements.cardsActive);
+  const saving = bundleSavings(
+    packages.creator?.product.price ?? null,
+    packages.cards?.product.price ?? null,
+    packages.bundle?.product.price ?? null,
+  );
+  const bundleBadge = saving !== null && packages.bundle !== undefined
+    ? `Beides – du sparst ${formatSavings(saving, packages.bundle.product.currencyCode)}`
+    : undefined;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -226,78 +160,35 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-        <Text style={styles.title}>
-          {trialAvailable ? '7 Tage kostenlos testen' : 'Alle Premium-Funktionen freischalten'}
-        </Text>
-        <Text style={styles.subtitle}>
-          {trialAvailable
-            ? 'Starte heute gratis. Kein Risiko — jederzeit kündbar.'
-            : 'Punkte, Stats und Team-Ranking sind im Abo enthalten.'}
-        </Text>
-
-        <View style={styles.cycleCard}>
-          <Text style={styles.cycleTitle}>Abrechnungszeitraum</Text>
-          <View style={styles.cycleRow}>
-            <TouchableOpacity
-              style={[styles.cycleChip, billingCycle === 'monthly' && styles.cycleChipActive]}
-              onPress={() => setBillingCycle('monthly')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.cycleChipLabel, billingCycle === 'monthly' && styles.cycleChipLabelActive]}>
-                Monatlich
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.cycleChip, billingCycle === 'yearly' && styles.cycleChipActive]}
-              onPress={() => setBillingCycle('yearly')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.cycleChipLabel, billingCycle === 'yearly' && styles.cycleChipLabelActive]}>
-                Jährlich
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <Text style={styles.title}>Wähle dein Abo</Text>
+        <Text style={styles.subtitle}>Beitreten ist kostenlos. Mit einem Abo erstellst du eigene Sparrings, spielst das Kartenspiel – oder beides.</Text>
 
         {offeringsLoading ? (
           <ActivityIndicator style={styles.loadingIndicator} color={colors.accentBlue} />
         ) : (
-          <>
+          orderPlans(focus).map((plan) => (
             <PlanCard
-              title="Einzel"
-              subtitle="Für eine Person"
-              price={priceLabel(indPkg, billingCycle)}
-              details={[
-                'Voller Zugriff auf Punkte und Stats',
-                'Ranking und Auswertungen',
-                'Monatlich kündbar',
-              ]}
-              loading={pendingPlan === 'individual'}
-              hasTrialOffer={hasFreeTrial(indPkg)}
-              onPress={() => { void handlePlanSelect('individual'); }}
+              key={plan}
+              title={PLAN_COPY[plan].title}
+              subtitle={PLAN_COPY[plan].subtitle}
+              price={priceLabel(packages[plan])}
+              details={PLAN_COPY[plan].details}
+              badge={plan === 'bundle' ? bundleBadge : undefined}
+              active={current === plan}
+              available={packages[plan] !== undefined}
+              highlighted={plan === 'bundle'}
+              loading={pendingPlan === plan}
+              onPress={() => handlePurchase(plan)}
             />
-
-            <PlanCard
-              title="Studio"
-              subtitle="Für Trainer und Teams"
-              price={priceLabel(studioPkg, billingCycle)}
-              details={[
-                'Gleiche Funktionen wie Einzel',
-                '1 Betreiber + 8 Schüler inklusive',
-                'Mitglieder einladen und Plätze verwalten',
-              ]}
-              highlighted
-              loading={pendingPlan === 'studio'}
-              hasTrialOffer={hasFreeTrial(studioPkg)}
-              onPress={() => { void handlePlanSelect('studio'); }}
-            />
-          </>
+          ))
         )}
 
+        <TouchableOpacity style={styles.restoreButton} onPress={() => { void handleRestorePurchases(); }} accessibilityRole="button">
+          <Text style={styles.restoreText}>Käufe wiederherstellen</Text>
+        </TouchableOpacity>
+
         <Text style={styles.legalNote}>
-          {trialAvailable
-            ? 'Der Testzeitraum startet sofort und endet nach 7 Tagen. Danach verlängert sich das Abo automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.'
-            : 'Das Abo verlängert sich automatisch zum angegebenen Preis, sofern es nicht mindestens 24 Stunden vor Ende der aktuellen Laufzeit gekündigt wird. Die Kündigung erfolgt über Einstellungen → Apple ID → Abonnements.'}
+          Das Abo verlängert sich automatisch zum angezeigten Preis und Zeitraum, sofern es nicht rechtzeitig über die Abo-Einstellungen deines App-Stores gekündigt wird.
         </Text>
 
         <View style={styles.legalLinks}>
@@ -367,121 +258,11 @@ const styles = StyleSheet.create({
     color: colors.inactive,
     lineHeight: 20,
   },
-  cycleCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    gap: 12,
-  },
-  cycleTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.inactive,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  cycleRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cycleChip: {
-    flex: 1,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
-  cycleChipActive: {
-    backgroundColor: colors.dark,
-    borderColor: colors.dark,
-  },
-  cycleChipLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  cycleChipLabelActive: {
-    color: colors.headerTextPrimary,
-  },
   loadingIndicator: {
     marginTop: 32,
   },
-  planCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 16,
-    gap: 8,
-  },
-  planCardHighlighted: {
-    borderColor: colors.accentBlue,
-    borderWidth: 2,
-  },
-  planTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  planSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.inactive,
-  },
-  planPrice: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.text,
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  detailList: {
-    gap: 8,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  detailText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.text,
-  },
-  planButton: {
-    marginTop: 16,
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.accentBlue,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-  },
-  planButtonHighlighted: {
-    backgroundColor: colors.accentBlue,
-  },
-  planButtonLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.accentBlue,
-  },
-  planButtonLabelHighlighted: {
-    color: colors.card,
-  },
-  trialNote: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.inactive,
-    textAlign: 'center',
-    marginTop: 4,
-  },
+  restoreButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  restoreText: { color: colors.accentBlueText, fontFamily: 'Inter_600SemiBold', fontSize: 15 },
   legalNote: {
     fontSize: 12,
     color: colors.textSecondary,
