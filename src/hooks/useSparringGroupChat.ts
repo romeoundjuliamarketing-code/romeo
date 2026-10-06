@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 import { fetchChatPage } from '../lib/chatPage';
 import type { PageQuery } from '../utils/chatSync';
 import { useChatMessageStream } from './useChatMessageStream';
@@ -134,7 +135,7 @@ export function useSparringGroupChat(
         .upload(filename, decode(base64), { contentType: `image/${ext}` });
 
       if (uploadError !== null || uploadData === null) {
-        setSendError(uploadError?.message ?? 'Bild-Upload fehlgeschlagen.');
+        setSendError(uploadError?.message ?? i18n.t('chat.screen.imageUploadFailed'));
         return;
       }
 

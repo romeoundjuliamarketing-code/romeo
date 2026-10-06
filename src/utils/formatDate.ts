@@ -1,9 +1,10 @@
 import { localeFor, type AppLanguage } from './language';
 
-export type DateFormat = 'date' | 'dayMonth' | 'weekdayLong' | 'time' | 'dateTime';
+export type DateFormat = 'date' | 'dateLong' | 'dayMonth' | 'weekdayLong' | 'time' | 'dateTime';
 
 const OPTIONS: Record<DateFormat, Intl.DateTimeFormatOptions> = {
   date: { day: '2-digit', month: '2-digit', year: 'numeric' },
+  dateLong: { day: 'numeric', month: 'long', year: 'numeric' },
   dayMonth: { day: 'numeric', month: 'short' },
   weekdayLong: { weekday: 'long', day: 'numeric', month: 'long' },
   time: { hour: '2-digit', minute: '2-digit', hour12: false },

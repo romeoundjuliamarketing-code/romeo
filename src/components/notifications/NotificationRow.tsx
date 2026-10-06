@@ -1,6 +1,11 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { colors } from '../../theme/colors';
+import { formatDate as formatDateLocalized } from '../../utils/formatDate';
+import { useLanguage } from '../../i18n/language';
+import type { AppLanguage } from '../../utils/language';
 import type { AppNotification } from '../../types/database.types';
 
 interface Props {
@@ -9,21 +14,23 @@ interface Props {
 }
 
 // Formats a timestamptz ISO string as a short local date/time label.
-function formatDate(iso: string): string {
+function formatDate(iso: string, t: TFunction, language: AppLanguage): string {
   const d = new Date(iso);
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
-  if (diffMin < 1)  return 'Gerade eben';
-  if (diffMin < 60) return `Vor ${diffMin} Min.`;
+  if (diffMin < 1)  return t('notifications.time.justNow');
+  if (diffMin < 60) return t('notifications.time.minutesAgo', { count: diffMin });
   const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24)   return `Vor ${diffH} Std.`;
+  if (diffH < 24)   return t('notifications.time.hoursAgo', { count: diffH });
   const diffD = Math.floor(diffH / 24);
-  if (diffD < 7)    return `Vor ${diffD} Tag${diffD === 1 ? '' : 'en'}`;
-  return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
+  if (diffD < 7)    return t('notifications.time.daysAgo', { count: diffD });
+  return formatDateLocalized(d, 'date', language);
 }
 
 export default function NotificationRow({ item, onPress }: Props) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const isUnread = item.read_at === null;
   return (
     <TouchableOpacity
@@ -36,7 +43,7 @@ export default function NotificationRow({ item, onPress }: Props) {
       <View style={styles.content}>
         <Text style={styles.title}>{item.title}</Text>
         <Text style={styles.body}>{item.body}</Text>
-        <Text style={styles.time}>{formatDate(item.created_at)}</Text>
+        <Text style={styles.time}>{formatDate(item.created_at, t, language)}</Text>
       </View>
     </TouchableOpacity>
   );

@@ -2,6 +2,7 @@ import React from 'react';
 import { TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 interface Props {
@@ -10,10 +11,12 @@ interface Props {
 }
 
 export default function ChatImagePicker({ onImageSelected, disabled }: Props) {
+  const { t } = useTranslation();
+
   async function pick() {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Berechtigung benötigt', 'Bitte erlaube den Zugriff auf deine Fotos.');
+      Alert.alert(t('chat.photoPermission.title'), t('chat.photoPermission.message'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 
 // Owns the draft so keystrokes re-render only this row, not the chat screen and its message list.
 export default function ChatComposer({ sending, bottomInset, onSend, leading }: Props) {
+  const { t } = useTranslation();
   const [text, setText] = useState('');
   const trimmed  = text.trim();
   const disabled = trimmed.length === 0 || sending;
@@ -29,7 +31,7 @@ export default function ChatComposer({ sending, bottomInset, onSend, leading }: 
         style={styles.input}
         value={text}
         onChangeText={setText}
-        placeholder="Nachricht..."
+        placeholder={t('chat.composerPlaceholder')}
         placeholderTextColor={colors.textSecondary}
         multiline
         returnKeyType="send"

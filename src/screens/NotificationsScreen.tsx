@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { useNotificationsContext } from '../context/NotificationsContext';
 import NotificationRow from '../components/notifications/NotificationRow';
@@ -18,6 +19,7 @@ import type { AppNotification } from '../types/database.types';
 import type { RootStackParamList } from '../navigation/types';
 
 export default function NotificationsScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { notifications, loading, refetch, markAllRead } = useNotificationsContext();
 
@@ -57,7 +59,7 @@ export default function NotificationsScreen() {
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Benachrichtigungen</Text>
+        <Text style={styles.headerTitle}>{t('notifications.title')}</Text>
         <View style={styles.headerRight} />
       </View>
 
@@ -68,7 +70,7 @@ export default function NotificationsScreen() {
       ) : notifications.length === 0 ? (
         <View style={styles.center}>
           <Ionicons name="notifications-off-outline" size={48} color={colors.inactive} />
-          <Text style={styles.emptyText}>Keine Benachrichtigungen</Text>
+          <Text style={styles.emptyText}>{t('notifications.empty')}</Text>
         </View>
       ) : (
         <FlatList

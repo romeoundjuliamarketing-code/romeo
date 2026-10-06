@@ -1,4 +1,7 @@
 // Utility functions for chat date labels and day comparison.
+import i18n from '../i18n';
+import { formatDate } from './formatDate';
+import { parseLanguage } from './language';
 
 export function isSameDay(a: Date, b: Date): boolean {
   return (
@@ -17,15 +20,11 @@ export function chatDateLabel(iso: string, now?: Date): string {
   const date    = new Date(iso);
   const today   = now ?? new Date();
 
-  if (isSameDay(date, today)) return 'Heute';
+  if (isSameDay(date, today)) return i18n.t('chat.dateSeparator.today');
 
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  if (isSameDay(date, yesterday)) return 'Gestern';
+  if (isSameDay(date, yesterday)) return i18n.t('chat.dateSeparator.yesterday');
 
-  return date.toLocaleDateString('de-DE', {
-    day:   'numeric',
-    month: 'long',
-    year:  'numeric',
-  });
+  return formatDate(date, 'dateLong', parseLanguage(i18n.language) ?? 'de');
 }

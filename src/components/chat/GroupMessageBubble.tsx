@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
+import { formatDate } from '../../utils/formatDate';
+import { useLanguage } from '../../i18n/language';
 import type { GroupMessageWithSender } from '../../hooks/useSparringGroupChat';
 
 interface Props {
@@ -13,16 +16,14 @@ interface Props {
 const AVATAR_SIZE   = 32;
 const AVATAR_GUTTER = AVATAR_SIZE + 8; // avatar width + gap
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-}
-
 function getInitial(name: string | null): string {
   if (name === null || name.trim().length === 0) return '?';
   return name.trim().charAt(0).toUpperCase();
 }
 
 function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: Props) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   // System messages: centred chip, ignore grouping props
   if (message.is_system) {
     return (
@@ -70,7 +71,7 @@ function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: P
       <View style={styles.messageColumn}>
         {/* Sender name: only on first message of a group (other side) */}
         {!isOwn && isFirstInGroup && (
-          <Text style={styles.senderName}>{message.senderName ?? 'Unbekannt'}</Text>
+          <Text style={styles.senderName}>{message.senderName ?? t('chat.unknownSender')}</Text>
         )}
 
         <View style={bubbleStyle}>
@@ -86,7 +87,7 @@ function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: P
               {message.content}
             </Text>
           )}
-          <Text style={[styles.time, isOwn && styles.timeOwn]}>{formatTime(message.created_at)}</Text>
+          <Text style={[styles.time, isOwn && styles.timeOwn]}>{formatDate(message.created_at, 'time', language)}</Text>
         </View>
       </View>
     </View>

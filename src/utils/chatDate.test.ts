@@ -1,5 +1,6 @@
 // Tests for chatDate utility functions.
 import { isSameDay, chatDateLabel } from './chatDate';
+import i18n from '../i18n';
 
 // Helper to create a date from date parts only (midnight local time)
 function makeDate(year: number, month: number, day: number): Date {
@@ -61,5 +62,20 @@ describe('chatDateLabel', () => {
   it('handles day boundaries correctly: one second before today is "Gestern"', () => {
     const iso = new Date(2026, 5, 4, 23, 59, 59).toISOString();
     expect(chatDateLabel(iso, now)).toBe('Gestern');
+  });
+});
+
+describe('chatDateLabel in English', () => {
+  const now = new Date(2026, 5, 5, 12, 0, 0);
+  beforeAll(async () => { await i18n.changeLanguage('en'); });
+  afterAll(async () => { await i18n.changeLanguage('de'); });
+
+  it('returns "Today" and "Yesterday"', () => {
+    expect(chatDateLabel(new Date(2026, 5, 5, 9).toISOString(), now)).toBe('Today');
+    expect(chatDateLabel(new Date(2026, 5, 4, 9).toISOString(), now)).toBe('Yesterday');
+  });
+
+  it('formats older dates in English', () => {
+    expect(chatDateLabel(new Date(2026, 5, 12, 10).toISOString(), now)).toBe('12 June 2026');
   });
 });

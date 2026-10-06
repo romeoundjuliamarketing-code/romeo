@@ -1,4 +1,16 @@
 // Utility functions for the sparring chat list screen.
+import i18n from '../i18n';
+import { formatDate } from './formatDate';
+import { localeFor, parseLanguage, type AppLanguage } from './language';
+
+function currentLanguage(): AppLanguage {
+  return parseLanguage(i18n.language) ?? 'de';
+}
+
+// Short weekday without trailing dot ("Mo" / "Mon").
+function shortWeekday(date: Date, language: AppLanguage): string {
+  return new Intl.DateTimeFormat(localeFor(language), { weekday: 'short' }).format(date).replace('.', '');
+}
 
 /**
  * Returns up to 2 uppercase initials from the first two words of a title.
@@ -34,12 +46,12 @@ export function lastMessageTimeLabel(iso: string | null, now?: Date): string {
 
   if (diffDays === 0) {
     // Same day: show time
-    return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return formatDate(date, 'time', currentLanguage());
   }
-  if (diffDays === 1) return 'Gestern';
+  if (diffDays === 1) return i18n.t('chat.list.yesterday');
   if (diffDays < 7) {
-    // Short German weekday abbreviation
-    return date.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '');
+    // Short weekday abbreviation
+    return shortWeekday(date, currentLanguage());
   }
   // 'TT.MM.' format
   const dd = String(date.getDate()).padStart(2, '0');
@@ -58,7 +70,8 @@ export function lastMessageTimeLabel(iso: string | null, now?: Date): string {
 export function sparringDateLabel(iso: string, now?: Date): string {
   const event   = new Date(iso);
   const today   = now !== undefined ? new Date(now) : new Date();
-  const time    = event.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const language = currentLanguage();
+  const time    = formatDate(event, 'time', language);
 
   const todayMidnight = new Date(today);
   todayMidnight.setHours(0, 0, 0, 0);
@@ -69,12 +82,12 @@ export function sparringDateLabel(iso: string, now?: Date): string {
   const diffMs   = eventMidnight.getTime() - todayMidnight.getTime();
   const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
 
-  if (event < today) return 'Vorbei';
-  if (diffDays === 0) return `Heute · ${time}`;
-  if (diffDays === 1) return `Morgen · ${time}`;
+  if (event < today) return i18n.t('chat.list.over');
+  if (diffDays === 0) return i18n.t('chat.list.today', { time });
+  if (diffDays === 1) return i18n.t('chat.list.tomorrow', { time });
   if (diffDays < 7) {
-    // Short German weekday abbreviation, strip trailing dot
-    const weekday = event.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '');
+    // Short weekday abbreviation, strip trailing dot
+    const weekday = shortWeekday(event, language);
     return `${weekday} · ${time}`;
   }
   const dd = String(event.getDate()).padStart(2, '0');
@@ -120,8 +133,9 @@ function dayDiff(a: Date, b: Date): number {
  */
 export function chatWhenLabel(iso: string, now: Date = new Date()): string {
   const when = new Date(iso);
-  const time = when.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  const weekday = when.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '');
+  const language = currentLanguage();
+  const time = formatDate(when, 'time', language);
+  const weekday = shortWeekday(when, language);
   const dd = String(when.getDate()).padStart(2, '0');
   const mm = String(when.getMonth() + 1).padStart(2, '0');
   const diff = dayDiff(now, when);
@@ -129,8 +143,8 @@ export function chatWhenLabel(iso: string, now: Date = new Date()): string {
     const year = when.getFullYear() !== now.getFullYear() ? String(when.getFullYear()) : '';
     return `${weekday}, ${dd}.${mm}.${year}`;
   }
-  if (diff === 0) return `Heute, ${time}`;
-  if (diff === 1) return `Morgen, ${time}`;
+  if (diff === 0) return i18n.t('chat.list.whenToday', { time });
+  if (diff === 1) return i18n.t('chat.list.whenTomorrow', { time });
   if (diff < 7) return `${weekday}, ${time}`;
   return `${dd}.${mm}., ${time}`;
 }
@@ -154,14 +168,14 @@ export function chatPreview(input: {
     return {
       sender: null,
       text: input.kind === 'sparring'
-        ? 'Klärt hier die letzten Details fürs Training.'
-        : 'Klärt hier die letzten Details für euer Treffen.',
+        ? i18n.t('chat.list.emptySparring')
+        : i18n.t('chat.list.emptyEvent'),
       empty: true,
     };
   }
   const text = input.lastText.replace(/\s+/g, ' ').trim();
   if (input.lastIsSystem) return { sender: null, text, empty: false };
-  if (input.lastFromMe) return { sender: 'Du', text, empty: false };
+  if (input.lastFromMe) return { sender: i18n.t('chat.list.you'), text, empty: false };
   const first = input.lastSenderName?.trim().split(/\s+/)[0] ?? '';
   return { sender: first.length > 0 ? first : null, text, empty: false };
 }

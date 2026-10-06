@@ -1,6 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 interface Props {
@@ -9,15 +10,16 @@ interface Props {
 
 // Shown when messages arrive while the user reads older ones; tap jumps to the latest.
 export default function NewMessagesPill({ onPress }: Props) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       style={styles.pill}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel="Zu neuen Nachrichten springen"
+      accessibilityLabel={t('chat.overview.jumpToNew')}
     >
       <Ionicons name="arrow-down" size={16} color={colors.card} />
-      <Text style={styles.label}>Neue Nachrichten</Text>
+      <Text style={styles.label}>{t('chat.overview.newMessages')}</Text>
     </TouchableOpacity>
   );
 }

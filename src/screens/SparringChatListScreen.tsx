@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, FlatList, ActivityIndicator, StyleSheet, type ListRenderItemInfo } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
@@ -23,6 +24,7 @@ type Row =
   | { type: 'archive'; key: 'archive'; count: number; unread: number };
 
 export default function SparringChatListScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const { chats, loading, failed, refetch } = useSparringChatList();
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -100,7 +102,7 @@ export default function SparringChatListScreen() {
       {loading ? (
         <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
       ) : firstLoadFailed ? (
-        <ChatOverviewNotice text="Deine Chats konnten nicht geladen werden." onRetry={retry} />
+        <ChatOverviewNotice text={t('chat.overview.loadFailed')} onRetry={retry} />
       ) : (
         <FlatList
           data={rows}
@@ -108,7 +110,7 @@ export default function SparringChatListScreen() {
           renderItem={renderItem}
           ItemSeparatorComponent={Separator}
           ListHeaderComponent={failed ? (
-            <ChatOverviewNotice text="Die Liste ist eventuell nicht aktuell." onRetry={retry} />
+            <ChatOverviewNotice text={t('chat.overview.maybeStale')} onRetry={retry} />
           ) : null}
           contentContainerStyle={styles.list}
           initialNumToRender={12}

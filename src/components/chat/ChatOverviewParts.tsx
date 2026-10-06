@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import UnreadBadge from './UnreadBadge';
@@ -10,21 +11,22 @@ import UnreadBadge from './UnreadBadge';
 // one line of copy and a short slanted blue tape as signature.
 export function ChatOverviewHeader({ onBack }: { onBack: () => void }): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
       <TouchableOpacity
         style={styles.back}
         onPress={onBack}
         accessibilityRole="button"
-        accessibilityLabel="Zurück"
+        accessibilityLabel={t('common.back')}
         hitSlop={8}
       >
         <Ionicons name="chevron-back" size={24} color={colors.text} />
       </TouchableOpacity>
       <View style={styles.headerText}>
-        <Text style={styles.title} accessibilityRole="header">Chats</Text>
+        <Text style={styles.title} accessibilityRole="header">{t('chat.overview.title')}</Text>
         <View style={styles.tape} />
-        <Text style={styles.subtitle}>Hier wird Training verabredet.</Text>
+        <Text style={styles.subtitle}>{t('chat.overview.subtitle')}</Text>
       </View>
     </View>
   );
@@ -34,15 +36,16 @@ export function ChatOverviewHeader({ onBack }: { onBack: () => void }): React.Re
 export const ArchiveToggle = React.memo(function ArchiveToggle({ count, unread, open, onToggle }: {
   count: number; unread: number; open: boolean; onToggle: () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={onToggle}
       style={({ pressed }) => [styles.archive, pressed && styles.archivePressed]}
       accessibilityRole="button"
       accessibilityState={{ expanded: open }}
-      accessibilityLabel={`Vergangene Treffen, ${count}${unread > 0 ? `, ${unread} ungelesen` : ''}`}
+      accessibilityLabel={unread > 0 ? t('chat.overview.archiveA11yUnread', { count, unread }) : t('chat.overview.archiveA11y', { count })}
     >
-      <Text style={styles.archiveText}>Vergangene Treffen · {count}</Text>
+      <Text style={styles.archiveText}>{t('chat.overview.archive', { count })}</Text>
       <UnreadBadge count={unread} />
       <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={20} color={colors.textMuted} />
     </Pressable>
@@ -51,26 +54,28 @@ export const ArchiveToggle = React.memo(function ArchiveToggle({ count, unread, 
 
 // No active chats: small group motif, one sentence, a way to the map.
 export function ChatOverviewEmpty({ onFind }: { onFind: () => void }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.empty}>
       <View style={styles.emptyMotif}>
         <MaterialCommunityIcons name="account-group" size={32} color={colors.accentBlueText} />
       </View>
-      <Text style={styles.emptyText}>Dein nächstes Training beginnt mit einer Verabredung.</Text>
+      <Text style={styles.emptyText}>{t('chat.overview.emptyText')}</Text>
       <TouchableOpacity style={styles.emptyBtn} onPress={onFind} accessibilityRole="button" activeOpacity={0.85}>
-        <Text style={styles.emptyBtnText}>Sparring finden</Text>
+        <Text style={styles.emptyBtnText}>{t('chat.overview.findSparring')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 export function ChatOverviewNotice({ text, onRetry }: { text: string; onRetry: () => void }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.notice} accessibilityLiveRegion="polite">
       <Ionicons name="cloud-offline-outline" size={20} color={colors.textMuted} />
       <Text style={styles.noticeText}>{text}</Text>
       <TouchableOpacity onPress={onRetry} accessibilityRole="button" style={styles.noticeBtn}>
-        <Text style={styles.noticeBtnText}>Erneut versuchen</Text>
+        <Text style={styles.noticeBtnText}>{t('common.retry')}</Text>
       </TouchableOpacity>
     </View>
   );

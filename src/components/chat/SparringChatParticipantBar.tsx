@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, ActivityIndicator, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 export interface Participant {
@@ -26,6 +27,7 @@ function getInitial(name: string | null): string {
 export default function SparringChatParticipantBar({
   participants, isSignedUp, loading, isFull, onToggle,
 }: Props) {
+  const { t } = useTranslation();
   const visible  = participants.slice(0, MAX_AVATARS);
   const overflow = participants.length - MAX_AVATARS;
 
@@ -47,7 +49,7 @@ export default function SparringChatParticipantBar({
           </View>
         )}
         {participants.length === 0 && (
-          <Text style={styles.empty}>Noch niemand angemeldet</Text>
+          <Text style={styles.empty}>{t('chat.participants.nobody')}</Text>
         )}
       </View>
 
@@ -65,7 +67,7 @@ export default function SparringChatParticipantBar({
           <ActivityIndicator size="small" color={colors.card} />
         ) : (
           <Text style={styles.btnText}>
-            {isSignedUp ? 'Abmelden' : isFull ? 'Ausgebucht' : 'Ich bin dabei'}
+            {isSignedUp ? t('chat.participants.signOut') : isFull ? t('chat.participants.soldOut') : t('chat.participants.join')}
           </Text>
         )}
       </TouchableOpacity>

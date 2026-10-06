@@ -28,3 +28,10 @@ describe('formatDate', () => {
     expect(formatDate(Number.NaN, 'time', 'en')).toBe('');
   });
 });
+
+describe('formatDate dateLong', () => {
+  it('formats day, long month and year', () => {
+    expect(formatDate(d, 'dateLong', 'de')).toBe('6. Oktober 2026');
+    expect(formatDate(d, 'dateLong', 'en')).toBe('6 October 2026');
+  });
+});

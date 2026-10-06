@@ -16,7 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { ListRenderItemInfo } from 'react-native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { colors } from '../theme/colors';
+import { formatDate } from '../utils/formatDate';
+import { useLanguage } from '../i18n/language';
+import type { AppLanguage } from '../utils/language';
 import { useEventGroupChat } from '../hooks/useEventGroupChat';
 import { useAuth } from '../context/AuthContext';
 import { useBlockedUsers } from '../hooks/useBlockedUsers';
@@ -36,24 +41,20 @@ type Props = NativeStackScreenProps<RootStackParamList, 'EventGroupChat'>;
 const AVATAR_SIZE   = 32;
 const AVATAR_GUTTER = AVATAR_SIZE + 8;
 
-function getCountdown(iso: string): string {
+function getCountdown(iso: string, t: TFunction, language: AppLanguage): string {
   const now   = new Date();
   const event = new Date(iso);
   const diff  = Math.floor((event.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const time  = event.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  if (event < now)  return 'Bereits vorbei';
-  if (diff === 0)   return `Heute · ${time} Uhr`;
-  if (diff === 1)   return `Morgen · ${time} Uhr`;
-  return `In ${diff} Tagen · ${time} Uhr`;
+  const time  = formatDate(event, 'time', language);
+  if (event < now)  return t('chat.countdown.over');
+  if (diff === 0)   return t('chat.countdown.today', { time });
+  if (diff === 1)   return t('chat.countdown.tomorrow', { time });
+  return t('chat.countdown.inDays', { days: diff, time });
 }
 
 function getInitial(name: string | null): string {
   if (name === null || name.trim().length === 0) return '?';
   return name.trim().charAt(0).toUpperCase();
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 
 interface MessageBubbleProps {
@@ -65,6 +66,8 @@ interface MessageBubbleProps {
 
 // Memoized list cell: merged messages keep their object identity, so settled cells skip re-rendering.
 const EventMessageBubble = React.memo(function EventMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: MessageBubbleProps) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const rowStyle = [
     styles.msgRow,
     isOwn ? styles.msgRowOwn : styles.msgRowOther,
@@ -95,14 +98,14 @@ const EventMessageBubble = React.memo(function EventMessageBubble({ message, isO
       )}
       <View style={styles.msgColumn}>
         {!isOwn && isFirstInGroup && (
-          <Text style={styles.senderName}>{message.senderName ?? 'Unbekannt'}</Text>
+          <Text style={styles.senderName}>{message.senderName ?? t('chat.unknownSender')}</Text>
         )}
         <View style={bubbleStyle}>
           <Text style={[styles.msgContent, isOwn && styles.msgContentOwn]}>
             {message.body}
           </Text>
           <Text style={[styles.msgTime, isOwn && styles.msgTimeOwn]}>
-            {formatTime(message.created_at)}
+            {formatDate(message.created_at, 'time', language)}
           </Text>
         </View>
       </View>
@@ -115,6 +118,8 @@ function sameSenderGroup(a: EventMessageWithSender, b: EventMessageWithSender): 
 }
 
 export default function EventGroupChatScreen() {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const insets     = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { params } = useRoute<Props['route']>();
@@ -160,7 +165,7 @@ export default function EventGroupChatScreen() {
 
   useEffect(() => {
     if (sendError !== null) {
-      Alert.alert('Fehler', sendError, [{ text: 'OK', onPress: clearSendError }]);
+      Alert.alert(t('common.error'), sendError, [{ text: t('common.ok'), onPress: clearSendError }]);
     }
   }, [sendError, clearSendError]);
 
@@ -182,7 +187,7 @@ export default function EventGroupChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{eventTitle}</Text>
-          <Text style={styles.headerSub}>{getCountdown(scheduledAt)}</Text>
+          <Text style={styles.headerSub}>{getCountdown(scheduledAt, t, language)}</Text>
         </View>
         <View style={styles.headerSpacer} />
       </View>
@@ -211,7 +216,7 @@ export default function EventGroupChatScreen() {
             keyboardShouldPersistTaps="handled"
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Noch keine Nachrichten.</Text>
+                <Text style={styles.emptyText}>{t('chat.screen.noMessages')}</Text>
               </View>
             }
           />
@@ -222,7 +227,7 @@ export default function EventGroupChatScreen() {
       {/* Read-only banner or input row */}
       {isReadOnly ? (
         <View style={[styles.readOnlyBanner, { paddingBottom: insets.bottom + 8 }]}>
-          <Text style={styles.readOnlyText}>Dieses Event hat stattgefunden.</Text>
+          <Text style={styles.readOnlyText}>{t('chat.screen.eventOver')}</Text>
         </View>
       ) : (
         <ChatComposer

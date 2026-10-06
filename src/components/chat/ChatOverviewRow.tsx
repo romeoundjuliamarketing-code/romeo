@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import UnreadBadge from './UnreadBadge';
 import ChatGroupMotif from './ChatGroupMotif';
@@ -23,6 +24,7 @@ function ChatOverviewRow({ item, nextUp, archived, onOpen }: {
   archived: boolean;
   onOpen:   (item: ChatListEntry) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const title = chatTitle(item);
   const place = chatPlaceLabel(item.placeName, item.address);
   const when = chatWhenLabel(item.scheduledAt);
@@ -38,11 +40,11 @@ function ChatOverviewRow({ item, nextUp, archived, onOpen }: {
   const time = lastMessageTimeLabel(item.lastMessageAt);
 
   const spoken = [
-    nextUp ? 'Als Nächstes' : null,
+    nextUp ? t('chat.overview.nextUp') : null,
     title,
     meta,
     preview.sender !== null ? `${preview.sender}: ${preview.text}` : preview.text,
-    unread ? `${item.unreadCount} ungelesen` : null,
+    unread ? t('chat.overview.unreadCount', { count: item.unreadCount }) : null,
   ].filter((p): p is string => p !== null).join('. ');
 
   return (
@@ -56,12 +58,12 @@ function ChatOverviewRow({ item, nextUp, archived, onOpen }: {
       ]}
       accessibilityRole="button"
       accessibilityLabel={spoken}
-      accessibilityHint="Öffnet den Chat"
+      accessibilityHint={t('chat.overview.openHint')}
     >
       <ChatGroupMotif kind={item.kind} participants={item.participants} compact={archived} highlighted={nextUp} />
 
       <View style={styles.body}>
-        {nextUp && <Text style={styles.nextLabel}>Als Nächstes</Text>}
+        {nextUp && <Text style={styles.nextLabel}>{t('chat.overview.nextUp')}</Text>}
         <View style={styles.titleRow}>
           <Text style={[styles.title, archived && styles.titleCompact]} numberOfLines={archived ? 1 : 2}>
             {title}
@@ -80,7 +82,7 @@ function ChatOverviewRow({ item, nextUp, archived, onOpen }: {
         )}
         {archived && unread && (
           <View style={styles.previewRow}>
-            <Text style={[styles.preview, styles.previewUnread]} numberOfLines={1}>Neue Nachrichten</Text>
+            <Text style={[styles.preview, styles.previewUnread]} numberOfLines={1}>{t('chat.overview.newMessages')}</Text>
             <UnreadBadge count={item.unreadCount} />
           </View>
         )}

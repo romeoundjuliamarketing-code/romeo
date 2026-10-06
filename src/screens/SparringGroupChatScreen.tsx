@@ -16,7 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { ListRenderItemInfo } from 'react-native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { colors } from '../theme/colors';
+import { formatDate } from '../utils/formatDate';
+import { useLanguage } from '../i18n/language';
+import type { AppLanguage } from '../utils/language';
 import { useSparringGroupChat } from '../hooks/useSparringGroupChat';
 import { useSparringChatSettings } from '../hooks/useSparringChatSettings';
 import { useSparringActions } from '../hooks/useSparringActions';
@@ -45,15 +50,15 @@ import { withoutBlocked } from '../utils/blockedFilter';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SparringGroupChat'>;
 
-function getCountdown(iso: string): string {
+function getCountdown(iso: string, t: TFunction, language: AppLanguage): string {
   const now   = new Date();
   const event = new Date(iso);
   const diff  = Math.floor((event.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  const time  = event.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  if (event < now)  return 'Bereits vorbei';
-  if (diff === 0)   return `Heute · ${time} Uhr`;
-  if (diff === 1)   return `Morgen · ${time} Uhr`;
-  return `In ${diff} Tagen · ${time} Uhr`;
+  const time  = formatDate(event, 'time', language);
+  if (event < now)  return t('chat.countdown.over');
+  if (diff === 0)   return t('chat.countdown.today', { time });
+  if (diff === 1)   return t('chat.countdown.tomorrow', { time });
+  return t('chat.countdown.inDays', { days: diff, time });
 }
 
 function sameSenderGroup(a: GroupMessageWithSender, b: GroupMessageWithSender): boolean {
@@ -61,6 +66,8 @@ function sameSenderGroup(a: GroupMessageWithSender, b: GroupMessageWithSender): 
 }
 
 export default function SparringGroupChatScreen() {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const insets     = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { params } = useRoute<Props['route']>();
@@ -180,7 +187,7 @@ export default function SparringGroupChatScreen() {
 
   useEffect(() => {
     if (sendError !== null) {
-      Alert.alert('Fehler', sendError, [{ text: 'OK', onPress: clearSendError }]);
+      Alert.alert(t('common.error'), sendError, [{ text: t('common.ok'), onPress: clearSendError }]);
     }
   }, [sendError, clearSendError]);
 
@@ -203,7 +210,7 @@ export default function SparringGroupChatScreen() {
     setConsentVisible(false);
     if (error !== null) {
       setSignupLoading(false);
-      Alert.alert('Hinweis', error);
+      Alert.alert(t('chat.screen.hint'), error);
       return;
     }
     await loadDetails();
@@ -213,7 +220,7 @@ export default function SparringGroupChatScreen() {
   async function handleSend(text: string): Promise<boolean> {
     const verdict = checkText(text, bannedWords);
     if (!verdict.ok) {
-      Alert.alert('Nachricht blockiert', filterErrorMessage(verdict.category));
+      Alert.alert(t('chat.screen.messageBlocked'), filterErrorMessage(verdict.category));
       return false;
     }
     const { error } = await sendText(text);
@@ -238,7 +245,7 @@ export default function SparringGroupChatScreen() {
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle} numberOfLines={1}>{sparringTitle}</Text>
           <Text style={styles.headerSub}>
-            {getCountdown(scheduledAt)}
+            {getCountdown(scheduledAt, t, language)}
           </Text>
         </View>
         {isOrganizer ? (
@@ -313,7 +320,7 @@ export default function SparringGroupChatScreen() {
       {/* Read-only banner or input row */}
       {isReadOnly ? (
         <View style={[styles.readOnlyBanner, { paddingBottom: insets.bottom + 8 }]}>
-          <Text style={styles.readOnlyText}>Dieses Sparring hat stattgefunden.</Text>
+          <Text style={styles.readOnlyText}>{t('chat.screen.sparringOver')}</Text>
         </View>
       ) : (
         <ChatComposer
@@ -343,9 +350,9 @@ export default function SparringGroupChatScreen() {
             <View style={styles.settingsHandleRow}>
               <View style={styles.settingsHandle} />
             </View>
-            <Text style={styles.settingsTitle}>Chat-Einstellungen</Text>
+            <Text style={styles.settingsTitle}>{t('chat.screen.settingsTitle')}</Text>
             <View style={styles.settingsRow}>
-              <Text style={styles.settingsLabel}>Bilder und Videos erlauben</Text>
+              <Text style={styles.settingsLabel}>{t('chat.screen.allowMedia')}</Text>
               <Switch
                 value={mediaEnabled}
                 onValueChange={() => { void toggleMedia(); }}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
 }
 
 export default function SparringChatInfoBanner({ address, signupCount, maxSlots }: Props) {
+  const { t } = useTranslation();
+
   function openMaps() {
     const encoded = encodeURIComponent(address);
     const url = Platform.OS === 'ios'
@@ -28,7 +31,7 @@ export default function SparringChatInfoBanner({ address, signupCount, maxSlots 
       <View style={styles.divider} />
       <View style={styles.slotsRow}>
         <Ionicons name="people-outline" size={13} color={colors.textSecondary} />
-        <Text style={styles.slotsText}>{signupCount} von {maxSlots} angemeldet</Text>
+        <Text style={styles.slotsText}>{t('chat.summary.signedUp', { signupCount, maxSlots })}</Text>
       </View>
     </View>
   );
