@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 
 // Static legal notice (Impressum) per § 5 DDG. Content mirrors Impressum-Sparr.md.
-const CONTACT_EMAIL = 'romeoundjuliamarketing@gmail.com';
+const CONTACT_EMAIL = 'romeo.georgiadis@gmail.com';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }): React.ReactElement {
   return (
