@@ -34,7 +34,6 @@
     "expo-font": "~55.0.8",
     "expo-image-picker": "~55.0.21",
     "expo-linking": "~55.0.16",
-    "expo-localization": "~55.0.19",
     "expo-location": "~55.1.11",
     "expo-notifications": "~55.0.24",
     "expo-secure-store": "~55.0.15",

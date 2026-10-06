@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getLocales } from 'expo-localization';
 import { useTranslation } from 'react-i18next';
 import i18n from './index';
 import { supabase } from '../lib/supabase';
@@ -13,6 +12,16 @@ const STORAGE_KEY = 'sparr.language.v1';
 // Set while a manual choice has not been confirmed by the server yet.
 const PENDING_KEY = 'sparr.languagePending.v1';
 
+// Hermes resolves the default Intl locale from the device settings, so no
+// native module (and no dev rebuild / OTA runtime bump) is needed.
+function readDeviceLanguageTag(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale;
+  } catch {
+    return null;
+  }
+}
+
 let bootstrapped = false;
 let bootstrapPromise: Promise<void> | null = null;
 
@@ -21,7 +30,7 @@ function bootstrap(): Promise<void> {
     bootstrapPromise = AsyncStorage.getItem(STORAGE_KEY)
       .catch(() => null)
       .then((stored) => {
-        const deviceTag = getLocales()[0]?.languageTag ?? null;
+        const deviceTag = readDeviceLanguageTag();
         return i18n.changeLanguage(resolveStartupLanguage(stored, deviceTag));
       })
       .then(() => { bootstrapped = true; });
