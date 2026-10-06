@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import type { TextInputProps } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ interface Props extends Omit<TextInputProps, 'style' | 'secureTextEntry'> {
 export default function AuthTextField({
   label, icon, error, isPassword = false, inputRef, variant = 'brand', onFocus, onBlur, ...inputProps
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const hasError = error !== undefined && error !== null && error.length > 0;
@@ -61,7 +63,7 @@ export default function AuthTextField({
               onPress={() => setVisible((v) => !v)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel={visible ? 'Passwort ausblenden' : 'Passwort anzeigen'}
+              accessibilityLabel={visible ? t('auth.common.hidePassword') : t('auth.common.showPassword')}
             >
               <Ionicons
                 name={visible ? 'eye-off-outline' : 'eye-outline'}

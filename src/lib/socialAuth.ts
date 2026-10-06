@@ -1,6 +1,7 @@
 import { Platform, TurboModuleRegistry } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { supabase } from './supabase';
+import i18n from '../i18n';
 
 // Native Sign in with Apple (iOS) and Google (iOS + Android), both finished
 // with supabase.auth.signInWithIdToken — the session then flows through
@@ -12,7 +13,8 @@ export type SocialResult = { status: 'success' } | { status: 'cancelled' } | { s
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '';
 
-const GENERIC_ERROR = 'Anmeldung hat nicht geklappt. Bitte versuche es erneut.';
+// Evaluated at call time so a language switch applies immediately.
+const genericError = (): string => i18n.t('auth.social.genericError');
 
 // ─── Apple ────────────────────────────────────────────────────────────────────
 
@@ -50,9 +52,9 @@ export async function signInWithApple(captchaToken: string | undefined): Promise
     });
   } catch (e) {
     const code = (e as { code?: string }).code;
-    return code === 'ERR_REQUEST_CANCELED' ? { status: 'cancelled' } : { status: 'error', message: GENERIC_ERROR };
+    return code === 'ERR_REQUEST_CANCELED' ? { status: 'cancelled' } : { status: 'error', message: genericError() };
   }
-  if (credential.identityToken === null) return { status: 'error', message: GENERIC_ERROR };
+  if (credential.identityToken === null) return { status: 'error', message: genericError() };
 
   const { error } = await supabase.auth.signInWithIdToken({
     provider: 'apple',
@@ -60,7 +62,7 @@ export async function signInWithApple(captchaToken: string | undefined): Promise
     nonce:    rawNonce,
     options:  captchaToken !== undefined ? { captchaToken } : undefined,
   });
-  if (error !== null) return { status: 'error', message: error.message || GENERIC_ERROR };
+  if (error !== null) return { status: 'error', message: error.message || genericError() };
 
   // Apple sends the name only on the very first sign-in: keep it so the
   // onboarding can prefill it instead of asking again.
@@ -104,7 +106,7 @@ export function isGoogleSignInAvailable(): boolean {
 
 export async function signInWithGoogle(captchaToken: string | undefined): Promise<SocialResult> {
   const google = loadGoogle();
-  if (google === null) return { status: 'error', message: GENERIC_ERROR };
+  if (google === null) return { status: 'error', message: genericError() };
   const { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } = google;
 
   if (!googleConfigured) {
@@ -126,18 +128,18 @@ export async function signInWithGoogle(captchaToken: string | undefined): Promis
       return { status: 'cancelled' };
     }
     if (isErrorWithCode(e) && e.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
-      return { status: 'error', message: 'Google-Anmeldung braucht die Google-Play-Dienste.' };
+      return { status: 'error', message: i18n.t('auth.social.googlePlayServices') };
     }
-    return { status: 'error', message: GENERIC_ERROR };
+    return { status: 'error', message: genericError() };
   }
-  if (idToken === null) return { status: 'error', message: GENERIC_ERROR };
+  if (idToken === null) return { status: 'error', message: genericError() };
 
   const { error } = await supabase.auth.signInWithIdToken({
     provider: 'google',
     token:    idToken,
     options:  captchaToken !== undefined ? { captchaToken } : undefined,
   });
-  if (error !== null) return { status: 'error', message: error.message || GENERIC_ERROR };
+  if (error !== null) return { status: 'error', message: error.message || genericError() };
   return { status: 'success' };
 }
 

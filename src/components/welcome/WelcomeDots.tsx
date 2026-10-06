@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
@@ -15,12 +16,13 @@ interface Props {
 // Progress dots of the welcome intro. The blue fill tracks the swipe on the
 // UI thread (opacity + scale only); the label comes from the settled index.
 export default function WelcomeDots({ count, index, scrollX, pageWidth }: Props): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View
       style={styles.row}
       accessible
       accessibilityRole="progressbar"
-      accessibilityLabel={`Seite ${index + 1} von ${count}`}
+      accessibilityLabel={t('auth.welcome.page', { current: index + 1, total: count })}
     >
       {Array.from({ length: count }, (_, i) => (
         <Dot key={i} position={i} scrollX={scrollX} pageWidth={pageWidth} />

@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import Animated, { useAnimatedRef, useAnimatedScrollHandler, useReducedMotion, useSharedValue } from 'react-native-reanimated';
@@ -23,6 +24,7 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 // move between slides; "Überspringen", "Anmelden" and "Konto erstellen" mark
 // it as seen — merely viewing it does not.
 export default function WelcomeScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
@@ -74,7 +76,7 @@ export default function WelcomeScreen(): React.ReactElement {
           <Text style={styles.wordmark} maxFontSizeMultiplier={1.3}>Sparr</Text>
         </View>
         <TouchableOpacity style={styles.skip} onPress={toLogin} hitSlop={HIT_SLOP} accessibilityRole="button">
-          <Text style={styles.skipText}>Überspringen</Text>
+          <Text style={styles.skipText}>{t('auth.welcome.skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -95,8 +97,8 @@ export default function WelcomeScreen(): React.ReactElement {
             key={slide.key}
             width={width}
             illustrationHeight={illustrationHeight}
-            title={slide.title}
-            text={slide.text}
+            title={t(`auth.welcome.slides.${slide.key}.title` as const)}
+            text={t(`auth.welcome.slides.${slide.key}.text`)}
             active={i === index}
             small={small}
             Illustration={slide.Illustration}

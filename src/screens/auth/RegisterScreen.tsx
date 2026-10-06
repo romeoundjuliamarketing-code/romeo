@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { TextInput, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -13,6 +14,7 @@ import AuthScaffold, { AuthButton, AuthCaptchaNotice, AuthNotice, AuthSwitch } f
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
 export default function RegisterScreen() {
+  const { t } = useTranslation();
   const { signUp } = useAuth();
   const navigation = useNavigation<Nav>();
   const passwordRef = useRef<TextInput>(null);
@@ -31,12 +33,12 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     // Same checks as before, now shown at the field they belong to.
-    const nextEmailError = !email.trim() ? 'Bitte gib deine E-Mail-Adresse ein.' : null;
+    const nextEmailError = !email.trim() ? t('auth.register.errorEmailMissing') : null;
     const nextPasswordError = !password
-      ? 'Bitte wähle ein Passwort.'
-      : password.length < 6 ? 'Das Passwort muss mindestens 6 Zeichen haben.' : null;
+      ? t('auth.register.errorPasswordMissing')
+      : password.length < 6 ? t('auth.register.errorPasswordShort') : null;
     const nextConfirmError = nextPasswordError === null && password !== passwordConfirm
-      ? 'Die Passwörter stimmen nicht überein.'
+      ? t('auth.register.errorMismatch')
       : null;
     setEmailError(nextEmailError);
     setPasswordError(nextPasswordError);
@@ -52,9 +54,9 @@ export default function RegisterScreen() {
     if (authError) {
       console.error('[RegisterScreen] signUp error:', authError.message, authError.status);
       if (authError.message === 'User already registered') {
-        setEmailError('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an.');
+        setEmailError(t('auth.register.errorEmailTaken'));
       } else {
-        setFormError('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
+        setFormError(t('auth.register.errorFailed'));
       }
       resetCaptcha();
     } else {
@@ -64,20 +66,20 @@ export default function RegisterScreen() {
 
   return (
     <AuthScaffold
-      title="Konto erstellen"
-      subtitle="In einer Minute bist du dabei – finde Sparrings und trainiere mit anderen."
+      title={t('auth.register.title')}
+      subtitle={t('auth.register.subtitle')}
       onBack={() => navigation.goBack()}
       footer={(
-        <AuthSwitch text="Bereits registriert?" link="Anmelden" onPress={() => navigation.navigate('Login')} />
+        <AuthSwitch text={t('auth.register.alreadyRegistered')} link={t('auth.register.login')} onPress={() => navigation.navigate('Login')} />
       )}
     >
       <AuthTextField
-        label="E-Mail"
+        label={t('auth.register.emailLabel')}
         icon="mail-outline"
         value={email}
         onChangeText={(v) => { setEmail(v); setEmailError(null); }}
         error={emailError}
-        placeholder="deine@email.de"
+        placeholder={t('auth.register.emailPlaceholder')}
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
@@ -89,13 +91,13 @@ export default function RegisterScreen() {
 
       <AuthTextField
         inputRef={passwordRef}
-        label="Passwort"
+        label={t('auth.register.passwordLabel')}
         icon="lock-closed-outline"
         isPassword
         value={password}
         onChangeText={(v) => { setPassword(v); setPasswordError(null); }}
         error={passwordError}
-        placeholder="Mindestens 6 Zeichen"
+        placeholder={t('auth.register.passwordPlaceholder')}
         autoComplete="new-password"
         textContentType="newPassword"
         returnKeyType="next"
@@ -105,13 +107,13 @@ export default function RegisterScreen() {
 
       <AuthTextField
         inputRef={confirmRef}
-        label="Passwort bestätigen"
+        label={t('auth.register.confirmLabel')}
         icon="lock-closed-outline"
         isPassword
         value={passwordConfirm}
         onChangeText={(v) => { setPasswordConfirm(v); setConfirmError(null); }}
         error={confirmError}
-        placeholder="Passwort wiederholen"
+        placeholder={t('auth.register.confirmPlaceholder')}
         autoComplete="new-password"
         textContentType="newPassword"
         returnKeyType="go"
@@ -128,10 +130,10 @@ export default function RegisterScreen() {
         onError={() => { setCaptchaError(true); setCaptchaToken(null); }}
       />
       {captchaError && (
-        <AuthCaptchaNotice actionLabel="registrieren" onRetry={() => { setCaptchaError(false); resetCaptcha(); }} />
+        <AuthCaptchaNotice actionLabel={t('auth.register.captchaAction')} onRetry={() => { setCaptchaError(false); resetCaptcha(); }} />
       )}
 
-      <AuthButton label="Konto erstellen" loading={loading} onPress={() => { void handleRegister(); }} />
+      <AuthButton label={t('auth.register.submit')} loading={loading} onPress={() => { void handleRegister(); }} />
       <SocialSignInButtons captchaToken={captchaToken ?? undefined} onCaptchaUsed={resetCaptcha} />
     </AuthScaffold>
   );

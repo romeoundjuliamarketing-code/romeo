@@ -1,4 +1,40 @@
 const onboarding = {
+  welcome: 'Hey! Ich bin Sparris. Bevor du loslegst, stelle ich dir ein paar Fragen.',
+  steps: {
+    name: 'Wie heisst du?',
+    role: 'Bist du Schüler oder Coach?',
+    discipline: 'Welche Kampfsportarten trainierst du?',
+    experience: 'Wie lange trainierst du schon aktiv?',
+    gender: 'Bist du männlich, weiblich oder divers?',
+    age: 'Wie alt bist du?',
+    weight: 'Wie viel wiegst du aktuell?',
+    frequency: 'Wie oft trainierst du pro Woche?',
+    invitecode: 'Bist du Teil eines Studios? Gib deinen Einladungscode ein.',
+  },
+  start: 'Los geht\'s',
+  errorSave: 'Speichern fehlgeschlagen. Bitte versuche es nochmal.',
+  errorInvite: 'Ungültiger Code. Bitte prüfe den Code und versuche es erneut.',
+  nameLabel: 'Dein Name',
+  nameError: 'Bitte gib deinen echten Namen ein',
+  roleStudent: 'Schüler',
+  roleCoach: 'Coach',
+  genderMale: 'Männlich',
+  genderFemale: 'Weiblich',
+  genderOther: 'Divers',
+  ageUnit: 'Jahre',
+  inviteSkip: 'Kein Code vorhanden',
+  weightSkip: 'Lieber nicht angeben',
+  experience: {
+    under_1_year: { label: 'Einsteiger', sub: 'Weniger als 1 Jahr' },
+    '1_3_years': { label: 'Fortgeschritten', sub: '1 bis 3 Jahre' },
+    '3_5_years': { label: 'Erfahren', sub: '3 bis 5 Jahre' },
+    over_5_years: { label: 'Veteran', sub: 'Mehr als 5 Jahre' },
+  },
+  frequency: {
+    low: { label: 'ca. 3x pro Woche', sub: 'Moderat aktiv' },
+    medium: { label: 'ca. 5x pro Woche', sub: 'Sehr aktiv' },
+    high: { label: 'ca. 10x pro Woche', sub: '2x täglich' },
+  },
 } as const;
 
 export default onboarding;

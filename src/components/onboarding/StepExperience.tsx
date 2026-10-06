@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export default function StepExperience({ value, onChange }: Props) {
+  // Subscribes to language changes; option labels are translated on read.
+  useTranslation();
   return (
     <View style={styles.container}>
       {OPTIONS.map((opt) => {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -7,14 +8,14 @@ export type Gender = 'male' | 'female' | 'other';
 
 interface Option {
   value: Gender;
-  label: string;
+  labelKey: 'onboarding.genderMale' | 'onboarding.genderFemale' | 'onboarding.genderOther';
   icon: keyof typeof Ionicons.glyphMap;
 }
 
 const OPTIONS: Option[] = [
-  { value: 'male',   label: 'Männlich', icon: 'male-outline'   },
-  { value: 'female', label: 'Weiblich', icon: 'female-outline' },
-  { value: 'other',  label: 'Divers',   icon: 'person-outline' },
+  { value: 'male',   labelKey: 'onboarding.genderMale', icon: 'male-outline'   },
+  { value: 'female', labelKey: 'onboarding.genderFemale', icon: 'female-outline' },
+  { value: 'other',  labelKey: 'onboarding.genderOther', icon: 'person-outline' },
 ];
 
 interface Props {
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function StepGender({ value, onChange }: Props) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       {OPTIONS.map((opt) => {
@@ -40,7 +42,7 @@ export default function StepGender({ value, onChange }: Props) {
               color={active ? '#FFFFFF' : colors.text}
             />
             <Text style={[styles.label, active && styles.labelActive]}>
-              {opt.label}
+              {t(opt.labelKey)}
             </Text>
             {active && (
               <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />

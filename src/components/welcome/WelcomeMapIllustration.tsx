@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
@@ -18,6 +19,7 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 // Slide 1: a stylised, static map (no live map, no location) with two sparring
 // markers in the style of the real map pins and an example sparring card.
 export default function WelcomeMapIllustration({ width, height, active }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const progress = useSlideEntrance(active);
 
   const cardStyle = useAnimatedStyle(() => ({
@@ -51,9 +53,9 @@ export default function WelcomeMapIllustration({ width, height, active }: Props)
           <Ionicons name="hand-left" size={18} color={colors.card} />
         </View>
         <View style={styles.cardBody}>
-          <Text style={styles.cardCaption}>Beispiel</Text>
-          <Text style={styles.cardTitle} numberOfLines={1}>Offenes Sparring</Text>
-          <Text style={styles.cardMeta} numberOfLines={1}>Boxen · Samstag, 18:00</Text>
+          <Text style={styles.cardCaption}>{t('auth.welcome.illustration.example')}</Text>
+          <Text style={styles.cardTitle} numberOfLines={1}>{t('auth.welcome.illustration.openSparring')}</Text>
+          <Text style={styles.cardMeta} numberOfLines={1}>{t('auth.welcome.illustration.sparringMeta')}</Text>
         </View>
         <View style={styles.cardAction}>
           <Ionicons name="chevron-forward" size={16} color={colors.card} />

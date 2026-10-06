@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export default function StepName({ value, onChange }: Props) {
+  const { t } = useTranslation();
   // Show error only after user has typed something
   const hasInput   = value.trim().length > 0;
   const showError  = hasInput && !isValidName(value);
@@ -37,7 +39,7 @@ export default function StepName({ value, onChange }: Props) {
         style={[styles.input, showError && styles.inputError]}
         value={value}
         onChangeText={onChange}
-        placeholder="Dein Name"
+        placeholder={t('onboarding.nameLabel')}
         placeholderTextColor={colors.textSecondary}
         autoFocus
         autoCapitalize="words"
@@ -46,7 +48,7 @@ export default function StepName({ value, onChange }: Props) {
       />
       {showError && (
         <Text style={styles.errorText}>
-          Bitte gib deinen echten Namen ein
+          {t('onboarding.nameError')}
         </Text>
       )}
     </View>

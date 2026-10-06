@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function StepInviteCode({ value, onChange, onSkip }: Props) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <TextInput
@@ -23,7 +25,7 @@ export default function StepInviteCode({ value, onChange, onSkip }: Props) {
         returnKeyType="done"
       />
       <TouchableOpacity onPress={onSkip} activeOpacity={0.7} style={styles.skipBtn}>
-        <Text style={styles.skipText}>Kein Code vorhanden</Text>
+        <Text style={styles.skipText}>{t('onboarding.inviteSkip')}</Text>
       </TouchableOpacity>
     </View>
   );

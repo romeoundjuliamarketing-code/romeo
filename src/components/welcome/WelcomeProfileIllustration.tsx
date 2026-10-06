@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 // area, name band, discipline badges, a few facts, solid offset shadow).
 // Clearly an example: placeholder avatar and name, no verification, no numbers.
 export default function WelcomeProfileIllustration({ width, height, active }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const progress = useSlideEntrance(active);
   const cardWidth = Math.round(Math.min(width * 0.72, 264));
 
@@ -38,11 +40,11 @@ export default function WelcomeProfileIllustration({ width, height, active }: Pr
               <Ionicons name="person" size={32} color={colors.dark} />
             </View>
             <View style={styles.exampleChip}>
-              <Text style={styles.exampleText} maxFontSizeMultiplier={1.2}>Beispiel</Text>
+              <Text style={styles.exampleText} maxFontSizeMultiplier={1.2}>{t('auth.welcome.illustration.example')}</Text>
             </View>
           </View>
           <View style={styles.content}>
-            <Text style={styles.name} maxFontSizeMultiplier={1.2} numberOfLines={1}>Dein Name</Text>
+            <Text style={styles.name} maxFontSizeMultiplier={1.2} numberOfLines={1}>{t('auth.welcome.illustration.yourName')}</Text>
             <Animated.View style={[styles.badges, badgeStyle]}>
               <View style={[styles.badge, styles.badgeDark]}>
                 <Text style={[styles.badgeText, styles.badgeTextLight]} maxFontSizeMultiplier={1.2}>Boxen</Text>
@@ -51,8 +53,8 @@ export default function WelcomeProfileIllustration({ width, height, active }: Pr
                 <Text style={[styles.badgeText, styles.badgeTextBlue]} maxFontSizeMultiplier={1.2}>Muay Thai</Text>
               </View>
             </Animated.View>
-            <Fact icon="trophy-outline" label="Erfahrung" value="Fortgeschritten" />
-            <Fact icon="barbell-outline" label="Gym" value="Dein Gym" />
+            <Fact icon="trophy-outline" label={t('auth.welcome.illustration.experience')} value={t('auth.welcome.illustration.experienceValue')} />
+            <Fact icon="barbell-outline" label={t('auth.welcome.illustration.gym')} value={t('auth.welcome.illustration.gymValue')} />
           </View>
         </View>
       </Animated.View>

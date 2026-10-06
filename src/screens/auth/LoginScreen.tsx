@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,6 +18,7 @@ import LoginButton from '../../components/auth/LoginButton';
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen() {
+  const { t } = useTranslation();
   const { signIn } = useAuth();
   const navigation = useNavigation<Nav>();
   const passwordRef = useRef<TextInput>(null);
@@ -37,8 +39,8 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     const missingEmail = !email.trim();
     const missingPassword = !password;
-    setEmailError(missingEmail ? 'Bitte gib deine E-Mail-Adresse ein.' : null);
-    setPasswordError(missingPassword ? 'Bitte gib dein Passwort ein.' : null);
+    setEmailError(missingEmail ? t('auth.login.errorEmailMissing') : null);
+    setPasswordError(missingPassword ? t('auth.login.errorPasswordMissing') : null);
     setFormError(null);
     if (missingEmail || missingPassword) return;
     if (signingIn.current) return;
@@ -51,7 +53,7 @@ export default function LoginScreen() {
     signingIn.current = false;
     setLoading(false);
     if (authError) {
-      setFormError('E-Mail oder Passwort falsch.');
+      setFormError(t('auth.login.errorInvalid'));
       resetCaptcha();
     }
     // On success, session change in AuthContext triggers navigation automatically
@@ -62,7 +64,7 @@ export default function LoginScreen() {
   // account exists.
   const handleForgotPassword = async () => {
     if (!email.trim()) {
-      setEmailError('Gib deine E-Mail-Adresse ein, dann schicken wir dir einen Link.');
+      setEmailError(t('auth.login.errorEmailForReset'));
       return;
     }
     setEmailError(null);
@@ -72,7 +74,7 @@ export default function LoginScreen() {
     setResetSending(false);
     resetCaptcha();
     if (error !== null) {
-      setFormError('Der Link konnte gerade nicht gesendet werden. Bitte versuche es gleich noch einmal.');
+      setFormError(t('auth.login.errorResetFailed'));
       return;
     }
     setResetSent(true);
@@ -80,18 +82,18 @@ export default function LoginScreen() {
 
   return (
     <LoginScaffold
-      titleLead="Bereit für die"
-      titleAccent="nächste Runde?"
-      subtitle="Melde dich an und finde dein nächstes Sparring."
+      titleLead={t('auth.login.titleLead')}
+      titleAccent={t('auth.login.titleAccent')}
+      subtitle={t('auth.login.subtitle')}
     >
       <AuthTextField
         variant="warm"
-        label="E-Mail"
+        label={t('auth.login.emailLabel')}
         icon="mail-outline"
         value={email}
         onChangeText={(v) => { setEmail(v); setEmailError(null); setResetSent(false); }}
         error={emailError}
-        placeholder="deine@email.de"
+        placeholder={t('auth.login.emailPlaceholder')}
         autoCapitalize="none"
         keyboardType="email-address"
         autoComplete="email"
@@ -105,13 +107,13 @@ export default function LoginScreen() {
         <AuthTextField
           variant="warm"
           inputRef={passwordRef}
-          label="Passwort"
+          label={t('auth.login.passwordLabel')}
           icon="lock-closed-outline"
           isPassword
           value={password}
           onChangeText={(v) => { setPassword(v); setPasswordError(null); }}
           error={passwordError}
-          placeholder="Dein Passwort"
+          placeholder={t('auth.login.passwordPlaceholder')}
           autoComplete="password"
           textContentType="password"
           returnKeyType="go"
@@ -126,14 +128,14 @@ export default function LoginScreen() {
         >
           {resetSending
             ? <ActivityIndicator size="small" color={colors.accentBlueText} />
-            : <Text style={styles.forgotText}>Passwort vergessen?</Text>}
+            : <Text style={styles.forgotText}>{t('auth.login.forgotPassword')}</Text>}
         </TouchableOpacity>
       </View>
 
       {resetSent && (
         <LoginNotice
           tone="info"
-          text={`Falls ein Konto zu ${email.trim()} existiert, haben wir dir einen Link zum Zurücksetzen geschickt.`}
+          text={t('auth.login.resetSent', { email: email.trim() })}
         />
       )}
       {formError !== null && <LoginNotice tone="error" text={formError} />}
@@ -148,13 +150,13 @@ export default function LoginScreen() {
         onError={() => { setCaptchaError(true); setCaptchaToken(null); }}
       />
       {captchaError && (
-        <AuthCaptchaNotice actionLabel="anmelden" onRetry={() => { setCaptchaError(false); resetCaptcha(); }} />
+        <AuthCaptchaNotice actionLabel={t('auth.login.captchaAction')} onRetry={() => { setCaptchaError(false); resetCaptcha(); }} />
       )}
 
       <View style={styles.actions}>
-        <LoginButton label="Anmelden" loading={loading} onPress={() => { void handleLogin(); }} />
+        <LoginButton label={t('auth.login.submit')} loading={loading} onPress={() => { void handleLogin(); }} />
         <SocialSignInButtons captchaToken={captchaToken ?? undefined} onCaptchaUsed={resetCaptcha} />
-        <LoginSwitch text="Neu bei Sparr?" link="Registrieren" onPress={() => navigation.navigate('Register')} />
+        <LoginSwitch text={t('auth.login.newHere')} link={t('auth.login.register')} onPress={() => navigation.navigate('Register')} />
       </View>
     </LoginScaffold>
   );

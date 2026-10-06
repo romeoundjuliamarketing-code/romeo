@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -28,6 +29,7 @@ interface ScaffoldProps {
 // rounded top corners. Scrolls and avoids the keyboard; safe areas are applied
 // manually because the hero draws under the status bar.
 export default function AuthScaffold({ title, subtitle, onBack, children, footer }: ScaffoldProps): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   return (
@@ -59,7 +61,7 @@ export default function AuthScaffold({ title, subtitle, onBack, children, footer
                   onPress={onBack}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityRole="button"
-                  accessibilityLabel="Zurück"
+                  accessibilityLabel={t('auth.common.goBack')}
                 >
                   <Ionicons name="arrow-back" size={20} color={colors.card} />
                 </TouchableOpacity>
@@ -128,11 +130,12 @@ export function AuthNotice({ text, tone }: { text: string; tone: 'error' | 'info
 
 // Shown when the Cloudflare check could not load; the action still works.
 export function AuthCaptchaNotice({ actionLabel, onRetry }: { actionLabel: string; onRetry: () => void }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.captchaRow}>
-      <Text style={styles.captchaText}>Sicherheitsprüfung nicht verfügbar. Du kannst dich trotzdem {actionLabel}.</Text>
+      <Text style={styles.captchaText}>{t('auth.common.captchaUnavailable', { action: actionLabel })}</Text>
       <TouchableOpacity onPress={onRetry} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button">
-        <Text style={styles.captchaRetry}>Erneut versuchen</Text>
+        <Text style={styles.captchaRetry}>{t('auth.common.retry')}</Text>
       </TouchableOpacity>
     </View>
   );

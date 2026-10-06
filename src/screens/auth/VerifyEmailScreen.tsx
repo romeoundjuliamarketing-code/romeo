@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator,
@@ -16,6 +17,7 @@ type Nav = NativeStackNavigationProp<AuthStackParamList, 'VerifyEmail'>;
 type Rt = RouteProp<AuthStackParamList, 'VerifyEmail'>;
 
 export default function VerifyEmailScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Rt>();
   const { email } = route.params;
@@ -27,7 +29,7 @@ export default function VerifyEmailScreen() {
 
   const handleVerify = async () => {
     if (code.trim().length !== 6) {
-      setError('Bitte gib den 6-stelligen Code ein.');
+      setError(t('auth.verify.errorCodeLength'));
       return;
     }
     setError(null);
@@ -39,7 +41,7 @@ export default function VerifyEmailScreen() {
     });
     setLoading(false);
     if (otpError) {
-      setError('Code ungültig oder abgelaufen. Bitte erneut versuchen.');
+      setError(t('auth.verify.errorInvalid'));
     }
     // On success the auth state listener establishes the session and navigates onward.
   };
@@ -48,7 +50,7 @@ export default function VerifyEmailScreen() {
     setError(null);
     const { error: resendError } = await supabase.auth.resend({ type: 'signup', email });
     if (resendError) {
-      setError('Code konnte nicht erneut gesendet werden. Bitte kurz warten.');
+      setError(t('auth.verify.errorResend'));
     } else {
       setResent(true);
     }
@@ -61,13 +63,13 @@ export default function VerifyEmailScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={22} color={colors.headerTextPrimary} />
           </TouchableOpacity>
-          <Text style={styles.title}>E-Mail bestätigen</Text>
-          <Text style={styles.subtitle}>Wir haben einen 6-stelligen Code an {email} geschickt.</Text>
+          <Text style={styles.title}>{t('auth.verify.title')}</Text>
+          <Text style={styles.subtitle}>{t('auth.verify.subtitle', { email })}</Text>
         </View>
 
         <View style={styles.card}>
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Bestätigungscode</Text>
+            <Text style={styles.label}>{t('auth.verify.codeLabel')}</Text>
             <View style={styles.inputRow}>
               <Ionicons name="shield-checkmark-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
               <TextInput
@@ -98,11 +100,11 @@ export default function VerifyEmailScreen() {
           >
             {loading
               ? <ActivityIndicator color={colors.headerTextPrimary} />
-              : <Text style={styles.buttonText}>Bestätigen</Text>}
+              : <Text style={styles.buttonText}>{t('auth.verify.submit')}</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleResend} style={styles.resendButton}>
-            <Text style={styles.resendText}>{resent ? 'Code erneut gesendet' : 'Code erneut senden'}</Text>
+            <Text style={styles.resendText}>{resent ? t('auth.verify.resent') : t('auth.verify.resend')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

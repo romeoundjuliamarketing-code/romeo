@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -7,13 +8,13 @@ export type Role = 'student' | 'coach';
 
 interface Option {
   value: Role;
-  label: string;
+  labelKey: 'onboarding.roleStudent' | 'onboarding.roleCoach';
   icon: keyof typeof Ionicons.glyphMap;
 }
 
 const OPTIONS: Option[] = [
-  { value: 'student', label: 'Schüler', icon: 'school-outline' },
-  { value: 'coach',   label: 'Coach',   icon: 'ribbon-outline' },
+  { value: 'student', labelKey: 'onboarding.roleStudent', icon: 'school-outline' },
+  { value: 'coach',   labelKey: 'onboarding.roleCoach', icon: 'ribbon-outline' },
 ];
 
 interface Props {
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export default function StepRole({ value, onChange }: Props) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       {OPTIONS.map((opt) => {
@@ -39,7 +41,7 @@ export default function StepRole({ value, onChange }: Props) {
               color={active ? colors.card : colors.text}
             />
             <Text style={[styles.label, active && styles.labelActive]}>
-              {opt.label}
+              {t(opt.labelKey)}
             </Text>
             {active && (
               <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import type { SharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ interface Props {
 export default function WelcomeFooter({
   count, index, scrollX, pageWidth, onBack, onNext, onRegister, onLogin,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const isLast = index === count - 1;
 
   return (
@@ -34,20 +36,20 @@ export default function WelcomeFooter({
             style={styles.backBtn}
             onPress={onBack}
             accessibilityRole="button"
-            accessibilityLabel="Zurück"
+            accessibilityLabel={t('auth.welcome.back')}
           >
             <Ionicons name="arrow-back" size={24} color={colors.text} />
           </TouchableOpacity>
         )}
         <View style={styles.primary}>
           <LoginButton
-            label={isLast ? 'Konto erstellen' : 'Weiter'}
+            label={isLast ? t('auth.welcome.createAccount') : t('auth.welcome.next')}
             loading={false}
             onPress={isLast ? onRegister : onNext}
           />
         </View>
       </View>
-      <LoginSwitch text="Schon dabei?" link="Anmelden" onPress={onLogin} />
+      <LoginSwitch text={t('auth.welcome.alreadyHere')} link={t('auth.welcome.login')} onPress={onLogin} />
     </View>
   );
 }

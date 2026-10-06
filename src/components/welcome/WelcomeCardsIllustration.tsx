@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { colors } from '../../theme/colors';
@@ -17,6 +18,7 @@ interface Props {
 // the challenge texts are not final yet. The front card slides forward and
 // straightens up when the slide becomes active.
 export default function WelcomeCardsIllustration({ width, height, active }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const progress = useSlideEntrance(active);
 
   const cardWidth = Math.round(Math.min(width * 0.5, (height - 48) * CARD_ASPECT, 180));
@@ -43,7 +45,7 @@ export default function WelcomeCardsIllustration({ width, height, active }: Prop
       <Animated.View style={[styles.front, size, frontStyle]}>
         <View style={styles.band}>
           <SparrLogo size={24} />
-          <Text style={styles.bandText} maxFontSizeMultiplier={1.2} numberOfLines={1}>Beispielkarte</Text>
+          <Text style={styles.bandText} maxFontSizeMultiplier={1.2} numberOfLines={1}>{t('auth.welcome.illustration.exampleCard')}</Text>
         </View>
         <View style={styles.body}>
           <View style={styles.levelRow}>

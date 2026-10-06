@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -56,7 +57,7 @@ type StepId = 'name' | 'role' | 'discipline' | 'experience' | 'gender' | 'age' |
 interface StepConfig {
   id: StepId;
   mascotImage: keyof typeof MASCOT;
-  bubbleText: string;
+  bubbleText: `onboarding.steps.${StepId}`;
   canSkip?: boolean;
   coachOnly?: boolean;
 }
@@ -65,56 +66,56 @@ const ALL_STEPS: StepConfig[] = [
   {
     id: 'name',
     mascotImage: 'neugierig',
-    bubbleText: 'Wie heisst du?',
+    bubbleText: 'onboarding.steps.name',
   },
   {
     id: 'role',
     mascotImage: 'fragend',
-    bubbleText: 'Bist du Schüler oder Coach?',
+    bubbleText: 'onboarding.steps.role',
   },
   {
     id: 'discipline',
     mascotImage: 'imperativ',
-    bubbleText: 'Welche Kampfsportarten trainierst du?',
+    bubbleText: 'onboarding.steps.discipline',
   },
   {
     id: 'experience',
     mascotImage: 'sprechend3',
-    bubbleText: 'Wie lange trainierst du schon aktiv?',
+    bubbleText: 'onboarding.steps.experience',
   },
   {
     id: 'gender',
     mascotImage: 'fragend',
-    bubbleText: 'Bist du männlich, weiblich oder divers?',
+    bubbleText: 'onboarding.steps.gender',
   },
   {
     id: 'age',
     mascotImage: 'sprechend1',
-    bubbleText: 'Wie alt bist du?',
+    bubbleText: 'onboarding.steps.age',
   },
   {
     id: 'weight',
     mascotImage: 'sprechend2',
-    bubbleText: 'Wie viel wiegst du aktuell?',
+    bubbleText: 'onboarding.steps.weight',
     canSkip: true,
   },
   {
     id: 'frequency',
     mascotImage: 'sprechend1b',
-    bubbleText: 'Wie oft trainierst du pro Woche?',
+    bubbleText: 'onboarding.steps.frequency',
   },
   {
     id: 'invitecode',
     mascotImage: 'winken',
-    bubbleText: 'Bist du Teil eines Studios? Gib deinen Einladungscode ein.',
+    bubbleText: 'onboarding.steps.invitecode',
     canSkip: true,
   },
 ];
 
 const WELCOME_MASCOT: keyof typeof MASCOT = 'winken';
-const WELCOME_TEXT = 'Hey! Ich bin Sparris. Bevor du loslegst, stelle ich dir ein paar Fragen.';
 
 export default function OnboardingScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { acceptInvite } = useStudioInvite();
@@ -183,7 +184,7 @@ export default function OnboardingScreen() {
   const isWelcome   = stepIndex === -1;
   const currentStep = isWelcome ? null : STEPS[stepIndex];
   const mascotKey   = isWelcome ? WELCOME_MASCOT : currentStep!.mascotImage;
-  const bubbleText  = isWelcome ? WELCOME_TEXT   : currentStep!.bubbleText;
+  const bubbleText  = isWelcome ? t('onboarding.welcome') : t(currentStep!.bubbleText);
   const animationKey = stepIndex;
 
   const canContinue = (): boolean => {
@@ -237,7 +238,7 @@ export default function OnboardingScreen() {
 
     if (profileErr) {
       setSaving(false);
-      setError('Speichern fehlgeschlagen. Bitte versuche es nochmal.');
+      setError(t('onboarding.errorSave'));
       return;
     }
 
@@ -275,7 +276,7 @@ export default function OnboardingScreen() {
         const { error: inviteErr, studioId } = await acceptInvite(inviteCode.trim());
         if (inviteErr !== null) {
           setSaving(false);
-          setError('Ungültiger Code. Bitte prüfe den Code und versuche es erneut.');
+          setError(t('onboarding.errorInvite'));
           return;
         }
         if (studioId !== null) await requestJoin(studioId);
@@ -309,10 +310,10 @@ export default function OnboardingScreen() {
   const progress = isWelcome ? 0 : (stepIndex + 1) / STEPS.length;
 
   const buttonLabel = isWelcome
-    ? 'Los geht\'s'
+    ? t('onboarding.start')
     : stepIndex === STEPS.length - 1
-    ? 'Fertig'
-    : 'Weiter';
+    ? t('common.done')
+    : t('common.next');
 
   return (
     <KeyboardAvoidingView

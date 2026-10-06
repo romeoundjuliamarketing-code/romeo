@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function StepAge({ value, onChange }: Props) {
+  const { t } = useTranslation();
   const scrollRef = useRef<ScrollView>(null);
 
   const handleSelect = (age: number) => {
@@ -56,7 +58,7 @@ export default function StepAge({ value, onChange }: Props) {
           );
         })}
       </ScrollView>
-      <Text style={styles.unit}>Jahre</Text>
+      <Text style={styles.unit}>{t('onboarding.ageUnit')}</Text>
     </View>
   );
 }

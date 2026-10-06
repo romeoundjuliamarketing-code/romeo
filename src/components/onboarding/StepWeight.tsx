@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export default function StepWeight({ value, onChange, onSkip }: Props) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <View style={styles.inputRow}>
@@ -36,7 +38,7 @@ export default function StepWeight({ value, onChange, onSkip }: Props) {
       </View>
 
       <TouchableOpacity onPress={onSkip} activeOpacity={0.7} style={styles.skipBtn}>
-        <Text style={styles.skipText}>Lieber nicht angeben</Text>
+        <Text style={styles.skipText}>{t('onboarding.weightSkip')}</Text>
       </TouchableOpacity>
     </View>
   );

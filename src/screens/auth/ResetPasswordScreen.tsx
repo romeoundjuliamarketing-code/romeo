@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -19,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -27,11 +29,11 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
 
   const handleSubmit = async (): Promise<void> => {
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Das Passwort muss mindestens ${MIN_PASSWORD_LENGTH} Zeichen lang sein.`);
+      setError(t('auth.reset.errorTooShort', { count: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (password !== confirm) {
-      setError('Die Passwörter stimmen nicht überein.');
+      setError(t('auth.reset.errorMismatch'));
       return;
     }
     setError(null);
@@ -40,14 +42,14 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
     setLoading(false);
 
     if (updateError !== null) {
-      setError('Passwort konnte nicht geändert werden. Bitte fordere einen neuen Link an.');
+      setError(t('auth.reset.errorFailed'));
       return;
     }
 
     Alert.alert(
-      'Passwort geändert',
-      'Dein Passwort wurde erfolgreich aktualisiert.',
-      [{ text: 'OK', onPress: onDone }],
+      t('auth.reset.successTitle'),
+      t('auth.reset.successMessage'),
+      [{ text: t('common.ok'), onPress: onDone }],
     );
   };
 
@@ -62,7 +64,7 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
           {/* Dark header */}
           <View style={styles.header}>
             <Text style={styles.appName}>Sparr</Text>
-            <Text style={styles.headerSubtitle}>Neues Passwort festlegen</Text>
+            <Text style={styles.headerSubtitle}>{t('auth.reset.subtitle')}</Text>
           </View>
 
           {/* Form card */}
@@ -70,14 +72,14 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
 
             {/* Neues Passwort */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Neues Passwort</Text>
+              <Text style={styles.label}>{t('auth.reset.newPasswordLabel')}</Text>
               <View style={styles.inputRow}>
                 <Ionicons name="lock-closed-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Mindestens 8 Zeichen"
+                  placeholder={t('auth.reset.newPasswordPlaceholder')}
                   placeholderTextColor={colors.inactive}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
@@ -95,14 +97,14 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
 
             {/* Bestätigen */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Passwort bestätigen</Text>
+              <Text style={styles.label}>{t('auth.reset.confirmLabel')}</Text>
               <View style={styles.inputRow}>
                 <Ionicons name="lock-closed-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={confirm}
                   onChangeText={setConfirm}
-                  placeholder="Passwort wiederholen"
+                  placeholder={t('auth.reset.confirmPlaceholder')}
                   placeholderTextColor={colors.inactive}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
@@ -127,7 +129,7 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
             >
               {loading
                 ? <ActivityIndicator color={colors.headerTextPrimary} />
-                : <Text style={styles.buttonText}>Passwort speichern</Text>
+                : <Text style={styles.buttonText}>{t('auth.reset.submit')}</Text>
               }
             </TouchableOpacity>
 

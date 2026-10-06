@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { colors } from '../../theme/colors';
@@ -21,6 +22,7 @@ const BUTTON_HEIGHT = 48;
 // available (e.g. a build without the native modules or no client IDs yet).
 // On success the session change in AuthContext navigates, like the email login.
 export default function SocialSignInButtons({ captchaToken, onCaptchaUsed }: Props) {
+  const { t } = useTranslation();
   const [appleAvailable, setAppleAvailable] = useState(false);
   const googleAvailable = isGoogleSignInAvailable();
   const [busy, setBusy] = useState<'apple' | 'google' | null>(null);
@@ -55,7 +57,7 @@ export default function SocialSignInButtons({ captchaToken, onCaptchaUsed }: Pro
     <View style={styles.wrap}>
       <View style={styles.dividerRow} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>oder</Text>
+        <Text style={styles.dividerText}>{t('auth.social.or')}</Text>
         <View style={styles.dividerLine} />
       </View>
 
@@ -78,7 +80,7 @@ export default function SocialSignInButtons({ captchaToken, onCaptchaUsed }: Pro
           disabled={busy !== null}
           activeOpacity={0.8}
           accessibilityRole="button"
-          accessibilityLabel="Mit Google fortfahren"
+          accessibilityLabel={t('auth.social.google')}
           accessibilityState={{ busy: busy === 'google', disabled: busy !== null }}
         >
           {busy === 'google' ? (
@@ -92,7 +94,7 @@ export default function SocialSignInButtons({ captchaToken, onCaptchaUsed }: Pro
                 style={styles.googleLogo}
                 accessible={false}
               />
-              <Text style={styles.googleText}>Mit Google fortfahren</Text>
+              <Text style={styles.googleText}>{t('auth.social.google')}</Text>
             </>
           )}
         </TouchableOpacity>

@@ -2,6 +2,8 @@
 // onboarding steps render these options and the athlete profile shows the
 // same wording (src/utils/athleteProfile.ts).
 
+import i18n from '../i18n';
+
 export type TrainingSince = 'under_1_year' | '1_3_years' | '3_5_years' | 'over_5_years';
 export type FrequencyTier = 'low' | 'medium' | 'high';
 
@@ -11,15 +13,24 @@ export interface ProfileOption<T extends string> {
   sub:   string;
 }
 
+// label/sub are getters so the text is translated when read, not at module load.
+function option<T extends string>(value: T, keyPath: string): ProfileOption<T> {
+  return {
+    value,
+    get label(): string { return i18n.t(`onboarding.${keyPath}.label` as 'onboarding.experience.under_1_year.label'); },
+    get sub(): string { return i18n.t(`onboarding.${keyPath}.sub` as 'onboarding.experience.under_1_year.sub'); },
+  };
+}
+
 export const EXPERIENCE_OPTIONS: readonly ProfileOption<TrainingSince>[] = [
-  { value: 'under_1_year', label: 'Einsteiger',      sub: 'Weniger als 1 Jahr' },
-  { value: '1_3_years',    label: 'Fortgeschritten', sub: '1 bis 3 Jahre'      },
-  { value: '3_5_years',    label: 'Erfahren',        sub: '3 bis 5 Jahre'      },
-  { value: 'over_5_years', label: 'Veteran',         sub: 'Mehr als 5 Jahre'   },
+  option('under_1_year', 'experience.under_1_year'),
+  option('1_3_years', 'experience.1_3_years'),
+  option('3_5_years', 'experience.3_5_years'),
+  option('over_5_years', 'experience.over_5_years'),
 ];
 
 export const FREQUENCY_OPTIONS: readonly ProfileOption<FrequencyTier>[] = [
-  { value: 'low',    label: 'ca. 3x pro Woche',  sub: 'Moderat aktiv' },
-  { value: 'medium', label: 'ca. 5x pro Woche',  sub: 'Sehr aktiv'    },
-  { value: 'high',   label: 'ca. 10x pro Woche', sub: '2x täglich'    },
+  option('low', 'frequency.low'),
+  option('medium', 'frequency.medium'),
+  option('high', 'frequency.high'),
 ];
