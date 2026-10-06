@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { GeoPoint } from '../utils/mapStartRegion';
+import i18n from '../i18n';
 
 // Shared search location for "sparrings near me" (Home card, map, list).
 // Either the device position or a place the user picked by hand. The manual
@@ -44,7 +45,7 @@ async function readManual(): Promise<SearchLocation | null> {
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as { lat?: unknown; lng?: unknown; label?: unknown };
     if (typeof parsed.lat !== 'number' || typeof parsed.lng !== 'number') return null;
-    const label = typeof parsed.label === 'string' && parsed.label.length > 0 ? parsed.label : 'Gewählter Ort';
+    const label = typeof parsed.label === 'string' && parsed.label.length > 0 ? parsed.label : i18n.t('sparring.searchLocation.picked');
     return { lat: parsed.lat, lng: parsed.lng, label, source: 'manual' };
   } catch {
     return null;
@@ -59,7 +60,7 @@ async function readDevice(askPermission: boolean): Promise<SearchLocation | null
     if (status !== 'granted') return null;
     const last = await Location.getLastKnownPositionAsync({ maxAge: LAST_KNOWN_MAX_AGE_MS });
     const pos = last ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    return { lat: pos.coords.latitude, lng: pos.coords.longitude, label: 'Dein Standort', source: 'device' };
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude, label: i18n.t('sparring.searchLocation.device'), source: 'device' };
   } catch {
     // Location services off or no fix.
     return null;

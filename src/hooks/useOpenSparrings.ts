@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
 import type { SparringSignupStatus } from '../types/database.types';
+import i18n from '../i18n';
 
 export interface SparringWithMeta {
   id: string;
@@ -101,7 +102,7 @@ function mapSparringRow(row: OpenSparringRow, meta: RowMeta): SparringWithMeta {
     edited_at: row.edited_at ?? null,
     gym_id: row.gym_id ?? null,
     access_note: row.access_note ?? null,
-    studio_name: meta.studio?.name ?? 'Privat',
+    studio_name: meta.studio?.name ?? i18n.t('sparring.private'),
     studio_city: meta.studio?.city ?? '',
     signup_count: meta.signupCount,
     confirmed_count: meta.confirmedCount,

@@ -19,6 +19,7 @@ import {
   SPARRING_RULES_INTRO,
   SPARRING_RULES_VERSION,
 } from '../../data/sparringRules';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   visible: boolean;
@@ -40,6 +41,7 @@ export default function SparringRulesConsentSheet({
   onClose,
   onConfirm,
 }: Props): React.ReactElement | null {
+  const { t } = useTranslation();
   const [accepted, setAccepted] = useState(false);
   // Full rules text shown as an overlay on top of this sheet. Navigating to the
   // SparringRules screen would land behind the open Modals and stay invisible.
@@ -102,7 +104,7 @@ export default function SparringRulesConsentSheet({
             <Ionicons name="close" size={22} color={colors.textSecondary} />
           </TouchableOpacity>
 
-          <Text style={styles.title}>Bevor du teilnimmst</Text>
+          <Text style={styles.title}>{t('sparring.consent.title')}</Text>
           {sparringTitle !== null && (
             <Text style={styles.subtitle}>{sparringTitle}</Text>
           )}
@@ -122,7 +124,7 @@ export default function SparringRulesConsentSheet({
               <Text style={styles.introBody}>{SPARRING_RULES_INTRO.paragraphs[0]}</Text>
             </View>
 
-            <Text style={styles.listIntro}>Mit deiner Zusage bestätigst du:</Text>
+            <Text style={styles.listIntro}>{t('sparring.consent.listIntro')}</Text>
 
             {SPARRING_CONSENT_ITEMS.map((item) => (
               <View key={item} style={styles.item}>
@@ -141,7 +143,7 @@ export default function SparringRulesConsentSheet({
               onPress={() => setRulesOpen(true)}
             >
               <Ionicons name="document-text-outline" size={16} color={colors.accentBlue} />
-              <Text style={styles.rulesLinkText}>Alle Sparr-Grundregeln lesen</Text>
+              <Text style={styles.rulesLinkText}>{t('sparring.consent.readAll')}</Text>
             </TouchableOpacity>
           </ScrollView>
 
@@ -152,7 +154,7 @@ export default function SparringRulesConsentSheet({
               onPress={() => scrollRef.current?.scrollToEnd({ animated: true })}
             >
               <Ionicons name="arrow-down-circle" size={22} color={colors.accentBlue} />
-              <Text style={styles.scrollHintText}>Ganz nach unten</Text>
+              <Text style={styles.scrollHintText}>{t('sparring.consent.scrollDown')}</Text>
             </TouchableOpacity>
           )}
 
@@ -175,7 +177,7 @@ export default function SparringRulesConsentSheet({
           >
             {loading
               ? <ActivityIndicator color={colors.headerTextPrimary} />
-              : <Text style={styles.confirmBtnText}>Teilnahme bestätigen</Text>}
+              : <Text style={styles.confirmBtnText}>{t('sparring.consent.confirm')}</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -183,7 +185,7 @@ export default function SparringRulesConsentSheet({
       {rulesOpen && (
         <View style={[styles.rulesOverlay, { paddingTop: insets.top }]}>
           <View style={styles.rulesHeader}>
-            <Text style={styles.rulesHeaderTitle}>Sparr-Grundregeln</Text>
+            <Text style={styles.rulesHeaderTitle}>{t('sparring.consent.rulesTitle')}</Text>
             <TouchableOpacity
               style={styles.rulesCloseBtn}
               onPress={() => setRulesOpen(false)}

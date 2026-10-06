@@ -1,4 +1,50 @@
 const map = {
+  bottom: {
+    chatsUnread: 'Sparring-Chats, {{count}} ungelesen',
+    chats: 'Sparring-Chats',
+  },
+  mode: { sparrings: 'Sparrings', events: 'Events' },
+  timeFilter: { today: 'Heute', week: '7 Tage', later: 'Später' },
+  header: { title: 'Finde dein Sparring' },
+  preview: {
+    close: 'Vorschau schließen',
+    with: 'Mit {{name}}',
+    viewA11y: '{{title}} ansehen',
+    view: 'Ansehen',
+    widen: 'Umkreis erweitern',
+    closeNotice: 'Hinweis schließen',
+  },
+  search: {
+    viewMap: 'Karte',
+    viewList: 'Liste',
+    chooseLocation: 'Standort wählen',
+    areaA11y: 'Suchbereich: {{location}}, {{radius}}. Ändern',
+    everywhereLower: 'überall',
+    kilometers: '{{count}} Kilometer',
+    locationA11y: 'Suchort: {{location}}. Ändern',
+    location: 'Suchort',
+    change: 'Ändern',
+    radius: 'Umkreis',
+    searchEverywhere: 'Überall suchen',
+    radiusA11y: 'Umkreis {{count}} Kilometer',
+  },
+  list: {
+    pickPlace: 'Wähle einen Ort, um Sparrings in deiner Umgebung zu sehen.',
+    loadFailed: 'Sparrings konnten gerade nicht geladen werden.',
+    noneUpcoming: 'Aktuell keine kommenden Sparrings',
+    noneInRadius: 'Aktuell keine Sparrings im Umkreis von {{radius}} km',
+    offer: 'Sparring anbieten',
+    footnote: 'Entfernung in Luftlinie',
+    fullWaitlist: 'Voll · Warteliste',
+    onWaitlist: 'Auf der Warteliste',
+    rowA11y: '{{discipline}}, {{date}}, {{place}}, {{distance}} entfernt, {{slots}}',
+  },
+  picker: {
+    locating: 'Dein Standort wird ermittelt …',
+    title: 'Ort auf Karte wählen',
+    hint: 'Auf die Karte tippen, um einen Ort zu markieren',
+    confirm: 'Diesen Ort verwenden',
+  },
 } as const;
 
 export default map;

@@ -6,6 +6,7 @@ import { GYM_LIMITS } from '../../../utils/gymSearch';
 import { gymHasAddress, type DraftGym, type PlaceSource } from '../../../utils/sparringDraft';
 import { TextAction } from '../../common/TextAction';
 import { FieldError } from './FlowParts';
+import { useTranslation } from 'react-i18next';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -33,6 +34,7 @@ function PlaceSummary({ icon, label, name, address, onChange, changeLabel, onRem
   onRemove:    () => void;
   removeLabel: string;
 }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.summary}>
       <View style={styles.summaryIcon}>
@@ -46,7 +48,7 @@ function PlaceSummary({ icon, label, name, address, onChange, changeLabel, onRem
       <View style={styles.summaryActions}>
         {onChange !== undefined && (
           <TouchableOpacity onPress={onChange} style={styles.summaryBtn} accessibilityRole="button" accessibilityLabel={changeLabel}>
-            <Text style={styles.changeText}>Ändern</Text>
+            <Text style={styles.changeText}>{t('map.search.change')}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity onPress={onRemove} style={styles.summaryBtn} accessibilityRole="button" accessibilityLabel={removeLabel}>
@@ -79,12 +81,13 @@ function AddressField({ address, fromMap, onAddress, onOpenMap, onClear }: {
   address: string; fromMap: boolean;
   onAddress: (t: string) => void; onOpenMap: () => void; onClear: () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   if (fromMap) {
     return (
       <PlaceSummary
-        icon="location" label="Treffpunkt" name={address} address={null}
-        onChange={onOpenMap} changeLabel="Treffpunkt auf der Karte ändern"
-        onRemove={onClear} removeLabel="Treffpunkt entfernen"
+        icon="location" label={t('sparring.place.meetingPoint')} name={address} address={null}
+        onChange={onOpenMap} changeLabel={t('sparring.place.changeOnMap')}
+        onRemove={onClear} removeLabel={t('sparring.place.removeMeeting')}
       />
     );
   }
@@ -94,17 +97,17 @@ function AddressField({ address, fromMap, onAddress, onOpenMap, onClear }: {
         style={[styles.field, styles.addressInput]}
         value={address}
         onChangeText={onAddress}
-        placeholder="Straße, Hausnummer, Ort"
+        placeholder={t('sparring.place.addressPlaceholder')}
         placeholderTextColor={colors.textMuted}
         returnKeyType="done"
         blurOnSubmit
         autoCorrect={false}
         textContentType="fullStreetAddress"
-        accessibilityLabel="Adresse des Treffpunkts"
+        accessibilityLabel={t('sparring.place.addressA11y')}
       />
-      <TouchableOpacity style={styles.mapBtn} onPress={onOpenMap} accessibilityRole="button" accessibilityLabel="Treffpunkt auf der Karte wählen">
+      <TouchableOpacity style={styles.mapBtn} onPress={onOpenMap} accessibilityRole="button" accessibilityLabel={t('sparring.place.pickOnMap')}>
         <Ionicons name="map-outline" size={20} color={colors.accentBlueText} />
-        <Text style={styles.mapBtnText}>Karte</Text>
+        <Text style={styles.mapBtnText}>{t('map.search.viewMap')}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -121,17 +124,18 @@ function PlaceSection({ gym, source, address, hasCoord, accessNote, studioAddres
   error:         string | undefined;
   actions:       PlaceActions;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const [noteOpen, setNoteOpen] = useState(accessNote.length > 0);
 
   if (source === null) {
     return (
       <View>
         <View style={styles.choices}>
-          <ChoiceTile icon="business-outline" label="Gym wählen" hint="Ort ist ein Gym" onPress={actions.onPickGym} />
-          <ChoiceTile icon="search-outline" label="Adresse suchen" hint="Eigener Treffpunkt" onPress={actions.onSearchAddress} />
+          <ChoiceTile icon="business-outline" label={t('sparring.place.pickGym')} hint={t('sparring.place.pickGymHint')} onPress={actions.onPickGym} />
+          <ChoiceTile icon="search-outline" label={t('sparring.place.searchAddress')} hint={t('sparring.place.searchAddressHint')} onPress={actions.onSearchAddress} />
         </View>
         {studioAddress !== null && (
-          <TextAction label="Am Studio-Standort" icon="home-outline" onPress={actions.onUseStudio} />
+          <TextAction label={t('sparring.place.atStudio')} icon="home-outline" onPress={actions.onUseStudio} />
         )}
         <FieldError text={error} />
       </View>
@@ -142,8 +146,8 @@ function PlaceSection({ gym, source, address, hasCoord, accessNote, studioAddres
     return (
       <View>
         <PlaceSummary
-          icon="home" label="Studio-Standort" name="Dein Studio" address={address}
-          changeLabel="" onRemove={actions.onClearPlace} removeLabel="Ort entfernen"
+          icon="home" label={t('sparring.place.studioLocation')} name={t('sparring.preview.yourGym')} address={address}
+          changeLabel="" onRemove={actions.onClearPlace} removeLabel={t('sparring.place.removePlace')}
         />
         <FieldError text={error} />
       </View>
@@ -157,22 +161,22 @@ function PlaceSection({ gym, source, address, hasCoord, accessNote, studioAddres
     <View>
       {gym !== null && (
         <PlaceSummary
-          icon="business" label="Gym" name={gym.name}
+          icon="business" label={t('sparring.place.gym')} name={gym.name}
           address={source === 'gym' ? address : gym.city}
-          onChange={actions.onPickGym} changeLabel="Anderes Gym wählen"
-          onRemove={actions.onClearPlace} removeLabel="Gym entfernen"
+          onChange={actions.onPickGym} changeLabel={t('sparring.place.otherGym')}
+          onRemove={actions.onClearPlace} removeLabel={t('sparring.place.removeGym')}
         />
       )}
 
       {gymAddressMissing && (
         <Text style={styles.note}>
-          Für dieses Gym ist keine Adresse hinterlegt. Gib an, wo ihr euch trefft.
+          {t('sparring.place.gymNoAddress')}
         </Text>
       )}
 
       {source === 'custom' && (
         <View style={gym !== null ? styles.meetingBlock : undefined}>
-          {meetingDiffers && <Text style={styles.meetingLabel}>Treffpunkt</Text>}
+          {meetingDiffers && <Text style={styles.meetingLabel}>{t('sparring.place.meetingPoint')}</Text>}
           <AddressField
             address={address}
             fromMap={hasCoord && address.trim().length > 0}
@@ -181,10 +185,10 @@ function PlaceSection({ gym, source, address, hasCoord, accessNote, studioAddres
             onClear={actions.onClearAddress}
           />
           {gym === null && (
-            <TextAction label="Stattdessen Gym wählen" icon="business-outline" onPress={actions.onPickGym} />
+            <TextAction label={t('sparring.place.pickGymInstead')} icon="business-outline" onPress={actions.onPickGym} />
           )}
           {meetingDiffers && !gymAddressMissing && (
-            <TextAction label="Gym-Adresse als Treffpunkt" icon="arrow-undo-outline" onPress={actions.onUseGymAddress} />
+            <TextAction label={t('sparring.place.useGymAddress')} icon="arrow-undo-outline" onPress={actions.onUseGymAddress} />
           )}
         </View>
       )}
@@ -192,28 +196,28 @@ function PlaceSection({ gym, source, address, hasCoord, accessNote, studioAddres
       <FieldError text={error} />
 
       {source === 'gym' && (
-        <TextAction label="Treffpunkt weicht vom Gym ab" icon="navigate-outline" onPress={actions.onCustomMeeting} />
+        <TextAction label={t('sparring.place.customMeeting')} icon="navigate-outline" onPress={actions.onCustomMeeting} />
       )}
 
       {gym !== null && (
         noteOpen ? (
           <View style={styles.meetingBlock}>
-            <Text style={styles.meetingLabel}>Zugang zum Gym</Text>
+            <Text style={styles.meetingLabel}>{t('sparring.place.gymAccess')}</Text>
             <TextInput
               style={styles.field}
               value={accessNote}
               onChangeText={actions.onAccessNote}
-              placeholder="Zum Beispiel Gäste nach Absprache"
+              placeholder={t('sparring.place.accessPlaceholder')}
               placeholderTextColor={colors.textMuted}
               maxLength={GYM_LIMITS.accessNote}
               returnKeyType="done"
               blurOnSubmit
-              accessibilityLabel="Zugangshinweis"
+              accessibilityLabel={t('sparring.place.accessA11y')}
             />
-            <Text style={styles.note}>Das Sparring bleibt dein Treffen, das Gym ist nur der Ort. Kläre den Zugang vorher mit dem Gym.</Text>
+            <Text style={styles.note}>{t('sparring.place.accessNote')}</Text>
           </View>
         ) : (
-          <TextAction label="Zugangshinweis ergänzen" icon="add" onPress={() => setNoteOpen(true)} />
+          <TextAction label={t('sparring.place.addAccess')} icon="add" onPress={() => setNoteOpen(true)} />
         )
       )}
     </View>

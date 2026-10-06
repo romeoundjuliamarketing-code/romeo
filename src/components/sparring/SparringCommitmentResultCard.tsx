@@ -3,6 +3,8 @@ import { Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import SparringPopCard, { SparringPopCardBody } from './SparringPopCard';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 // Outcome of a join (pending/confirmed/waitlisted) or a cancel
 // (cancelled/cancelled_late, or left_waitlist when the user only queued).
@@ -27,46 +29,46 @@ interface ResultCopy {
   body:  string;
 }
 
-function copyFor(result: SparringCommitmentResult): ResultCopy {
+function copyFor(result: SparringCommitmentResult, t: TFunction): ResultCopy {
   if (result === 'cancelled') {
     return {
       icon:  'checkmark-circle-outline',
-      title: 'Du bist abgemeldet',
-      body:  'Danke fürs rechtzeitige Absagen. Das zählt nicht gegen dich, und jemand anderes kann nachrücken.',
+      title: t('sparring.result.cancelledTitle'),
+      body:  t('sparring.result.cancelledBody'),
     };
   }
   if (result === 'cancelled_late') {
     return {
       icon:  'information-circle-outline',
-      title: 'Du bist abgemeldet',
-      body:  'Die Absage kam kurzfristig und zählt deshalb als nicht wahrgenommen. Danke, dass du trotzdem Bescheid gegeben hast.',
+      title: t('sparring.result.cancelledTitle'),
+      body:  t('sparring.result.cancelledLateBody'),
     };
   }
   if (result === 'left_waitlist') {
     return {
       icon:  'checkmark-circle-outline',
-      title: 'Warteliste verlassen',
-      body:  'Du stehst nicht mehr auf der Warteliste. Das hat keine Auswirkungen auf dich.',
+      title: t('sparring.result.leftWaitlistTitle'),
+      body:  t('sparring.result.leftWaitlistBody'),
     };
   }
   if (result === 'waitlisted') {
     return {
       icon:  'time-outline',
-      title: 'Du stehst auf der Warteliste',
-      body:  'Wird ein Platz frei, rückst du automatisch nach. Wir benachrichtigen dich dann.',
+      title: t('sparring.result.waitlistedTitle'),
+      body:  t('sparring.result.waitlistedBody'),
     };
   }
   if (result === 'confirmed') {
     return {
       icon:  'checkmark-circle',
-      title: 'Du bist dabei',
-      body:  'Deine Teilnahme ist bestätigt. Die anderen rechnen mit dir.',
+      title: t('sparring.result.inTitle'),
+      body:  t('sparring.result.confirmedBody'),
     };
   }
   return {
     icon:  'checkmark-circle',
-    title: 'Du bist dabei',
-    body:  'Deine Zusage ist verbindlich. 24 Stunden vorher bittet dich die App, deine Teilnahme zu bestätigen.',
+    title: t('sparring.result.inTitle'),
+    body:  t('sparring.result.pendingBody'),
   };
 }
 
@@ -75,7 +77,8 @@ function copyFor(result: SparringCommitmentResult): ResultCopy {
 export default function SparringCommitmentResultCard({
   result, sparringTitle, dateTimeLabel, onClose,
 }: Props): React.ReactElement {
-  const copy = copyFor(result);
+  const { t } = useTranslation();
+  const copy = copyFor(result, t);
 
   return (
     <SparringPopCard onClose={onClose}>
@@ -89,7 +92,7 @@ export default function SparringCommitmentResultCard({
             body={copy.body}
           />
           <TouchableOpacity style={styles.btn} activeOpacity={0.8} onPress={() => close()}>
-            <Text style={styles.btnText}>Alles klar</Text>
+            <Text style={styles.btnText}>{t('sparring.result.ok')}</Text>
           </TouchableOpacity>
         </>
       )}

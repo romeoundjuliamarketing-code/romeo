@@ -2,6 +2,8 @@
 // update_sparring RPC (trimmed text, empty notes = none) so the confirmation
 // dialog matches what the server will do. The server stays the source of truth.
 
+import i18n from '../i18n';
+
 export interface SparringEditFields {
   title:        string;
   notes:        string | null;
@@ -62,7 +64,5 @@ export function isMaterialEdit(changed: readonly SparringEditField[]): boolean {
 
 // Confirmation text before saving a material change.
 export function editNotifyMessage(affected: number): string {
-  return affected === 1
-    ? '1 Teilnehmer wird benachrichtigt und muss neu bestätigen.'
-    : `${affected} Teilnehmer werden benachrichtigt und müssen neu bestätigen.`;
+  return i18n.t('sparring.edit.notify', { count: affected });
 }

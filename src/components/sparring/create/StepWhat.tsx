@@ -5,6 +5,7 @@ import { colors } from '../../../theme/colors';
 import { fonts } from '../../../theme/typography';
 import { SPARRING_DISCIPLINES, MIN_MAX_SLOTS, type DraftErrors } from '../../../utils/sparringDraft';
 import { StepTitle, SectionLabel, FieldError } from './FlowParts';
+import { useTranslation } from 'react-i18next';
 
 type GlyphName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -55,6 +56,7 @@ function StepWhat({ discipline, maxSlots, errors, onDiscipline, onMaxSlots }: {
   onDiscipline: (d: string) => void;
   onMaxSlots:   (n: number) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const canDecrement = maxSlots > MIN_MAX_SLOTS;
   const decrement = useCallback(() => onMaxSlots(Math.max(MIN_MAX_SLOTS, maxSlots - 1)), [maxSlots, onMaxSlots]);
   const increment = useCallback(() => onMaxSlots(maxSlots + 1), [maxSlots, onMaxSlots]);
@@ -66,9 +68,9 @@ function StepWhat({ discipline, maxSlots, errors, onDiscipline, onMaxSlots }: {
 
   return (
     <View>
-      <StepTitle text="Was steht an?" />
+      <StepTitle text={t('sparring.flow.whatTitle')} />
 
-      <SectionLabel text="Disziplin" />
+      <SectionLabel text={t('sparring.flow.discipline')} />
       <View style={styles.grid} accessibilityRole="radiogroup">
         {SPARRING_DISCIPLINES.map((d) => (
           <DisciplineTile
@@ -84,14 +86,14 @@ function StepWhat({ discipline, maxSlots, errors, onDiscipline, onMaxSlots }: {
 
       <View style={styles.rope} />
 
-      <SectionLabel text="Plätze für Mitmachende" hint="Du als Gastgeber zählst nicht mit." />
+      <SectionLabel text={t('sparring.flow.slots')} hint={t('sparring.flow.slotsHint')} />
       <View style={styles.counterRow}>
         <TouchableOpacity
           style={[styles.roundBtn, !canDecrement && styles.roundBtnDisabled]}
           onPress={decrement}
           disabled={!canDecrement}
           accessibilityRole="button"
-          accessibilityLabel="Einen Platz weniger"
+          accessibilityLabel={t('sparring.flow.slotLess')}
           accessibilityState={{ disabled: !canDecrement }}
         >
           <Ionicons name="remove" size={24} color={colors.text} />
@@ -100,19 +102,19 @@ function StepWhat({ discipline, maxSlots, errors, onDiscipline, onMaxSlots }: {
           style={styles.counterValue}
           accessible
           accessibilityRole="adjustable"
-          accessibilityLabel="Plätze für Mitmachende"
-          accessibilityValue={{ text: `${maxSlots} ${maxSlots === 1 ? 'Platz' : 'Plätze'}` }}
+          accessibilityLabel={t('sparring.flow.slots')}
+          accessibilityValue={{ text: t('sparring.flow.slotsValue', { count: maxSlots }) }}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
           onAccessibilityAction={onAccessibilityAction}
         >
           <Text style={styles.counterNumber} maxFontSizeMultiplier={1.3}>{maxSlots}</Text>
-          <Text style={styles.counterUnit}>{maxSlots === 1 ? 'Platz' : 'Plätze'}</Text>
+          <Text style={styles.counterUnit}>{t('sparring.flow.slotsUnit', { count: maxSlots })}</Text>
         </View>
         <TouchableOpacity
           style={styles.roundBtn}
           onPress={increment}
           accessibilityRole="button"
-          accessibilityLabel="Einen Platz mehr"
+          accessibilityLabel={t('sparring.flow.slotMore')}
         >
           <Ionicons name="add" size={24} color={colors.text} />
         </TouchableOpacity>

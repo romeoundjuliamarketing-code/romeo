@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useEventCreatePurchase } from '../../hooks/useEventCreatePurchase';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   eventId:     string;
@@ -24,6 +25,7 @@ export default function EventPaymentSheet({
   onClose,
   onActivated,
 }: Props): React.ReactElement | null {
+  const { t } = useTranslation();
   const {
     purchase,
     loadPackage,
@@ -48,7 +50,7 @@ export default function EventPaymentSheet({
 
   if (!visible) return null;
 
-  const priceLabel = eventPackage?.product.priceString ?? '8,99 Euro';
+  const priceLabel = eventPackage?.product.priceString ?? t('sparring.eventPayment.priceFallback');
   const isLoading  = packageLoading;
   const isBusy     = purchasing || activating;
 
@@ -83,9 +85,9 @@ export default function EventPaymentSheet({
           </View>
         </View>
 
-        <Text style={styles.title}>Event veröffentlichen</Text>
+        <Text style={styles.title}>{t('sparring.eventPayment.title')}</Text>
         <Text style={styles.subtitle}>
-          Dein Event wird nach dem Kauf sofort auf der Karte sichtbar und für alle Nutzer zugänglich.
+          {t('sparring.eventPayment.subtitle')}
         </Text>
 
         {isLoading && (
@@ -95,14 +97,14 @@ export default function EventPaymentSheet({
         {!isLoading && !isBusy && (
           <View style={styles.priceRow}>
             <Text style={styles.price}>{priceLabel}</Text>
-            <Text style={styles.pricePeriod}>einmalig</Text>
+            <Text style={styles.pricePeriod}>{t('sparring.eventPayment.oneTime')}</Text>
           </View>
         )}
 
         {activating && (
           <View style={styles.activatingRow}>
             <ActivityIndicator size="small" color={colors.accentBlue} />
-            <Text style={styles.activatingText}>Event wird aktiviert…</Text>
+            <Text style={styles.activatingText}>{t('sparring.eventPayment.activating')}</Text>
           </View>
         )}
 
@@ -116,13 +118,13 @@ export default function EventPaymentSheet({
             {isBusy ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={styles.btnText}>Jetzt kaufen und veröffentlichen</Text>
+              <Text style={styles.btnText}>{t('sparring.eventPayment.buy')}</Text>
             )}
           </TouchableOpacity>
         )}
 
         <Text style={styles.legal}>
-          Einmaliger Kauf. Kein automatisches Abo. Abrechnung über den App Store.
+          {t('sparring.eventPayment.legal')}
         </Text>
       </View>
     </Modal>

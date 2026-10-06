@@ -6,11 +6,15 @@ import { fonts } from '../../../theme/typography';
 import { withDay, withTime } from '../../../utils/sparringDraft';
 import { TextAction } from '../../common/TextAction';
 import { FieldError } from './FlowParts';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../../i18n/language';
+import { localeFor } from '../../../utils/language';
+import { formatDate } from '../../../utils/formatDate';
 
 type PickerMode = 'date' | 'time';
 
-function monthShort(d: Date): string {
-  return d.toLocaleDateString('de-DE', { month: 'short' }).replace('.', '').toUpperCase();
+function monthShort(d: Date, locale: string): string {
+  return d.toLocaleDateString(locale, { month: 'short' }).replace('.', '').toUpperCase();
 }
 
 // Date as a calendar leaf next to a big local time. Tapping opens the native
@@ -21,11 +25,14 @@ function WhenPicker({ value, error, onChange }: {
   error:    string | undefined;
   onChange: (d: Date) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
+  const locale = localeFor(language);
   const [open, setOpen] = useState<PickerMode | null>(null);
 
-  const weekday = value.toLocaleDateString('de-DE', { weekday: 'long' });
-  const dateLabel = value.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const time = value.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const weekday = value.toLocaleDateString(locale, { weekday: 'long' });
+  const dateLabel = value.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const time = formatDate(value, 'time', language);
 
   function handleChange(mode: PickerMode, event: DateTimePickerEvent, picked: Date | undefined): void {
     if (Platform.OS === 'android') setOpen(null);
@@ -44,11 +51,11 @@ function WhenPicker({ value, error, onChange }: {
           style={[styles.leaf, open === 'date' && styles.active]}
           onPress={() => toggle('date')}
           accessibilityRole="button"
-          accessibilityLabel={`Datum: ${dateLabel}. Ändern`}
+          accessibilityLabel={t('sparring.flow.dateA11y', { date: dateLabel })}
           accessibilityState={{ expanded: open === 'date' }}
         >
           <View style={styles.leafTop}>
-            <Text style={styles.leafMonth}>{monthShort(value)}</Text>
+            <Text style={styles.leafMonth}>{monthShort(value, locale)}</Text>
           </View>
           <Text style={styles.leafDay} maxFontSizeMultiplier={1.3}>{value.getDate()}</Text>
           <Text style={styles.leafWeekday} numberOfLines={1} adjustsFontSizeToFit>{weekday}</Text>
@@ -58,12 +65,12 @@ function WhenPicker({ value, error, onChange }: {
           style={[styles.time, open === 'time' && styles.active]}
           onPress={() => toggle('time')}
           accessibilityRole="button"
-          accessibilityLabel={`Uhrzeit: ${time} Uhr. Ändern`}
+          accessibilityLabel={t('sparring.flow.timeA11y', { time })}
           accessibilityState={{ expanded: open === 'time' }}
         >
-          <Text style={styles.timeCaption}>Beginn</Text>
+          <Text style={styles.timeCaption}>{t('sparring.flow.start')}</Text>
           <Text style={styles.timeValue} maxFontSizeMultiplier={1.3} numberOfLines={1} adjustsFontSizeToFit>{time}</Text>
-          <Text style={styles.timeCaption}>Uhr, Ortszeit</Text>
+          <Text style={styles.timeCaption}>{t('sparring.flow.localTime')}</Text>
         </Pressable>
       </View>
       <FieldError text={error} />
@@ -75,13 +82,13 @@ function WhenPicker({ value, error, onChange }: {
             mode={open}
             display={open === 'date' ? 'inline' : 'spinner'}
             minimumDate={open === 'date' ? new Date() : undefined}
-            locale="de-DE"
+            locale={locale}
             themeVariant="light"
             accentColor={colors.accentBlue}
             onChange={(e, d) => handleChange(open, e, d)}
           />
           <View style={styles.iosDone}>
-            <TextAction label="Fertig" onPress={() => setOpen(null)} />
+            <TextAction label={t('common.done')} onPress={() => setOpen(null)} />
           </View>
         </View>
       )}

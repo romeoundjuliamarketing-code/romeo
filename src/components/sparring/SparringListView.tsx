@@ -8,6 +8,7 @@ import { formatDistanceKm } from '../../utils/sparringSearch';
 import { getInitials } from '../../utils/initials';
 import type { NearbySparring, NearbyStatus } from '../../hooks/useNearbySparrings';
 import type { SearchLocationStatus } from '../../hooks/useSearchLocation';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   sparrings:      NearbySparring[];
@@ -31,6 +32,7 @@ export default function SparringListView({
   sparrings, status, locationStatus, radiusKm, currentUserId, topInset, bottomInset,
   onPress, onRetry, onPickLocation, onWiden, onCreate,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const renderItem = useCallback(
     ({ item }: { item: NearbySparring }) => (
       <SparringListRow sparring={item} isOwn={item.created_by === currentUserId} onPress={onPress} />
@@ -43,14 +45,14 @@ export default function SparringListView({
   let empty: React.ReactElement | null = null;
   if (locationStatus === 'none') {
     empty = (
-      <Notice text="Wähle einen Ort, um Sparrings in deiner Umgebung zu sehen.">
-        <NoticeAction label="Standort wählen" icon="location-outline" onPress={onPickLocation} />
+      <Notice text={t('map.list.pickPlace')}>
+        <NoticeAction label={t('map.search.chooseLocation')} icon="location-outline" onPress={onPickLocation} />
       </Notice>
     );
   } else if (status === 'error') {
     empty = (
-      <Notice text="Sparrings konnten gerade nicht geladen werden.">
-        <NoticeAction label="Erneut versuchen" icon="refresh" onPress={onRetry} />
+      <Notice text={t('map.list.loadFailed')}>
+        <NoticeAction label={t('common.retry')} icon="refresh" onPress={onRetry} />
       </Notice>
     );
   } else if (locationStatus === 'loading' || status === 'loading' || status === 'idle') {
@@ -61,9 +63,9 @@ export default function SparringListView({
     );
   } else {
     empty = (
-      <Notice text={radiusKm === null ? 'Aktuell keine kommenden Sparrings' : `Aktuell keine Sparrings im Umkreis von ${radiusKm} km`}>
-        {onWiden !== null && <NoticeAction label="Umkreis erweitern" icon="resize-outline" onPress={onWiden} />}
-        <NoticeAction label="Sparring anbieten" icon="add-circle-outline" onPress={onCreate} />
+      <Notice text={radiusKm === null ? t('map.list.noneUpcoming') : t('map.list.noneInRadius', { radius: radiusKm })}>
+        {onWiden !== null && <NoticeAction label={t('map.preview.widen')} icon="resize-outline" onPress={onWiden} />}
+        <NoticeAction label={t('map.list.offer')} icon="add-circle-outline" onPress={onCreate} />
       </Notice>
     );
   }
@@ -76,7 +78,7 @@ export default function SparringListView({
       renderItem={renderItem}
       contentContainerStyle={[styles.content, contentStyle]}
       ListEmptyComponent={empty}
-      ListFooterComponent={sparrings.length > 0 ? <Text style={styles.footnote}>Entfernung in Luftlinie</Text> : null}
+      ListFooterComponent={sparrings.length > 0 ? <Text style={styles.footnote}>{t('map.list.footnote')}</Text> : null}
       showsVerticalScrollIndicator={false}
     />
   );
@@ -93,6 +95,7 @@ const SparringListRow = React.memo(function SparringListRow({
   isOwn:    boolean;
   onPress:  (s: NearbySparring) => void;
 }) {
+  const { t } = useTranslation();
   const location = sparringLocationLines({
     studioId:   sparring.studio_id,
     studioName: sparring.studio_name,
@@ -101,13 +104,13 @@ const SparringListRow = React.memo(function SparringListRow({
   });
   const slotsLeft = sparring.max_slots - sparring.signup_count;
   const full = slotsLeft <= 0;
-  const slotsLabel = full ? 'Voll · Warteliste' : `${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`;
+  const slotsLabel = full ? t('map.list.fullWaitlist') : t('sparring.detailHeader.slotsFree', { count: slotsLeft });
   const ownStatus = isOwn
-    ? 'Dein Sparring'
+    ? t('sparring.detailHeader.yours')
     : sparring.my_status === 'pending' || sparring.my_status === 'confirmed'
-      ? 'Du bist dabei'
+      ? t('sparring.commitment.youAreIn')
       : sparring.my_status === 'waitlisted'
-        ? 'Auf der Warteliste'
+        ? t('map.list.onWaitlist')
         : null;
   const distance = formatDistanceKm(sparring.distance_km);
 
@@ -117,7 +120,7 @@ const SparringListRow = React.memo(function SparringListRow({
       onPress={() => onPress(sparring)}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={`${sparring.discipline}, ${compactDateLabel(sparring.scheduled_at)}, ${location.primary}, ${distance} entfernt, ${slotsLabel}`}
+      accessibilityLabel={t('map.list.rowA11y', { discipline: sparring.discipline, date: compactDateLabel(sparring.scheduled_at), place: location.primary, distance, slots: slotsLabel })}
     >
       <View style={styles.rowTop}>
         <Text style={styles.date} numberOfLines={1}>{compactDateLabel(sparring.scheduled_at)}</Text>

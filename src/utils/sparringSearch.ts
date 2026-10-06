@@ -3,6 +3,8 @@
 // never disagree on what counts as a hit. Pure: no network, no location access.
 import { haversineKm } from './geoUtils';
 import type { GeoPoint } from './mapStartRegion';
+import i18n from '../i18n';
+import { parseLanguage } from './language';
 
 export const HOME_RADIUS_KM = 30;
 export const RADIUS_OPTIONS_KM = [10, 30, 50, 100] as const;
@@ -20,7 +22,7 @@ export const DACH_BOX: BoundingBox = { minLat: 45.7, maxLat: 55.2, minLng: 5.8, 
 const WIDEN_TOLERANCE = 1.5;
 
 export function radiusLabel(radius: SearchRadius): string {
-  return radius === null ? 'Überall' : `${radius} km`;
+  return radius === null ? i18n.t('sparring.search.everywhere') : `${radius} km`;
 }
 
 // Next step for "Umkreis erweitern": the next option, after the largest one
@@ -116,6 +118,9 @@ function roundKm(km: number): number {
 
 // "4,2 km" — straight-line distance, German decimal comma.
 export function formatDistanceKm(km: number): string {
-  if (km < 10) return `${km.toFixed(1).replace('.', ',')} km`;
+  if (km < 10) {
+    const text = km.toFixed(1);
+    return `${parseLanguage(i18n.language) === 'en' ? text : text.replace('.', ',')} km`;
+  }
   return `${Math.round(km)} km`;
 }

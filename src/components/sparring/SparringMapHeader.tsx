@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface Props {
 // the controls passed as children (category, search area, time filter). Kept
 // as a single panel so the map is covered by one block instead of many pills.
 export default function SparringMapHeader({ children, onBack }: Props): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.panel}>
       <View style={styles.titleRow}>
@@ -22,7 +24,7 @@ export default function SparringMapHeader({ children, onBack }: Props): React.Re
             onPress={onBack}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Zurück"
+            accessibilityLabel={t('common.back')}
           >
             <Ionicons name="chevron-back" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -34,7 +36,7 @@ export default function SparringMapHeader({ children, onBack }: Props): React.Re
           resizeMode="contain"
           accessibilityIgnoresInvertColors
         />
-        <Text style={styles.title} accessibilityRole="header">Finde dein Sparring</Text>
+        <Text style={styles.title} accessibilityRole="header">{t('map.header.title')}</Text>
       </View>
       {children}
     </View>

@@ -27,6 +27,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { EventWithMeta } from '../../hooks/useOpenEvents';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { formatDate } from '../../utils/formatDate';
+import type { AppLanguage } from '../../utils/language';
+import type { TFunction } from 'i18next';
 
 interface Props {
   event:          EventWithMeta | null;
@@ -48,11 +53,10 @@ const DISMISS_RATIO   = 0.22;             // drag past this share of the screen 
 const VELOCITY_PROJECTION = 150;          // ms of velocity look-ahead when settling
 const UNLIMITED_SLOTS = 999999;           // sentinel slot count for uncapped public viewings
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
-  const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  return `${date}, ${time} Uhr`;
+function formatDateTime(iso: string, t: TFunction, language: AppLanguage): string {
+  const date = formatDate(iso, 'weekdayLong', language);
+  const time = formatDate(iso, 'time', language);
+  return t('sparring.detailSheet.dateTime', { date, time });
 }
 
 export default function EventDetailSheet({
@@ -65,6 +69,8 @@ export default function EventDetailSheet({
   onOpenVenue,
   loading,
 }: Props) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const insets = useSafeAreaInsets();
   // Whether the content overflows the (content-sized, capped) sheet. Only then is
   // the inner ScrollView scrollable; otherwise a downward drag always dismisses.
@@ -207,22 +213,22 @@ export default function EventDetailSheet({
 
   function handleSignupPress(): void {
     if (ev.is_signed_up) {
-      Alert.alert('Abmelden', `Möchtest du dich von "${ev.title}" abmelden?`, [
-        { text: 'Zurück', style: 'cancel' },
-        { text: 'Abmelden', style: 'destructive', onPress: onToggleSignup },
+      Alert.alert(t('sparring.eventDetail.signOffTitle'), t('sparring.eventDetail.signOffMessage', { title: ev.title }), [
+        { text: t('common.back'), style: 'cancel' },
+        { text: t('sparring.eventDetail.signOff'), style: 'destructive', onPress: onToggleSignup },
       ]);
     } else {
-      Alert.alert('Anmelden', `Möchtest du dich für "${ev.title}" anmelden?`, [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Anmelden', onPress: onToggleSignup },
+      Alert.alert(t('sparring.eventDetail.signUp'), t('sparring.eventDetail.signUpMessage', { title: ev.title }), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('sparring.eventDetail.signUp'), onPress: onToggleSignup },
       ]);
     }
   }
 
   function handleDeactivate(): void {
-    Alert.alert('Event absagen', `Möchtest du "${ev.title}" wirklich absagen?`, [
-      { text: 'Zurück', style: 'cancel' },
-      { text: 'Absagen', style: 'destructive', onPress: onDeactivate },
+    Alert.alert(t('sparring.eventDetail.cancelEvent'), t('sparring.eventDetail.cancelMessage', { title: ev.title }), [
+      { text: t('common.back'), style: 'cancel' },
+      { text: t('sparring.eventDetail.cancelConfirm'), style: 'destructive', onPress: onDeactivate },
     ]);
   }
 
@@ -300,7 +306,7 @@ export default function EventDetailSheet({
                   {/* Date/time */}
                   <View style={styles.infoRow}>
                     <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                    <Text style={styles.infoText}>{formatDateTime(ev.scheduled_at)}</Text>
+                    <Text style={styles.infoText}>{formatDateTime(ev.scheduled_at, t, language)}</Text>
                   </View>
 
                   {/* Participants — venue/partner events are public viewings and
@@ -308,17 +314,17 @@ export default function EventDetailSheet({
                   {isVenueEvent ? (
                     <View style={styles.infoRow}>
                       <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
-                      <Text style={styles.infoText}>Public Viewing</Text>
+                      <Text style={styles.infoText}>{t('sparring.eventDetail.publicViewing')}</Text>
                     </View>
                   ) : (
                     <>
                       <View style={styles.infoRow}>
                         <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
                         <Text style={styles.infoText}>
-                          {ev.signup_count}/{ev.max_slots} Angemeldet
+                          {t('sparring.eventDetail.signedUp', { count: ev.signup_count, max: ev.max_slots })}
                           {!isFull && (
                             <Text style={styles.slotsLeft}>
-                              {`  ${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}
+                              {`  ${t('sparring.detailHeader.slotsFree', { count: slotsLeft })}`}
                             </Text>
                           )}
                         </Text>
@@ -349,7 +355,7 @@ export default function EventDetailSheet({
                       <ActivityIndicator color={colors.card} />
                     ) : (
                       <Text style={styles.btnText}>
-                        {ev.is_signed_up ? 'Abmelden' : (!isVenueEvent && isFull) ? 'Ausgebucht' : 'Anmelden'}
+                        {ev.is_signed_up ? t('sparring.eventDetail.signOff') : (!isVenueEvent && isFull) ? t('sparring.detailHeader.soldOut') : t('sparring.eventDetail.signUp')}
                       </Text>
                     )}
                   </TouchableOpacity>
@@ -368,7 +374,7 @@ export default function EventDetailSheet({
                       activeOpacity={0.8}
                     >
                       <Ionicons name="business-outline" size={18} color={colors.accentBlue} />
-                      <Text style={styles.locationBtnText}>Location ansehen</Text>
+                      <Text style={styles.locationBtnText}>{t('sparring.eventDetail.viewLocation')}</Text>
                     </TouchableOpacity>
                   )}
 
@@ -381,7 +387,7 @@ export default function EventDetailSheet({
                       activeOpacity={0.8}
                     >
                       <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
-                      <Text style={styles.chatBtnText}>Zum Chat</Text>
+                      <Text style={styles.chatBtnText}>{t('sparring.detailSheet.toChat')}</Text>
                     </TouchableOpacity>
                   )}
 
@@ -392,7 +398,7 @@ export default function EventDetailSheet({
                       onPress={handleDeactivate}
                       disabled={loading}
                     >
-                      <Text style={styles.btnDeactivateText}>Event absagen</Text>
+                      <Text style={styles.btnDeactivateText}>{t('sparring.eventDetail.cancelEvent')}</Text>
                     </TouchableOpacity>
                   )}
 

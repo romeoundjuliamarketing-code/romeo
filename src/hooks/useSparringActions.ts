@@ -5,6 +5,7 @@ import { geocodeAddress } from '../utils/geocoding';
 import { SPARRING_RULES_VERSION } from '../data/sparringRules';
 import type { Database } from '../types/database.types';
 import { sparringInsertErrorCode } from '../utils/subscriptionPlans';
+import i18n from '../i18n';
 
 type JoinSparringStatus   = Database['public']['Functions']['join_sparring']['Returns']
 type CancelSparringStatus = Database['public']['Functions']['cancel_sparring_signup']['Returns']
@@ -81,12 +82,12 @@ export function useSparringActions(): {
     sparringId: string,
     rulesVersion: number,
   ): Promise<{ error: string | null; status: JoinSparringStatus | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt', status: null };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn'), status: null };
     // The signup is only valid together with the accepted rules version — the
     // RPC rejects anything below the current one, but check early so we don't
     // round-trip for an obviously stale consent.
     if (rulesVersion < SPARRING_RULES_VERSION) {
-      return { error: 'Bitte stimme zuerst den Sparr-Grundregeln zu.', status: null };
+      return { error: i18n.t('sparring.actions.rulesRequired'), status: null };
     }
     const { data, error } = await supabase.rpc('join_sparring', {
       p_sparring_id:   sparringId,
@@ -99,14 +100,14 @@ export function useSparringActions(): {
   const cancelSignup = useCallback(async (
     sparringId: string,
   ): Promise<{ error: string | null; status: CancelSparringStatus | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt', status: null };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn'), status: null };
     const { data, error } = await supabase.rpc('cancel_sparring_signup', { p_sparring_id: sparringId });
     if (error !== null) return { error: error.message, status: null };
     return { error: null, status: data };
   }, [user]);
 
   const confirmSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
     const { error } = await supabase.rpc('confirm_sparring', { p_sparring_id: sparringId });
     return { error: error?.message ?? null };
   }, [user]);
@@ -116,7 +117,7 @@ export function useSparringActions(): {
     userId: string,
     present: boolean,
   ): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
     const { error } = await supabase.rpc('mark_sparring_attendance', {
       p_sparring_id: sparringId,
       p_user_id:     userId,
@@ -126,7 +127,7 @@ export function useSparringActions(): {
   }, [user]);
 
   const createSparring = useCallback(async (params: CreateSparringInput): Promise<{ error: string | null; sparringId?: string; code?: 'subscription_required' }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
 
     let resolvedAddress: string;
     let studioId: string | null = null;
@@ -142,10 +143,10 @@ export function useSparringActions(): {
         .single();
 
       if (studioError !== null || studio === null) {
-        return { error: 'Studio nicht gefunden.' };
+        return { error: i18n.t('sparring.actions.gymNotFound') };
       }
       if (studio.address === null || studio.address.trim().length === 0) {
-        return { error: 'Das Studio hat noch keine Adresse hinterlegt. Bitte zuerst die Studio-Adresse setzen.' };
+        return { error: i18n.t('sparring.actions.gymNoAddress') };
       }
 
       resolvedAddress = studio.address;
@@ -200,9 +201,9 @@ export function useSparringActions(): {
 
     if (error !== null || newSparring === null) {
       if (sparringInsertErrorCode(error?.code, insertStudioId) === 'subscription_required') {
-        return { error: 'Zum Erstellen eines Sparrings brauchst du das Ersteller-Abo.', code: 'subscription_required' };
+        return { error: i18n.t('sparring.actions.subscriptionRequired'), code: 'subscription_required' };
       }
-      return { error: error?.message ?? 'Sparring konnte nicht erstellt werden.' };
+      return { error: error?.message ?? i18n.t('sparring.actions.createFailed') };
     }
 
     const { error: settingsError } = await supabase
@@ -218,7 +219,7 @@ export function useSparringActions(): {
   }, [user]);
 
   const deactivateSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
     const { error } = await supabase.rpc('deactivate_sparring', { p_id: sparringId });
     return { error: error?.message ?? null };
   }, [user]);
@@ -229,20 +230,20 @@ export function useSparringActions(): {
     gymId: string | null,
     accessNote: string | null,
   ): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
     const { error } = await supabase.rpc('set_sparring_gym', {
       p_id:          sparringId,
       p_gym_id:      gymId,
       p_access_note: accessNote,
     });
-    return { error: error !== null ? 'Der Gym-Ort konnte nicht gespeichert werden. Bitte versuche es erneut.' : null };
+    return { error: error !== null ? i18n.t('sparring.actions.gymSaveFailed') : null };
   }, [user]);
 
   const updateSparring = useCallback(async (
     sparringId: string,
     input: UpdateSparringInput,
   ): Promise<{ error: string | null; result: UpdateSparringResult | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt', result: null };
+    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn'), result: null };
 
     let { lat, lng } = input;
     if (input.geocode) {
@@ -267,14 +268,14 @@ export function useSparringActions(): {
     if (error !== null) {
       // The server-side word filter raises a code, not a sentence.
       if (error.message.includes('CONTENT_FILTER_BLOCKED')) {
-        return { error: 'Titel oder Beschreibung enthalten unzulässige Wörter.', result: null };
+        return { error: i18n.t('sparring.actions.contentBlocked'), result: null };
       }
       return { error: error.message, result: null };
     }
     if (input.gym !== undefined) {
       const { error: gymError } = await setSparringGym(sparringId, input.gym.gymId, input.gym.accessNote);
       if (gymError !== null) {
-        return { error: 'Die Änderungen sind gespeichert, der Gym-Ort aber nicht. Bitte versuche es erneut.', result: data };
+        return { error: i18n.t('sparring.actions.partialSave'), result: data };
       }
     }
     return { error: null, result: data };

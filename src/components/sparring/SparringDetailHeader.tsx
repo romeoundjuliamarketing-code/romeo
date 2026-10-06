@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   title:         string;
@@ -27,11 +28,12 @@ export default function SparringDetailHeader({
   title, discipline, bannerColor, dateLabel, takingPart, slotsLeft, durationMin,
   isFeatured, verifiedOnly, isCreator, hasStarted, edited, onClose,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const slotsLabel = hasStarted
-    ? 'Vorbei'
+    ? t('sparring.detailHeader.over')
     : slotsLeft <= 0
-      ? 'Ausgebucht'
-      : `${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`;
+      ? t('sparring.detailHeader.soldOut')
+      : t('sparring.detailHeader.slotsFree', { count: slotsLeft });
 
   return (
     <View style={[styles.banner, { backgroundColor: bannerColor }]}>
@@ -49,12 +51,12 @@ export default function SparringDetailHeader({
           {verifiedOnly && (
             <View style={styles.chip}>
               <Ionicons name="shield-checkmark-outline" size={14} color={colors.card} />
-              <Text style={styles.chipText}>Nur verifiziert</Text>
+              <Text style={styles.chipText}>{t('sparring.detailHeader.verifiedOnly')}</Text>
             </View>
           )}
           {isCreator && (
             <View style={styles.chip}>
-              <Text style={styles.chipText}>Dein Sparring</Text>
+              <Text style={styles.chipText}>{t('sparring.detailHeader.yours')}</Text>
             </View>
           )}
         </View>
@@ -63,7 +65,7 @@ export default function SparringDetailHeader({
           onPress={onClose}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
-          accessibilityLabel="Schließen"
+          accessibilityLabel={t('sparring.detailHeader.close')}
         >
           <Ionicons name="close" size={22} color={colors.card} />
         </TouchableOpacity>
@@ -72,13 +74,13 @@ export default function SparringDetailHeader({
       <Text style={styles.title} numberOfLines={2} accessibilityRole="header">{title}</Text>
       <Text style={styles.date}>
         {dateLabel}
-        {edited && <Text style={styles.edited}> · Bearbeitet</Text>}
+        {edited && <Text style={styles.edited}> · {t('sparring.detailHeader.edited')}</Text>}
       </Text>
 
       <View style={styles.stats}>
-        <Stat icon="people" label={`${takingPart} dabei`} />
+        <Stat icon="people" label={t('sparring.detailHeader.takingPart', { count: takingPart })} />
         <Stat icon={slotsLeft <= 0 && !hasStarted ? 'lock-closed' : 'ticket-outline'} label={slotsLabel} />
-        <Stat icon="time-outline" label={`${durationMin} Min.`} />
+        <Stat icon="time-outline" label={t('sparring.detailHeader.minutes', { count: durationMin })} />
       </View>
     </View>
   );

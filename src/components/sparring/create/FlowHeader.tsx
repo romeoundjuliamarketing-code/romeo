@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
 import type { FlowStep } from '../../../utils/sparringDraft';
+import { useTranslation } from 'react-i18next';
 
 const STEPS: readonly FlowStep[] = [1, 2, 3];
 
@@ -15,6 +16,7 @@ function FlowHeader({ step, onBack, disabled }: {
   onBack:   () => void;
   disabled: boolean;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.wrap, { paddingTop: insets.top + 8 }]}>
@@ -24,13 +26,13 @@ function FlowHeader({ step, onBack, disabled }: {
           onPress={onBack}
           disabled={disabled}
           accessibilityRole="button"
-          accessibilityLabel={step === 1 ? 'Sparring erstellen verlassen' : 'Zurück zum vorherigen Schritt'}
+          accessibilityLabel={step === 1 ? t('sparring.flow.leave') : t('sparring.flow.previousStep')}
           hitSlop={8}
         >
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>Sparring erstellen</Text>
-        <Text style={styles.count} accessibilityLabel={`Schritt ${step} von 3`}>{step}/3</Text>
+        <Text style={styles.title} numberOfLines={1}>{t('sparring.flow.title')}</Text>
+        <Text style={styles.count} accessibilityLabel={t('sparring.flow.stepOf', { step })}>{step}/3</Text>
       </View>
       <View
         style={styles.segments}

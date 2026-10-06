@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   onChat:       () => void;
@@ -17,6 +18,7 @@ interface Props {
 export default function MapBottomControls({
   onChat, totalUnread, primaryLabel, onPrimary,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.row} pointerEvents="box-none">
       <View style={styles.tools}>
@@ -25,7 +27,7 @@ export default function MapBottomControls({
           onPress={onChat}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel={totalUnread > 0 ? `Sparring-Chats, ${totalUnread} ungelesen` : 'Sparring-Chats'}
+          accessibilityLabel={totalUnread > 0 ? t('map.bottom.chatsUnread', { count: totalUnread }) : t('map.bottom.chats')}
         >
           <Ionicons name="chatbubbles-outline" size={20} color={colors.text} />
           {totalUnread > 0 && (

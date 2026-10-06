@@ -26,6 +26,9 @@ import GymPickerSheet from '../gym/GymPickerSheet';
 import { useGym } from '../../hooks/useGyms';
 import type { Gym } from '../../hooks/useGyms';
 import { GYM_LIMITS } from '../../utils/gymSearch';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { localeFor } from '../../utils/language';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 const NOTES_ACCESSORY_ID = 'sparring-notes-accessory';
@@ -186,6 +189,8 @@ function nextDay18h(): Date {
 }
 
 export default function CreateSparringSheet(props: Props) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const { visible, onClose, onCreate } = props;
   const mode = props.mode ?? 'coach';
   const studioId = 'studioId' in props ? props.studioId : undefined;
@@ -302,11 +307,11 @@ export default function CreateSparringSheet(props: Props) {
   }, [visible, editing?.id]);
 
   function formatDate(d: Date): string {
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString(localeFor(language), { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
   function formatTime(d: Date): string {
-    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString(localeFor(language), { hour: '2-digit', minute: '2-digit' });
   }
 
   // Taking a gym fills the meeting point only from real data: stored
@@ -372,27 +377,27 @@ export default function CreateSparringSheet(props: Props) {
   async function handleCreate(): Promise<void> {
     if (isUserMode) {
       if (address.trim().length === 0) {
-        Alert.alert('Ort fehlt', 'Bitte gib einen Ort oder eine Adresse ein.');
+        Alert.alert(t('sparring.sheet.errPlaceTitle'), t('sparring.sheet.errPlaceBody'));
         return;
       }
       const slotsUser = parseInt(maxSlots, 10);
       if (isNaN(slotsUser) || slotsUser < 1) {
-        Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+        Alert.alert(t('sparring.sheet.errSlotsTitle'), t('sparring.sheet.errSlotsBody'));
         return;
       }
     } else {
       if (title.trim().length === 0) {
-        Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
+        Alert.alert(t('sparring.sheet.errTitleTitle'), t('sparring.sheet.errTitleBody'));
         return;
       }
       const dur = parseInt(durationMin, 10);
       const slots = parseInt(maxSlots, 10);
       if (isNaN(dur) || dur < 1) {
-        Alert.alert('Ungültige Dauer', 'Bitte gib eine gültige Dauer in Minuten ein.');
+        Alert.alert(t('sparring.sheet.errDurationTitle'), t('sparring.sheet.errDurationBody'));
         return;
       }
       if (isNaN(slots) || slots < 1) {
-        Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+        Alert.alert(t('sparring.sheet.errSlotsTitle'), t('sparring.sheet.errSlotsBody'));
         return;
       }
     }
@@ -415,11 +420,11 @@ export default function CreateSparringSheet(props: Props) {
 
     if (editing !== null) {
       if (isNaN(dur) || dur < 15 || dur > 600) {
-        Alert.alert('Ungültige Dauer', 'Die Dauer muss zwischen 15 und 600 Minuten liegen.');
+        Alert.alert(t('sparring.sheet.errDurationTitle'), t('sparring.sheet.errDurationRange'));
         return;
       }
       if (scheduledAt.getTime() <= Date.now()) {
-        Alert.alert('Termin in der Vergangenheit', 'Bitte wähle einen Termin in der Zukunft.');
+        Alert.alert(t('sparring.sheet.errPastTitle'), t('sparring.sheet.errPastBody'));
         return;
       }
       // Unchanged address keeps the stored coordinates, a map pick brings its
@@ -487,14 +492,14 @@ export default function CreateSparringSheet(props: Props) {
         <InputAccessoryView nativeID={NOTES_ACCESSORY_ID}>
           <View style={styles.accessoryBar}>
             <TouchableOpacity onPress={() => Keyboard.dismiss()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.accessoryDone}>Fertig</Text>
+              <Text style={styles.accessoryDone}>{t('common.done')}</Text>
             </TouchableOpacity>
           </View>
         </InputAccessoryView>
       )}
       <GymPickerSheet
         visible={gymPickerVisible}
-        title="Gym als Ort wählen"
+        title={t('sparring.flow.pickGymTitle')}
         currentGymId={gym?.id ?? null}
         onClose={() => setGymPickerVisible(false)}
         onSelect={handlePickGym}
@@ -515,10 +520,10 @@ export default function CreateSparringSheet(props: Props) {
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
             <Text style={styles.heading}>
-              {isEditMode ? 'Sparring bearbeiten' : isUserMode ? 'Sparring anmelden' : 'Sparring planen'}
+              {isEditMode ? t('sparring.sheet.headingEdit') : isUserMode ? t('sparring.sheet.headingUser') : t('sparring.sheet.headingCoach')}
             </Text>
             {isUserMode && !isEditMode && (
-              <Text style={styles.subHeading}>Plane dein eigenes Sparring</Text>
+              <Text style={styles.subHeading}>{t('sparring.sheet.subHeading')}</Text>
             )}
           </View>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -537,12 +542,12 @@ export default function CreateSparringSheet(props: Props) {
           {/* User mode: optional name field */}
           {isUserMode && (
             <>
-              <FieldLabel icon="create-outline" text="Name" hint="Optional – sonst automatisch benannt" />
+              <FieldLabel icon="create-outline" text={t('sparring.sheet.name')} hint={t('sparring.sheet.nameHint')} />
               <TextInput
                 style={styles.input}
                 value={title}
                 onChangeText={setTitle}
-                placeholder="z.B. Lockeres Boxsparring"
+                placeholder={t('sparring.sheet.namePlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 returnKeyType="done"
                 blurOnSubmit={true}
@@ -553,12 +558,12 @@ export default function CreateSparringSheet(props: Props) {
           {/* Coach mode: required title field */}
           {!isUserMode && (
             <>
-              <FieldLabel icon="create-outline" text="Titel" />
+              <FieldLabel icon="create-outline" text={t('sparring.sheet.title')} />
               <TextInput
                 style={styles.input}
                 value={title}
                 onChangeText={setTitle}
-                placeholder="z.B. Offenes Boxsparring"
+                placeholder={t('sparring.sheet.titlePlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 returnKeyType="done"
                 blurOnSubmit={true}
@@ -568,7 +573,7 @@ export default function CreateSparringSheet(props: Props) {
 
           {isUserMode && !locationLocked && (
             <>
-              <FieldLabel icon="business-outline" text="Gym" hint="Optional" />
+              <FieldLabel icon="business-outline" text={t('sparring.place.gym')} hint={t('sparring.sheet.optional')} />
               {gym !== null ? (
                 <View style={styles.gymBox}>
                   <View style={styles.gymBoxHead}>
@@ -577,34 +582,34 @@ export default function CreateSparringSheet(props: Props) {
                       <Text style={styles.gymCity} numberOfLines={1}>{gym.city}</Text>
                     </View>
                     <TouchableOpacity onPress={() => setGymPickerVisible(true)} hitSlop={8} accessibilityRole="button">
-                      <Text style={styles.gymAction}>Ändern</Text>
+                      <Text style={styles.gymAction}>{t('map.search.change')}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={clearGym} hitSlop={8} accessibilityRole="button" accessibilityLabel="Gym entfernen">
+                    <TouchableOpacity onPress={clearGym} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('sparring.place.removeGym')}>
                       <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
                     </TouchableOpacity>
                   </View>
                   {(gym.address === null || gym.address.trim().length === 0) && (
-                    <Text style={styles.lockedHint}>Für dieses Gym ist keine Adresse hinterlegt. Gib den Treffpunkt unten an.</Text>
+                    <Text style={styles.lockedHint}>{t('sparring.sheet.gymNoAddress')}</Text>
                   )}
                   <TextInput
                     style={styles.input}
                     value={accessNote}
                     onChangeText={(t) => { setAccessNote(t); setGymTouched(true); }}
-                    placeholder="Zugang, z. B. Gäste nach Absprache (optional)"
+                    placeholder={t('sparring.sheet.accessPlaceholder')}
                     placeholderTextColor={colors.textSecondary}
                     maxLength={GYM_LIMITS.accessNote}
                     returnKeyType="done"
                     blurOnSubmit
-                    accessibilityLabel="Zugangshinweis"
+                    accessibilityLabel={t('sparring.place.accessA11y')}
                   />
                   <Text style={styles.lockedHint}>
-                    Das Sparring bleibt dein Treffen, das Gym ist nur der Ort. Kläre den Zugang vorher mit dem Gym.
+                    {t('sparring.place.accessNote')}
                   </Text>
                 </View>
               ) : (
                 <TouchableOpacity style={styles.gymPick} onPress={() => setGymPickerVisible(true)} activeOpacity={0.7} accessibilityRole="button">
                   <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
-                  <Text style={styles.gymPickText}>Gym als Ort wählen</Text>
+                  <Text style={styles.gymPickText}>{t('sparring.flow.pickGymTitle')}</Text>
                 </TouchableOpacity>
               )}
             </>
@@ -612,7 +617,7 @@ export default function CreateSparringSheet(props: Props) {
 
           {isUserMode && (
             <>
-              <FieldLabel icon="location-outline" text="Ort" />
+              <FieldLabel icon="location-outline" text={t('sparring.flow.place')} />
               <View style={styles.locationRow}>
                 <TextInput
                   style={[styles.input, styles.locationInput, locationLocked && styles.inputDisabled]}
@@ -624,7 +629,7 @@ export default function CreateSparringSheet(props: Props) {
                     // Manual edit clears the map-picked coordinates
                     if (pickedCoord !== null) setPickedCoord(null);
                   }}
-                  placeholder="Adresse eingeben"
+                  placeholder={t('sparring.sheet.addressPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   returnKeyType="done"
                   blurOnSubmit={true}
@@ -642,7 +647,7 @@ export default function CreateSparringSheet(props: Props) {
                 </TouchableOpacity>
               </View>
               {isEditMode && locationLocked && (
-                <Text style={styles.lockedHint}>Der Ort eines Studio-Sparrings ist das Studio.</Text>
+                <Text style={styles.lockedHint}>{t('sparring.sheet.studioLocked')}</Text>
               )}
               {pickedCoord !== null && !locationLocked && (
                 <View style={styles.pickedBadge}>
@@ -668,26 +673,26 @@ export default function CreateSparringSheet(props: Props) {
               <View style={[styles.checkbox, isAtStudio && styles.checkboxChecked]}>
                 {isAtStudio && <Ionicons name="checkmark" size={14} color={colors.card} />}
               </View>
-              <Text style={styles.checkboxLabel}>Am Studio-Standort</Text>
+              <Text style={styles.checkboxLabel}>{t('sparring.place.atStudio')}</Text>
             </TouchableOpacity>
           )}
 
           {/* Max. Plätze as Stepper — User mode */}
           {isUserMode && (
             <>
-              <FieldLabel icon="people-outline" text="Max. Plätze" />
+              <FieldLabel icon="people-outline" text={t('sparring.sheet.maxSlots')} />
               <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
               {/* Fixed at 90 when creating; adjustable once the sparring exists */}
               {isEditMode && (
                 <>
-                  <FieldLabel icon="hourglass-outline" text="Dauer (Min.)" />
+                  <FieldLabel icon="hourglass-outline" text={t('sparring.sheet.duration')} />
                   <Stepper value={durationMin} onChange={setDurationMin} min={15} step={15} />
                 </>
               )}
             </>
           )}
 
-          <FieldLabel icon="barbell-outline" text="Kampfsport" />
+          <FieldLabel icon="barbell-outline" text={t('sparring.sheet.martialArt')} />
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.pillRow}>
               {DISCIPLINES.map((d) => (
@@ -707,13 +712,13 @@ export default function CreateSparringSheet(props: Props) {
           {/* Datum + Uhrzeit nebeneinander in beiden Modi */}
           <View style={styles.twoCol}>
             <View style={styles.colItem}>
-              <FieldLabel icon="calendar-outline" text="Datum" />
+              <FieldLabel icon="calendar-outline" text={t('sparring.sheet.dateLabel')} />
               <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                 <Text style={styles.inputText}>{formatDate(scheduledAt)}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.colItem}>
-              <FieldLabel icon="time-outline" text="Uhrzeit" />
+              <FieldLabel icon="time-outline" text={t('sparring.sheet.timeLabel')} />
               <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
                 <Text style={styles.inputText}>{formatTime(scheduledAt)}</Text>
               </TouchableOpacity>
@@ -757,22 +762,22 @@ export default function CreateSparringSheet(props: Props) {
           {!isUserMode && (
             <View style={styles.twoCol}>
               <View style={styles.colItem}>
-                <FieldLabel icon="hourglass-outline" text="Dauer (Min.)" />
+                <FieldLabel icon="hourglass-outline" text={t('sparring.sheet.duration')} />
                 <Stepper value={durationMin} onChange={setDurationMin} min={15} step={15} />
               </View>
               <View style={styles.colItem}>
-                <FieldLabel icon="people-outline" text="Max. Plätze" />
+                <FieldLabel icon="people-outline" text={t('sparring.sheet.maxSlots')} />
                 <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
               </View>
             </View>
           )}
 
-          <FieldLabel icon="document-text-outline" text="Hinweise (optional)" />
+          <FieldLabel icon="document-text-outline" text={t('sparring.sheet.notesOptional')} />
           <TextInput
             style={[styles.input, styles.multiline]}
             value={notes}
             onChangeText={setNotes}
-            placeholder="Level, Ausrüstung, Hinweise..."
+            placeholder={t('sparring.sheet.notesPlaceholder')}
             placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
@@ -801,7 +806,7 @@ export default function CreateSparringSheet(props: Props) {
                   color={colors.card}
                   style={styles.btnIcon}
                 />
-                <Text style={styles.btnText}>{isEditMode ? 'Änderungen speichern' : 'Veröffentlichen'}</Text>
+                <Text style={styles.btnText}>{isEditMode ? t('sparring.sheet.saveChanges') : t('sparring.sheet.publish')}</Text>
               </View>
             )}
           </TouchableOpacity>

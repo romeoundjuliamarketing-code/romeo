@@ -36,7 +36,7 @@ const MAX_ROWS = 3;
 
 function eyebrowLabel(radiusKm: number, locationLabel: string | null): string {
   const base = i18n.t('home.nearby.eyebrow', { radius: radiusKm });
-  if (locationLabel === null || locationLabel === 'Dein Standort') return base;
+  if (locationLabel === null || locationLabel === i18n.t('sparring.searchLocation.device')) return base;
   return `${base} · ${locationLabel.toUpperCase()}`;
 }
 

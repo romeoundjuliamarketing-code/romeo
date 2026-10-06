@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { SparringParticipant } from '../../types/database.types';
 import { summarizeParticipants, initialsOf } from '../../utils/sparringDetail';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   participants:     SparringParticipant[];
@@ -24,23 +25,24 @@ const MAX_AVATARS = 5;
 export default function SparringParticipantsSummary({
   participants, currentUserId, hasStarted, fallbackCount, loading, expanded, onToggleExpanded,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const summary = summarizeParticipants(participants, currentUserId);
   const count = loading && participants.length === 0 ? fallbackCount : summary.takingPart.length;
   const avatars = summary.takingPart.slice(0, MAX_AVATARS);
   const overflow = summary.takingPart.length - avatars.length;
 
   const headline = count === 0
-    ? (hasStarted ? 'Niemand war dabei' : 'Noch niemand dabei')
+    ? (hasStarted ? t('sparring.participants.nobodyWas') : t('sparring.participants.nobodyYet'))
     : hasStarted
-      ? `${count} ${count === 1 ? 'Kämpfer war' : 'Kämpfer waren'} dabei`
-      : `${count} ${count === 1 ? 'Kämpfer ist' : 'Kämpfer sind'} dabei`;
+      ? t('sparring.participants.headlinePast', { count })
+      : t('sparring.participants.headlinePresent', { count });
 
   const details: string[] = [];
   if (summary.confirmedCount > 0 && !hasStarted) {
-    details.push(`${summary.confirmedCount} bestätigt`);
+    details.push(t('sparring.participants.confirmedCount', { count: summary.confirmedCount }));
   }
   if (summary.waitlistCount > 0) {
-    details.push(`${summary.waitlistCount} auf der Warteliste`);
+    details.push(t('sparring.participants.waitlistCount', { count: summary.waitlistCount }));
   }
   const hasList = participants.some((p) => p.user_id !== currentUserId);
 
@@ -75,7 +77,7 @@ export default function SparringParticipantsSummary({
         <Text style={styles.names} numberOfLines={2}>{summary.namesLine}</Text>
       )}
       {count === 0 && !hasStarted && (
-        <Text style={styles.names}>Noch keine Zusagen – mit deiner eröffnest du die Runde.</Text>
+        <Text style={styles.names}>{t('sparring.participants.noCommitments')}</Text>
       )}
       {details.length > 0 && (
         <Text style={styles.details}>{details.join(' · ')}</Text>
@@ -90,7 +92,7 @@ export default function SparringParticipantsSummary({
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Text style={styles.toggleText}>
-            {expanded ? 'Teilnehmerliste ausblenden' : 'Alle Teilnehmer ansehen'}
+            {expanded ? t('sparring.participants.hideList') : t('sparring.participants.showList')}
           </Text>
           <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.accentBlue} />
         </TouchableOpacity>

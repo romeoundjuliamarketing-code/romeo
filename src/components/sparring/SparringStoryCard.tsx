@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import InvitationRopes from './InvitationRopes';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { formatDate } from '../../utils/formatDate';
 
 export const STORY_CARD_WIDTH = 1080;
 export const STORY_CARD_HEIGHT = 1920;
@@ -27,16 +30,18 @@ export interface SparringStoryCardProps {
 export default function SparringStoryCard({
   title, discipline, areaLabel, scheduledAt, durationMin, slotsLeftLabel,
 }: SparringStoryCardProps): React.JSX.Element {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const when = new Date(scheduledAt);
-  const day = when.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
-  const time = when.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const day = formatDate(when, 'weekdayLong', language);
+  const time = formatDate(when, 'time', language);
 
   return (
     <View style={styles.card}>
       <InvitationRopes />
 
       <View style={styles.badge}>
-        <Text style={styles.badgeText}>Sparring</Text>
+        <Text style={styles.badgeText}>{t('sparring.story.badge')}</Text>
       </View>
       <Text style={styles.discipline} numberOfLines={2}>{discipline}</Text>
       {title.length > 0 && <Text style={styles.title} numberOfLines={2}>{title}</Text>}
@@ -44,7 +49,7 @@ export default function SparringStoryCard({
       <View style={styles.rope} />
 
       <Text style={styles.day}>{day}</Text>
-      <Text style={styles.time}>{time} Uhr</Text>
+      <Text style={styles.time}>{t('sparring.story.time', { time })}</Text>
 
       <View style={styles.place}>
         <Ionicons name="location" size={56} color={colors.accentBlue} />
@@ -56,9 +61,9 @@ export default function SparringStoryCard({
       {/* Right side reserved for the penguin, so it never covers text. */}
       <View style={styles.footer}>
         <Text style={styles.slots}>{slotsLeftLabel}</Text>
-        <Text style={styles.duration}>{durationMin} Min.</Text>
+        <Text style={styles.duration}>{t('sparring.detailHeader.minutes', { count: durationMin })}</Text>
         <Text style={styles.brand}>Sparr</Text>
-        <Text style={styles.hint}>Link antippen und mitmachen</Text>
+        <Text style={styles.hint}>{t('sparring.story.hint')}</Text>
       </View>
       <Image source={PENGUIN} style={styles.penguin} resizeMode="contain" />
     </View>

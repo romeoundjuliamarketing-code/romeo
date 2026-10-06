@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 export type MapMode = 'sparrings' | 'events';
 
@@ -9,12 +10,13 @@ interface Props {
   onChange: (m: MapMode) => void;
 }
 
-const OPTIONS: Array<{ key: MapMode; label: string }> = [
-  { key: 'sparrings', label: 'Sparrings' },
-  { key: 'events',    label: 'Events' },
+const OPTIONS: Array<{ key: MapMode; labelKey: 'map.mode.sparrings' | 'map.mode.events' }> = [
+  { key: 'sparrings', labelKey: 'map.mode.sparrings' },
+  { key: 'events',    labelKey: 'map.mode.events' },
 ];
 
 export default function MapModeToggle({ mode, onChange }: Props) {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       {OPTIONS.map((opt) => {
@@ -29,7 +31,7 @@ export default function MapModeToggle({ mode, onChange }: Props) {
             accessibilityState={{ selected: active }}
           >
             <Text style={[styles.label, active && styles.labelActive]}>
-              {opt.label}
+              {t(opt.labelKey)}
             </Text>
           </TouchableOpacity>
         );

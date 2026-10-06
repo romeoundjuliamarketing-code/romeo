@@ -5,6 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
 import { StepTitle, FieldError } from './FlowParts';
+import { useTranslation } from 'react-i18next';
 
 const NOTES_ACCESSORY_ID = 'create-sparring-notes-accessory';
 
@@ -38,6 +39,7 @@ function StepPreview({ preview, title, autoTitle, notes, titleError, notesError,
   onNotes:      (t: string) => void;
   onNotesFocus: () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   // Opened rows stay open while they hold text (also after going back).
   const [titleOpen, setTitleOpen] = useState(title.length > 0);
   const [notesOpen, setNotesOpen] = useState(notes.length > 0);
@@ -46,12 +48,12 @@ function StepPreview({ preview, title, autoTitle, notes, titleError, notesError,
 
   return (
     <View>
-      <StepTitle text="Dein Sparring steht." />
+      <StepTitle text={t('sparring.flow.previewTitle')} />
       {preview}
 
       <View style={styles.optional}>
-        <Expander label="Eigenen Titel hinzufügen" open={titleOpen || titleError !== undefined} onOpen={() => { setTitleOpen(true); setJustOpened('title'); }}>
-          <Text style={styles.fieldLabel}>Eigener Titel</Text>
+        <Expander label={t('sparring.flow.addTitle')} open={titleOpen || titleError !== undefined} onOpen={() => { setTitleOpen(true); setJustOpened('title'); }}>
+          <Text style={styles.fieldLabel}>{t('sparring.flow.ownTitle')}</Text>
           <TextInput
             style={styles.field}
             value={title}
@@ -61,27 +63,27 @@ function StepPreview({ preview, title, autoTitle, notes, titleError, notesError,
             returnKeyType="done"
             blurOnSubmit
             autoFocus={justOpened === 'title'}
-            accessibilityLabel="Eigener Titel"
-            accessibilityHint={`Ohne eigenen Titel heißt das Sparring ${autoTitle}`}
+            accessibilityLabel={t('sparring.flow.ownTitle')}
+            accessibilityHint={t('sparring.flow.ownTitleHint', { title: autoTitle })}
           />
-          <Text style={styles.hint}>Leer lassen für „{autoTitle}“.</Text>
+          <Text style={styles.hint}>{t('sparring.flow.leaveEmpty', { title: autoTitle })}</Text>
           <FieldError text={titleError} />
         </Expander>
 
-        <Expander label="Hinweise ergänzen" open={notesOpen || notesError !== undefined} onOpen={() => { setNotesOpen(true); setJustOpened('notes'); }}>
-          <Text style={styles.fieldLabel}>Hinweise</Text>
+        <Expander label={t('sparring.flow.addNotes')} open={notesOpen || notesError !== undefined} onOpen={() => { setNotesOpen(true); setJustOpened('notes'); }}>
+          <Text style={styles.fieldLabel}>{t('sparring.flow.notes')}</Text>
           <TextInput
             style={[styles.field, styles.multiline]}
             value={notes}
             onChangeText={onNotes}
-            placeholder="Zum Beispiel Level, Ausrüstung oder Treffpunktdetails"
+            placeholder={t('sparring.flow.notesPlaceholder')}
             placeholderTextColor={colors.textMuted}
             multiline
             textAlignVertical="top"
             autoFocus={justOpened === 'notes'}
             onFocus={onNotesFocus}
             inputAccessoryViewID={Platform.OS === 'ios' ? NOTES_ACCESSORY_ID : undefined}
-            accessibilityLabel="Hinweise"
+            accessibilityLabel={t('sparring.flow.notes')}
           />
           <FieldError text={notesError} />
         </Expander>
@@ -91,7 +93,7 @@ function StepPreview({ preview, title, autoTitle, notes, titleError, notesError,
         <InputAccessoryView nativeID={NOTES_ACCESSORY_ID}>
           <View style={styles.accessoryBar}>
             <TouchableOpacity onPress={() => Keyboard.dismiss()} hitSlop={8} accessibilityRole="button">
-              <Text style={styles.accessoryDone}>Fertig</Text>
+              <Text style={styles.accessoryDone}>{t('common.done')}</Text>
             </TouchableOpacity>
           </View>
         </InputAccessoryView>

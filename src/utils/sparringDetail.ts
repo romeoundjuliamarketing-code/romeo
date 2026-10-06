@@ -1,6 +1,7 @@
 // Pure display helpers for the sparring detail window. No business logic —
 // status sets mirror the RPC migration and only decide what is SHOWN.
 import type { SparringParticipant, SparringSignupStatus } from '../types/database.types';
+import i18n from '../i18n';
 
 // ─── Location ──────────────────────────────────────────────────────────────────
 
@@ -39,23 +40,25 @@ export function sparringLocationLines(input: {
       .trim();
     return {
       primary:   city,
-      secondary: rest.length > 0 ? `${rest} · Privater Treffpunkt` : 'Privater Treffpunkt',
+      secondary: rest.length > 0 ? `${rest} · ${i18n.t('sparring.detail.privateMeetingPoint')}` : i18n.t('sparring.detail.privateMeetingPoint'),
     };
   }
-  return { primary: address.length > 0 ? address : 'Ort in der App', secondary: 'Privater Treffpunkt' };
+  return { primary: address.length > 0 ? address : i18n.t('sparring.detail.placeInApp'), secondary: i18n.t('sparring.detail.privateMeetingPoint') };
 }
 
 // ─── Date ──────────────────────────────────────────────────────────────────────
 
-const WEEKDAYS = ['SO', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA'] as const;
-const MONTHS   = ['JAN.', 'FEB.', 'MÄRZ', 'APR.', 'MAI', 'JUNI', 'JULI', 'AUG.', 'SEPT.', 'OKT.', 'NOV.', 'DEZ.'] as const;
+const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+const MONTHS   = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'] as const;
 
 // "DI · 31. MAI · 18:00" in the device's local time.
 export function compactDateLabel(iso: string): string {
   const d = new Date(iso);
   const hh = String(d.getHours()).padStart(2, '0');
   const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${WEEKDAYS[d.getDay()]} · ${d.getDate()}. ${MONTHS[d.getMonth()]} · ${hh}:${mm}`;
+  const weekday = i18n.t(`sparring.detail.weekdayShort.${WEEKDAYS[d.getDay()]}`);
+  const month = i18n.t(`sparring.detail.monthShort.${MONTHS[d.getMonth()]}`);
+  return i18n.t('sparring.detail.compactDate', { weekday, day: d.getDate(), month, time: `${hh}:${mm}` });
 }
 
 // ─── Participants ──────────────────────────────────────────────────────────────
@@ -82,7 +85,7 @@ export function summarizeParticipants(
     ...takingPart.filter((p) => p.user_id === currentUserId),
     ...takingPart.filter((p) => p.user_id !== currentUserId),
   ];
-  const names = ordered.map((p) => (p.user_id === currentUserId ? 'Du' : firstName(p.name)));
+  const names = ordered.map((p) => (p.user_id === currentUserId ? i18n.t('sparring.detail.you') : firstName(p.name)));
   const shown = names.slice(0, maxNames);
   const rest  = names.length - shown.length;
 
@@ -90,13 +93,13 @@ export function summarizeParticipants(
     takingPart:     ordered,
     waitlistCount:  participants.filter((p) => p.status === 'waitlisted').length,
     confirmedCount: takingPart.filter((p) => p.status === 'confirmed').length,
-    namesLine:      shown.length === 0 ? null : rest > 0 ? `${shown.join(', ')} +${rest} weitere` : shown.join(', '),
+    namesLine:      shown.length === 0 ? null : rest > 0 ? i18n.t('sparring.detail.namesMore', { names: shown.join(', '), count: rest }) : shown.join(', '),
   };
 }
 
 export function firstName(name: string | null): string {
   const trimmed = name?.trim() ?? '';
-  return trimmed.length > 0 ? trimmed.split(/\s+/)[0] : 'Unbekannt';
+  return trimmed.length > 0 ? trimmed.split(/\s+/)[0] : i18n.t('sparring.detail.unknown');
 }
 
 // Up to 2-letter initials for avatar fallbacks (shared implementation).

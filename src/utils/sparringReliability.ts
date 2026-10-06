@@ -3,6 +3,8 @@
 // exclusively server-side (see get_reliability) — this file only formats
 // the two numbers, it never recomputes them from raw statuses.
 
+import i18n from '../i18n';
+
 export interface ReliabilityCounts {
   attended: number;
   committed: number;
@@ -15,10 +17,10 @@ export interface FormattedReliability {
 
 export function formatReliability(r: ReliabilityCounts): FormattedReliability {
   if (r.committed === 0) {
-    return { label: 'Noch keine Historie', hasHistory: false };
+    return { label: i18n.t('sparring.reliability.none'), hasHistory: false };
   }
   return {
-    label: `${r.attended} von ${r.committed} bestätigten Treffen wahrgenommen`,
+    label: i18n.t('sparring.reliability.summary', { attended: r.attended, committed: r.committed }),
     hasHistory: true,
   };
 }

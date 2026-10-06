@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import i18n from '../i18n';
 
 export interface CreateEventParams {
   title:       string;
@@ -35,7 +36,7 @@ export function useEventActions(): {
 
   const createEvent = useCallback(
     async (params: CreateEventParams): Promise<{ error: string | null; eventId?: string }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
 
       const { data, error } = await supabase.rpc('create_event', {
         p_title:        params.title,
@@ -63,7 +64,7 @@ export function useEventActions(): {
       venueId: string,
       params: CreateVenueEventParams,
     ): Promise<{ error: string | null; eventId?: string }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
       const { data, error } = await supabase.rpc('create_venue_event', {
         p_venue_id:     venueId,
         p_title:        params.title,
@@ -82,7 +83,7 @@ export function useEventActions(): {
 
   const signUp = useCallback(
     async (eventId: string): Promise<{ error: string | null }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
       const { error } = await supabase.rpc('signup_event', { p_event_id: eventId });
       if (error !== null) return { error: error.message };
       return { error: null };
@@ -92,7 +93,7 @@ export function useEventActions(): {
 
   const cancelSignup = useCallback(
     async (eventId: string): Promise<{ error: string | null }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
       const { error } = await supabase.rpc('cancel_event_signup', { p_event_id: eventId });
       if (error !== null) return { error: error.message };
       return { error: null };
@@ -102,7 +103,7 @@ export function useEventActions(): {
 
   const deactivateEvent = useCallback(
     async (eventId: string): Promise<{ error: string | null }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
       const { error } = await supabase.rpc('deactivate_event', { p_event_id: eventId });
       return { error: error?.message ?? null };
     },

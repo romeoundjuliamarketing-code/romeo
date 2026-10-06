@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase';
 import { haversineKm } from '../utils/geoUtils';
 import { useAuth } from '../context/AuthContext';
 import type { RootStackParamList } from '../navigation/types';
+import i18n from '../i18n';
+import { localeFor, parseLanguage } from '../utils/language';
 
 export const PROXIMITY_RADIUS_KEY = 'proximity_radius_km';
 const NOTIFIED_KEY                 = 'proximity_notified_v1';
@@ -21,30 +23,12 @@ type NotifiedMap = Record<string, string>; // sparringId → ISO timestamp
 // Rotating copy for the "nothing nearby" nudge so the notification does not
 // feel identical every week. One variant is picked at random per send.
 const NO_SPARRINGS_VARIANTS: ReadonlyArray<(radiusKm: number) => { title: string; body: string }> = [
-  (km) => ({
-    title: 'Keine Sparrings in deiner Nähe',
-    body:  `Im Umkreis von ${km} km ist nichts los. Meld doch selber eins an.`,
-  }),
-  (km) => ({
-    title: 'Ganz schön ruhig hier',
-    body:  `Im Umkreis von ${km} km hat keiner ein Sparring angesetzt. Sei der Erste.`,
-  }),
-  (km) => ({
-    title: 'Niemand am Start?',
-    body:  `${km} km im Umkreis – noch kein Sparring. Erstell eins und hol die Leute aus der Deckung.`,
-  }),
-  (km) => ({
-    title: 'Zeit für Action',
-    body:  `In deinen ${km} km tut sich gerade nichts. Setz ein Sparring an und finde Trainingspartner.`,
-  }),
-  (km) => ({
-    title: 'Dein Move',
-    body:  `Kein Sparring im Umkreis von ${km} km. Mach den Anfang – die anderen ziehen nach.`,
-  }),
-  (km) => ({
-    title: 'Handschuhe schon gepackt?',
-    body:  `Im Umkreis von ${km} km ist Flaute. Meld ein Sparring an und bring Bewegung rein.`,
-  }),
+  (km) => ({ title: i18n.t('sparring.proximity.noneV1.title'), body: i18n.t('sparring.proximity.noneV1.body', { km }) }),
+  (km) => ({ title: i18n.t('sparring.proximity.noneV2.title'), body: i18n.t('sparring.proximity.noneV2.body', { km }) }),
+  (km) => ({ title: i18n.t('sparring.proximity.noneV3.title'), body: i18n.t('sparring.proximity.noneV3.body', { km }) }),
+  (km) => ({ title: i18n.t('sparring.proximity.noneV4.title'), body: i18n.t('sparring.proximity.noneV4.body', { km }) }),
+  (km) => ({ title: i18n.t('sparring.proximity.noneV5.title'), body: i18n.t('sparring.proximity.noneV5.body', { km }) }),
+  (km) => ({ title: i18n.t('sparring.proximity.noneV6.title'), body: i18n.t('sparring.proximity.noneV6.body', { km }) }),
 ];
 
 function pickNoSparringsContent(radiusKm: number): { title: string; body: string } {
@@ -193,16 +177,17 @@ async function checkProximitySparrings(): Promise<void> {
       ? `${Math.round(dist * 1000)} m`
       : `${dist.toFixed(1)} km`;
     const date    = new Date(sparring.scheduled_at);
-    const dateStr = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' });
-    const timeStr = date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-    const studio  = (sparring.studios as StudioJoin)?.name ?? 'Privat';
+    const lang    = parseLanguage(i18n.language) ?? 'de';
+    const dateStr = date.toLocaleDateString(localeFor(lang), { weekday: 'short', day: '2-digit', month: '2-digit' });
+    const timeStr = date.toLocaleTimeString(localeFor(lang), { hour: '2-digit', minute: '2-digit' });
+    const studio  = (sparring.studios as StudioJoin)?.name ?? i18n.t('sparring.private');
 
     try {
       await Notifications.scheduleNotificationAsync({
         identifier: `proximity-${sparring.id}`,
         content: {
-          title: 'Sparring in deiner Nähe',
-          body:  `${sparring.title} · ${distStr} entfernt · ${studio}, ${dateStr} ${timeStr}`,
+          title: i18n.t('sparring.proximity.nearbyTitle'),
+          body:  i18n.t('sparring.proximity.nearbyBody', { title: sparring.title, dist: distStr, studio, date: dateStr, time: timeStr }),
         },
         trigger: null,
       });

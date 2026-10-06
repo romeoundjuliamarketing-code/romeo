@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
 import { fonts } from '../../../theme/typography';
 import InvitationRopes from '../InvitationRopes';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../../i18n/language';
+import { formatDate } from '../../../utils/formatDate';
 
 const PENGUIN = require('../../../../assets/images/home-penguin.png') as number;
 
@@ -25,21 +28,23 @@ function InvitationPreview({ badge, discipline, title, scheduledAtMs, gymName, a
   footnote:      string | null;
   durationMin:   number;
 }): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const when = new Date(scheduledAtMs);
-  const day = when.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
-  const time = when.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  const placeName = atStudio ? 'Dein Studio' : gymName;
+  const day = formatDate(when, 'weekdayLong', language);
+  const time = formatDate(when, 'time', language);
+  const placeName = atStudio ? t('sparring.preview.yourGym') : gymName;
   const placeAddress = address.trim();
 
   const spoken = [
     badge,
-    discipline ?? 'Disziplin fehlt',
+    discipline ?? t('sparring.preview.disciplineMissing'),
     title,
-    `${day}, ${time} Uhr`,
+    t('sparring.preview.dateTime', { day, time }),
     placeName,
-    placeAddress.length > 0 ? placeAddress : 'Ort fehlt',
+    placeAddress.length > 0 ? placeAddress : t('sparring.preview.placeMissing'),
     slotsText,
-    `${durationMin} Minuten`,
+    t('sparring.preview.minutesSpoken', { count: durationMin }),
   ].filter((p): p is string => p !== null && p.length > 0).join('. ');
 
   return (
@@ -50,21 +55,21 @@ function InvitationPreview({ badge, discipline, title, scheduledAtMs, gymName, a
       </View>
 
       <Text style={[styles.discipline, discipline === null && styles.missing]}>
-        {discipline ?? 'Disziplin fehlt'}
+        {discipline ?? t('sparring.preview.disciplineMissing')}
       </Text>
       {title.length > 0 && <Text style={styles.title}>{title}</Text>}
 
       <View style={styles.rope} />
 
       <Text style={styles.day}>{day}</Text>
-      <Text style={styles.time}>{time} Uhr</Text>
+      <Text style={styles.time}>{t('sparring.story.time', { time })}</Text>
 
       <View style={styles.place}>
         <Ionicons name="location" size={18} color={colors.accentBlue} style={styles.placeIcon} />
         <View style={styles.placeText}>
           {placeName !== null && <Text style={styles.placeName}>{placeName}</Text>}
           <Text style={[styles.placeAddress, placeAddress.length === 0 && styles.missing]}>
-            {placeAddress.length > 0 ? placeAddress : 'Ort fehlt'}
+            {placeAddress.length > 0 ? placeAddress : t('sparring.preview.placeMissing')}
           </Text>
         </View>
       </View>
@@ -72,7 +77,7 @@ function InvitationPreview({ badge, discipline, title, scheduledAtMs, gymName, a
       {/* Bottom row reserves the corner for the penguin, so it never covers text. */}
       <View style={styles.footer}>
         <Text style={styles.slots}>{slotsText}</Text>
-        <Text style={styles.duration}>{footnote !== null ? `${durationMin} Min., ${footnote}` : `${durationMin} Min.`}</Text>
+        <Text style={styles.duration}>{footnote !== null ? t('sparring.preview.durationFootnote', { count: durationMin, footnote }) : t('sparring.detailHeader.minutes', { count: durationMin })}</Text>
       </View>
       <Image source={PENGUIN} style={styles.penguin} resizeMode="contain" accessibilityIgnoresInvertColors />
     </View>

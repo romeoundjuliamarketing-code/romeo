@@ -5,6 +5,7 @@ import { colors } from '../../theme/colors';
 import { compactDateLabel, sparringLocationLines, initialsOf, firstName } from '../../utils/sparringDetail';
 import { formatDistanceKm } from '../../utils/sparringSearch';
 import type { NearbySparring } from '../../hooks/useNearbySparrings';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   sparring:      NearbySparring;
@@ -23,6 +24,7 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 export default function SparringMapPreview({
   sparring, caption, onOpenDetails, onClose,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const location = sparringLocationLines({
     studioId:   sparring.studio_id,
     studioName: sparring.studio_name,
@@ -31,8 +33,8 @@ export default function SparringMapPreview({
   });
   const slotsLeft  = sparring.max_slots - sparring.signup_count;
   const slotsLabel = sparring.is_signed_up
-    ? 'Du bist dabei'
-    : slotsLeft <= 0 ? 'Ausgebucht' : `${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`;
+    ? t('sparring.commitment.youAreIn')
+    : slotsLeft <= 0 ? t('sparring.detailHeader.soldOut') : t('sparring.detailHeader.slotsFree', { count: slotsLeft });
   const hasHost    = sparring.host_name !== null && sparring.host_name.trim().length > 0;
   const hasAvatar  = sparring.host_avatar_url !== null && sparring.host_avatar_url.length > 0;
 
@@ -50,7 +52,7 @@ export default function SparringMapPreview({
               onPress={onClose}
               hitSlop={HIT_SLOP}
               accessibilityRole="button"
-              accessibilityLabel="Vorschau schließen"
+              accessibilityLabel={t('map.preview.close')}
             >
               <Ionicons name="close" size={20} color={colors.textMuted} />
             </TouchableOpacity>
@@ -69,7 +71,7 @@ export default function SparringMapPreview({
             </View>
             <View style={styles.people}>
               {hasHost && (
-                <Text style={styles.host} numberOfLines={1}>Mit {firstName(sparring.host_name)}</Text>
+                <Text style={styles.host} numberOfLines={1}>{t('map.preview.with', { name: firstName(sparring.host_name) })}</Text>
               )}
               <Text style={[styles.slots, sparring.is_signed_up && styles.slotsAccent]} numberOfLines={1}>
                 {slotsLabel}
@@ -80,9 +82,9 @@ export default function SparringMapPreview({
               onPress={onOpenDetails}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel={`${sparring.title} ansehen`}
+              accessibilityLabel={t('map.preview.viewA11y', { title: sparring.title })}
             >
-              <Text style={styles.ctaText}>Ansehen</Text>
+              <Text style={styles.ctaText}>{t('map.preview.view')}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.card} />
             </TouchableOpacity>
           </View>
@@ -103,6 +105,7 @@ interface EmptyProps {
 
 // Short notice in the preview's place when the search has no hits.
 export function SparringMapEmptyCard({ text, onWiden, onClose, action }: EmptyProps): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.card}>
       <View style={styles.clip}>
@@ -126,14 +129,14 @@ export function SparringMapEmptyCard({ text, onWiden, onClose, action }: EmptyPr
               activeOpacity={0.85}
               accessibilityRole="button"
             >
-              <Text style={styles.widenText}>Umkreis erweitern</Text>
+              <Text style={styles.widenText}>{t('map.preview.widen')}</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
             onPress={onClose}
             hitSlop={HIT_SLOP}
             accessibilityRole="button"
-            accessibilityLabel="Hinweis schließen"
+            accessibilityLabel={t('map.preview.closeNotice')}
           >
             <Ionicons name="close" size={20} color={colors.textMuted} />
           </TouchableOpacity>

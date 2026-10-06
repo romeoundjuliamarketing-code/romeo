@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useGym } from '../../hooks/useGyms';
+import { useTranslation } from 'react-i18next';
 
 // Gym the sparring takes place at, plus the organizer's access note. Purely a
 // place: the wording never suggests an offer or approval of the gym.
@@ -11,6 +12,7 @@ export default function SparringGymRow({ gymId, accessNote, onOpenGym }: {
   accessNote: string | null;
   onOpenGym:  (gymId: string) => void;
 }): React.ReactElement | null {
+  const { t } = useTranslation();
   const { gym } = useGym(gymId);
   const note = accessNote?.trim() ?? '';
   if (gym === null && note.length === 0) return null;
@@ -22,17 +24,17 @@ export default function SparringGymRow({ gymId, accessNote, onOpenGym }: {
           onPress={() => onOpenGym(gym.id)}
           activeOpacity={0.6}
           accessibilityRole="link"
-          accessibilityLabel={`Ort: ${gym.name}, ${gym.city}. Gym-Seite öffnen`}
+          accessibilityLabel={t('sparring.gymRow.a11y', { name: gym.name, city: gym.city })}
         >
           <Ionicons name="business-outline" size={18} color={colors.accentBlue} />
           <Text style={styles.text}>
-            Im Gym <Text style={styles.strong}>{gym.name}</Text>{gym.city.length > 0 ? `, ${gym.city}` : ''}
+            {t('sparring.gymRow.inGym')}<Text style={styles.strong}>{gym.name}</Text>{gym.city.length > 0 ? `, ${gym.city}` : ''}
           </Text>
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </TouchableOpacity>
       )}
       {note.length > 0 && (
-        <Text style={styles.note}>Zugang laut Organisator: {note}</Text>
+        <Text style={styles.note}>{t('sparring.gymRow.access', { note })}</Text>
       )}
     </View>
   );

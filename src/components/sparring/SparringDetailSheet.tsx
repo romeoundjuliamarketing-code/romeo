@@ -36,6 +36,11 @@ import type { SparringCommitmentResult } from './SparringCommitmentResultCard';
 import SparringCancelConfirmCard from './SparringCancelConfirmCard';
 import SparringStoryCard from './SparringStoryCard';
 import { usePopAnimation } from './SparringPopCard';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { formatDate } from '../../utils/formatDate';
+import type { AppLanguage } from '../../utils/language';
+import type { TFunction } from 'i18next';
 
 interface Props {
   sparring:          SparringWithMeta | null;
@@ -83,11 +88,10 @@ function getBannerColor(scheduledAt: string, isFeatured: boolean): string {
   return colors.accentBlue;
 }
 
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  const date = d.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long' });
-  const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-  return `${date}, ${time} Uhr`;
+function formatDateTime(iso: string, t: TFunction, language: AppLanguage): string {
+  const date = formatDate(iso, 'weekdayLong', language);
+  const time = formatDate(iso, 'time', language);
+  return t('sparring.detailSheet.dateTime', { date, time });
 }
 
 export default function SparringDetailSheet({
@@ -96,6 +100,8 @@ export default function SparringDetailSheet({
   cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
   loading,
 }: Props) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   // Reload participants when the slot count or the user's own status changes
   // (join/cancel/confirm keep the window open and refresh `sparring`).
   const [participantsVersion, setParticipantsVersion] = useState(0);
@@ -192,7 +198,7 @@ export default function SparringDetailSheet({
         await Share.open({
           url: uri,
           type: 'image/png',
-          message: `${s.title} – jetzt mitmachen: ${url}`,
+          message: t('sparring.detailSheet.shareMessage', { title: s.title, url }),
           failOnCancel: false,
         });
         return;
@@ -200,7 +206,7 @@ export default function SparringDetailSheet({
     } catch {
       // fall through to link-only sharing
     }
-    await Share.open({ message: `${s.title} – jetzt mitmachen: ${url}`, failOnCancel: false });
+    await Share.open({ message: t('sparring.detailSheet.shareMessage', { title: s.title, url }), failOnCancel: false });
   }
 
   return (
@@ -292,7 +298,7 @@ export default function SparringDetailSheet({
 
               {notes.length > 0 && (
                 <View style={styles.section}>
-                  <Text style={styles.sectionLabel}>Vom Organisator</Text>
+                  <Text style={styles.sectionLabel}>{t('sparring.detailSheet.fromOrganizer')}</Text>
                   {/* User content: shown exactly as written, long texts collapsed */}
                   <Text
                     style={styles.notes}
@@ -306,7 +312,7 @@ export default function SparringDetailSheet({
                       accessibilityRole="button"
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Text style={styles.moreText}>{notesExpanded ? 'Weniger anzeigen' : 'Mehr lesen'}</Text>
+                      <Text style={styles.moreText}>{notesExpanded ? t('sparring.detailSheet.readLess') : t('sparring.detailSheet.readMore')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -323,7 +329,7 @@ export default function SparringDetailSheet({
                     accessibilityRole="button"
                   >
                     <Ionicons name="chatbubbles-outline" size={18} color={colors.accentBlue} />
-                    <Text style={styles.actionBtnText}>Zum Chat</Text>
+                    <Text style={styles.actionBtnText}>{t('sparring.detailSheet.toChat')}</Text>
                   </TouchableOpacity>
                 )}
                 <TouchableOpacity
@@ -333,7 +339,7 @@ export default function SparringDetailSheet({
                   accessibilityRole="button"
                 >
                   <Ionicons name="share-outline" size={18} color={colors.accentBlue} />
-                  <Text style={styles.actionBtnText}>Teilen</Text>
+                  <Text style={styles.actionBtnText}>{t('sparring.detailSheet.share')}</Text>
                 </TouchableOpacity>
               </View>
 
@@ -348,7 +354,7 @@ export default function SparringDetailSheet({
                       accessibilityRole="button"
                     >
                       <Ionicons name="create-outline" size={18} color={colors.accentBlue} />
-                      <Text style={styles.actionBtnText}>Bearbeiten</Text>
+                      <Text style={styles.actionBtnText}>{t('sparring.detailSheet.edit')}</Text>
                     </TouchableOpacity>
                   )}
                   <TouchableOpacity
@@ -359,7 +365,7 @@ export default function SparringDetailSheet({
                     accessibilityRole="button"
                   >
                     <Ionicons name="close-circle-outline" size={18} color={colors.deleteRed} />
-                    <Text style={styles.deactivateText}>Sparring absagen</Text>
+                    <Text style={styles.deactivateText}>{t('sparring.detailSheet.cancelSparring')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -374,7 +380,7 @@ export default function SparringDetailSheet({
                 areaLabel={coarseAreaLabel({ studioName: s.studio_name, address: s.address })}
                 scheduledAt={s.scheduled_at}
                 durationMin={s.duration_min}
-                slotsLeftLabel={isFull ? 'Ausgebucht' : `${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}
+                slotsLeftLabel={isFull ? t('sparring.detailHeader.soldOut') : t('sparring.detailHeader.slotsFree', { count: slotsLeft })}
               />
             </ViewShot>
           </View>
@@ -394,7 +400,7 @@ export default function SparringDetailSheet({
           {cancelAskVisible && (
             <SparringCancelConfirmCard
               sparringTitle={sparring.title}
-              dateTimeLabel={formatDateTime(sparring.scheduled_at)}
+              dateTimeLabel={formatDateTime(sparring.scheduled_at, t, language)}
               isWaitlisted={sparring.my_status === 'waitlisted'}
               cancelIsFree={isBeforeCancelDeadline(sparring.scheduled_at, new Date())}
               onClose={onCancelAskClose}
@@ -406,7 +412,7 @@ export default function SparringDetailSheet({
             <SparringCommitmentResultCard
               result={commitmentResult}
               sparringTitle={sparring.title}
-              dateTimeLabel={formatDateTime(sparring.scheduled_at)}
+              dateTimeLabel={formatDateTime(sparring.scheduled_at, t, language)}
               onClose={onCommitmentResultClose}
             />
           )}

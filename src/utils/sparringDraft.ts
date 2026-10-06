@@ -4,6 +4,7 @@
 // of truth; this only keeps the client from sending obviously incomplete data.
 
 import type { CreateSparringInput } from '../hooks/useSparringActions';
+import i18n from '../i18n';
 
 export const SPARRING_DISCIPLINES = [
   'Boxen',
@@ -149,21 +150,21 @@ export function clearPlace(draft: SparringDraft): SparringDraft {
 export function validateStep(step: FlowStep, draft: SparringDraft, now: Date): DraftErrors {
   const errors: DraftErrors = {};
   if (step === 1 || step === 3) {
-    if (draft.discipline === null) errors.discipline = 'Wähle eine Disziplin.';
+    if (draft.discipline === null) errors.discipline = i18n.t('sparring.draft.errors.discipline');
     if (!Number.isInteger(draft.maxSlots) || draft.maxSlots < MIN_MAX_SLOTS) {
-      errors.maxSlots = 'Mindestens 1 Platz.';
+      errors.maxSlots = i18n.t('sparring.draft.errors.maxSlots');
     }
   }
   if (step === 2 || step === 3) {
     if (draft.scheduledAt.getTime() <= now.getTime()) {
-      errors.scheduledAt = 'Der Termin liegt in der Vergangenheit. Wähle einen späteren Zeitpunkt.';
+      errors.scheduledAt = i18n.t('sparring.draft.errors.scheduledAt');
     }
     if (draft.source === null) {
-      errors.place = 'Wähle ein Gym oder gib eine Adresse an.';
+      errors.place = i18n.t('sparring.draft.errors.placeNone');
     } else if (draft.address.trim().length === 0) {
       errors.place = draft.gym !== null && draft.source === 'custom'
-        ? 'Gib an, wo ihr euch trefft.'
-        : 'Gib eine Adresse ein.';
+        ? i18n.t('sparring.draft.errors.placeMeeting')
+        : i18n.t('sparring.draft.errors.placeAddress');
     }
   }
   return errors;

@@ -5,23 +5,25 @@ import { useSparringActions } from '../../hooks/useSparringActions';
 import { hasStarted } from '../../utils/sparringCommitment';
 import { initialsOf } from '../../utils/sparringDetail';
 import type { SparringParticipant, SparringSignupStatus } from '../../types/database.types';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
-// Maps DB gender value to short display label
-const GENDER_LABEL: Record<string, string> = {
-  male:   'M',
-  female: 'W',
-  other:  'D',
+// Maps DB gender value to short display label key
+const GENDER_LABEL: Record<string, 'sparring.participantsList.genderMale' | 'sparring.participantsList.genderFemale' | 'sparring.participantsList.genderOther'> = {
+  male:   'sparring.participantsList.genderMale',
+  female: 'sparring.participantsList.genderFemale',
+  other:  'sparring.participantsList.genderOther',
 };
 
-const STATUS_LABEL: Record<SparringSignupStatus, string> = {
-  pending:        'zugesagt',
-  confirmed:      'bestätigt',
-  waitlisted:     'Warteliste',
-  attended:       'erschienen',
-  no_show:        'nicht erschienen',
-  cancelled:      'abgesagt',
-  cancelled_late: 'abgesagt',
-  expired:        'verfallen',
+const STATUS_LABEL: Record<SparringSignupStatus, `sparring.participantsList.status.${SparringSignupStatus}`> = {
+  pending:        'sparring.participantsList.status.pending',
+  confirmed:      'sparring.participantsList.status.confirmed',
+  waitlisted:     'sparring.participantsList.status.waitlisted',
+  attended:       'sparring.participantsList.status.attended',
+  no_show:        'sparring.participantsList.status.no_show',
+  cancelled:      'sparring.participantsList.status.cancelled',
+  cancelled_late: 'sparring.participantsList.status.cancelled_late',
+  expired:        'sparring.participantsList.status.expired',
 };
 
 // Statuses the organizer may still correct once the sparring has started.
@@ -40,11 +42,12 @@ interface Props {
   onPressProfile:      (userId: string) => void;
 }
 
-function statusLabel(p: SparringParticipant): string {
+function statusLabel(p: SparringParticipant, t: TFunction): string {
   if (p.status === 'waitlisted' && p.waitlist_position !== null) {
-    return `Warteliste ${p.waitlist_position}`;
+    return t('sparring.participantsList.waitlistPosition', { position: p.waitlist_position });
   }
-  return STATUS_LABEL[p.status] ?? p.status;
+  const key = STATUS_LABEL[p.status];
+  return key !== undefined ? t(key) : p.status;
 }
 
 export default function SparringParticipantsList({
@@ -57,6 +60,7 @@ export default function SparringParticipantsList({
   onAttendanceChanged,
   onPressProfile,
 }: Props): React.ReactElement | null {
+  const { t } = useTranslation();
   const { markAttendance } = useSparringActions();
   const [markingUserId, setMarkingUserId] = useState<string | null>(null);
 
@@ -67,7 +71,7 @@ export default function SparringParticipantsList({
     const { error } = await markAttendance(sparringId, userId, present);
     setMarkingUserId(null);
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     onAttendanceChanged();
@@ -99,14 +103,14 @@ export default function SparringParticipantsList({
               <Text style={styles.avatarText}>{initialsOf(p.name)}</Text>
             </View>
             <View style={styles.nameRow}>
-              <Text style={styles.name}>{p.name ?? 'Unbekannt'}</Text>
+              <Text style={styles.name}>{p.name ?? t('sparring.detail.unknown')}</Text>
               {p.gender !== null && GENDER_LABEL[p.gender] !== undefined && (
                 <View style={styles.genderBadge}>
-                  <Text style={styles.genderBadgeText}>{GENDER_LABEL[p.gender]}</Text>
+                  <Text style={styles.genderBadgeText}>{t(GENDER_LABEL[p.gender])}</Text>
                 </View>
               )}
               <View style={styles.statusBadge}>
-                <Text style={styles.statusBadgeText}>{statusLabel(p)}</Text>
+                <Text style={styles.statusBadgeText}>{statusLabel(p, t)}</Text>
               </View>
             </View>
           </TouchableOpacity>
@@ -119,7 +123,7 @@ export default function SparringParticipantsList({
                 disabled={markingUserId === p.user_id}
               >
                 <Text style={[styles.attendanceBtnText, p.status === 'attended' && styles.attendanceBtnTextPresent]}>
-                  Erschienen
+                  {t('sparring.participantsList.attended')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -128,7 +132,7 @@ export default function SparringParticipantsList({
                 disabled={markingUserId === p.user_id}
               >
                 <Text style={[styles.attendanceBtnText, p.status === 'no_show' && styles.attendanceBtnTextAbsent]}>
-                  Nicht erschienen
+                  {t('sparring.participantsList.noShow')}
                 </Text>
               </TouchableOpacity>
             </View>

@@ -1,6 +1,8 @@
 // Pure helpers for sharing a single sparring. No React Native imports so this
 // stays unit-testable and reusable.
 
+import i18n from '../i18n';
+
 // Public share domain (sparrapp.com). Must match the host in app.config.js
 // (associatedDomains + Android intentFilter) and the Vercel deployment.
 export const SHARE_BASE_URL = 'https://sparrapp.com';
@@ -36,5 +38,5 @@ export function coarseAreaLabel(input: {
     /(?:^|\s)(\d{5}\s+[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß .-]*)/,
   );
   const label = match?.[1]?.trim();
-  return label && label.length > 0 ? label : 'Ort in der App';
+  return label && label.length > 0 ? label : i18n.t('sparring.detail.placeInApp');
 }

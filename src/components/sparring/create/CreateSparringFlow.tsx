@@ -24,6 +24,7 @@ import PlaceSection, { type PlaceActions } from './PlaceSection';
 import StepPreview from './StepPreview';
 import InvitationPreview from './InvitationPreview';
 import { StepTitle, SectionLabel, StepTransition } from './FlowParts';
+import { useTranslation } from 'react-i18next';
 
 type FlowErrors = DraftErrors & { title?: string; notes?: string };
 
@@ -45,6 +46,7 @@ interface Props {
 // Full-screen, three-step create flow: what -> when/where -> preview + publish.
 // The draft lives here so going back and forth keeps every input.
 export default function CreateSparringFlow({ visible, coachStudio, initialGym, onClose, onCreate }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { bannedWords } = useBannedWords();
 
@@ -122,9 +124,9 @@ export default function CreateSparringFlow({ visible, coachStudio, initialGym, o
       finish();
       return;
     }
-    Alert.alert('Entwurf verwerfen?', 'Deine Angaben für dieses Sparring gehen verloren.', [
-      { text: 'Weiter bearbeiten', style: 'cancel' },
-      { text: 'Verwerfen', style: 'destructive', onPress: finish },
+    Alert.alert(t('sparring.flow.discardTitle'), t('sparring.flow.discardMessage'), [
+      { text: t('sparring.flow.keepEditing'), style: 'cancel' },
+      { text: t('sparring.flow.discard'), style: 'destructive', onPress: finish },
     ]);
   }
 
@@ -135,8 +137,8 @@ export default function CreateSparringFlow({ visible, coachStudio, initialGym, o
       const verdict = checkText(text, bannedWords);
       return verdict.ok ? undefined : filterErrorMessage(verdict.category);
     };
-    const t = check(d.title);
-    if (t !== undefined) out.title = t;
+    const titleError = check(d.title);
+    if (titleError !== undefined) out.title = titleError;
     const n = check(d.notes);
     if (n !== undefined) out.notes = n;
     const p = check(d.address) ?? check(d.accessNote);
@@ -243,11 +245,11 @@ export default function CreateSparringFlow({ visible, coachStudio, initialGym, o
             )}
             {step === 2 && (
               <View>
-                <StepTitle text="Wann und wo?" />
-                <SectionLabel text="Termin" />
+                <StepTitle text={t('sparring.flow.whenWhere')} />
+                <SectionLabel text={t('sparring.flow.date')} />
                 <WhenPicker value={draft.scheduledAt} error={errors.scheduledAt} onChange={onWhen} />
                 <View style={styles.rope} />
-                <SectionLabel text="Ort" hint="Ein Gym oder ein eigener Treffpunkt." />
+                <SectionLabel text={t('sparring.flow.place')} hint={t('sparring.flow.placeHint')} />
                 <PlaceSection
                   gym={draft.gym}
                   source={draft.source}
@@ -264,20 +266,20 @@ export default function CreateSparringFlow({ visible, coachStudio, initialGym, o
               <StepPreview
                 preview={
                   <InvitationPreview
-                    badge="Vorschau"
+                    badge={t('sparring.flow.badge')}
                     discipline={draft.discipline}
                     title={title}
                     scheduledAtMs={draft.scheduledAt.getTime()}
                     gymName={draft.gym?.name ?? null}
                     address={draft.address}
                     atStudio={draft.source === 'studio'}
-                    slotsText={`${draft.maxSlots} ${draft.maxSlots === 1 ? 'Platz' : 'Plätze'} frei`}
-                    footnote="ohne dich als Gastgeber"
+                    slotsText={t('sparring.detailHeader.slotsFree', { count: draft.maxSlots })}
+                    footnote={t('sparring.flow.withoutHost')}
                     durationMin={CREATE_DURATION_MIN}
                   />
                 }
                 title={draft.title}
-                autoTitle={draft.discipline !== null ? defaultSparringTitle(draft.discipline) : 'Automatischer Titel'}
+                autoTitle={draft.discipline !== null ? defaultSparringTitle(draft.discipline) : t('sparring.flow.autoTitle')}
                 notes={draft.notes}
                 titleError={errors.title}
                 notesError={errors.notes}
@@ -302,11 +304,11 @@ export default function CreateSparringFlow({ visible, coachStudio, initialGym, o
               {publishing ? (
                 <>
                   <ActivityIndicator color={colors.headerTextPrimary} />
-                  <Text style={styles.primaryText}>Wird veröffentlicht …</Text>
+                  <Text style={styles.primaryText}>{t('sparring.flow.publishing')}</Text>
                 </>
               ) : (
                 <>
-                  <Text style={styles.primaryText}>{step === 3 ? 'Sparring veröffentlichen' : 'Weiter'}</Text>
+                  <Text style={styles.primaryText}>{step === 3 ? t('sparring.flow.publish') : t('common.next')}</Text>
                   <Ionicons name={step === 3 ? 'megaphone-outline' : 'arrow-forward'} size={20} color={colors.headerTextPrimary} />
                 </>
               )}
@@ -317,7 +319,7 @@ export default function CreateSparringFlow({ visible, coachStudio, initialGym, o
         {/* Child modals of the open flow (iOS cannot show sibling modals). */}
         <GymPickerSheet
           visible={gymPickerVisible}
-          title="Gym als Ort wählen"
+          title={t('sparring.flow.pickGymTitle')}
           currentGymId={draft.gym?.id ?? null}
           onClose={() => setGymPickerVisible(false)}
           onSelect={async (picked) => {

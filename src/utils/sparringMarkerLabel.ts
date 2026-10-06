@@ -1,13 +1,15 @@
 // Short marker text for the sparring map, e.g. "K1 · Sa" or "BJJ · Heute".
 // Kept narrow so neighbouring markers overlap as little as possible.
 
+import i18n from '../i18n';
+
 const SHORT_DISCIPLINE: Record<string, string> = {
   'K1 / Kickboxen': 'K1',
   'Muay Thai':      'Muay Thai',
   'Sonstiges':      'Sparring',
 };
 
-const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'] as const;
+const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const MAX_DISCIPLINE_CHARS = 10;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -26,9 +28,9 @@ export function shortDay(iso: string, now: Date = new Date()): string {
   const d = new Date(iso);
   const startOf = (x: Date): number => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const days = Math.round((startOf(d) - startOf(now)) / DAY_MS);
-  if (days <= 0) return 'Heute';
-  if (days === 1) return 'Morgen';
-  if (days < 7) return WEEKDAYS[d.getDay()];
+  if (days <= 0) return i18n.t('sparring.marker.today');
+  if (days === 1) return i18n.t('sparring.marker.tomorrow');
+  if (days < 7) return i18n.t(`sparring.marker.weekday.${WEEKDAYS[d.getDay()]}`);
   return `${d.getDate()}.${d.getMonth() + 1}.`;
 }
 

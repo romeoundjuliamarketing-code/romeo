@@ -3,11 +3,13 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { SparringLocationLines } from '../../utils/sparringDetail';
+import { useTranslation } from 'react-i18next';
 
 // Where the sparring takes place: place first, address details below.
 export default function SparringLocationRow({ primary, secondary }: SparringLocationLines): React.ReactElement {
+  const { t } = useTranslation();
   return (
-    <View style={styles.row} accessible accessibilityLabel={`Ort: ${primary}${secondary !== null ? `, ${secondary}` : ''}`}>
+    <View style={styles.row} accessible accessibilityLabel={t('sparring.locationRow.a11y', { place: `${primary}${secondary !== null ? `, ${secondary}` : ''}` })}>
       <View style={styles.iconCircle}>
         <Ionicons name="location" size={18} color={colors.accentBlue} />
       </View>

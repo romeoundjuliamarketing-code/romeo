@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import LocationPickerMap from './LocationPickerMap';
+import { useTranslation } from 'react-i18next';
 
 type Coord = { latitude: number; longitude: number };
 
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function LocationPickerModal({ visible, onClose, onConfirm }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   // 'pending' until the start position is known: the map mounts directly at
   // the user instead of a fixed city (a later camera jump is unreliable while
@@ -126,7 +128,7 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
         {start === 'pending' ? (
           <View style={styles.locating}>
             <ActivityIndicator color={colors.accentBlue} />
-            <Text style={styles.locatingText}>Dein Standort wird ermittelt …</Text>
+            <Text style={styles.locatingText}>{t('map.picker.locating')}</Text>
           </View>
         ) : (
           <LocationPickerMap
@@ -143,7 +145,7 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
           <TouchableOpacity style={styles.iconBtn} onPress={handleClose} activeOpacity={0.8}>
             <Ionicons name="arrow-back" size={22} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.title}>Ort auf Karte wählen</Text>
+          <Text style={styles.title}>{t('map.picker.title')}</Text>
           {/* invisible spacer keeps title centered */}
           <View style={styles.iconBtn} />
         </View>
@@ -151,7 +153,7 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
         {/* Bottom info + confirm bar */}
         <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 24 }]}>
           {marker === null ? (
-            <Text style={styles.hint}>Auf die Karte tippen, um einen Ort zu markieren</Text>
+            <Text style={styles.hint}>{t('map.picker.hint')}</Text>
           ) : (
             <>
               <View style={styles.addressRow}>
@@ -174,7 +176,7 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
                 disabled={geocoding}
                 activeOpacity={0.85}
               >
-                <Text style={styles.confirmBtnText}>Diesen Ort verwenden</Text>
+                <Text style={styles.confirmBtnText}>{t('map.picker.confirm')}</Text>
               </TouchableOpacity>
             </>
           )}

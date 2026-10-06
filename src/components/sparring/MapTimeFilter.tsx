@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 export type TimeFilter = 'all' | 'jetzt' | 'demnaechst' | 'bald';
 
@@ -13,10 +14,10 @@ interface Props {
 }
 
 // Labels match getTimeWindow(): today, the next 7 days, later.
-const FILTER_TABS: Array<{ key: Exclude<TimeFilter, 'all'>; label: string }> = [
-  { key: 'jetzt',      label: 'Heute' },
-  { key: 'demnaechst', label: '7 Tage' },
-  { key: 'bald',       label: 'Später' },
+const FILTER_TABS: Array<{ key: Exclude<TimeFilter, 'all'>; labelKey: 'map.timeFilter.today' | 'map.timeFilter.week' | 'map.timeFilter.later' }> = [
+  { key: 'jetzt',      labelKey: 'map.timeFilter.today' },
+  { key: 'demnaechst', labelKey: 'map.timeFilter.week' },
+  { key: 'bald',       labelKey: 'map.timeFilter.later' },
 ];
 
 // Chips are compact; the slop keeps the touch target near 40 pt.
@@ -26,6 +27,7 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 0, right: 0 };
 // active one again resets to "all". Empty windows are muted and not tappable,
 // so a 0 never looks like a result.
 export default function MapTimeFilter({ value, onChange, tabCounts, emptyLabel }: Props) {
+  const { t } = useTranslation();
   const total = FILTER_TABS.reduce((sum, t) => sum + (tabCounts[t.key] ?? 0), 0);
 
   if (total === 0) {
@@ -51,11 +53,11 @@ export default function MapTimeFilter({ value, onChange, tabCounts, emptyLabel }
             hitSlop={HIT_SLOP}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel={`${tab.label}: ${count}`}
+            accessibilityLabel={`${t(tab.labelKey)}: ${count}`}
             accessibilityState={{ selected: active, disabled: empty }}
           >
             <Text style={[styles.filterText, empty && styles.mutedText, active && styles.activeText]} numberOfLines={1}>
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
             <Text style={[styles.countText, empty && styles.mutedCount, active && styles.activeText]}>
               {count}

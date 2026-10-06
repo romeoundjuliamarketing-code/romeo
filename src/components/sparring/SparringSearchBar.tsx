@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { RADIUS_OPTIONS_KM, radiusLabel } from '../../utils/sparringSearch';
 import type { SearchRadius } from '../../utils/sparringSearch';
+import { useTranslation } from 'react-i18next';
 
 // The fixed steps plus "Überall" (null: no radius, all of DACH).
 const RADIUS_CHOICES: SearchRadius[] = [...RADIUS_OPTIONS_KM, null];
@@ -25,9 +26,9 @@ interface Props {
   notice?:         { text: string; actionLabel: string; onAction: () => void } | null;
 }
 
-const VIEWS: Array<{ key: SparringView; label: string; icon: React.ComponentProps<typeof Ionicons>['name'] }> = [
-  { key: 'map',  label: 'Karte', icon: 'map-outline' },
-  { key: 'list', label: 'Liste', icon: 'list-outline' },
+const VIEWS: Array<{ key: SparringView; labelKey: 'map.search.viewMap' | 'map.search.viewList'; icon: React.ComponentProps<typeof Ionicons>['name'] }> = [
+  { key: 'map',  labelKey: 'map.search.viewMap', icon: 'map-outline' },
+  { key: 'list', labelKey: 'map.search.viewList', icon: 'list-outline' },
 ];
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 0, right: 0 };
@@ -39,7 +40,8 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 0, right: 0 };
 export default function SparringSearchBar({
   view, onViewChange, locationLabel, onLocationPress, radiusKm, onRadiusChange, open, onOpenChange, notice = null,
 }: Props) {
-  const summary = locationLabel !== null ? `${locationLabel} · ${radiusLabel(radiusKm)}` : 'Standort wählen';
+  const { t } = useTranslation();
+  const summary = locationLabel !== null ? `${locationLabel} · ${radiusLabel(radiusKm)}` : t('map.search.chooseLocation');
 
   return (
     <View style={styles.container}>
@@ -51,8 +53,8 @@ export default function SparringSearchBar({
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
           accessibilityLabel={locationLabel !== null
-            ? `Suchbereich: ${locationLabel}, ${radiusKm === null ? 'überall' : `${radiusKm} Kilometer`}. Ändern`
-            : 'Standort wählen'}
+            ? t('map.search.areaA11y', { location: locationLabel, radius: radiusKm === null ? t('map.search.everywhereLower') : t('map.search.kilometers', { count: radiusKm }) })
+            : t('map.search.chooseLocation')}
         >
           <Ionicons name="location" size={16} color={colors.accentBlue} />
           <Text style={styles.summaryText} numberOfLines={1}>{summary}</Text>
@@ -69,7 +71,7 @@ export default function SparringSearchBar({
                 onPress={() => onViewChange(opt.key)}
                 activeOpacity={0.8}
                 accessibilityRole="button"
-                accessibilityLabel={opt.label}
+                accessibilityLabel={t(opt.labelKey)}
                 accessibilityState={{ selected: active }}
               >
                 <Ionicons name={opt.icon} size={16} color={active ? colors.card : colors.text} />
@@ -86,15 +88,15 @@ export default function SparringSearchBar({
             onPress={() => { onOpenChange(false); onLocationPress(); }}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel={`Suchort: ${locationLabel}. Ändern`}
+            accessibilityLabel={t('map.search.locationA11y', { location: locationLabel })}
           >
-            <Text style={styles.editorLabel}>Suchort</Text>
+            <Text style={styles.editorLabel}>{t('map.search.location')}</Text>
             <Text style={styles.locationText} numberOfLines={1}>{locationLabel}</Text>
-            <Text style={styles.changeText}>Ändern</Text>
+            <Text style={styles.changeText}>{t('map.search.change')}</Text>
           </TouchableOpacity>
 
           <View style={styles.radiusRow}>
-            <Text style={styles.editorLabel}>Umkreis</Text>
+            <Text style={styles.editorLabel}>{t('map.search.radius')}</Text>
             {RADIUS_CHOICES.map((radius) => {
               const active = radius === radiusKm;
               return (
@@ -105,7 +107,7 @@ export default function SparringSearchBar({
                   hitSlop={HIT_SLOP}
                   activeOpacity={0.8}
                   accessibilityRole="button"
-                  accessibilityLabel={radius === null ? 'Überall suchen' : `Umkreis ${radius} Kilometer`}
+                  accessibilityLabel={radius === null ? t('map.search.searchEverywhere') : t('map.search.radiusA11y', { count: radius })}
                   accessibilityState={{ selected: active }}
                 >
                   <Text style={[styles.radiusText, active && styles.radiusTextActive]}>{radiusLabel(radius)}</Text>

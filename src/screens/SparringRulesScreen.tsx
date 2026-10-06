@@ -5,10 +5,12 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import SparringRulesContent from '../components/sparring/SparringRulesContent';
+import { useTranslation } from 'react-i18next';
 
 // Full Sparr-Grundregeln, reachable from Einstellungen > Rechtliches. The
 // consent sheet shows the same text as an in-sheet overlay instead.
 export default function SparringRulesScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation();
 
   return (
@@ -18,7 +20,7 @@ export default function SparringRulesScreen(): React.ReactElement {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={18} color={colors.headerTextPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sparr-Grundregeln</Text>
+        <Text style={styles.headerTitle}>{t('sparring.consent.rulesTitle')}</Text>
       </View>
 
       <ScrollView

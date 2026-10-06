@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import Purchases, { type PurchasesPackage } from 'react-native-purchases';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 
 export interface UseEventCreatePurchase {
   purchase:       (eventId: string) => Promise<void>;
@@ -55,7 +56,7 @@ export function useEventCreatePurchase(): UseEventCreatePurchase {
 
   async function purchase(eventId: string): Promise<void> {
     if (eventPackage === null) {
-      Alert.alert('Fehler', 'Event-Erstellung ist gerade nicht verfügbar. Bitte versuche es später.');
+      Alert.alert(i18n.t('common.error'), i18n.t('sparring.eventPurchase.unavailable'));
       return;
     }
 
@@ -77,8 +78,8 @@ export function useEventCreatePurchase(): UseEventCreatePurchase {
         (err as { userCancelled: boolean }).userCancelled === true;
 
       if (!isCancelled) {
-        const message = err instanceof Error ? err.message : 'Kauf fehlgeschlagen.';
-        Alert.alert('Fehler', message);
+        const message = err instanceof Error ? err.message : i18n.t('sparring.eventPurchase.failed');
+        Alert.alert(i18n.t('common.error'), message);
       }
       setPurchasing(false);
       return;
@@ -106,8 +107,8 @@ export function useEventCreatePurchase(): UseEventCreatePurchase {
 
     if (!activated) {
       Alert.alert(
-        'Event wird aktiviert',
-        'Dein Event wird in Kürze aktiviert. Bitte schließe die Ansicht kurz und öffne sie erneut.',
+        i18n.t('sparring.eventPurchase.activatingTitle'),
+        i18n.t('sparring.eventPurchase.activatingBody'),
       );
     }
   }

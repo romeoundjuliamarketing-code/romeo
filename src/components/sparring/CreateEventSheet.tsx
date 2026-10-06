@@ -33,6 +33,9 @@ import type { CreateEventParams } from '../../hooks/useEventActions';
 import { useEventActions } from '../../hooks/useEventActions';
 import { geocodeAddress } from '../../utils/geocoding';
 import LocationPickerModal from './LocationPickerModal';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { localeFor } from '../../utils/language';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAX_SHEET_RATIO     = 0.92;   // sheet never grows past this share of the screen
@@ -196,6 +199,8 @@ function nextDay18h(): Date {
 }
 
 export default function CreateEventSheet({ visible, onClose, onCreate, venueId, onCreated, initialFightCard }: Props) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const { createVenueEvent } = useEventActions();
 
   const [title,                setTitle]                = useState('');
@@ -318,11 +323,11 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
   });
 
   function formatDate(d: Date): string {
-    return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString(localeFor(language), { day: '2-digit', month: '2-digit', year: 'numeric' });
   }
 
   function formatTime(d: Date): string {
-    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString(localeFor(language), { hour: '2-digit', minute: '2-digit' });
   }
 
   function resetFields(): void {
@@ -345,7 +350,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
     const coords = await geocodeAddress(q);
     setGeocoding(false);
     if (coords === null) {
-      Alert.alert('Nicht gefunden', 'Zu dieser Adresse wurden keine Koordinaten gefunden.');
+      Alert.alert(t('sparring.event.notFoundTitle'), t('sparring.event.notFoundBody'));
       return;
     }
     setPickedCoord({ lat: coords.lat, lng: coords.lng });
@@ -357,16 +362,16 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
     if (venueId === undefined) return;
 
     if (title.trim().length === 0) {
-      Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
+      Alert.alert(t('sparring.sheet.errTitleTitle'), t('sparring.sheet.errTitleBody'));
       return;
     }
     if (fightCard.trim().length === 0) {
-      Alert.alert('Kampfkarte fehlt', 'Bitte gib an, was gezeigt wird.');
+      Alert.alert(t('sparring.event.errCardTitle'), t('sparring.event.errCardBody'));
       return;
     }
     const slots = parseInt(maxSlots, 10);
     if (isNaN(slots) || slots < 1) {
-      Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+      Alert.alert(t('sparring.sheet.errSlotsTitle'), t('sparring.sheet.errSlotsBody'));
       return;
     }
 
@@ -382,7 +387,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
     setLoading(false);
 
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
 
@@ -394,20 +399,20 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
   // ── Standard (paid) path ──────────────────────────────────────────────────
   async function handleCreate(): Promise<void> {
     if (title.trim().length === 0) {
-      Alert.alert('Titel fehlt', 'Bitte gib einen Titel ein.');
+      Alert.alert(t('sparring.sheet.errTitleTitle'), t('sparring.sheet.errTitleBody'));
       return;
     }
     if (fightCard.trim().length === 0) {
-      Alert.alert('Kampfkarte fehlt', 'Bitte gib an, was gezeigt wird.');
+      Alert.alert(t('sparring.event.errCardTitle'), t('sparring.event.errCardBody'));
       return;
     }
     if (address.trim().length === 0 || pickedCoord === null) {
-      Alert.alert('Standort fehlt', 'Bitte wähle einen Standort auf der Karte aus oder suche eine Adresse.');
+      Alert.alert(t('sparring.event.errLocationTitle'), t('sparring.event.errLocationBody'));
       return;
     }
     const slots = parseInt(maxSlots, 10);
     if (isNaN(slots) || slots < 1) {
-      Alert.alert('Ungültige Plätze', 'Bitte gib mindestens 1 Platz ein.');
+      Alert.alert(t('sparring.sheet.errSlotsTitle'), t('sparring.sheet.errSlotsBody'));
       return;
     }
 
@@ -464,9 +469,9 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
                 <View style={styles.handle} />
                 <View style={styles.headerRow}>
                   <View style={styles.headerTextBlock}>
-                    <Text style={styles.heading}>Event erstellen</Text>
+                    <Text style={styles.heading}>{t('sparring.event.heading')}</Text>
                     <Text style={styles.subHeading}>
-                      {isVenuePath ? 'Kostenlos für dein Venue' : 'Public Viewing für deine Community'}
+                      {isVenuePath ? t('sparring.event.subHeadingVenue') : t('sparring.event.subHeading')}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={dismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -490,7 +495,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
               <View style={styles.feeHint}>
                 <Ionicons name="information-circle-outline" size={16} color={colors.accentBlue} />
                 <Text style={styles.feeHintText}>
-                  Das Erstellen eines Events kostet eine einmalige Gebühr von 8,99 Euro.
+                  {t('sparring.event.feeHint')}
                 </Text>
               </View>
             )}
@@ -499,37 +504,37 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
             {isVenuePath && (
               <View style={styles.feeHint}>
                 <Ionicons name="location-outline" size={16} color={colors.accentBlue} />
-                <Text style={styles.feeHintText}>Findet in deiner Location statt.</Text>
+                <Text style={styles.feeHintText}>{t('sparring.event.inYourLocation')}</Text>
               </View>
             )}
 
-            <FieldLabel icon="create-outline" text="Titel" />
+            <FieldLabel icon="create-outline" text={t('sparring.sheet.title')} />
             <TextInput
               style={styles.input}
               value={title}
               onChangeText={setTitle}
-              placeholder="z.B. Public Viewing UFC 320"
+              placeholder={t('sparring.event.titlePlaceholder')}
               placeholderTextColor={colors.textSecondary}
             />
 
-            <FieldLabel icon="tv-outline" text="Was wird gezeigt" />
+            <FieldLabel icon="tv-outline" text={t('sparring.event.fightCard')} />
             <TextInput
               style={styles.input}
               value={fightCard}
               onChangeText={setFightCard}
-              placeholder="z.B. UFC 320 – Jones vs. Aspinall"
+              placeholder={t('sparring.event.fightCardPlaceholder')}
               placeholderTextColor={colors.textSecondary}
             />
 
             {/* Venue name — only shown in the standard path */}
             {!isVenuePath && (
               <>
-                <FieldLabel icon="business-outline" text="Venue-Name" hint="Optional" />
+                <FieldLabel icon="business-outline" text={t('sparring.event.venueName')} hint={t('sparring.sheet.optional')} />
                 <TextInput
                   style={styles.input}
                   value={venueName}
                   onChangeText={setVenueName}
-                  placeholder="z.B. Sports Bar München"
+                  placeholder={t('sparring.event.venuePlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                 />
               </>
@@ -538,7 +543,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
             {/* Location block — only shown in the standard path */}
             {!isVenuePath && (
               <>
-                <FieldLabel icon="location-outline" text="Standort" />
+                <FieldLabel icon="location-outline" text={t('sparring.event.location')} />
 
                 {/* Map picker row */}
                 <View style={styles.locationRow}>
@@ -546,7 +551,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
                     style={[styles.input, styles.locationInput]}
                     value={address}
                     editable={false}
-                    placeholder="Auf Karte auswählen"
+                    placeholder={t('sparring.event.pickOnMap')}
                     placeholderTextColor={colors.textSecondary}
                   />
                   <TouchableOpacity
@@ -568,7 +573,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
                     style={[styles.input, styles.locationInput]}
                     value={addressQuery}
                     onChangeText={setAddressQuery}
-                    placeholder="Adresse eingeben"
+                    placeholder={t('sparring.sheet.addressPlaceholder')}
                     placeholderTextColor={colors.textSecondary}
                     returnKeyType="search"
                     onSubmitEditing={() => { void handleAddressSearch(); }}
@@ -606,13 +611,13 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
             {/* Datum + Uhrzeit */}
             <View style={styles.twoCol}>
               <View style={styles.colItem}>
-                <FieldLabel icon="calendar-outline" text="Datum" />
+                <FieldLabel icon="calendar-outline" text={t('sparring.sheet.dateLabel')} />
                 <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
                   <Text style={styles.inputText}>{formatDate(scheduledAt)}</Text>
                 </TouchableOpacity>
               </View>
               <View style={styles.colItem}>
-                <FieldLabel icon="time-outline" text="Uhrzeit" />
+                <FieldLabel icon="time-outline" text={t('sparring.sheet.timeLabel')} />
                 <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
                   <Text style={styles.inputText}>{formatTime(scheduledAt)}</Text>
                 </TouchableOpacity>
@@ -656,17 +661,17 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
                 so the slot count is only asked for on the standard (paid) path. */}
             {!isVenuePath && (
               <>
-                <FieldLabel icon="people-outline" text="Max. Plätze" />
+                <FieldLabel icon="people-outline" text={t('sparring.sheet.maxSlots')} />
                 <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
               </>
             )}
 
-            <FieldLabel icon="document-text-outline" text="Hinweise (optional)" />
+            <FieldLabel icon="document-text-outline" text={t('sparring.sheet.notesOptional')} />
             <TextInput
               style={[styles.input, styles.multiline]}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Eintritt, Dresscode, Hinweise..."
+              placeholder={t('sparring.event.notesPlaceholder')}
               placeholderTextColor={colors.textSecondary}
               multiline
               numberOfLines={3}
@@ -685,7 +690,7 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
               ) : (
                 <View style={styles.btnContent}>
                   <Ionicons name="tv-outline" size={18} color={colors.card} style={styles.btnIcon} />
-                  <Text style={styles.btnText}>Event erstellen</Text>
+                  <Text style={styles.btnText}>{t('sparring.event.heading')}</Text>
                 </View>
               )}
             </TouchableOpacity>

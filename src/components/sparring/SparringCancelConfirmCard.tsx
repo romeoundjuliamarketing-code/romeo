@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import SparringPopCard, { SparringPopCardBody } from './SparringPopCard';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   sparringTitle: string;
@@ -20,12 +21,13 @@ interface Props {
 export default function SparringCancelConfirmCard({
   sparringTitle, dateTimeLabel, isWaitlisted, cancelIsFree, onClose, onConfirm,
 }: Props): React.ReactElement {
-  const title = isWaitlisted ? 'Warteliste verlassen?' : 'Kann doch nicht teilnehmen?';
+  const { t } = useTranslation();
+  const title = isWaitlisted ? t('sparring.cancelConfirm.titleWaitlist') : t('sparring.cancelConfirm.title');
   const body = isWaitlisted
-    ? 'Du verlierst deinen Platz auf der Warteliste. Das hat keine Auswirkungen auf dich.'
+    ? t('sparring.cancelConfirm.bodyWaitlist')
     : cancelIsFree
-      ? 'Rechtzeitige Absage zählt nicht negativ. Dein Platz wird für jemand anderen frei.'
-      : 'Die Absage ist kurzfristig und zählt als nicht wahrgenommen. Trotzdem gut, dass du Bescheid gibst.';
+      ? t('sparring.cancelConfirm.bodyFree')
+      : t('sparring.cancelConfirm.bodyLate');
 
   return (
     <SparringPopCard onClose={onClose}>
@@ -40,10 +42,10 @@ export default function SparringCancelConfirmCard({
           />
           <View style={styles.actions}>
             <TouchableOpacity style={styles.btnDanger} activeOpacity={0.8} onPress={() => close(onConfirm)}>
-              <Text style={styles.btnDangerText}>{isWaitlisted ? 'Verlassen' : 'Abmelden'}</Text>
+              <Text style={styles.btnDangerText}>{isWaitlisted ? t('sparring.cancelConfirm.leave') : t('sparring.cancelConfirm.signOff')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.btnBack} activeOpacity={0.8} onPress={() => close()}>
-              <Text style={styles.btnBackText}>Zurück</Text>
+              <Text style={styles.btnBackText}>{t('common.back')}</Text>
             </TouchableOpacity>
           </View>
         </>

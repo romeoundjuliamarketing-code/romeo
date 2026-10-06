@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { CommitmentCta } from '../../utils/sparringCommitment';
 import { isBeforeCancelDeadline, isInConfirmWindow } from '../../utils/sparringCommitment';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   cta:              CommitmentCta;
@@ -22,6 +23,7 @@ interface Props {
 export default function SparringCommitmentActions({
   cta, scheduledAt, waitlistPosition, loading, onJoin, onConfirm, onCancel,
 }: Props): React.ReactElement | null {
+  const { t } = useTranslation();
   if (cta.type === 'none' || cta.type === 'started_organizer') {
     return null;
   }
@@ -31,19 +33,19 @@ export default function SparringCommitmentActions({
   if (cta.type === 'join') {
     const points = cta.full
       ? [
-          'Wird ein Platz frei, rückst du automatisch nach',
-          'Die Warteliste kannst du jederzeit verlassen',
+          t('sparring.commitment.pointWaitlistPromote'),
+          t('sparring.commitment.pointWaitlistLeave'),
         ]
       : [
-          'Die anderen Teilnehmer rechnen mit dir',
+          t('sparring.commitment.pointOthersCount'),
           isInConfirmWindow(scheduledAt, now)
-            ? 'So kurz vorher gilt deine Zusage sofort als bestätigt'
-            : '24 Stunden vorher bestätigst du deine Teilnahme noch einmal',
-          ...(isBeforeCancelDeadline(scheduledAt, now) ? ['Rechtzeitig absagen zählt nicht negativ'] : []),
+            ? t('sparring.commitment.pointConfirmedNow')
+            : t('sparring.commitment.pointConfirmLater'),
+          ...(isBeforeCancelDeadline(scheduledAt, now) ? [t('sparring.commitment.pointCancelFree')] : []),
         ];
     return (
       <View style={styles.unit}>
-        <Text style={styles.title}>{cta.full ? 'Alle Plätze sind vergeben' : 'Bist du dabei?'}</Text>
+        <Text style={styles.title}>{cta.full ? t('sparring.commitment.titleFull') : t('sparring.commitment.titleJoin')}</Text>
         <TouchableOpacity
           style={styles.btnPrimary}
           onPress={onJoin}
@@ -54,7 +56,7 @@ export default function SparringCommitmentActions({
             <ActivityIndicator color={colors.card} />
           ) : (
             <Text style={styles.btnPrimaryText}>
-              {cta.full ? 'Auf die Warteliste' : 'Verbindlich zusagen'}
+              {cta.full ? t('sparring.commitment.joinWaitlist') : t('sparring.commitment.joinBinding')}
             </Text>
           )}
         </TouchableOpacity>
@@ -73,10 +75,10 @@ export default function SparringCommitmentActions({
   if (cta.type === 'verified_required') {
     return (
       <View style={styles.unit}>
-        <Text style={styles.title}>Nur für verifizierte Mitglieder</Text>
-        <Text style={styles.body}>Um an diesem Sparring teilzunehmen, muss dein Profil verifiziert sein.</Text>
+        <Text style={styles.title}>{t('sparring.commitment.verifiedOnlyTitle')}</Text>
+        <Text style={styles.body}>{t('sparring.commitment.verifiedOnlyBody')}</Text>
         <View style={[styles.btnPrimary, styles.btnVerifyRequired]}>
-          <Text style={styles.btnPrimaryText}>Verifizierung erforderlich</Text>
+          <Text style={styles.btnPrimaryText}>{t('sparring.commitment.verificationRequired')}</Text>
         </View>
       </View>
     );
@@ -100,26 +102,27 @@ export default function SparringCommitmentActions({
   if (cta.type === 'waitlisted') {
     return (
       <View style={styles.unit}>
-        <StatusLine icon="time-outline" title="Du stehst auf der Warteliste" />
+        <StatusLine icon="time-outline" title={t('sparring.commitment.onWaitlist')} />
         <Text style={styles.body}>
-          {waitlistPosition !== null ? `Du bist auf Platz ${waitlistPosition}. ` : ''}
-          Wird ein Platz frei, rückst du automatisch nach.
+          {waitlistPosition !== null
+            ? t('sparring.commitment.waitlistBodyPosition', { position: waitlistPosition })
+            : t('sparring.commitment.waitlistBody')}
         </Text>
-        {cancelButton('Warteliste verlassen')}
+        {cancelButton(t('sparring.commitment.leaveWaitlist'))}
       </View>
     );
   }
 
   const cancelHint = cta.cancelIsFree ? (
-    <Text style={styles.microcopy}>Rechtzeitige Absage zählt nicht negativ.</Text>
+    <Text style={styles.microcopy}>{t('sparring.commitment.cancelFreeHint')}</Text>
   ) : null;
 
   if (cta.type === 'pending') {
     if (cta.confirmUrgent) {
       return (
         <View style={styles.unit}>
-          <Text style={styles.title}>Bitte bestätige deine Teilnahme</Text>
-          <Text style={styles.body}>Das Sparring ist bald. Die anderen rechnen mit dir – bestätige kurz, dass du kommst.</Text>
+          <Text style={styles.title}>{t('sparring.commitment.confirmTitle')}</Text>
+          <Text style={styles.body}>{t('sparring.commitment.confirmBody')}</Text>
           <TouchableOpacity
             style={styles.btnPrimary}
             onPress={onConfirm}
@@ -129,10 +132,10 @@ export default function SparringCommitmentActions({
             {loading ? (
               <ActivityIndicator color={colors.card} />
             ) : (
-              <Text style={styles.btnPrimaryText}>Ja, ich bin dabei</Text>
+              <Text style={styles.btnPrimaryText}>{t('sparring.commitment.confirmYes')}</Text>
             )}
           </TouchableOpacity>
-          {cancelButton('Kann doch nicht teilnehmen')}
+          {cancelButton(t('sparring.commitment.cannotAttend'))}
           {cancelHint}
         </View>
       );
@@ -140,11 +143,11 @@ export default function SparringCommitmentActions({
     // No early confirmation: the regular flow asks 24h before the start.
     return (
       <View style={styles.unit}>
-        <StatusLine icon="checkmark-circle" title="Du bist dabei" />
+        <StatusLine icon="checkmark-circle" title={t('sparring.commitment.youAreIn')} />
         <Text style={styles.body}>
-          Dein Platz ist reserviert. 24 Stunden vorher bestätigst du deine Teilnahme noch einmal.
+          {t('sparring.commitment.reservedBody')}
         </Text>
-        {cancelButton('Kann doch nicht teilnehmen')}
+        {cancelButton(t('sparring.commitment.cannotAttend'))}
         {cancelHint}
       </View>
     );
@@ -153,9 +156,9 @@ export default function SparringCommitmentActions({
   // cta.type === 'confirmed'
   return (
     <View style={styles.unit}>
-      <StatusLine icon="checkmark-circle" title="Du bist dabei" />
-      <Text style={styles.body}>Deine Teilnahme ist bestätigt. Dein Platz ist reserviert.</Text>
-      {cancelButton('Kann doch nicht teilnehmen')}
+      <StatusLine icon="checkmark-circle" title={t('sparring.commitment.youAreIn')} />
+      <Text style={styles.body}>{t('sparring.commitment.confirmedBody')}</Text>
+      {cancelButton(t('sparring.commitment.cannotAttend'))}
       {cancelHint}
     </View>
   );
