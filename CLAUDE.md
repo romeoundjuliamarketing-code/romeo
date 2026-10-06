@@ -43,6 +43,7 @@ Test-Setup (`babel.config.js` + `jest.config.js`) ist environment-aware. In Test
 - **Subscription/Paywall:** `get_my_entitlement()` RPC; Plaene `individual`/`studio`; IAP RevenueCat+StoreKit (iOS, kein Stripe); `PaywallScreen.tsx`; Team via `create_studio_with_owner` (nur studio-Plan).
 - **Studio-Einladungscode:** `create_studio_invite`/`accept_studio_invite` RPCs; Hook `useStudioInvite.ts`.
 - **Partner-Venues:** Bars/Locations mit Profil (`venues`/`venue_photos`/`venue_ratings`); B2B-Freischaltung serverseitig via `grant_venue_partner(...)` (service_role, kein IAP); Partner-Events gratis via `create_venue_event`; `VenueDetailScreen` rollenbewusst; persistente Map-Marker; „Meine Location"-Einstieg im Profil. Spec/Plan unter `docs/superpowers/`.
+- **Mehrsprachigkeit (DE/EN):** i18next, Texte in `src/i18n/locales/de.ts` (Quelle) + `en.ts` (gleiche Struktur, Paritaets-Test). Neue UI-Texte **nur** ueber `t('...')`, Datum nur ueber `formatDate`. Sprache via `useLanguage()`, gespeichert lokal + `profiles.language`. Spec `docs/superpowers/specs/2026-10-06-i18n-design.md`.
 
 **Kritische Fallstricke:**
 - **Avatar-Upload:** `expo-file-system` + `base64-arraybuffer` direkt in Storage (`avatars`-Bucket). **Nie** `fetch().blob()` (geht im Expo-Kontext nicht).
