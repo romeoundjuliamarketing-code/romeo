@@ -11,12 +11,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { useVerification } from '../hooks/useVerification';
 import VerifiedBadge from '../components/common/VerifiedBadge';
 
 export default function VerificationScreen(): React.ReactElement {
   const navigation = useNavigation();
+  const { t } = useTranslation();
   const { flags, tier, updateAddress } = useVerification();
 
   const [addressDraft, setAddressDraft] = useState('');
@@ -45,7 +47,7 @@ export default function VerificationScreen(): React.ReactElement {
         >
           <Ionicons name="close" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Verifizierung</Text>
+        <Text style={styles.headerTitle}>{t('settings.verification.title')}</Text>
         {/* Spacer to center title */}
         <View style={styles.headerSpacer} />
       </View>
@@ -60,9 +62,9 @@ export default function VerificationScreen(): React.ReactElement {
           // Success view
           <View style={styles.successCard}>
             <Ionicons name="checkmark-circle" size={64} color={colors.accentBlue} />
-            <Text style={styles.successTitle}>Du bist verifiziert</Text>
+            <Text style={styles.successTitle}>{t('settings.verification.verifiedTitle')}</Text>
             <Text style={styles.successSubtitle}>
-              Du kannst an Sparrings teilnehmen und eigene erstellen.
+              {t('settings.verification.verifiedSubtitle')}
             </Text>
             <VerifiedBadge tier={tier} showLabel />
           </View>
@@ -71,7 +73,7 @@ export default function VerificationScreen(): React.ReactElement {
             {/* Intro */}
             <View style={styles.introCard}>
               <Text style={styles.introText}>
-                Damit deine Sparringspartner wissen, dass du eine echte, überprüfte Person bist. Nur verifizierte Mitglieder können an Sparrings teilnehmen und eigene erstellen.
+                {t('settings.verification.intro')}
               </Text>
             </View>
 
@@ -84,9 +86,9 @@ export default function VerificationScreen(): React.ReactElement {
                   color={flags.email_verified ? colors.accentBlue : colors.inactive}
                 />
                 <View style={styles.stepContent}>
-                  <Text style={styles.stepLabel}>Schritt 1 – E-Mail bestätigt</Text>
+                  <Text style={styles.stepLabel}>{t('settings.verification.step1')}</Text>
                   <Text style={styles.stepHint}>
-                    {flags.email_verified ? 'Bestätigt' : 'Noch nicht bestätigt'}
+                    {flags.email_verified ? t('settings.verification.confirmed') : t('settings.verification.notConfirmed')}
                   </Text>
                 </View>
               </View>
@@ -101,20 +103,20 @@ export default function VerificationScreen(): React.ReactElement {
                   color={nachweisDone ? colors.accentBlue : colors.inactive}
                 />
                 <View style={styles.stepContent}>
-                  <Text style={styles.stepLabel}>Schritt 2 – Echtheits-Nachweis</Text>
+                  <Text style={styles.stepLabel}>{t('settings.verification.step2')}</Text>
                   {nachweisDone ? (
-                    <Text style={styles.stepHint}>Bestätigt</Text>
+                    <Text style={styles.stepHint}>{t('settings.verification.confirmed')}</Text>
                   ) : (
                     <>
                       <Text style={styles.stepHint}>
-                        Gib deine Adresse ein – oder tritt einem Studio bei bzw. lass dich von einem Coach bestätigen.
+                        {t('settings.verification.step2Hint')}
                       </Text>
                       <View style={styles.addressRow}>
                         <TextInput
                           style={styles.addressInput}
                           value={addressDraft}
                           onChangeText={setAddressDraft}
-                          placeholder="Strasse, PLZ, Ort"
+                          placeholder={t('settings.verification.addressPlaceholder')}
                           placeholderTextColor={colors.textSecondary}
                           autoCapitalize="words"
                           returnKeyType="done"
@@ -131,7 +133,7 @@ export default function VerificationScreen(): React.ReactElement {
                         >
                           {saving
                             ? <ActivityIndicator size="small" color={colors.card} />
-                            : <Text style={styles.saveBtnText}>Speichern</Text>
+                            : <Text style={styles.saveBtnText}>{t('settings.verification.save')}</Text>
                           }
                         </TouchableOpacity>
                       </View>

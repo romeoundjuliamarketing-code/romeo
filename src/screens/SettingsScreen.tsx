@@ -105,20 +105,20 @@ export default function SettingsScreen(): React.ReactElement {
     setResetting(false);
     setResetModalVisible(false);
     if (error !== null) {
-      Alert.alert('Fehler', error.message);
+      Alert.alert(t('common.error'), error.message);
     } else {
-      Alert.alert('E-Mail gesendet', `Ein Link zum Zurücksetzen des Passworts wurde an ${user.email} geschickt.`);
+      Alert.alert(t('settings.passwordReset.sentTitle'), t('settings.passwordReset.sentMessage', { email: user.email }));
     }
   }
 
   function handleDeleteAccount(): void {
     Alert.alert(
-      'Account löschen',
-      'Bist du sicher? Alle deine Daten werden permanent gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.',
+      t('settings.deleteAccount.title'),
+      t('settings.deleteAccount.message'),
       [
-        { text: 'Abbrechen', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Account löschen',
+          text: t('settings.deleteAccount.confirm'),
           style: 'destructive',
           onPress: () => {
             void (async () => {
@@ -128,13 +128,13 @@ export default function SettingsScreen(): React.ReactElement {
               const { error: revokeError } = await revokeAppleAuthorization();
               if (revokeError !== null) {
                 setDeletingAccount(false);
-                Alert.alert('Fehler', 'Die Verbindung zu deiner Apple-ID konnte gerade nicht getrennt werden. Bitte versuche es gleich noch einmal.');
+                Alert.alert(t('common.error'), t('settings.deleteAccount.appleError'));
                 return;
               }
               const { error } = await supabase.rpc('delete_my_account');
               if (error !== null) {
                 setDeletingAccount(false);
-                Alert.alert('Fehler', error.message);
+                Alert.alert(t('common.error'), error.message);
                 return;
               }
               await supabase.auth.signOut();
@@ -147,9 +147,9 @@ export default function SettingsScreen(): React.ReactElement {
   }
 
   function handleLogout(): void {
-    Alert.alert('Abmelden', 'Wirklich abmelden?', [
-      { text: 'Abbrechen', style: 'cancel' },
-      { text: 'Abmelden', style: 'destructive', onPress: () => { void signOut(); } },
+    Alert.alert(t('settings.logoutConfirm.title'), t('settings.logoutConfirm.message'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('settings.logoutConfirm.confirm'), style: 'destructive', onPress: () => { void signOut(); } },
     ]);
   }
 
@@ -157,43 +157,43 @@ export default function SettingsScreen(): React.ReactElement {
     setRecordPublicDraft(next);
     const { error } = await updateProfile({ show_fight_record: next });
     setRecordPublicDraft(null);
-    if (error !== null) Alert.alert('Fehler', 'Die Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.');
+    if (error !== null) Alert.alert(t('common.error'), t('settings.recordSaveError'));
   }
 
   async function handleRestorePurchases(): Promise<void> {
     try {
       if (await restorePurchases() === 'restored') {
         await refetchStore();
-        Alert.alert('Käufe wiederhergestellt', 'Dein Zugang ist wieder aktiv.');
+        Alert.alert(t('paywall.restore.successTitle'), t('paywall.restore.successMessage'));
       } else {
-        Alert.alert('Keine Käufe gefunden', 'Für dieses Konto wurde kein aktives Abo gefunden.');
+        Alert.alert(t('paywall.restore.noneTitle'), t('paywall.restore.noneMessage'));
       }
     } catch (error: unknown) {
-      Alert.alert('Wiederherstellung fehlgeschlagen', error instanceof Error ? error.message : 'Bitte versuche es erneut.');
+      Alert.alert(t('paywall.restore.failedTitle'), error instanceof Error ? error.message : t('paywall.tryAgain'));
     }
   }
 
   function handleRadiusPick(): void {
     Alert.alert(
-      'Umkreis für Sparring-Benachrichtigungen',
-      'Benachrichtige mich wenn ein Sparring in diesem Umkreis stattfindet:',
+      t('settings.radius.title'),
+      t('settings.radius.message'),
       [
         ...RADIUS_OPTIONS.map((km) => ({
-          text: `${km} km${km === radiusKm ? '  (aktiv)' : ''}`,
+          text: km === radiusKm ? t('settings.radius.optionActive', { km }) : t('settings.radius.option', { km }),
           onPress: () => {
             setRadiusKm(km);
             void AsyncStorage.setItem(PROXIMITY_RADIUS_KEY, String(km));
           },
         })),
-        { text: 'Abbrechen', style: 'cancel' as const },
+        { text: t('common.cancel'), style: 'cancel' as const },
       ],
     );
   }
 
   const activePlanLabel = entitlement.tier === 'studio_suite'
-    ? 'Studio Suite'
+    ? t('settings.plan.studioSuite')
     : entitlement.tier === 'studio_visibility'
-      ? 'Studio Sichtbarkeit'
+      ? t('settings.plan.studioVisibility')
       : planLabel(storeEntitlements.creatorActive, storeEntitlements.cardsActive || entitlement.hasAccess);
 
   return (
@@ -203,25 +203,25 @@ export default function SettingsScreen(): React.ReactElement {
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Einstellungen</Text>
+        <Text style={styles.headerTitle}>{t('settings.title')}</Text>
         <View style={styles.backBtn} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         {/* ── Benachrichtigungen ── */}
-        <SectionHeader title="Benachrichtigungen" />
+        <SectionHeader title={t('settings.sections.notifications')} />
         <View style={styles.card}>
           <SettingsRow
             icon="bell-outline"
-            label="Benachrichtigungen"
-            value={notifGranted ? 'Aktiviert' : 'Deaktiviert'}
+            label={t('settings.rows.notifications')}
+            value={notifGranted ? t('settings.rows.notificationsOn') : t('settings.rows.notificationsOff')}
             onPress={() => { void Linking.openSettings(); }}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="map-marker-radius-outline"
-            label="Sparring-Umkreis"
+            label={t('settings.rows.sparringRadius')}
             value={`${radiusKm} km`}
             onPress={handleRadiusPick}
           />
@@ -232,18 +232,18 @@ export default function SettingsScreen(): React.ReactElement {
         <LanguageSection />
 
         {/* ── Konto ── */}
-        <SectionHeader title="Konto" />
+        <SectionHeader title={t('settings.sections.account')} />
         <View style={styles.card}>
           <SettingsRow
             icon="email-outline"
-            label="E-Mail"
+            label={t('settings.rows.email')}
             value={user?.email ?? '–'}
             onPress={() => {}}
           />
           <View style={styles.divider} />
           <TouchableOpacity style={styles.row} onPress={openPasswordReset} activeOpacity={0.7} disabled={resetting}>
             <MaterialCommunityIcons name="lock-reset" size={20} color={colors.text} />
-            <Text style={styles.rowLabel}>Passwort zurücksetzen</Text>
+            <Text style={styles.rowLabel}>{t('settings.rows.resetPassword')}</Text>
             {resetting
               ? <ActivityIndicator size="small" color={colors.accentBlue} />
               : <MaterialCommunityIcons name="chevron-right" size={18} color={colors.inactive} />}
@@ -251,11 +251,11 @@ export default function SettingsScreen(): React.ReactElement {
         </View>
 
         {/* ── Privatsphäre ── */}
-        <SectionHeader title="Privatsphäre" />
+        <SectionHeader title={t('settings.sections.privacy')} />
         <View style={styles.card}>
           <View style={styles.row}>
             <MaterialCommunityIcons name="trophy-outline" size={20} color={colors.text} />
-            <Text style={[styles.rowLabel, styles.rowLabelFill]}>Kampfrekord öffentlich zeigen</Text>
+            <Text style={[styles.rowLabel, styles.rowLabelFill]}>{t('settings.rows.showFightRecord')}</Text>
             <Switch
               value={recordPublic}
               onValueChange={(v) => { void handleRecordPublicChange(v); }}
@@ -266,25 +266,25 @@ export default function SettingsScreen(): React.ReactElement {
           <View style={styles.divider} />
           <SettingsRow
             icon="account-cancel-outline"
-            label="Blockierte Nutzer"
+            label={t('settings.rows.blockedUsers')}
             value={blocked.length > 0 ? String(blocked.length) : undefined}
             onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('BlockedUsers'); }}
           />
         </View>
 
         {/* ── Abo ── */}
-        <SectionHeader title="Abo" />
+        <SectionHeader title={t('settings.sections.subscription')} />
         <View style={styles.card}>
           <SettingsRow
             icon="card-account-details-outline"
-            label="Aktiver Plan"
+            label={t('settings.rows.activePlan')}
             value={activePlanLabel}
             onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Paywall'); }}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="open-in-new"
-            label="Abo verwalten"
+            label={t('settings.rows.manageSubscription')}
             onPress={() => {
               void Linking.openURL(
                 Platform.OS === 'ios'
@@ -296,45 +296,45 @@ export default function SettingsScreen(): React.ReactElement {
           <View style={styles.divider} />
           <SettingsRow
             icon="restore"
-            label="Käufe wiederherstellen"
+            label={t('settings.rows.restorePurchases')}
             onPress={() => { void handleRestorePurchases(); }}
           />
         </View>
 
         {/* ── Rechtliches ── */}
-        <SectionHeader title="Rechtliches" />
+        <SectionHeader title={t('settings.sections.legal')} />
         <View style={styles.card}>
           <SettingsRow
             icon="information-outline"
-            label="Impressum"
+            label={t('settings.rows.imprint')}
             onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Impressum'); }}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="handshake-outline"
-            label="Sparr-Grundregeln"
+            label={t('settings.rows.rules')}
             onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('SparringRules'); }}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="shield-lock-outline"
-            label="Datenschutzerklärung"
+            label={t('settings.rows.privacyPolicy')}
             onPress={() => { void Linking.openURL('https://sparrapp.com/datenschutz.html'); }}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="file-document-outline"
-            label="Nutzungsbedingungen"
+            label={t('settings.rows.terms')}
             onPress={() => { void Linking.openURL('https://sparrapp.com/agb.html'); }}
           />
         </View>
 
         {/* ── Konto-Aktionen ── */}
-        <SectionHeader title="Konto-Aktionen" />
+        <SectionHeader title={t('settings.sections.accountActions')} />
         <View style={styles.card}>
           <SettingsRow
             icon="logout"
-            label="Abmelden"
+            label={t('settings.rows.logout')}
             onPress={handleLogout}
             danger
           />
@@ -346,7 +346,7 @@ export default function SettingsScreen(): React.ReactElement {
             disabled={deletingAccount}
           >
             <MaterialCommunityIcons name="delete-outline" size={20} color={colors.deleteRed} />
-            <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Account löschen</Text>
+            <Text style={[styles.rowLabel, styles.rowLabelDanger]}>{t('settings.rows.deleteAccount')}</Text>
             {deletingAccount && <ActivityIndicator size="small" color={colors.deleteRed} />}
           </TouchableOpacity>
         </View>
@@ -363,20 +363,20 @@ export default function SettingsScreen(): React.ReactElement {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Sicherheitsprüfung</Text>
+            <Text style={styles.modalTitle}>{t('settings.passwordReset.securityTitle')}</Text>
             <Text style={styles.modalText}>
-              Bitte bestätige kurz, dass du kein Roboter bist. Danach senden wir dir den Link zum Zurücksetzen.
+              {t('settings.passwordReset.securityText')}
             </Text>
             {resetting
               ? <ActivityIndicator color={colors.accentBlue} style={styles.modalSpinner} />
               : (
                 <TurnstileWidget
                   key={captchaKey}
-                  onToken={(t) => { void handlePasswordReset(t); }}
+                  onToken={(token) => { void handlePasswordReset(token); }}
                 />
               )}
             <TouchableOpacity style={styles.modalCancel} onPress={closePasswordReset} activeOpacity={0.7}>
-              <Text style={styles.modalCancelText}>Abbrechen</Text>
+              <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

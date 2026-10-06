@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 
 // Static legal notice (Impressum) per § 5 DDG. Content mirrors Impressum-Sparr.md.
@@ -26,6 +27,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 export default function ImpressumScreen(): React.ReactElement {
   const navigation = useNavigation();
+  const { t } = useTranslation();
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -34,7 +36,7 @@ export default function ImpressumScreen(): React.ReactElement {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={18} color={colors.headerTextPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Impressum</Text>
+        <Text style={styles.headerTitle}>{t('legal.imprint.title')}</Text>
       </View>
 
       <ScrollView
@@ -42,29 +44,28 @@ export default function ImpressumScreen(): React.ReactElement {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Section title="Angaben gemäß § 5 DDG">
+        <Section title={t('legal.imprint.section5')}>
           <Text style={styles.bodyText}>Romeo Georgiadis</Text>
           <Text style={styles.bodyText}>Rahrdumer Schweiz 38</Text>
           <Text style={styles.bodyText}>26441 Jever</Text>
-          <Text style={styles.bodyText}>Deutschland</Text>
+          <Text style={styles.bodyText}>{t('legal.imprint.country')}</Text>
         </Section>
 
-        <Section title="Kontakt">
+        <Section title={t('legal.imprint.contact')}>
           <TouchableOpacity onPress={() => { void Linking.openURL(`mailto:${CONTACT_EMAIL}`); }} activeOpacity={0.7}>
             <Text style={styles.linkText}>{CONTACT_EMAIL}</Text>
           </TouchableOpacity>
         </Section>
 
-        <Section title="Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV">
+        <Section title={t('legal.imprint.responsible')}>
           <Text style={styles.bodyText}>Romeo Georgiadis</Text>
           <Text style={styles.bodyText}>Rahrdumer Schweiz 38</Text>
           <Text style={styles.bodyText}>26441 Jever</Text>
         </Section>
 
-        <Section title="Verbraucherstreitbeilegung">
+        <Section title={t('legal.imprint.dispute')}>
           <Text style={styles.bodyText}>
-            Wir sind nicht bereit oder verpflichtet, an Streitbeilegungsverfahren vor einer
-            Verbraucherschlichtungsstelle teilzunehmen.
+            {t('legal.imprint.disputeText')}
           </Text>
         </Section>
       </ScrollView>

@@ -6,6 +6,7 @@ import type { ListRenderItemInfo } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { useBlockedUsers, type BlockedUser } from '../hooks/useBlockedUsers';
 
@@ -14,24 +15,25 @@ const AVATAR = 40;
 export default function BlockedUsersScreen(): React.ReactElement {
   const navigation = useNavigation();
   const { blocked, loading, unblock } = useBlockedUsers();
+  const { t } = useTranslation();
 
   const confirmUnblock = useCallback((u: BlockedUser) => {
     Alert.alert(
-      'Blockierung aufheben?',
-      `Du siehst die Chat-Nachrichten von ${u.name ?? 'dieser Person'} wieder.`,
+      t('settings.blocked.unblockTitle'),
+      t('settings.blocked.unblockMessage', { name: u.name ?? t('settings.blocked.thisPerson') }),
       [
-        { text: 'Abbrechen', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Aufheben',
+          text: t('settings.blocked.unblock'),
           onPress: () => {
             void unblock(u.id).then(({ error }) => {
-              if (error !== null) Alert.alert('Fehler', 'Die Blockierung konnte nicht aufgehoben werden. Bitte versuche es erneut.');
+              if (error !== null) Alert.alert(t('common.error'), t('settings.blocked.unblockError'));
             });
           },
         },
       ],
     );
-  }, [unblock]);
+  }, [unblock, t]);
 
   const renderItem = useCallback(({ item }: ListRenderItemInfo<BlockedUser>) => (
     <View style={styles.row}>
@@ -42,18 +44,18 @@ export default function BlockedUsersScreen(): React.ReactElement {
             <MaterialCommunityIcons name="account" size={24} color={colors.inactive} />
           </View>
         )}
-      <Text style={styles.name} numberOfLines={1}>{item.name ?? 'Unbekannt'}</Text>
+      <Text style={styles.name} numberOfLines={1}>{item.name ?? t('settings.blocked.unknown')}</Text>
       <TouchableOpacity
         style={styles.unblockBtn}
         onPress={() => confirmUnblock(item)}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={`Blockierung von ${item.name ?? 'Nutzer'} aufheben`}
+        accessibilityLabel={t('settings.blocked.unblockA11y', { name: item.name ?? t('settings.blocked.userFallback') })}
       >
-        <Text style={styles.unblockText}>Aufheben</Text>
+        <Text style={styles.unblockText}>{t('settings.blocked.unblock')}</Text>
       </TouchableOpacity>
     </View>
-  ), [confirmUnblock]);
+  ), [confirmUnblock, t]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -61,7 +63,7 @@ export default function BlockedUsersScreen(): React.ReactElement {
         <TouchableOpacity onPress={() => navigation.goBack()} activeOpacity={0.7} style={styles.backBtn}>
           <MaterialCommunityIcons name="arrow-left" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Blockierte Nutzer</Text>
+        <Text style={styles.headerTitle}>{t('settings.blocked.title')}</Text>
         <View style={styles.backBtn} />
       </View>
 
@@ -76,10 +78,10 @@ export default function BlockedUsersScreen(): React.ReactElement {
             ItemSeparatorComponent={Separator}
             ListHeaderComponent={
               <Text style={styles.hint}>
-                Von blockierten Personen siehst du keine Chat-Nachrichten mehr. Sie werden darüber nicht benachrichtigt.
+                {t('settings.blocked.hint')}
               </Text>
             }
-            ListEmptyComponent={<Text style={styles.empty}>Du hast niemanden blockiert.</Text>}
+            ListEmptyComponent={<Text style={styles.empty}>{t('settings.blocked.empty')}</Text>}
           />
         )}
     </SafeAreaView>

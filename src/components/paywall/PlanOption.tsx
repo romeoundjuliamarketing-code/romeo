@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 export interface PlanOptionProps {
@@ -17,6 +18,7 @@ export interface PlanOptionProps {
 export default function PlanOption({
   title, subtitle, price, badge, selected, active, onPress,
 }: PlanOptionProps): React.ReactElement {
+  const { t } = useTranslation();
   const disabled = active || price === undefined;
   return (
     <TouchableOpacity
@@ -39,13 +41,13 @@ export default function PlanOption({
       </View>
       <View style={styles.priceBox}>
         {active ? (
-          <Text style={styles.activeTag}>Aktiv</Text>
+          <Text style={styles.activeTag}>{t('paywall.option.active')}</Text>
         ) : price === undefined ? (
-          <Text style={styles.unavailable}>Nicht verfügbar</Text>
+          <Text style={styles.unavailable}>{t('paywall.option.unavailable')}</Text>
         ) : (
           <>
             <Text style={styles.price}>{price}</Text>
-            <Text style={styles.period}>pro Monat</Text>
+            <Text style={styles.period}>{t('paywall.option.perMonth')}</Text>
           </>
         )}
       </View>

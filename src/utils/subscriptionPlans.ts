@@ -1,3 +1,6 @@
+import i18n from '../i18n';
+import { parseLanguage } from './language';
+
 // Store subscription rules shared by paywall, settings and the sparring gate.
 // Product matching mirrors supabase/functions/rc-boost-webhook/storeEntitlementEvents.ts —
 // keep both in sync.
@@ -50,10 +53,10 @@ export function activePlan(creator: boolean, cards: boolean): PlanKey | null {
 
 export function planLabel(creator: boolean, cards: boolean): string {
   switch (activePlan(creator, cards)) {
-    case 'bundle': return 'Ersteller + Karten';
-    case 'creator': return 'Ersteller';
-    case 'cards': return 'Karten';
-    default: return 'Kein aktives Abo';
+    case 'bundle': return i18n.t('paywall.planLabel.bundle');
+    case 'creator': return i18n.t('paywall.planLabel.creator');
+    case 'cards': return i18n.t('paywall.planLabel.cards');
+    default: return i18n.t('paywall.planLabel.none');
   }
 }
 
@@ -64,7 +67,7 @@ export function bundleSavings(creator: number | null, cards: number | null, bund
 }
 
 export function formatSavings(amount: number, currencyCode: string): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: currencyCode }).format(amount);
+  return new Intl.NumberFormat((parseLanguage(i18n.language) ?? 'de') === 'en' ? 'en-GB' : 'de-DE', { style: 'currency', currency: currencyCode }).format(amount);
 }
 
 // Postgres "insufficient_privilege" on a private insert means the RLS check
@@ -88,21 +91,18 @@ export function subscriptionRejection(creatorActive: boolean): 'activating' | 'p
   return creatorActive ? 'activating' : 'purchase';
 }
 
-const PLAN_NAME: Record<PlanKey, string> = {
-  creator: 'Ersteller-Abo',
-  cards: 'Karten-Abo',
-  bundle: 'Paket',
-};
-
 // All plans share one store subscription group, so buying another plan
 // replaces the current one. Warn whenever that loses something.
 export function planSwitchNotice(current: PlanKey | null, target: PlanKey): string | null {
   if (current === null || current === target || target === 'bundle') return null;
   if (current === 'bundle') {
-    const lost = target === 'cards' ? 'Sparrings erstellen ist' : 'Das Kartenspiel ist';
-    return `Das ${PLAN_NAME[target]} ersetzt dein Paket. ${lost} dann nicht mehr enthalten.`;
+    const lost = target === 'cards' ? i18n.t('paywall.switchNotice.lostCreate') : i18n.t('paywall.switchNotice.lostCards');
+    return i18n.t('paywall.switchNotice.fromBundle', { target: i18n.t(`paywall.planName.${target}`), lost });
   }
-  return `Das ${PLAN_NAME[target]} ersetzt dein ${PLAN_NAME[current]}. Für beides nimm das Paket.`;
+  return i18n.t('paywall.switchNotice.other', {
+    target: i18n.t(`paywall.planName.${target}`),
+    current: i18n.t(`paywall.planName.${current}`),
+  });
 }
 
 // Google Play has no subscription groups: a plan change must name the product

@@ -12,6 +12,7 @@ import { useStoreEntitlements } from '../hooks/useStoreEntitlements';
 import { useAuth } from '../context/AuthContext';
 import { loginRevenueCat } from '../lib/revenuecat';
 import { restorePurchases } from '../lib/restorePurchases';
+import { useTranslation } from 'react-i18next';
 import {
   activePlan, bundleSavings, defaultSelection, formatSavings, orderPlans, planForProduct, planSwitchNotice, replacedProductId,
   type PlanKey,
@@ -19,14 +20,9 @@ import {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
-const PLAN_COPY: Record<PlanKey, { title: string; subtitle: string }> = {
-  creator: { title: 'Ersteller', subtitle: 'Eigene Sparrings erstellen' },
-  cards: { title: 'Karten', subtitle: 'Kartenspiel für Kickboxen / K1' },
-  bundle: { title: 'Ersteller + Karten', subtitle: 'Beides in einem Abo' },
-};
-
 export default function PaywallScreen({ navigation, route }: Props): React.ReactElement {
   const focus = route.params?.focus;
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { entitlements, refetch } = useStoreEntitlements();
   const [packages, setPackages] = useState<Partial<Record<PlanKey, PurchasesPackage>>>({});
@@ -62,9 +58,9 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
       void buy(plan);
       return;
     }
-    Alert.alert('Abo wechseln?', notice, [
-      { text: 'Abbrechen', style: 'cancel' },
-      { text: 'Wechseln', onPress: () => { void buy(plan); } },
+    Alert.alert(t('paywall.switchTitle'), notice, [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('paywall.switchConfirm'), onPress: () => { void buy(plan); } },
     ]);
   }
 
@@ -90,7 +86,7 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
         typeof err === 'object' && err !== null && 'userCancelled' in err &&
         (err as { userCancelled: boolean }).userCancelled;
       if (!isCancelled) {
-        Alert.alert('Kauf fehlgeschlagen', err instanceof Error ? err.message : 'Bitte versuche es erneut.');
+        Alert.alert(t('paywall.purchaseFailed'), err instanceof Error ? err.message : t('paywall.tryAgain'));
       }
     } finally {
       setPendingPlan(null);
@@ -101,13 +97,13 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
     try {
       if (await restorePurchases() === 'restored') {
         await refetch();
-        Alert.alert('Käufe wiederhergestellt', 'Dein Zugang ist wieder aktiv.');
+        Alert.alert(t('paywall.restore.successTitle'), t('paywall.restore.successMessage'));
         navigation.goBack();
       } else {
-        Alert.alert('Keine Käufe gefunden', 'Für dieses Konto wurde kein aktives Abo gefunden.');
+        Alert.alert(t('paywall.restore.noneTitle'), t('paywall.restore.noneMessage'));
       }
     } catch (error: unknown) {
-      Alert.alert('Wiederherstellung fehlgeschlagen', error instanceof Error ? error.message : 'Bitte versuche es erneut.');
+      Alert.alert(t('paywall.restore.failedTitle'), error instanceof Error ? error.message : t('paywall.tryAgain'));
     }
   }
 
@@ -119,15 +115,15 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
     : defaultSelection(order, (plan) => packages[plan] !== undefined, current);
   const selectedPkg = selected !== null ? packages[selected] : undefined;
   const ctaLabel = current === 'bundle'
-    ? 'Aktives Abo'
-    : selectedPkg !== undefined ? `Weiter – ${selectedPkg.product.priceString} / Monat` : 'Derzeit nicht verfügbar';
+    ? t('paywall.cta.active')
+    : selectedPkg !== undefined ? t('paywall.cta.continue', { price: selectedPkg.product.priceString }) : t('paywall.cta.unavailable');
   const saving = bundleSavings(
     packages.creator?.product.price ?? null,
     packages.cards?.product.price ?? null,
     packages.bundle?.product.price ?? null,
   );
   const bundleBadge = saving !== null && packages.bundle !== undefined
-    ? `Du sparst ${formatSavings(saving, packages.bundle.product.currencyCode)}`
+    ? t('paywall.savings', { amount: formatSavings(saving, packages.bundle.product.currencyCode) })
     : undefined;
 
   return (
@@ -142,8 +138,8 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
             order.map((plan) => (
               <PlanOption
                 key={plan}
-                title={PLAN_COPY[plan].title}
-                subtitle={PLAN_COPY[plan].subtitle}
+                title={t(`paywall.plans.${plan}.title`)}
+                subtitle={t(`paywall.plans.${plan}.subtitle`)}
                 price={packages[plan]?.product.priceString}
                 badge={plan === 'bundle' ? bundleBadge : undefined}
                 selected={selected === plan}

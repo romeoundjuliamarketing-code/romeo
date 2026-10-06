@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActivityIndicator, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 const PRIVACY_URL = 'https://www.notion.so/Datenschutzerkl-rung-Sparr-34f1f56f1531804ebd59ec7351220d82?source=copy_link';
@@ -16,6 +17,7 @@ interface Props {
 
 export default function PaywallFooter({ label, enabled, loading, onPurchase, onRestore }: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   return (
     <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
       <TouchableOpacity
@@ -29,20 +31,20 @@ export default function PaywallFooter({ label, enabled, loading, onPurchase, onR
       </TouchableOpacity>
 
       <Text style={styles.legalNote}>
-        Das Abo verlängert sich automatisch zum angezeigten Preis und Zeitraum, sofern es nicht rechtzeitig über die Abo-Einstellungen deines App-Stores gekündigt wird.
+        {t('paywall.footer.legalNote')}
       </Text>
 
       <View style={styles.links}>
         <TouchableOpacity onPress={onRestore} activeOpacity={0.7} accessibilityRole="button">
-          <Text style={styles.link}>Käufe wiederherstellen</Text>
+          <Text style={styles.link}>{t('paywall.footer.restore')}</Text>
         </TouchableOpacity>
         <Text style={styles.separator}>·</Text>
         <TouchableOpacity onPress={() => { void Linking.openURL(PRIVACY_URL); }} activeOpacity={0.7}>
-          <Text style={styles.link}>Datenschutz</Text>
+          <Text style={styles.link}>{t('paywall.footer.privacy')}</Text>
         </TouchableOpacity>
         <Text style={styles.separator}>·</Text>
         <TouchableOpacity onPress={() => { void Linking.openURL(TERMS_URL); }} activeOpacity={0.7}>
-          <Text style={styles.link}>Nutzungsbedingungen</Text>
+          <Text style={styles.link}>{t('paywall.footer.terms')}</Text>
         </TouchableOpacity>
       </View>
     </View>
