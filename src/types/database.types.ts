@@ -24,6 +24,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           is_coach: boolean
+          language: string | null
           last_training_date: string | null
           membership_type: string
           name: string | null
@@ -78,6 +79,7 @@ export type Database = {
           id: string
           instagram_url?: string | null
           is_coach?: boolean
+          language?: string | null
           last_training_date?: string | null
           membership_type?: string
           name?: string | null
@@ -132,6 +134,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           is_coach?: boolean
+          language?: string | null
           last_training_date?: string | null
           membership_type?: string
           name?: string | null
