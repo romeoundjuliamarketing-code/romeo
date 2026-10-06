@@ -22,9 +22,24 @@ interface Props {
   // Off while the card rotates in 3D (ChallengeDeck) — a shadow without a shadowPath
   // forces an offscreen render that blurs during the flip.
   elevated?:     boolean;
+  // Height follows the content (min. one square card width) instead of the fixed
+  // playing-card ratio. For screens that scroll the card as a whole.
+  fitContent?:   boolean;
 }
 
-// Front of a challenge card: a blue mission header over a warm off-white brief.
+// Narrow cards (thumbnails in the feedback step) get a smaller type scale so the
+// title does not break into single words.
+const COMPACT_WIDTH = 280;
+
+const DIFFICULTY_LEVEL: Record<SparringChallenge['difficulty'], number> = {
+  leicht: 1,
+  mittel: 2,
+  schwer: 3,
+};
+
+// Front of a challenge card: a compact blue brand band over a warm off-white brief.
+// Everything that identifies the card (mark, discipline, focus, number) lives in the
+// band once; the body belongs to the mission alone.
 export default function ChallengeCard({
   challenge,
   size,
@@ -32,96 +47,106 @@ export default function ChallengeCard({
   onToggleDone,
   scrollable = true,
   elevated = true,
+  fitContent = false,
 }: Props): React.ReactElement {
+  const compact = size.width < COMPACT_WIDTH;
+  const level   = DIFFICULTY_LEVEL[challenge.difficulty];
+  const meta    = challenge.focus.length > 0
+    ? `${areaLabel(challenge.area)} · ${challenge.focus}`
+    : areaLabel(challenge.area);
 
   const brief = (
     <>
-      <View style={styles.levelBadge}>
+      <View
+        style={styles.levelRow}
+        accessible
+        accessibilityLabel={`Schwierigkeit ${challenge.difficulty}`}
+      >
+        <View style={styles.levelBars}>
+          {[1, 2, 3].map((step) => (
+            <View key={step} style={[styles.levelBar, step <= level && styles.levelBarOn]} />
+          ))}
+        </View>
         <Text style={styles.levelText}>{challenge.difficulty}</Text>
       </View>
 
-      <Text style={styles.title}>{challenge.title}</Text>
+      <Text style={[styles.title, compact && styles.titleCompact]}>{challenge.title}</Text>
       {/* Inside the deck the brief cannot scroll (the card is a tap target), so a very
           long text ellipsizes here and stays readable in full under "Alle Karten ansehen". */}
-      <Text style={styles.instruction} numberOfLines={scrollable ? undefined : 9}>
+      <Text
+        style={[
+          styles.instruction,
+          !scrollable && !fitContent && styles.instructionDeck,
+          compact && styles.instructionCompact,
+        ]}
+        numberOfLines={scrollable || fitContent ? undefined : 9}
+      >
         {challenge.instruction}
       </Text>
-
-      {challenge.successCriteria !== undefined ? (
-        <View style={styles.successBox}>
-          <Text style={styles.successLabel}>Geschafft, wenn</Text>
-          <Text style={styles.successText}>{challenge.successCriteria}</Text>
-        </View>
-      ) : null}
     </>
   );
-  const headerHeight  = Math.round(size.height * 0.3);
-  const watermarkSize = Math.round(size.width * 0.7);
-  const number        = missionNumber(challenge);
+
+  const doneButton = onToggleDone !== undefined ? (
+    <TouchableOpacity
+      style={[styles.doneBtn, done && styles.doneBtnActive]}
+      onPress={onToggleDone}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityState={{ selected: done }}
+    >
+      <Ionicons
+        name={done ? 'checkmark-circle' : 'checkmark-circle-outline'}
+        size={16}
+        color={done ? colors.headerTextPrimary : colors.accentBlue}
+      />
+      <Text style={[styles.doneLabel, done && styles.doneLabelActive]}>Geschafft</Text>
+    </TouchableOpacity>
+  ) : null;
+
+  const sizeStyle = fitContent
+    ? { width: size.width, minHeight: size.width }
+    : { width: size.width, height: size.height };
 
   return (
-    <View style={[styles.card, { width: size.width, height: size.height }, elevated && cardShadow]}>
-      <View style={[styles.header, { height: headerHeight }]}>
+    <View style={[styles.card, sizeStyle, elevated && cardShadow]}>
+      <View style={styles.band}>
+        {/* Cropped by the band edge — texture behind the text, not a second logo. */}
         <View style={styles.watermark} pointerEvents="none">
-          <SparrLogo size={watermarkSize} opacity={0.07} />
+          <SparrLogo size={112} opacity={0.1} />
         </View>
 
-        <View style={styles.headerTop}>
-          <SparrLogo size={22} />
-          <Text style={styles.number}>{number}</Text>
-        </View>
-
-        <View style={styles.headerBottom}>
-          <View style={styles.sportBadge}>
-            <Text style={styles.sportText}>{areaLabel(challenge.area)}</Text>
-          </View>
-          {challenge.focus.length > 0 ? (
-            <Text style={styles.category} numberOfLines={1}>{challenge.focus}</Text>
-          ) : null}
-        </View>
-      </View>
-
-      <View style={styles.body}>
-        {scrollable ? (
-          <ScrollView
-            style={styles.bodyScroll}
-            contentContainerStyle={styles.bodyContent}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
-            {brief}
-          </ScrollView>
-        ) : (
-          <View style={[styles.bodyScroll, styles.bodyContent]}>{brief}</View>
-        )}
-
-        {onToggleDone !== undefined ? (
-          <TouchableOpacity
-            style={[styles.doneBtn, done && styles.doneBtnActive]}
-            onPress={onToggleDone}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityState={{ selected: done }}
-          >
-            <Ionicons
-              name={done ? 'checkmark-circle' : 'checkmark-circle-outline'}
-              size={16}
-              color={done ? colors.headerTextPrimary : colors.accentBlue}
-            />
-            <Text style={[styles.doneLabel, done && styles.doneLabelActive]}>Geschafft</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        <View style={styles.footer}>
-          <SparrLogo size={14} opacity={0.55} />
-          <Text style={styles.footerText} numberOfLines={1}>
-            {challenge.focus.length > 0 ? `${challenge.focus} · ${number}` : number}
-          </Text>
+        <SparrLogo size={compact ? 32 : 40} />
+        <Text style={styles.meta} numberOfLines={2}>{meta}</Text>
+        <View style={styles.numberWrap}>
           {done ? (
-            <Ionicons name="checkmark-circle" size={14} color={colors.accentBlue} />
+            <Ionicons name="checkmark-circle" size={16} color={colors.headerTextPrimary} />
           ) : null}
+          <Text style={styles.number}>{missionNumber(challenge)}</Text>
         </View>
       </View>
+
+      {fitContent ? (
+        <>
+          <View style={styles.bodyContent}>{brief}</View>
+          {doneButton}
+        </>
+      ) : (
+        <View style={styles.body}>
+          {scrollable ? (
+            <ScrollView
+              style={styles.bodyFill}
+              contentContainerStyle={styles.bodyContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {brief}
+            </ScrollView>
+          ) : (
+            <View style={[styles.bodyFill, styles.bodyContent]}>{brief}</View>
+          )}
+          {doneButton}
+        </View>
+      )}
     </View>
   );
 }
@@ -135,118 +160,106 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  // ── Mission header ─────────────────────────────────────────────────────────
-  header: {
-    backgroundColor: colors.accentBlue,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-  },
-  // Offset and cropped by the header edge — texture, not a second logo.
-  watermark: {
-    position: 'absolute',
-    right: -30,
-    top: -14,
-  },
-  headerTop: {
+  // ── Brand band ─────────────────────────────────────────────────────────────
+  band: {
+    minHeight: 80,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: colors.accentBlue,
+    overflow: 'hidden',
   },
-  number: {
-    fontSize: 14,
+  watermark: {
+    position: 'absolute',
+    right: -32,
+    top: -24,
+  },
+  meta: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
     color: colors.headerTextPrimary,
   },
-  headerBottom: {
+  numberWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  sportBadge: {
-    backgroundColor: colors.background,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  sportText: {
-    fontSize: 9,
+  number: {
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.text,
-  },
-  category: {
-    flex: 1,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
     color: colors.headerTextPrimary,
   },
 
   // ── Brief ──────────────────────────────────────────────────────────────────
   body: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
   },
-  bodyScroll: {
+  bodyFill: {
     flex: 1,
   },
   bodyContent: {
-    paddingBottom: 8,
+    padding: 24,
   },
-  levelBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.accentBlueSoft,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+  levelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  levelBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  levelBar: {
+    width: 4,
+    height: 12,
+    borderRadius: 2,
+    backgroundColor: colors.hairline,
+  },
+  levelBarOn: {
+    backgroundColor: colors.accentBlue,
   },
   levelText: {
-    fontSize: 9,
+    fontSize: 12,
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    color: colors.accentBlue,
+    color: colors.textMuted,
   },
   title: {
     marginTop: 8,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  titleCompact: {
     fontSize: 21,
     lineHeight: 26,
-    fontWeight: '700',
-    color: colors.text,
   },
   instruction: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 21,
-    color: colors.textSecondary,
-  },
-  successBox: {
     marginTop: 16,
-    backgroundColor: colors.accentBlueSoft,
-    borderRadius: 8,
-    padding: 8,
-    gap: 4,
-  },
-  successLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.accentBlue,
-  },
-  successText: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 19,
+    lineHeight: 27,
     color: colors.text,
   },
-
+  // Fixed-size deck card that cannot scroll: one step smaller so the longest missions
+  // still fit in full.
+  instructionDeck: {
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  instructionCompact: {
+    fontSize: 15,
+    lineHeight: 21,
+  },
   doneBtn: {
     minHeight: 44,
     flexDirection: 'row',
@@ -256,7 +269,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.accentBlue,
-    marginBottom: 8,
+    marginHorizontal: 24,
+    marginBottom: 24,
   },
   doneBtnActive: {
     backgroundColor: colors.accentBlue,
@@ -268,22 +282,5 @@ const styles = StyleSheet.create({
   },
   doneLabelActive: {
     color: colors.headerTextPrimary,
-  },
-
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 8,
-  },
-  footerText: {
-    flex: 1,
-    fontSize: 9,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.textTertiary,
   },
 });

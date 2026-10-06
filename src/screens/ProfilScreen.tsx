@@ -12,7 +12,6 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -26,23 +25,19 @@ import ProfileHeader from '../components/profil/ProfileHeader';
 import ProfileShareSheet from '../components/profil/ProfileShareSheet';
 import TeamPickerCard from '../components/profil/TeamPickerCard';
 import SparringActivityCard from '../components/profil/SparringActivityCard';
-import {
-  ProfileToolbar,
-  SecondaryButton,
-  ProfileSection,
-  SectionDivider,
-  AddPrompt,
-  FactList,
-} from '../components/profil/ProfileParts';
-import { cardBackFacts, trainingFacts } from '../utils/athleteProfile';
-import StatsTab from '../components/profil/StatsTab';
-import { useWorkoutStats } from '../hooks/useWorkoutStats';
+import { SecondaryButton } from '../components/profil/ProfileParts';
+import { BodyStats, ProfileBio, TrainingStatement } from '../components/profil/ProfileFacts';
+import HomeGymBlock from '../components/profil/HomeGymBlock';
+import GymPickerSheet from '../components/gym/GymPickerSheet';
+import FocusedStatusBar from '../components/common/FocusedStatusBar';
+import { useGym } from '../hooks/useGyms';
+import type { Gym } from '../hooks/useGyms';
+import { bodyStats, cardBackFacts, trainingHeadline } from '../utils/athleteProfile';
+import { stanceLabel } from '../utils/stance';
 import { useFightRecord } from '../hooks/useFightRecord';
 import { useStudio } from '../hooks/useStudio';
 import { useMyStudioRequests } from '../hooks/useMyStudioRequests';
 import { useProfile } from '../hooks/useProfile';
-import { useWeight } from '../hooks/useWeight';
-import { useEntitlement } from '../hooks/useEntitlement';
 import { useStudioInvite } from '../hooks/useStudioInvite';
 import { useVerification } from '../hooks/useVerification';
 import { useMyVenue } from '../hooks/useMyVenue';
@@ -58,22 +53,21 @@ export default function ProfilScreen(): React.ReactElement {
   useFocusRefetch(() => setFocusTrigger((n) => n + 1));
 
   // ── Hooks ──
-  const { totalPoints, totalWorkouts, streak, rank } = useWorkoutStats(focusTrigger);
   const { currentStudio, requestJoin, leaveStudio, removeMember: _removeMember, searchStudios, createStudio } = useStudio(focusTrigger);
   const { joinRequests, cancelJoinRequest, refetch: refetchMyRequests } = useMyStudioRequests(focusTrigger);
   const { profile, updateProfile } = useProfile(focusTrigger);
   const { acceptInvite } = useStudioInvite();
-  const { currentWeight, isNewWeek, logWeight } = useWeight(focusTrigger);
-  const { entitlement } = useEntitlement(focusTrigger);
   const { fights, loading: fightsLoading, addFight, deleteFight } = useFightRecord(focusTrigger);
   const { tier } = useVerification(focusTrigger);
   const { venueId } = useMyVenue(focusTrigger);
+  const { gym: homeGym } = useGym(profile?.home_gym_id ?? null, focusTrigger);
 
   // ── Local state ──
   // "Profil teilen": preview of the collectible fighter card
   const [shareVisible, setShareVisible] = useState(false);
   const [fightSheetVisible, setFightSheetVisible] = useState(false);
   const [qrSheetVisible, setQrSheetVisible] = useState(false);
+  const [gymPickerVisible, setGymPickerVisible] = useState(false);
 
   // Fighter search modal
   const [searchModalVisible, setSearchModalVisible] = useState(false);
@@ -81,11 +75,6 @@ export default function ProfilScreen(): React.ReactElement {
   const [searching,   setSearching]   = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [scannerVisible, setScannerVisible] = useState(false);
-
-  // Weekly weight tracking modal
-  const [weightModalVisible, setWeightModalVisible] = useState(false);
-  const [weightDraft, setWeightDraft] = useState('');
-  const [weightSaving, setWeightSaving] = useState(false);
 
   // ── Handlers ──
 
@@ -151,22 +140,6 @@ export default function ProfilScreen(): React.ReactElement {
     navigation.navigate('PublicProfile', { userId: (data as { id: string }).id });
   }
 
-  async function handleSaveWeight(): Promise<void> {
-    const kg = parseFloat(weightDraft.replace(',', '.'));
-    if (isNaN(kg) || kg <= 0 || kg >= 500) {
-      Alert.alert('Ungültig', 'Bitte gib ein gültiges Gewicht ein (z. B. 82.5).');
-      return;
-    }
-    setWeightSaving(true);
-    const result = await logWeight(kg);
-    setWeightSaving(false);
-    if (result.error !== null) {
-      Alert.alert('Fehler', result.error);
-      return;
-    }
-    setWeightModalVisible(false);
-    setWeightDraft('');
-  }
 
 
   const cardData: FighterCardData = {
@@ -178,8 +151,8 @@ export default function ProfilScreen(): React.ReactElement {
     weightKg:      profile?.weight_kg ?? null,
     heightCm:      profile?.height_cm ?? null,
     stance:        profile?.stance ?? null,
-    gymName:       currentStudio?.name ?? null,
-    location:      currentStudio?.city ?? profile?.hometown ?? null,
+    gymName:       homeGym?.name ?? null,
+    location:      homeGym?.city ?? profile?.hometown ?? null,
     frame:         profile?.card_frame ?? null,
     motto:         profile?.motto ?? null,
     favoriteMove:  profile?.favorite_move ?? null,
@@ -187,86 +160,66 @@ export default function ProfilScreen(): React.ReactElement {
     backFacts:     profile !== null ? cardBackFacts(profile) : [],
   };
   const bio = profile?.bio?.trim() ?? '';
-  const training = profile !== null ? trainingFacts(profile) : [];
   const openEdit = () => navigation.navigate('EditProfile');
+  const openGym = (gymId: string) => navigation.navigate('GymDetail', { gymId });
+
+  async function handleSelectHomeGym(gym: Gym): Promise<boolean> {
+    const { error } = await updateProfile({ home_gym_id: gym.id });
+    if (error !== null) {
+      Alert.alert('Nicht gespeichert', 'Dein Gym konnte nicht gespeichert werden. Bitte versuche es erneut.');
+      return false;
+    }
+    return true;
+  }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <ProfileToolbar
-        title="Profil"
-        actions={[
-          {
-            icon: 'search',
-            label: 'Kämpfer suchen',
-            onPress: () => {
-              setSearchCode('');
-              setSearchError(null);
-              setSearchModalVisible(true);
-            },
-          },
-          { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
-          { icon: 'settings-outline', label: 'Einstellungen', onPress: () => navigation.navigate('Settings') },
-        ]}
-      />
+    <View style={styles.safe}>
+      <FocusedStatusBar style="light" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <ProfileHeader
+          data={cardData}
+          coverUrl={profile?.cover_url ?? null}
+          coverFocus={{ x: profile?.cover_focus_x ?? 0.5, y: profile?.cover_focus_y ?? 0.5 }}
+          isProfessional={profile?.is_professional === true}
+          gym={homeGym !== null ? { id: homeGym.id, name: homeGym.name, city: homeGym.city } : null}
+          hometown={profile?.hometown ?? null}
+          countryCode={profile?.country_code ?? null}
+          onPressGym={homeGym !== null ? () => openGym(homeGym.id) : undefined}
+          toolbar={[
+            {
+              icon: 'search',
+              label: 'Kämpfer suchen',
+              onPress: () => {
+                setSearchCode('');
+                setSearchError(null);
+                setSearchModalVisible(true);
+              },
+            },
+            { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
+            { icon: 'settings-outline', label: 'Einstellungen', onPress: () => navigation.navigate('Settings') },
+          ]}
+          actions={(
+            <View style={styles.headerActions}>
+              <SecondaryButton icon="create-outline" label="Bearbeiten" onPress={openEdit} />
+              <SecondaryButton icon="share-social-outline" label="Teilen" onPress={() => setShareVisible(true)} />
+            </View>
+          )}
+        />
+
         <View style={styles.page}>
-          <ProfileHeader
-            data={cardData}
-            actions={(
-              <View style={styles.headerActions}>
-                <View style={styles.flex}>
-                  <SecondaryButton icon="create-outline" label="Profil bearbeiten" onPress={openEdit} />
-                </View>
-                <View style={styles.flex}>
-                  <SecondaryButton icon="share-social-outline" label="Profil teilen" onPress={() => setShareVisible(true)} />
-                </View>
-              </View>
-            )}
-          />
+          {/* About: body numbers, description and training belong together */}
+          <View style={styles.group}>
+            <BodyStats stats={profile !== null ? bodyStats(profile, stanceLabel(profile.stance)) : []} />
+            <ProfileBio bio={bio} onAdd={openEdit} />
+            <TrainingStatement headline={profile !== null ? trainingHeadline(profile) : null} onAdd={openEdit} />
+          </View>
 
-          <SectionDivider />
-          <ProfileSection title="Über mich">
-            {bio.length > 0
-              ? <Text style={styles.bio}>{bio}</Text>
-              : <AddPrompt label="Erzähl Trainingspartnern kurz, wer du bist" onPress={openEdit} />}
-          </ProfileSection>
+          <HomeGymBlock gym={homeGym} onOpen={openGym} onAdd={() => setGymPickerVisible(true)} />
 
-          <SectionDivider />
-          <ProfileSection title="So trainiere ich">
-            {training.length > 0
-              ? <FactList rows={training} />
-              : <AddPrompt label="Erfahrung ergänzen" onPress={openEdit} />}
-          </ProfileSection>
-
-          <SectionDivider />
-          <TeamPickerCard
-            currentStudio={currentStudio}
-            onRequestJoin={handleRequestJoin}
-            onLeave={handleLeaveStudio}
-            onSearch={searchStudios}
-            onRedeemCode={handleRedeemCode}
-            pendingStudioName={pendingStudioName}
-            onCancelRequest={handleCancelJoinRequest}
-            onCreate={async (name, city) => {
-              const created = await createStudio(name, city);
-              if (created === null) {
-                Alert.alert('Fehler', 'Studio konnte nicht erstellt werden.');
-              }
-              return created;
-            }}
-            onViewTeam={
-              currentStudio !== null
-                ? () => navigation.navigate('StudioDetail', { studioId: currentStudio.id })
-                : undefined
-            }
-            inline
-          />
-
-          <SectionDivider />
           <FightRecordCard
             fights={fights}
             loading={fightsLoading}
@@ -275,51 +228,68 @@ export default function ProfilScreen(): React.ReactElement {
             onDelete={async (id) => { await deleteFight(id); }}
           />
 
-          <SectionDivider />
-          <SparringActivityCard userId={profile?.id ?? null} isOwn refetchTrigger={focusTrigger} />
-
-          <SectionDivider />
-          <StatsTab
-            totalPoints={totalPoints}
-            streak={streak}
-            totalWorkouts={totalWorkouts}
-            rank={rank}
-            hasAccess={entitlement.hasAccess}
-            currentWeight={currentWeight}
-            isNewWeek={isNewWeek}
-            onPressPoints={() => navigation.navigate('PointsBreakdown')}
-            onPressStreak={() => navigation.navigate('AttendanceHistory')}
-            onPressWorkouts={() => navigation.navigate('WorkoutHistory')}
-            onPressWeightLog={() => {
-              setWeightDraft(currentWeight !== null ? String(currentWeight) : '');
-              setWeightModalVisible(true);
-            }}
-            onPressWeightHistory={() => navigation.navigate('WeightHistory')}
-            onPressPaywall={() => navigation.navigate('Paywall')}
+          <SparringActivityCard
+            userId={profile?.id ?? null}
+            isOwn
+            refetchTrigger={focusTrigger}
+            onOpenSparring={(id) => navigation.navigate('SparringMap', { focusSparringId: id })}
           />
 
-          {(tier !== 'verified' || venueId !== null) && <SectionDivider />}
-          {tier !== 'verified' && (
-            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Verification')} accessibilityRole="button">
-              <Ionicons name="shield-checkmark-outline" size={22} color={colors.accentBlue} />
-              <View style={styles.flex}>
-                <Text style={styles.linkTitle}>Verifizierung</Text>
-                <Text style={styles.linkSub}>{tier === 'basic' ? 'Fast geschafft – ein Nachweis fehlt' : 'Nicht verifiziert'}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
-          {venueId !== null && (
-            <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('VenueDetail', { venueId })} accessibilityRole="button">
-              <Ionicons name="business-outline" size={22} color={colors.accentBlue} />
-              <View style={styles.flex}>
-                <Text style={styles.linkTitle}>Meine Location</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          )}
+          {/* Account matters, kept quiet at the end */}
+          <View style={styles.manage}>
+            {tier !== 'verified' && (
+              <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Verification')} accessibilityRole="button">
+                <Ionicons name="shield-checkmark-outline" size={22} color={colors.accentBlue} />
+                <View style={styles.flex}>
+                  <Text style={styles.linkTitle}>Verifizierung</Text>
+                  <Text style={styles.linkSub}>{tier === 'basic' ? 'Fast geschafft – ein Nachweis fehlt' : 'Nicht verifiziert'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            {venueId !== null && (
+              <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('VenueDetail', { venueId })} accessibilityRole="button">
+                <Ionicons name="business-outline" size={22} color={colors.accentBlue} />
+                <View style={styles.flex}>
+                  <Text style={styles.linkTitle}>Meine Location</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            {/* Confirmed team membership (studio_id) — separate from "Hier trainiere ich" */}
+            <TeamPickerCard
+              currentStudio={currentStudio}
+              onRequestJoin={handleRequestJoin}
+              onLeave={handleLeaveStudio}
+              onSearch={searchStudios}
+              onRedeemCode={handleRedeemCode}
+              pendingStudioName={pendingStudioName}
+              onCancelRequest={handleCancelJoinRequest}
+              onCreate={async (name, city) => {
+                const created = await createStudio(name, city);
+                if (created === null) {
+                  Alert.alert('Fehler', 'Studio konnte nicht erstellt werden.');
+                }
+                return created;
+              }}
+              onViewTeam={
+                currentStudio !== null
+                  ? () => openGym(currentStudio.id)
+                  : undefined
+              }
+              inline
+            />
+          </View>
         </View>
       </ScrollView>
+
+      <GymPickerSheet
+        visible={gymPickerVisible}
+        title="Wo trainierst du?"
+        currentGymId={profile?.home_gym_id ?? null}
+        onClose={() => setGymPickerVisible(false)}
+        onSelect={handleSelectHomeGym}
+      />
 
       <ProfileShareSheet
         visible={shareVisible}
@@ -423,51 +393,7 @@ export default function ProfilScreen(): React.ReactElement {
           void handleSearchByCode(code);
         }}
       />
-
-      {/* ── Weekly body-weight tracking modal ── */}
-      <Modal
-        visible={weightModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setWeightModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.weightOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <TouchableOpacity
-            style={styles.weightBackdrop}
-            activeOpacity={1}
-            onPress={() => setWeightModalVisible(false)}
-          />
-          <View style={styles.weightSheet}>
-            <Text style={styles.weightSheetTitle}>Gewicht eintragen</Text>
-            <Text style={styles.weightSheetSubtitle}>Diese Woche · kg</Text>
-            <TextInput
-              style={styles.weightInput}
-              placeholder="z. B. 82.5"
-              placeholderTextColor={colors.brandMuted}
-              value={weightDraft}
-              onChangeText={setWeightDraft}
-              keyboardType="decimal-pad"
-              autoFocus
-              returnKeyType="done"
-              onSubmitEditing={() => { void handleSaveWeight(); }}
-            />
-            <TouchableOpacity
-              style={[styles.weightSaveBtn, weightDraft.trim().length === 0 && styles.weightSaveBtnDisabled]}
-              onPress={() => { void handleSaveWeight(); }}
-              disabled={weightSaving || weightDraft.trim().length === 0}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.weightSaveBtnLabel}>
-                {weightSaving ? 'Speichern...' : 'Speichern'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -482,27 +408,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
     paddingBottom: 48,
   },
   page: {
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 32,
+    gap: 40,
+  },
+  group: {
     gap: 24,
+  },
+  manage: {
+    gap: 16,
   },
   flex: {
     flex: 1,
   },
   headerActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
-  },
-  bio: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.text,
   },
   linkRow: {
     flexDirection: 'row',
@@ -618,57 +546,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.brandPrimary,
     letterSpacing: 2,
-  },
-
-  // Weekly weight modal
-  weightOverlay: { flex: 1, justifyContent: 'flex-end' },
-  weightBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.mapOverlay },
-  weightSheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingTop: 16,
-    paddingBottom: 40,
-    gap: 8,
-  },
-  weightSheetTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.brandInk,
-    textAlign: 'center',
-  },
-  weightSheetSubtitle: {
-    fontSize: 13,
-    color: colors.brandMuted,
-    fontWeight: '400',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  weightInput: {
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.brandInk,
-    borderWidth: 1,
-    borderColor: colors.border,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  weightSaveBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  weightSaveBtnDisabled: { opacity: 0.4 },
-  weightSaveBtnLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.card,
   },
 });

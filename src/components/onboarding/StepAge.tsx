@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { colors } from '../../theme/colors';
 
-const MIN_AGE = 14;
+const MIN_AGE = 16;
 const MAX_AGE = 70;
 const AGES = Array.from({ length: MAX_AGE - MIN_AGE + 1 }, (_, i) => MIN_AGE + i);
 

@@ -43,6 +43,8 @@ interface Props {
   data:     FighterCardData;
   flipped:  boolean;
   isOwn:    boolean;
+  /** Renders only the front face (no back, no flip). */
+  frontOnly?: boolean;
 }
 
 const FLIP_MS = 360;
@@ -51,7 +53,7 @@ const FLIP_MS = 360;
 // body numbers and gym on the front; motto, favourite move, focus and facts
 // on the back. Flipping is controlled by the parent (an explicit, labelled
 // action); with "reduce motion" the faces switch without rotation.
-export default function FighterCard({ data, flipped, isOwn }: Props): React.ReactElement {
+export default function FighterCard({ data, flipped, isOwn, frontOnly = false }: Props): React.ReactElement {
   const frame = cardFrame(data.frame);
   const reduceMotion = useReducedMotion();
   const rotation = useSharedValue(flipped ? 180 : 0);
@@ -76,7 +78,7 @@ export default function FighterCard({ data, flipped, isOwn }: Props): React.Reac
     transform: [{ perspective: 1200 }, { rotateY: `${interpolate(rotation.value, [0, 180], [180, 360])}deg` }],
   }));
 
-  const minHeight = Math.max(frontH, backH);
+  const minHeight = frontOnly ? frontH : Math.max(frontH, backH);
 
   return (
     <View style={styles.wrap}>
@@ -93,7 +95,7 @@ export default function FighterCard({ data, flipped, isOwn }: Props): React.Reac
             <CardFront data={data} frame={frame} />
           </View>
         </Animated.View>
-        <Animated.View
+        {!frontOnly && <Animated.View
           style={[styles.face, styles.backFace, faceFrame(frame), minHeight > 0 && { minHeight }, backStyle]}
           importantForAccessibility={flipped ? 'auto' : 'no-hide-descendants'}
           accessibilityElementsHidden={!flipped}
@@ -102,7 +104,7 @@ export default function FighterCard({ data, flipped, isOwn }: Props): React.Reac
           <View onLayout={(e: LayoutChangeEvent) => setBackH(e.nativeEvent.layout.height)}>
             <CardBack data={data} frame={frame} isOwn={isOwn} />
           </View>
-        </Animated.View>
+        </Animated.View>}
       </View>
     </View>
   );

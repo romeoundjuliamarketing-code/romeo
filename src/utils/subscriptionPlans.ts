@@ -28,7 +28,17 @@ export function planForProduct(productId: string): PlanKey | null {
 }
 
 export function orderPlans(focus: PlanFocus | undefined): PlanKey[] {
-  return focus === 'cards' ? ['cards', 'bundle', 'creator'] : ['creator', 'bundle', 'cards'];
+  return focus === 'cards' ? ['bundle', 'cards', 'creator'] : ['bundle', 'creator', 'cards'];
+}
+
+// First purchasable plan in display order; an active bundle already covers everything.
+export function defaultSelection(
+  order: PlanKey[],
+  isAvailable: (plan: PlanKey) => boolean,
+  current: PlanKey | null,
+): PlanKey | null {
+  if (current === 'bundle') return null;
+  return order.find((plan) => plan !== current && isAvailable(plan)) ?? null;
 }
 
 export function activePlan(creator: boolean, cards: boolean): PlanKey | null {

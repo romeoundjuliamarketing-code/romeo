@@ -2,10 +2,11 @@ import React, { useEffect, useRef } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Animated, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useReducedMotion } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 
 import HomeScreen from '../screens/HomeScreen';
-import TrainingScreen from '../screens/TrainingScreen';
+import CardsScreen from '../screens/CardsScreen';
 import ProfilScreen from '../screens/ProfilScreen';
 import SparringMapScreen from '../screens/SparringMapScreen';
 import { useNotificationsContext } from '../context/NotificationsContext';
@@ -16,7 +17,7 @@ type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const TAB_CONFIG: Record<string, { active: IoniconName; inactive: IoniconName; label: string }> = {
   Home:     { active: 'home', inactive: 'home-outline', label: 'Home' },
-  Training: { active: 'barbell', inactive: 'barbell-outline', label: 'Training' },
+  Karten: { active: 'albums', inactive: 'albums-outline', label: 'Karten' },
   Sparring: { active: 'map', inactive: 'map-outline', label: 'Karte' },
   Profil:   { active: 'person', inactive: 'person-outline', label: 'Profil' },
 };
@@ -25,14 +26,14 @@ const TAB_CONFIG: Record<string, { active: IoniconName; inactive: IoniconName; l
 
 const ICON_SCALES: Record<string, Animated.Value> = {
   Home: new Animated.Value(1.2),
-  Training: new Animated.Value(1),
+  Karten: new Animated.Value(1),
   Sparring: new Animated.Value(1),
   Profil: new Animated.Value(1),
 };
 
 const INDICATOR_SCALES: Record<string, Animated.Value> = {
   Home: new Animated.Value(1),
-  Training: new Animated.Value(0),
+  Karten: new Animated.Value(0),
   Sparring: new Animated.Value(0),
   Profil: new Animated.Value(0),
 };
@@ -41,11 +42,17 @@ const INDICATOR_SCALES: Record<string, Animated.Value> = {
 
 function TabIcon({ focused, name, tabName }: { focused: boolean; name: IoniconName; tabName: string }) {
   const scale = ICON_SCALES[tabName];
+  const reducedMotion = useReducedMotion();
 
   const indicatorScale = INDICATOR_SCALES[tabName];
 
   useEffect(() => {
     if (scale === undefined || indicatorScale === undefined) return;
+    if (reducedMotion) {
+      scale.setValue(focused ? 1.2 : 1);
+      indicatorScale.setValue(focused ? 1 : 0);
+      return;
+    }
     Animated.spring(scale, {
       toValue: focused ? 1.2 : 1,
       useNativeDriver: true,
@@ -58,7 +65,7 @@ function TabIcon({ focused, name, tabName }: { focused: boolean; name: IoniconNa
       damping: 10,
       stiffness: 120,
     }).start();
-  }, [focused, scale, indicatorScale]);
+  }, [focused, scale, indicatorScale, reducedMotion]);
 
   if (scale === undefined || indicatorScale === undefined) return null;
 
@@ -80,15 +87,20 @@ function TabIcon({ focused, name, tabName }: { focused: boolean; name: IoniconNa
 
 function TabLabel({ focused, label, color }: { focused: boolean; label: string; color: string }) {
   const scale = useRef(new Animated.Value(focused ? 1 : 0.88)).current;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    if (reducedMotion) {
+      scale.setValue(focused ? 1 : 0.78);
+      return;
+    }
     Animated.spring(scale, {
       toValue: focused ? 1 : 0.78,
       useNativeDriver: true,
       damping: 10,
       stiffness: 120,
     }).start();
-  }, [focused, scale]);
+  }, [focused, scale, reducedMotion]);
 
   return (
     <Animated.Text style={[tabStyles.label, { color, transform: [{ scale }] }]}>
@@ -135,7 +147,7 @@ export default function TabNavigator() {
           tabBarBadgeStyle: tabStyles.dot,
         }}
       />
-      <Tab.Screen name="Training" component={TrainingScreen} options={{ headerShown: false }} />
+      <Tab.Screen name="Karten" component={CardsScreen} options={{ headerShown: false }} />
       <Tab.Screen name="Sparring" component={SparringMapScreen} />
       <Tab.Screen name="Profil" component={ProfilScreen} />
     </Tab.Navigator>

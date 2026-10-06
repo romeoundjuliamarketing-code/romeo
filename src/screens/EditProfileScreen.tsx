@@ -32,8 +32,16 @@ import type { Stance } from '../utils/stance';
 import ProfilePhoto from '../components/profil/ProfilePhoto';
 import EditField from '../components/profil/edit/EditField';
 import { DisciplineSelector, StanceSelector } from '../components/profil/edit/SportSelectors';
-import WeightClassSelect from '../components/profil/edit/WeightClassSelect';
 import { PrimaryButton, SecondaryButton } from '../components/profil/ProfileParts';
+import CoverEditorModal from '../components/profil/CoverEditorModal';
+import GymPickerSheet from '../components/gym/GymPickerSheet';
+import CountryPickerSheet from '../components/profil/CountryPickerSheet';
+import CountryFlag from '../components/common/CountryFlag';
+import { countryByCode } from '../utils/countries';
+import { useGym } from '../hooks/useGyms';
+import type { Gym } from '../hooks/useGyms';
+import * as ImagePicker from 'expo-image-picker';
+import type { Focus } from '../utils/coverLayout';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -44,7 +52,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 export default function EditProfileScreen(): React.ReactElement {
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
-  const { profile, uploadAvatar, updateProfile } = useProfile();
+  const { profile, uploadAvatar, updateProfile, uploadCover, removeCover } = useProfile();
   const { bannedWords } = useBannedWords();
   const avatar = useAvatarUpload(uploadAvatar);
 
@@ -53,6 +61,78 @@ export default function EditProfileScreen(): React.ReactElement {
   const [errors, setErrors] = useState<DraftErrors>({});
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+
+  // Cover photo and home gym are saved right away (like the avatar), not
+  // through the draft.
+  const [coverEditor, setCoverEditor] = useState<{ uri: string; focus: Focus; isNew: boolean } | null>(null);
+  const [coverSaving, setCoverSaving] = useState(false);
+  const [gymPickerVisible, setGymPickerVisible] = useState(false);
+  const [countryPickerVisible, setCountryPickerVisible] = useState(false);
+  const { gym: homeGym } = useGym(profile?.home_gym_id ?? null);
+
+  async function pickCover(): Promise<void> {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Zugriff erforderlich', 'Bitte erlaube den Zugriff auf deine Fotos in den Einstellungen, um ein Titelbild zu wählen.');
+        return;
+      }
+      // No system crop: the framing is chosen in the cover editor, in the
+      // exact proportions of the profile.
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: false, quality: 0.8 });
+      if (result.canceled || result.assets.length === 0) return;
+      setCoverEditor({ uri: result.assets[0].uri, focus: { x: 0.5, y: 0.5 }, isNew: true });
+    } catch (e) {
+      Alert.alert('Fehler', e instanceof Error ? e.message : 'Unbekannter Fehler.');
+    }
+  }
+
+  async function saveCover(focus: Focus): Promise<void> {
+    if (coverEditor === null) return;
+    setCoverSaving(true);
+    const { error } = coverEditor.isNew
+      ? await uploadCover(coverEditor.uri, focus)
+      : await updateProfile({ cover_focus_x: focus.x, cover_focus_y: focus.y });
+    setCoverSaving(false);
+    if (error !== null) {
+      Alert.alert('Titelbild nicht gespeichert', 'Bitte versuche es erneut.');
+      return;
+    }
+    setCoverEditor(null);
+  }
+
+  function confirmRemoveCover(): void {
+    Alert.alert('Titelbild entfernen?', 'Dein Profil zeigt dann wieder die Sparr-Grafik.', [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Entfernen',
+        style: 'destructive',
+        onPress: () => {
+          void removeCover().then(({ error }) => {
+            if (error !== null) Alert.alert('Nicht entfernt', 'Bitte versuche es erneut.');
+          });
+        },
+      },
+    ]);
+  }
+
+  async function selectHomeGym(gym: Gym): Promise<boolean> {
+    const { error } = await updateProfile({ home_gym_id: gym.id });
+    if (error !== null) {
+      Alert.alert('Nicht gespeichert', 'Dein Gym konnte nicht gespeichert werden. Bitte versuche es erneut.');
+      return false;
+    }
+    return true;
+  }
+
+  async function clearHomeGym(): Promise<boolean> {
+    const { error } = await updateProfile({ home_gym_id: null });
+    if (error !== null) {
+      Alert.alert('Nicht gespeichert', 'Bitte versuche es erneut.');
+      return false;
+    }
+    return true;
+  }
 
   useEffect(() => {
     if (profile !== null && draft === null) {
@@ -78,7 +158,6 @@ export default function EditProfileScreen(): React.ReactElement {
     setDraft((d) => (d !== null ? { ...d, stance: next } : d));
     setJustSaved(false);
   }, []);
-  const setWeightClass = useCallback((next: string) => onField('weightClass', next), [onField]);
 
   // Unsaved changes: confirm on back/hardware back; the native iOS swipe can't
   // be intercepted by beforeRemove, so it is disabled while there are changes.
@@ -179,6 +258,54 @@ export default function EditProfileScreen(): React.ReactElement {
               </View>
             </View>
 
+            {/* ── Titelbild (optional) ── */}
+            <Section title="Titelbild">
+              <Text style={styles.introHint}>
+                {profile?.cover_url != null
+                  ? 'Ein Trainingsfoto oben in deinem Profil.'
+                  : 'Optional: ein Trainingsfoto oben in deinem Profil. Ohne Foto zeigt dein Profil die Sparr-Grafik.'}
+              </Text>
+              <View style={styles.buttonRow}>
+                <SecondaryButton
+                  icon="image-outline"
+                  label={profile?.cover_url != null ? 'Neues Foto' : 'Foto wählen'}
+                  onPress={() => { void pickCover(); }}
+                />
+                {profile?.cover_url != null && (
+                  <SecondaryButton
+                    icon="move-outline"
+                    label="Ausschnitt"
+                    onPress={() => setCoverEditor({
+                      uri: profile.cover_url as string,
+                      focus: { x: profile.cover_focus_x, y: profile.cover_focus_y },
+                      isNew: false,
+                    })}
+                  />
+                )}
+                {profile?.cover_url != null && (
+                  <SecondaryButton icon="trash-outline" label="Entfernen" onPress={confirmRemoveCover} />
+                )}
+              </View>
+            </Section>
+
+            {/* ── Hier trainiere ich (optional, self-declaration) ── */}
+            <Section title="Hier trainiere ich">
+              {homeGym !== null ? (
+                <View style={styles.gymRow}>
+                  <View style={styles.flex}>
+                    <Text style={styles.gymName}>{homeGym.name}</Text>
+                    <Text style={styles.introHint}>{homeGym.city}</Text>
+                  </View>
+                  <SecondaryButton icon="swap-horizontal" label="Ändern" onPress={() => setGymPickerVisible(true)} />
+                </View>
+              ) : (
+                <SecondaryButton icon="add" label="Gym auswählen" onPress={() => setGymPickerVisible(true)} />
+              )}
+              <Text style={styles.introHint}>
+                Freiwillig. Andere sehen dein Gym in deinem Profil; es ist keine bestätigte Mitgliedschaft.
+              </Text>
+            </Section>
+
             {/* ── Das bist du ── */}
             <Section title="Das bist du">
               <EditField field="name" label="Name" value={draft.name} onChange={onField}
@@ -214,20 +341,14 @@ export default function EditProfileScreen(): React.ReactElement {
                   <EditField field="weightKg" label="Kampfgewicht" optional value={draft.weightKg} onChange={onField}
                     placeholder="72,5" suffix="kg" keyboardType="decimal-pad" maxLength={6} error={errors.weightKg} />
                 </View>
-                <View style={styles.pairItem}>
-                  <WeightClassSelect value={draft.weightClass} onChange={setWeightClass} />
-                </View>
               </View>
               <View style={styles.pair}>
                 <View style={styles.pairItem}>
                   <EditField field="ageYears" label="Alter" optional value={draft.ageYears} onChange={onField}
                     placeholder="27" suffix="Jahre" keyboardType="number-pad" maxLength={2} error={errors.ageYears} />
                 </View>
-                <View style={styles.pairItem}>
-                  <EditField field="nationality" label="Nationalität" optional value={draft.nationality} onChange={onField}
-                    placeholder="z. B. Deutsch" maxLength={TEXT_LIMITS.nationality} />
-                </View>
               </View>
+              <CountryField code={draft.countryCode} onPress={() => setCountryPickerVisible(true)} />
               <EditField field="hometown" label="Heimatstadt" optional value={draft.hometown} onChange={onField}
                 placeholder="z. B. München" maxLength={TEXT_LIMITS.hometown} autoCapitalize="words" />
             </Section>
@@ -245,6 +366,30 @@ export default function EditProfileScreen(): React.ReactElement {
             </Text>
           </View>
         </ScrollView>
+
+        <CoverEditorModal
+          visible={coverEditor !== null}
+          uri={coverEditor?.uri ?? null}
+          initialFocus={coverEditor?.focus ?? { x: 0.5, y: 0.5 }}
+          saving={coverSaving}
+          onCancel={() => setCoverEditor(null)}
+          onSave={(focus) => { void saveCover(focus); }}
+        />
+        <GymPickerSheet
+          visible={gymPickerVisible}
+          title="Wo trainierst du?"
+          currentGymId={profile?.home_gym_id ?? null}
+          onClose={() => setGymPickerVisible(false)}
+          onSelect={selectHomeGym}
+          removeLabel="Gym aus dem Profil entfernen"
+          onRemove={clearHomeGym}
+        />
+        <CountryPickerSheet
+          visible={countryPickerVisible}
+          selected={draft.countryCode.length > 0 ? draft.countryCode : null}
+          onClose={() => setCountryPickerVisible(false)}
+          onSelect={(code) => onField('countryCode', code ?? '')}
+        />
 
         {/* ── Fixed save bar ── */}
         <View style={[styles.saveBar, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}>
@@ -264,6 +409,33 @@ export default function EditProfileScreen(): React.ReactElement {
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+// Flag under the profile name; opens the country picker.
+function CountryField({ code, onPress }: { code: string; onPress: () => void }): React.ReactElement {
+  const country = countryByCode(code);
+  return (
+    <View style={styles.fieldGroup}>
+      <View style={styles.fieldLabelRow}>
+        <Text style={styles.fieldLabel}>Flagge</Text>
+        <Text style={styles.fieldOptional}>optional</Text>
+      </View>
+      <TouchableOpacity
+        style={styles.pickerBox}
+        onPress={onPress}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={country !== null ? `Flagge, ${country.name}, ändern` : 'Flagge wählen, optional'}
+      >
+        {country !== null && <CountryFlag code={country.code} width={28} />}
+        <Text style={[styles.pickerText, country === null && styles.pickerPlaceholder]} numberOfLines={1}>
+          {country !== null ? country.name : 'Land wählen'}
+        </Text>
+        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+      </TouchableOpacity>
+      <Text style={styles.introHint}>Erscheint unter deinem Namen im Profil.</Text>
+    </View>
   );
 }
 
@@ -365,6 +537,57 @@ const styles = StyleSheet.create({
   pairItem: {
     flexGrow:  1,
     flexBasis: 144,
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           8,
+  },
+  fieldGroup: {
+    gap: 8,
+  },
+  fieldLabelRow: {
+    flexDirection: 'row',
+    alignItems:    'baseline',
+    gap:           8,
+  },
+  fieldLabel: {
+    fontSize:   15,
+    fontWeight: '700',
+    color:      colors.text,
+  },
+  fieldOptional: {
+    fontSize: 13,
+    color:    colors.textMuted,
+  },
+  pickerBox: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    minHeight:         52,
+    paddingHorizontal: 16,
+    gap:               8,
+    borderRadius:      12,
+    borderWidth:       1.5,
+    borderColor:       colors.hairline,
+    backgroundColor:   colors.card,
+  },
+  pickerText: {
+    flex:     1,
+    fontSize: 16,
+    color:    colors.text,
+  },
+  pickerPlaceholder: {
+    color: colors.textSecondary,
+  },
+  gymRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           16,
+  },
+  gymName: {
+    fontSize:   16,
+    fontWeight: '700',
+    color:      colors.text,
   },
   cardHint: {
     fontSize:   13,

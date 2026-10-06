@@ -1,5 +1,5 @@
 import {
-  activePlan, bundleSavings, creatorGateAllows, formatSavings, orderPlans, planForProduct, planLabel,
+  activePlan, bundleSavings, creatorGateAllows, defaultSelection, formatSavings, orderPlans, planForProduct, planLabel,
   planSwitchNotice, replacedProductId, sparringInsertErrorCode, subscriptionRejection,
 } from './subscriptionPlans';
 
@@ -25,10 +25,26 @@ describe('planForProduct', () => {
 });
 
 describe('orderPlans', () => {
-  it('puts the focused plan first and the bundle second', () => {
-    expect(orderPlans('cards')).toEqual(['cards', 'bundle', 'creator']);
-    expect(orderPlans('creator')).toEqual(['creator', 'bundle', 'cards']);
-    expect(orderPlans(undefined)).toEqual(['creator', 'bundle', 'cards']);
+  it('puts the bundle first and the focused plan second', () => {
+    expect(orderPlans('cards')).toEqual(['bundle', 'cards', 'creator']);
+    expect(orderPlans('creator')).toEqual(['bundle', 'creator', 'cards']);
+    expect(orderPlans(undefined)).toEqual(['bundle', 'creator', 'cards']);
+  });
+});
+
+describe('defaultSelection', () => {
+  const all = (): boolean => true;
+  it('preselects the first available plan in order', () => {
+    expect(defaultSelection(['bundle', 'cards', 'creator'], all, null)).toBe('bundle');
+    expect(defaultSelection(['bundle', 'cards', 'creator'], (p) => p !== 'bundle', null)).toBe('cards');
+  });
+  it('skips the active plan and offers the upgrade', () => {
+    expect(defaultSelection(['bundle', 'cards', 'creator'], all, 'cards')).toBe('bundle');
+    expect(defaultSelection(['bundle', 'creator', 'cards'], (p) => p !== 'bundle', 'creator')).toBe('cards');
+  });
+  it('selects nothing when the bundle is active or nothing is available', () => {
+    expect(defaultSelection(['bundle', 'cards', 'creator'], all, 'bundle')).toBeNull();
+    expect(defaultSelection(['bundle', 'cards', 'creator'], () => false, null)).toBeNull();
   });
 });
 

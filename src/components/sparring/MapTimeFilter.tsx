@@ -8,32 +8,56 @@ interface Props {
   value:      TimeFilter;
   onChange:   (f: TimeFilter) => void;
   tabCounts:  Record<string, number>;
+  /** Shown instead of the filter when there is nothing at all, e.g. "Keine offenen Sparrings". */
+  emptyLabel: string;
 }
 
+// Labels match getTimeWindow(): today, the next 7 days, later.
 const FILTER_TABS: Array<{ key: Exclude<TimeFilter, 'all'>; label: string }> = [
-  { key: 'jetzt',      label: 'Jetzt' },
-  { key: 'demnaechst', label: 'Demnächst' },
-  { key: 'bald',       label: 'Bald' },
+  { key: 'jetzt',      label: 'Heute' },
+  { key: 'demnaechst', label: '7 Tage' },
+  { key: 'bald',       label: 'Später' },
 ];
 
-export default function MapTimeFilter({ value, onChange, tabCounts }: Props) {
+// Chips are compact; the slop keeps the touch target near 40 pt.
+const HIT_SLOP = { top: 8, bottom: 8, left: 0, right: 0 };
+
+// One compact row: time window + count. Tapping filters the map, tapping the
+// active one again resets to "all". Empty windows are muted and not tappable,
+// so a 0 never looks like a result.
+export default function MapTimeFilter({ value, onChange, tabCounts, emptyLabel }: Props) {
+  const total = FILTER_TABS.reduce((sum, t) => sum + (tabCounts[t.key] ?? 0), 0);
+
+  if (total === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.emptyText}>{emptyLabel}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Stacked filter buttons; tapping the active one resets to "all" */}
       {FILTER_TABS.map((tab) => {
         const count  = tabCounts[tab.key] ?? 0;
         const active = value === tab.key;
+        const empty  = count === 0 && !active;
         return (
           <TouchableOpacity
             key={tab.key}
             style={[styles.filterBtn, active && styles.filterBtnActive]}
             onPress={() => onChange(active ? 'all' : tab.key)}
+            disabled={empty}
+            hitSlop={HIT_SLOP}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={`${tab.label}: ${count}`}
+            accessibilityState={{ selected: active, disabled: empty }}
           >
-            <Text style={[styles.filterText, active && styles.filterTextActive]} numberOfLines={1}>
+            <Text style={[styles.filterText, empty && styles.mutedText, active && styles.activeText]} numberOfLines={1}>
               {tab.label}
             </Text>
-            <Text style={[styles.countText, active && styles.countTextActive]}>
+            <Text style={[styles.countText, empty && styles.mutedCount, active && styles.activeText]}>
               {count}
             </Text>
           </TouchableOpacity>
@@ -44,41 +68,52 @@ export default function MapTimeFilter({ value, onChange, tabCounts }: Props) {
 }
 
 const styles = StyleSheet.create({
+  // Flat row inside the map header panel.
   container: {
-    alignItems: 'center',
-    gap:        8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    alignSelf:         'flex-start',
+    gap:               4,
+    paddingHorizontal: 4,
   },
   filterBtn: {
-    minWidth:          72,
-    borderRadius:      16,
-    backgroundColor:   colors.card,
-    paddingHorizontal: 10,
-    paddingVertical:   6,
+    flexDirection:     'row',
     alignItems:        'center',
-    shadowColor:       colors.dark,
-    shadowOffset:      { width: 0, height: 2 },
-    shadowOpacity:     0.12,
-    shadowRadius:      3,
-    elevation:         3,
+    gap:               8,
+    height:            24,
+    borderRadius:      12,
+    paddingHorizontal: 8,
   },
   filterBtnActive: {
     backgroundColor: colors.accentBlue,
   },
   filterText: {
-    fontSize:   11,
+    fontSize:   12,
     fontWeight: '600',
-    color:      colors.textSecondary,
-  },
-  filterTextActive: {
-    color: colors.card,
+    color:      colors.textMuted,
   },
   countText: {
-    fontSize:   13,
-    fontWeight: '700',
-    color:      colors.text,
-    marginTop:  1,
+    fontSize:    12,
+    fontWeight:  '700',
+    color:       colors.text,
+    fontVariant: ['tabular-nums'],
   },
-  countTextActive: {
+  mutedText: {
+    color:      colors.textSecondary,
+    fontWeight: '500',
+  },
+  mutedCount: {
+    color:      colors.textSecondary,
+    fontWeight: '500',
+  },
+  activeText: {
     color: colors.card,
+  },
+  emptyText: {
+    fontSize:          12,
+    fontWeight:        '600',
+    color:             colors.textMuted,
+    paddingHorizontal: 8,
+    paddingVertical:   4,
   },
 });

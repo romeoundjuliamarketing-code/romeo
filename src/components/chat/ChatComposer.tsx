@@ -14,11 +14,11 @@ interface Props {
 // Owns the draft so keystrokes re-render only this row, not the chat screen and its message list.
 export default function ChatComposer({ sending, bottomInset, onSend, leading }: Props) {
   const [text, setText] = useState('');
-  const disabled = text.trim().length === 0 || sending;
+  const trimmed  = text.trim();
+  const disabled = trimmed.length === 0 || sending;
 
   async function submit() {
-    const trimmed = text.trim();
-    if (trimmed.length === 0 || sending) return;
+    if (disabled) return;
     if (await onSend(trimmed)) setText('');
   }
 

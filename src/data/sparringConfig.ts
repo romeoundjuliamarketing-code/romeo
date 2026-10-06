@@ -10,3 +10,8 @@ export const SPARRING_CONFIRM_WINDOW_HOURS = 24;
 // Star ratings between sparring partners are hidden in favour of the
 // reliability quote. Code and table stay in place; flip to bring them back.
 export const SHOW_SPARRING_STARS = false;
+
+// Events / watch parties are paused for now: no "Events" mode on the sparring
+// map and no fight-night block on Home. Code, tables and venue event screens
+// stay in place; flip to bring them back.
+export const SHOW_EVENTS = false;

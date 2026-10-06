@@ -1,14 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   Modal,
   StyleSheet,
   useWindowDimensions,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -29,8 +27,6 @@ interface Props {
   cards:        SparringChallenge[];
   areaTitle:    string;
   onClose:      () => void;
-  isDone:       (id: string) => boolean;
-  onToggleDone: (id: string) => void;
 }
 
 interface PageProps {
@@ -39,8 +35,6 @@ interface PageProps {
   scrollX:   SharedValue<number>;
   pageWidth: number;
   size:      CardSize;
-  done:      boolean;
-  onToggle:  () => void;
 }
 
 // A single page — neighbouring cards shrink slightly so the active one stands out.
@@ -50,8 +44,6 @@ function BrowserPage({
   scrollX,
   pageWidth,
   size,
-  done,
-  onToggle,
 }: PageProps): React.ReactElement {
   const style = useAnimatedStyle(() => {
     const offset = scrollX.value / pageWidth;
@@ -73,7 +65,7 @@ function BrowserPage({
   return (
     <View style={[styles.page, { width: pageWidth }]}>
       <Animated.View style={style}>
-        <ChallengeCard challenge={card} size={size} done={done} onToggleDone={onToggle} />
+        <ChallengeCard challenge={card} size={size} />
       </Animated.View>
     </View>
   );
@@ -85,21 +77,14 @@ export default function ChallengeBrowser({
   cards,
   areaTitle,
   onClose,
-  isDone,
-  onToggleDone,
 }: Props): React.ReactElement {
   const { width: pageWidth } = useWindowDimensions();
   const cardSize = useCardSize(0.58);
   const scrollX = useSharedValue(0);
-  const [pageIndex, setPageIndex] = useState(0);
 
   const scrollHandler = useAnimatedScrollHandler((event) => {
     scrollX.value = event.contentOffset.x;
   });
-
-  const handleMomentumEnd = (event: NativeSyntheticEvent<NativeScrollEvent>): void => {
-    setPageIndex(Math.round(event.nativeEvent.contentOffset.x / pageWidth));
-  };
 
   return (
     <Modal
@@ -109,26 +94,27 @@ export default function ChallengeBrowser({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <ChallengeHeader
-          title={areaTitle}
-          icon="close"
-          iconLabel="Schliessen"
-          onPress={onClose}
-        />
+      {/* Own provider — see ChallengeAreaPicker: opened from a sheet screen, but covers
+          the whole screen, so it needs the real window insets. */}
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <ChallengeHeader
+            title={areaTitle}
+            icon="close"
+            iconLabel="Schliessen"
+            onPress={onClose}
+          />
 
-        {cards.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>Noch keine Karten in diesem Bereich</Text>
-          </View>
-        ) : (
-          <>
+          {cards.length === 0 ? (
+            <View style={styles.empty}>
+              <Text style={styles.emptyText}>Noch keine Karten in diesem Bereich</Text>
+            </View>
+          ) : (
             <Animated.ScrollView
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onScroll={scrollHandler}
-              onMomentumScrollEnd={handleMomentumEnd}
               scrollEventThrottle={16}
               contentContainerStyle={styles.scrollContent}
             >
@@ -140,18 +126,12 @@ export default function ChallengeBrowser({
                   scrollX={scrollX}
                   pageWidth={pageWidth}
                   size={cardSize}
-                  done={isDone(card.id)}
-                  onToggle={() => onToggleDone(card.id)}
                 />
               ))}
             </Animated.ScrollView>
-
-            <Text style={styles.counter}>
-              {pageIndex + 1} von {cards.length}
-            </Text>
-          </>
-        )}
-      </SafeAreaView>
+          )}
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -167,13 +147,6 @@ const styles = StyleSheet.create({
   page: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  counter: {
-    paddingVertical: 16,
-    textAlign: 'center',
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.headerTextSecondary,
   },
   empty: {
     flex: 1,

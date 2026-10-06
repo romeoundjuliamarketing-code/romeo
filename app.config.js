@@ -1,5 +1,15 @@
 const { withAndroidManifest } = require('@expo/config-plugins');
 
+// Google Sign-In needs the reversed iOS client ID as URL scheme. The plugin
+// throws without it, so it is only added once the ID is configured
+// (.env locally, EAS environment variables for cloud builds).
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
+const googleSignInPlugin = GOOGLE_IOS_CLIENT_ID
+  ? [["@react-native-google-signin/google-signin", {
+      iosUrlScheme: `com.googleusercontent.apps.${GOOGLE_IOS_CLIENT_ID.replace('.apps.googleusercontent.com', '')}`,
+    }]]
+  : [];
+
 function withGeoIntentQuery(config) {
   return withAndroidManifest(config, (c) => {
     const manifest = c.modResults.manifest;
@@ -44,15 +54,13 @@ module.exports = {
       bundleIdentifier: "com.kombat.app",
       requireFullScreen: true,
       associatedDomains: ["applinks:sparrapp.com"],
+      usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         NSLocationWhenInUseUsageDescription:
           "Sparr zeigt dir Sparring-Partner in deiner Nähe.",
         NSPhotoLibraryUsageDescription:
           "Sparr verwendet deine Fotos, um Bilder im Sparring-Chat zu senden.",
-      },
-      entitlements: {
-        "com.apple.security.application-groups": ["group.com.kombat.app"],
       },
     },
     android: {
@@ -91,15 +99,10 @@ module.exports = {
             "Sparr zeigt dir Sparring-Partner in deiner Nähe.",
         },
       ],
-      [
-        "react-native-widget-extension",
-        {
-          deploymentTarget: "17.0",
-          groupIdentifier: "group.com.kombat.app",
-        },
-      ],
       "@sentry/react-native",
       ["expo-camera", { cameraPermission: "Sparr nutzt die Kamera, um den QR-Code eines Kämpferprofils zu scannen." }],
+      "expo-apple-authentication",
+      ...googleSignInPlugin,
     ],
     extra: {
       eas: {

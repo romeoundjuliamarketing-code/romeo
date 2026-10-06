@@ -2,14 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   CHALLENGE_AREAS,
-  DEFAULT_AREA,
   areaFromDisciplines,
   challengeById,
-  challengesForArea,
   emptyAreaRecord,
 } from '../data/sparringChallenges';
 import type { ChallengeArea, SparringChallenge } from '../data/sparringChallenges';
 import { drawChallenge } from '../utils/challengeDraw';
+import { availableChallengeAreas, normalizeChallengeArea, playableChallengesForArea } from '../utils/challengeAvailability';
 
 const STORAGE_KEY = 'sparr.challenge.v1';
 
@@ -29,7 +28,7 @@ type State = PersistedState & SessionState;
 
 function emptyState(): State {
   return {
-    area:    DEFAULT_AREA,
+    area:    'kickboxen',
     drawn:   emptyAreaRecord<string[]>(() => []),
     current: emptyAreaRecord<string | null>(() => null),
     done:    [],
@@ -99,12 +98,13 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
       .then((raw) => {
         if (!active) return;
         const chosen = storedArea(raw);
-        setAreaChosen(chosen !== null);
-        apply({ ...emptyState(), area: chosen ?? DEFAULT_AREA });
+        setAreaChosen(chosen !== null || availableChallengeAreas().length === 1);
+        apply({ ...emptyState(), area: normalizeChallengeArea(chosen ?? 'kickboxen') });
         setLoading(false);
       })
       .catch(() => {
         if (!active) return;
+        setAreaChosen(availableChallengeAreas().length === 1);
         setLoading(false);
       });
     return () => { active = false; };
@@ -113,21 +113,22 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
   // Preselect the area from the profile disciplines, but only until a choice exists.
   useEffect(() => {
     if (loading || areaChosen || disciplines.length === 0) return;
-    const area = areaFromDisciplines(disciplines);
+    const area = normalizeChallengeArea(areaFromDisciplines(disciplines));
     if (area === stateRef.current.area) return;
     apply({ ...stateRef.current, area });
   }, [loading, areaChosen, disciplines, apply]);
 
   const setArea = useCallback((area: ChallengeArea): void => {
     setAreaChosen(true);
-    apply({ ...stateRef.current, area });
-    const persisted: PersistedState = { area };
+    const availableArea = normalizeChallengeArea(area);
+    apply({ ...stateRef.current, area: availableArea });
+    const persisted: PersistedState = { area: availableArea };
     void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(persisted)).catch(() => undefined);
   }, [apply]);
 
   const draw = useCallback((): void => {
     const prev = stateRef.current;
-    const result = drawChallenge(challengesForArea(prev.area), prev.drawn[prev.area]);
+    const result = drawChallenge(playableChallengesForArea(prev.area), prev.drawn[prev.area]);
     if (result === null) return;
     apply({
       ...prev,
@@ -148,7 +149,7 @@ export function useSparringChallenge(disciplines: string[]): UseSparringChalleng
   const isDone = useCallback((id: string): boolean => doneIds.has(id), [doneIds]);
 
   const currentId = state.current[state.area];
-  const deckSize  = challengesForArea(state.area).length;
+  const deckSize  = playableChallengesForArea(state.area).length;
 
   return {
     area:       state.area,

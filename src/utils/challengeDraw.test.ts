@@ -1,4 +1,4 @@
-import { drawChallenge } from './challengeDraw';
+import { drawChallenge, drawChallengeSet } from './challengeDraw';
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -71,5 +71,52 @@ describe('drawChallenge', () => {
     const result = drawChallenge(POOL, ['veraltet'], seeded(0));
     expect(result?.card.id).toBe('a');
     expect(result?.drawnIds).toEqual(['veraltet', 'a']);
+  });
+});
+
+describe('drawChallengeSet', () => {
+  it('gibt null zurueck, wenn der Pool leer ist', () => {
+    expect(drawChallengeSet([], [], 2, seeded(0))).toBeNull();
+  });
+
+  it('gibt null zurueck, wenn keine Karte angefordert wird', () => {
+    expect(drawChallengeSet(POOL, [], 0, seeded(0))).toBeNull();
+  });
+
+  it('zieht zwei verschiedene Karten fuer eine Runde', () => {
+    const result = drawChallengeSet(POOL, [], 2, seeded(0));
+    expect(result?.cards).toHaveLength(2);
+    expect(result?.cards[0].id).not.toBe(result?.cards[1].id);
+  });
+
+  it('merkt sich die gezogenen Karten in der Session-Historie', () => {
+    const result = drawChallengeSet(POOL, ['x'], 2, seeded(0));
+    expect(result?.usedIds).toEqual(['x', 'a', 'b']);
+  });
+
+  it('meidet Karten, die in der Session schon dran waren', () => {
+    const result = drawChallengeSet(POOL, ['a', 'b'], 1, seeded(0));
+    expect(result?.cards[0].id).toBe('c');
+  });
+
+  it('setzt die Historie zurueck, wenn der Pool aufgebraucht ist', () => {
+    const result = drawChallengeSet(POOL, ['a', 'b', 'c'], 2, seeded(0));
+    expect(result?.cards).toHaveLength(2);
+    expect(result?.cards[0].id).not.toBe(result?.cards[1].id);
+    // Historie beginnt neu und enthaelt nur die frisch gezogenen Karten
+    expect(result?.usedIds).toEqual(result?.cards.map((c) => c.id));
+  });
+
+  it('bleibt auch beim Zuruecksetzen mitten im Zug verschieden', () => {
+    // Nur 'c' ist frei — die zweite Karte muss aus dem Reset kommen und darf nicht 'c' sein
+    const result = drawChallengeSet(POOL, ['a', 'b'], 2, seeded(0));
+    expect(result?.cards[0].id).toBe('c');
+    expect(result?.cards[1].id).not.toBe('c');
+  });
+
+  it('gibt hoechstens so viele Karten wie der Pool hergibt', () => {
+    const single = [card('solo')];
+    const result = drawChallengeSet(single, [], 2, seeded(0));
+    expect(result?.cards).toHaveLength(1);
   });
 });

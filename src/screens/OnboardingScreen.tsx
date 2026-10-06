@@ -26,7 +26,6 @@ import { useStudio } from '../hooks/useStudio';
 import MascotBubble from '../components/onboarding/MascotBubble';
 import StepName, { isValidName } from '../components/onboarding/StepName';
 import StepRole from '../components/onboarding/StepRole';
-import StepCoachSubscription from '../components/onboarding/StepCoachSubscription';
 import StepGender from '../components/onboarding/StepGender';
 import StepAge from '../components/onboarding/StepAge';
 import StepWeight from '../components/onboarding/StepWeight';
@@ -52,7 +51,7 @@ const MASCOT = {
   einladend:   require('../../assets/coach/einladend.png'),
 } as const;
 
-type StepId = 'name' | 'role' | 'coachsub' | 'discipline' | 'experience' | 'gender' | 'age' | 'weight' | 'frequency' | 'invitecode';
+type StepId = 'name' | 'role' | 'discipline' | 'experience' | 'gender' | 'age' | 'weight' | 'frequency' | 'invitecode';
 
 interface StepConfig {
   id: StepId;
@@ -72,13 +71,6 @@ const ALL_STEPS: StepConfig[] = [
     id: 'role',
     mascotImage: 'fragend',
     bubbleText: 'Bist du Schüler oder Coach?',
-  },
-  {
-    id: 'coachsub',
-    mascotImage: 'einladend',
-    bubbleText: 'Werde auf der Karte sichtbar.',
-    canSkip: true,
-    coachOnly: true,
   },
   {
     id: 'discipline',
@@ -133,6 +125,14 @@ export default function OnboardingScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [name, setName]               = useState('');
+  // Prefill from Google/Apple sign-in metadata, so a social login is never
+  // asked to type its name again (Apple sends it only once, slightly later).
+  const meta = user?.user_metadata as { full_name?: unknown; name?: unknown } | undefined;
+  const providerName = typeof meta?.full_name === 'string' ? meta.full_name
+    : typeof meta?.name === 'string' ? meta.name : '';
+  useEffect(() => {
+    if (providerName.trim().length > 0) setName((current) => (current === '' ? providerName.trim() : current));
+  }, [providerName]);
   const [role, setRole]               = useState<Role | null>(null);
   const [gender, setGender]           = useState<Gender | null>(null);
   const [age, setAge]                 = useState<number | null>(null);
@@ -191,7 +191,6 @@ export default function OnboardingScreen() {
     switch (currentStep!.id) {
       case 'name':        return isValidName(name);
       case 'role':        return role !== null;
-      case 'coachsub':    return true;
       case 'gender':      return gender !== null;
       case 'age':         return age !== null;
       case 'weight':      return true;
@@ -365,9 +364,6 @@ export default function OnboardingScreen() {
               )}
               {!isWelcome && currentStep?.id === 'role' && (
                 <StepRole value={role} onChange={setRole} />
-              )}
-              {!isWelcome && currentStep?.id === 'coachsub' && (
-                <StepCoachSubscription onSubscribePress={() => navigation.navigate('Paywall')} />
               )}
               {!isWelcome && currentStep?.id === 'gender' && (
                 <StepGender value={gender} onChange={setGender} />

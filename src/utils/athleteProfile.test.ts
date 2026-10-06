@@ -1,4 +1,4 @@
-import { experienceLabel, trainingFrequencyLabel, cardBackFacts, trainingFacts } from './athleteProfile';
+import { experienceLabel, trainingFrequencyLabel, cardBackFacts, trainingHeadline, bodyStats } from './athleteProfile';
 
 const empty = {
   weight_class: null,
@@ -33,26 +33,38 @@ describe('cardBackFacts', () => {
   });
 
   it('skips blank strings and keeps a stable order', () => {
-    const rows = cardBackFacts({ ...empty, weight_class: 'Weltergewicht', age_years: 27, nationality: '  ', hometown: 'Bottrop' });
-    expect(rows.map((r) => r.label)).toEqual(['Gewichtsklasse', 'Alter', 'Heimatstadt']);
-    expect(rows[1].value).toBe('27 Jahre');
+    const rows = cardBackFacts({ ...empty, age_years: 27, nationality: '  ', hometown: 'Bottrop' });
+    expect(rows.map((r) => r.label)).toEqual(['Alter', 'Heimatstadt']);
+    expect(rows[0].value).toBe('27 Jahre');
+  });
+
+  it('does not show the weight class (only the fight weight is shown)', () => {
+    const rows = cardBackFacts({ ...empty, weight_class: 'Weltergewicht' });
+    expect(rows).toEqual([]);
   });
 });
 
-describe('trainingFacts', () => {
-  it('is empty without training data', () => {
-    expect(trainingFacts({ ...empty, is_professional: false, training_focus: ' ' })).toEqual([]);
+describe('trainingHeadline', () => {
+  it('is null without frequency and experience', () => {
+    expect(trainingHeadline({ training_frequency: null, training_since: null })).toBeNull();
+    expect(trainingHeadline({ training_frequency: 'daily', training_since: 'x' })).toBeNull();
   });
-
-  it('lists experience, frequency, pro status and focus in order', () => {
-    const rows = trainingFacts({
-      ...empty,
-      training_since: 'over_5_years',
-      training_frequency: 'medium',
-      is_professional: true,
-      training_focus: 'Beinarbeit',
+  it('turns the frequency tier into the stored approximate count', () => {
+    expect(trainingHeadline({ training_frequency: 'medium', training_since: '1_3_years' })).toEqual({
+      times: '5×',
+      experience: 'Fortgeschritten · 1 bis 3 Jahre Erfahrung',
     });
-    expect(rows.map((r) => r.label)).toEqual(['Erfahrung', 'Trainingspensum', 'Status', 'Aktueller Fokus']);
-    expect(rows[3].value).toBe('Beinarbeit');
+  });
+  it('shows only what is filled', () => {
+    expect(trainingHeadline({ training_frequency: 'low' })).toEqual({ times: '3×', experience: null });
+  });
+});
+
+describe('bodyStats', () => {
+  it('lists only filled values and age only from age_years', () => {
+    const rows = bodyStats({ weight_kg: 72.5, height_cm: 180, stance: 'orthodox', age_years: null }, 'Orthodox');
+    expect(rows.map((r) => r.value)).toEqual(['72,5 kg', '180 cm', 'Orthodox']);
+    expect(bodyStats({ weight_kg: null, height_cm: null, stance: null, age_years: 27 }, null))
+      .toEqual([{ value: '27', label: 'Alter' }]);
   });
 });

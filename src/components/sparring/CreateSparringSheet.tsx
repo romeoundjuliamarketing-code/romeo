@@ -17,10 +17,15 @@ import {
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import type { CreateSparringInput } from '../../hooks/useSparringActions';
+import type { CreateSparringInput, UpdateSparringInput } from '../../hooks/useSparringActions';
+import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import LocationPickerModal from './LocationPickerModal';
 import { checkText, filterErrorMessage } from '../../utils/contentFilter';
 import { useBannedWords } from '../../hooks/useBannedWords';
+import GymPickerSheet from '../gym/GymPickerSheet';
+import { useGym } from '../../hooks/useGyms';
+import type { Gym } from '../../hooks/useGyms';
+import { GYM_LIMITS } from '../../utils/gymSearch';
 
 const DISCIPLINES = ['Boxen', 'K1 / Kickboxen', 'BJJ', 'MMA', 'Muay Thai', 'Ringen', 'Sonstiges'];
 const NOTES_ACCESSORY_ID = 'sparring-notes-accessory';
@@ -165,6 +170,12 @@ type Props =
       coachStudio?: CoachStudioInfo | null;
       onClose: () => void;
       onCreate: (params: CreateSparringInput) => Promise<void>;
+      /** Edit mode: prefilled from this sparring, saves via onSaveEdit. */
+      editing?: SparringWithMeta | null;
+      /** Resolves true when saved (the sheet then closes). */
+      onSaveEdit?: (input: UpdateSparringInput) => Promise<boolean>;
+      /** New sparring from a gym page: this gym is preselected as the place. */
+      initialGym?: Gym | null;
     };
 
 function nextDay18h(): Date {
@@ -185,6 +196,13 @@ export default function CreateSparringSheet(props: Props) {
     isUserMode && coachStudio !== null && coachStudio !== undefined && coachStudio.address.trim().length > 0;
 
   const [isAtStudio, setIsAtStudio] = useState(false);
+
+  const editing = 'editing' in props ? (props.editing ?? null) : null;
+  const onSaveEdit = 'onSaveEdit' in props ? props.onSaveEdit : undefined;
+  const initialGym = 'initialGym' in props ? (props.initialGym ?? null) : null;
+  const isEditMode = editing !== null;
+  // The studio is the location of a studio sparring: not editable.
+  const locationLocked = isAtStudio || (editing !== null && editing.studio_id !== null);
 
   const scrollRef = useRef<ScrollView>(null);
   // Tracks whether the multiline notes field currently holds focus, so the
@@ -230,6 +248,58 @@ export default function CreateSparringSheet(props: Props) {
   // Coordinates from map picker — set when user picks a location on the map
   const [pickedCoord, setPickedCoord] = useState<{ lat: number; lng: number } | null>(null);
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
+  // Optional gym as the place of the sparring (location only — the sparring
+  // stays the organizer's own meeting) and a short access note.
+  const [gym, setGym] = useState<Gym | null>(null);
+  const [accessNote, setAccessNote] = useState('');
+  const [gymTouched, setGymTouched] = useState(false);
+  const [gymPickerVisible, setGymPickerVisible] = useState(false);
+  const { gym: editingGym } = useGym(visible && editing !== null ? (editing.gym_id ?? null) : null);
+  useEffect(() => {
+    if (editingGym !== null && !gymTouched) setGym(editingGym);
+  }, [editingGym, gymTouched]);
+
+  function resetForm(): void {
+    setTitle('');
+    setAddress('');
+    setPickedCoord(null);
+    setIsAtStudio(false);
+    setDiscipline(DISCIPLINES[0]);
+    setNotes('');
+    setDurationMin('90');
+    setMaxSlots('10');
+    setScheduledAt(nextDay18h());
+    setFilterError(null);
+    setGym(null);
+    setAccessNote('');
+    setGymTouched(false);
+  }
+
+  // Each opening starts from the sparring being edited, or from a fresh form.
+  const prefilledForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!visible) return;
+    if (editing !== null) {
+      prefilledForRef.current = editing.id;
+      setTitle(editing.title);
+      setDiscipline(editing.discipline);
+      setScheduledAt(new Date(editing.scheduled_at));
+      setDurationMin(String(editing.duration_min));
+      setMaxSlots(String(editing.max_slots));
+      setNotes(editing.notes ?? '');
+      setAddress(editing.address);
+      setPickedCoord(editing.lat !== null && editing.lng !== null ? { lat: editing.lat, lng: editing.lng } : null);
+      setIsAtStudio(false);
+      setFilterError(null);
+      setGym(null);
+      setAccessNote(editing.access_note ?? '');
+      setGymTouched(false);
+    } else if (prefilledForRef.current !== null) {
+      prefilledForRef.current = null;
+      resetForm();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, editing?.id]);
 
   function formatDate(d: Date): string {
     return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -237,6 +307,49 @@ export default function CreateSparringSheet(props: Props) {
 
   function formatTime(d: Date): string {
     return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Taking a gym fills the meeting point only from real data: stored
+  // coordinates, else the stored address (geocoded on save like a typed one).
+  // A city alone never becomes a supposedly exact location.
+  async function handlePickGym(picked: Gym): Promise<boolean> {
+    setGym(picked);
+    setGymTouched(true);
+    const gymAddress = picked.address?.trim() ?? '';
+    if (gymAddress.length > 0) {
+      setAddress(gymAddress);
+      setPickedCoord(picked.lat !== null && picked.lng !== null ? { lat: picked.lat, lng: picked.lng } : null);
+    }
+    return true;
+  }
+
+  // Gym page entry: apply the gym once per opening, exactly like picking it.
+  // The next opening without it starts from a fresh form again.
+  const initialGymAppliedRef = useRef(false);
+  const resetAfterGymRef = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      if (initialGymAppliedRef.current) resetAfterGymRef.current = true;
+      initialGymAppliedRef.current = false;
+      return;
+    }
+    if (editing !== null) return;
+    if (initialGym !== null) {
+      if (initialGymAppliedRef.current) return;
+      initialGymAppliedRef.current = true;
+      resetAfterGymRef.current = false;
+      void handlePickGym(initialGym);
+    } else if (resetAfterGymRef.current) {
+      resetAfterGymRef.current = false;
+      resetForm();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, editing?.id, initialGym?.id]);
+
+  function clearGym(): void {
+    setGym(null);
+    setAccessNote('');
+    setGymTouched(true);
   }
 
   function handleToggleAtStudio(): void {
@@ -285,7 +398,7 @@ export default function CreateSparringSheet(props: Props) {
     }
 
     setFilterError(null);
-    const fieldsToCheck = [title, notes, ...(isUserMode ? [address] : [])];
+    const fieldsToCheck = [title, notes, ...(isUserMode ? [address, accessNote] : [])];
     for (const field of fieldsToCheck) {
       const verdict = checkText(field, bannedWords);
       if (!verdict.ok) {
@@ -294,11 +407,53 @@ export default function CreateSparringSheet(props: Props) {
       }
     }
 
-    const dur = isUserMode ? 90 : parseInt(durationMin, 10);
+    const dur = isUserMode && !isEditMode ? 90 : parseInt(durationMin, 10);
     const slots = parseInt(maxSlots, 10);
     const resolvedTitle = isUserMode
       ? (title.trim().length > 0 ? title.trim() : `${discipline} – Sparring`)
       : title.trim();
+
+    if (editing !== null) {
+      if (isNaN(dur) || dur < 15 || dur > 600) {
+        Alert.alert('Ungültige Dauer', 'Die Dauer muss zwischen 15 und 600 Minuten liegen.');
+        return;
+      }
+      if (scheduledAt.getTime() <= Date.now()) {
+        Alert.alert('Termin in der Vergangenheit', 'Bitte wähle einen Termin in der Zukunft.');
+        return;
+      }
+      // Unchanged address keeps the stored coordinates, a map pick brings its
+      // own, a typed new address is geocoded.
+      const sameAddress = address.trim() === editing.address.trim();
+      const coords = pickedCoord ?? (sameAddress ? { lat: editing.lat, lng: editing.lng } : null);
+      const input: UpdateSparringInput = {
+        title:        resolvedTitle,
+        notes,
+        discipline,
+        address:      locationLocked ? editing.address : address.trim(),
+        lat:          locationLocked ? editing.lat : (coords?.lat ?? null),
+        lng:          locationLocked ? editing.lng : (coords?.lng ?? null),
+        geocode:      !locationLocked && coords === null,
+        scheduledAt:  scheduledAt.toISOString(),
+        durationMin:  dur,
+        maxSlots:     slots,
+        verifiedOnly: editing.verified_only,
+      };
+      // Only what the user touched: an untouched gym may still be loading.
+      if (gymTouched) {
+        const nextNote = gym !== null && accessNote.trim().length > 0 ? accessNote.trim() : null;
+        const nextGymId = gym?.id ?? null;
+        if (nextGymId !== (editing.gym_id ?? null) || nextNote !== (editing.access_note ?? null)) {
+          input.gym = { gymId: nextGymId, accessNote: nextNote };
+        }
+      }
+      if (onSaveEdit === undefined) return;
+      setLoading(true);
+      const saved = await onSaveEdit(input);
+      setLoading(false);
+      if (saved) onClose();
+      return;
+    }
 
     const params: CreateSparringInput = isUserMode
       ? {
@@ -306,6 +461,9 @@ export default function CreateSparringSheet(props: Props) {
           ...(pickedCoord !== null ? { lat: pickedCoord.lat, lng: pickedCoord.lng } : {}),
           ...(isAtStudio && coachStudio !== null && coachStudio !== undefined
             ? { isAtStudio: true as const, atStudioId: coachStudio.id }
+            : {}),
+          ...(gym !== null && !isAtStudio
+            ? { gymId: gym.id, ...(accessNote.trim().length > 0 ? { accessNote: accessNote.trim() } : {}) }
             : {}),
           title: resolvedTitle,
           discipline,
@@ -319,15 +477,7 @@ export default function CreateSparringSheet(props: Props) {
     setLoading(true);
     await onCreate(params);
     setLoading(false);
-    setTitle('');
-    setAddress('');
-    setPickedCoord(null);
-    setIsAtStudio(false);
-    setDiscipline(DISCIPLINES[0]);
-    setNotes('');
-    setDurationMin('90');
-    setMaxSlots('10');
-    setScheduledAt(nextDay18h());
+    resetForm();
     onClose();
   }
 
@@ -342,6 +492,13 @@ export default function CreateSparringSheet(props: Props) {
           </View>
         </InputAccessoryView>
       )}
+      <GymPickerSheet
+        visible={gymPickerVisible}
+        title="Gym als Ort wählen"
+        currentGymId={gym?.id ?? null}
+        onClose={() => setGymPickerVisible(false)}
+        onSelect={handlePickGym}
+      />
       <LocationPickerModal
         visible={locationPickerVisible}
         onClose={() => setLocationPickerVisible(false)}
@@ -358,9 +515,9 @@ export default function CreateSparringSheet(props: Props) {
         <View style={styles.headerRow}>
           <View style={styles.headerTextBlock}>
             <Text style={styles.heading}>
-              {isUserMode ? 'Sparring anmelden' : 'Sparring planen'}
+              {isEditMode ? 'Sparring bearbeiten' : isUserMode ? 'Sparring anmelden' : 'Sparring planen'}
             </Text>
-            {isUserMode && (
+            {isUserMode && !isEditMode && (
               <Text style={styles.subHeading}>Plane dein eigenes Sparring</Text>
             )}
           </View>
@@ -409,16 +566,60 @@ export default function CreateSparringSheet(props: Props) {
             </>
           )}
 
+          {isUserMode && !locationLocked && (
+            <>
+              <FieldLabel icon="business-outline" text="Gym" hint="Optional" />
+              {gym !== null ? (
+                <View style={styles.gymBox}>
+                  <View style={styles.gymBoxHead}>
+                    <View style={styles.gymBoxText}>
+                      <Text style={styles.gymName} numberOfLines={2}>{gym.name}</Text>
+                      <Text style={styles.gymCity} numberOfLines={1}>{gym.city}</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setGymPickerVisible(true)} hitSlop={8} accessibilityRole="button">
+                      <Text style={styles.gymAction}>Ändern</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={clearGym} hitSlop={8} accessibilityRole="button" accessibilityLabel="Gym entfernen">
+                      <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                  {(gym.address === null || gym.address.trim().length === 0) && (
+                    <Text style={styles.lockedHint}>Für dieses Gym ist keine Adresse hinterlegt. Gib den Treffpunkt unten an.</Text>
+                  )}
+                  <TextInput
+                    style={styles.input}
+                    value={accessNote}
+                    onChangeText={(t) => { setAccessNote(t); setGymTouched(true); }}
+                    placeholder="Zugang, z. B. Gäste nach Absprache (optional)"
+                    placeholderTextColor={colors.textSecondary}
+                    maxLength={GYM_LIMITS.accessNote}
+                    returnKeyType="done"
+                    blurOnSubmit
+                    accessibilityLabel="Zugangshinweis"
+                  />
+                  <Text style={styles.lockedHint}>
+                    Das Sparring bleibt dein Treffen, das Gym ist nur der Ort. Kläre den Zugang vorher mit dem Gym.
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.gymPick} onPress={() => setGymPickerVisible(true)} activeOpacity={0.7} accessibilityRole="button">
+                  <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
+                  <Text style={styles.gymPickText}>Gym als Ort wählen</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+
           {isUserMode && (
             <>
               <FieldLabel icon="location-outline" text="Ort" />
               <View style={styles.locationRow}>
                 <TextInput
-                  style={[styles.input, styles.locationInput, isAtStudio && styles.inputDisabled]}
+                  style={[styles.input, styles.locationInput, locationLocked && styles.inputDisabled]}
                   value={address}
-                  editable={!isAtStudio}
+                  editable={!locationLocked}
                   onChangeText={(t) => {
-                    if (isAtStudio) return;
+                    if (locationLocked) return;
                     setAddress(t);
                     // Manual edit clears the map-picked coordinates
                     if (pickedCoord !== null) setPickedCoord(null);
@@ -429,8 +630,8 @@ export default function CreateSparringSheet(props: Props) {
                   blurOnSubmit={true}
                 />
                 <TouchableOpacity
-                  style={[styles.mapPickBtn, isAtStudio && styles.mapPickBtnDisabled]}
-                  onPress={() => { if (!isAtStudio) setLocationPickerVisible(true); }}
+                  style={[styles.mapPickBtn, locationLocked && styles.mapPickBtnDisabled]}
+                  onPress={() => { if (!locationLocked) setLocationPickerVisible(true); }}
                   activeOpacity={0.8}
                 >
                   <Ionicons
@@ -440,7 +641,10 @@ export default function CreateSparringSheet(props: Props) {
                   />
                 </TouchableOpacity>
               </View>
-              {pickedCoord !== null && (
+              {isEditMode && locationLocked && (
+                <Text style={styles.lockedHint}>Der Ort eines Studio-Sparrings ist das Studio.</Text>
+              )}
+              {pickedCoord !== null && !locationLocked && (
                 <View style={styles.pickedBadge}>
                   <Ionicons name="location" size={13} color={colors.accentBlue} />
                   <Text style={styles.pickedBadgeText} numberOfLines={1}>{address}</Text>
@@ -455,7 +659,7 @@ export default function CreateSparringSheet(props: Props) {
             </>
           )}
 
-          {showAtStudioCheckbox && (
+          {showAtStudioCheckbox && !isEditMode && (
             <TouchableOpacity
               style={styles.checkboxRow}
               onPress={handleToggleAtStudio}
@@ -473,6 +677,13 @@ export default function CreateSparringSheet(props: Props) {
             <>
               <FieldLabel icon="people-outline" text="Max. Plätze" />
               <Stepper value={maxSlots} onChange={setMaxSlots} min={1} />
+              {/* Fixed at 90 when creating; adjustable once the sparring exists */}
+              {isEditMode && (
+                <>
+                  <FieldLabel icon="hourglass-outline" text="Dauer (Min.)" />
+                  <Stepper value={durationMin} onChange={setDurationMin} min={15} step={15} />
+                </>
+              )}
             </>
           )}
 
@@ -584,8 +795,13 @@ export default function CreateSparringSheet(props: Props) {
               <ActivityIndicator color={colors.card} />
             ) : (
               <View style={styles.btnContent}>
-                <Ionicons name="megaphone-outline" size={18} color={colors.card} style={styles.btnIcon} />
-                <Text style={styles.btnText}>Veröffentlichen</Text>
+                <Ionicons
+                  name={isEditMode ? 'checkmark-outline' : 'megaphone-outline'}
+                  size={18}
+                  color={colors.card}
+                  style={styles.btnIcon}
+                />
+                <Text style={styles.btnText}>{isEditMode ? 'Änderungen speichern' : 'Veröffentlichen'}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -801,6 +1017,47 @@ const styles = StyleSheet.create({
   },
   mapPickBtnDisabled: {
     opacity: 0.35,
+  },
+  gymBox: {
+    gap: 8,
+  },
+  gymBoxHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  gymBoxText: {
+    flex: 1,
+  },
+  gymName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  gymCity: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  gymAction: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.accentBlueText,
+  },
+  gymPick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+  },
+  gymPickText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.accentBlueText,
+  },
+  lockedHint: {
+    fontSize:  12,
+    color:     colors.textSecondary,
+    marginTop: 8,
   },
   filterError: {
     fontFamily: 'Inter',

@@ -6,6 +6,8 @@ import { createChatSync, type ChatSync, type ChatSyncState, type PageQuery } fro
 
 // Show the first page even if the realtime join is slow; a later join catches up.
 const JOIN_FALLBACK_MS = 2_500;
+// A burst of incoming messages needs one read receipt, not one per message.
+const SEEN_THROTTLE_MS = 2_000;
 
 // realtime-js returns an existing channel with the same topic, even one still leaving.
 // A per-mount suffix guarantees a fresh channel on quick reopen or user switch.
@@ -58,9 +60,21 @@ export function useChatMessageStream<Row extends ChatRow, Msg extends ChatRow>(
     });
     syncRef.current = sync;
 
+    // Stable for the stream's lifetime (depends only on ids that are part of streamKey).
+    const onSeen = o.onMessagesSeen;
+    let lastSeenAt = 0;
+    let seenTimer: ReturnType<typeof setTimeout> | null = null;
+    const markSeen = (): void => {
+      if (onSeen === undefined || seenTimer !== null) return;
+      const wait = lastSeenAt + SEEN_THROTTLE_MS - Date.now();
+      const fire = (): void => { seenTimer = null; lastSeenAt = Date.now(); onSeen(); };
+      if (wait <= 0) fire();
+      else seenTimer = setTimeout(fire, wait);
+    };
+
     const runSync = (): void => {
       void sync.sync().then(() => {
-        if (active && !sync.getState().loading) optsRef.current.onMessagesSeen?.();
+        if (active && !sync.getState().loading) markSeen();
       });
     };
     // Fallback and join errors only need to trigger the first load once; later joins catch up.
@@ -86,7 +100,7 @@ export function useChatMessageStream<Row extends ChatRow, Msg extends ChatRow>(
             .then(([msg]) => {
               if (!active || msg === undefined) return;
               sync.receive(msg);
-              optsRef.current.onMessagesSeen?.();
+              markSeen();
             })
             .catch(() => undefined);
         },
@@ -113,6 +127,8 @@ export function useChatMessageStream<Row extends ChatRow, Msg extends ChatRow>(
       active = false;
       sync.dispose();
       clearTimeout(fallback);
+      // Deliver a pending read receipt instead of dropping it on leave.
+      if (seenTimer !== null) { clearTimeout(seenTimer); onSeen?.(); }
       appSub.remove();
       void supabase.removeChannel(channel);
       if (syncRef.current === sync) syncRef.current = null;

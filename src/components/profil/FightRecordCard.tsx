@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { fonts } from '../../theme/typography';
 import type { FightRecord } from '../../hooks/useFightRecord';
 
 type FightRecordCardProps = {
@@ -56,7 +57,6 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
   const losses = visibleFights.filter((f) => f.result === 'loss').length;
   const draws  = visibleFights.filter((f) => f.result === 'draw').length;
   const kos    = visibleFights.filter((f) => f.method === 'ko' || f.method === 'tko').length;
-  const total  = wins + losses + draws;
 
   const isOwn        = readOnly !== true;
   const canAdd        = isOwn && onAdd !== undefined;
@@ -82,20 +82,17 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerTexts}>
-          <Text style={styles.title}>Kampfrekord</Text>
-          <Text style={styles.subtitle}>Wettkampfergebnisse</Text>
-        </View>
-        {canAdd && !showFullEmptyState && (
+        <Text style={styles.title} accessibilityRole="header">Kampfrekord</Text>
+        {canAdd && (
           <TouchableOpacity
             onPress={onAdd}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
             style={styles.headerAddBtn}
             accessibilityRole="button"
-            accessibilityLabel="Kampf eintragen"
+            accessibilityLabel="Kampf ergänzen"
           >
-            <MaterialCommunityIcons name="plus-circle-outline" size={18} color={colors.accentBlue} />
-            <Text style={styles.headerAddBtnText}>Kampf eintragen</Text>
+            <MaterialCommunityIcons name="plus" size={18} color={colors.accentBlueText} />
+            <Text style={styles.headerAddBtnText}>Kampf ergänzen</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -105,29 +102,9 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
           <ActivityIndicator color={colors.accentBlue} />
         </View>
       ) : showFullEmptyState ? (
-        <View style={styles.emptyState}>
-          <View style={styles.emptyIconCircle}>
-            <MaterialCommunityIcons name="boxing-glove" size={28} color={colors.accentBlue} />
-          </View>
-          <Text style={styles.emptyTitle}>Noch keine Kämpfe</Text>
-          <Text style={styles.emptyText}>
-            {isOwn
-              ? 'Trag deine Wettkämpfe ein – Amateur oder Profi. So sehen Trainingspartner deine Erfahrung.'
-              : `${ownerName ?? 'Dieser Kämpfer'} hat noch keine Wettkämpfe eingetragen.`}
-          </Text>
-          {canAdd && (
-            <TouchableOpacity
-              onPress={onAdd}
-              activeOpacity={0.85}
-              style={styles.emptyAddBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Kampf eintragen"
-            >
-              <MaterialCommunityIcons name="plus" size={18} color={colors.dark} />
-              <Text style={styles.emptyAddBtnText}>Kampf eintragen</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <Text style={styles.emptyText}>
+          {isOwn ? 'Noch keine Wettkämpfe eingetragen.' : `${ownerName ?? 'Dieser Kämpfer'} hat noch keine Wettkämpfe eingetragen.`}
+        </Text>
       ) : (
         <>
           {showTabs && (
@@ -150,38 +127,25 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
             </View>
           )}
 
-          <View style={styles.summaryBox}>
-            <Text style={styles.recordHeadline}>{wins} – {losses} – {draws}</Text>
-
-            <View style={styles.recordBar}>
-              {wins > 0 && <View style={[styles.recordBarSeg, { flex: wins, backgroundColor: colors.accentBlue }]} />}
-              {losses > 0 && <View style={[styles.recordBarSeg, { flex: losses, backgroundColor: colors.dark }]} />}
-              {draws > 0 && <View style={[styles.recordBarSeg, { flex: draws, backgroundColor: colors.hairline }]} />}
-              {total === 0 && <View style={[styles.recordBarSeg, { flex: 1, backgroundColor: colors.hairline }]} />}
-            </View>
-
-            <View style={styles.legendRow}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.accentBlue }]} />
-                <Text style={styles.legendLabel}>Siege</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.dark }]} />
-                <Text style={styles.legendLabel}>Niederlagen</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: colors.hairline }]} />
-                <Text style={styles.legendLabel}>Unentschieden</Text>
-              </View>
-            </View>
-
-            {kos > 0 && (
-              <View style={styles.koChip}>
-                <MaterialCommunityIcons name="flash" size={12} color={colors.accentBlue} />
-                <Text style={styles.koChipText}>{kos} KO/TKO</Text>
-              </View>
-            )}
+          {/* Scoreboard: wins – losses – draws, big numbers, labels beneath */}
+          <View
+            style={styles.scoreboard}
+            accessible
+            accessibilityLabel={`${wins} Siege, ${losses} Niederlagen, ${draws} Unentschieden${kos > 0 ? `, davon ${kos} durch KO oder TKO` : ''}`}
+          >
+            <Score value={wins} label="Siege" accent />
+            <Text style={styles.scoreDash} importantForAccessibility="no">–</Text>
+            <Score value={losses} label="Niederlagen" />
+            <Text style={styles.scoreDash} importantForAccessibility="no">–</Text>
+            <Score value={draws} label="Unentschieden" />
           </View>
+          <Text style={styles.scoreMeta}>
+            {[
+              kos > 0 ? `${kos} durch KO/TKO` : null,
+              showTabs ? null : (hasAmateur ? 'Amateur' : 'Profi'),
+              'selbst eingetragen',
+            ].filter((v): v is string => v !== null).join(', ').replace(/^./, (c) => c.toUpperCase())}
+          </Text>
 
           {displayedFights.map((fight, index) => {
             const cfg = RESULT_CONFIG[fight.result];
@@ -242,75 +206,44 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
   );
 }
 
+function Score({ value, label, accent = false }: { value: number; label: string; accent?: boolean }): React.ReactElement {
+  return (
+    <View style={styles.score}>
+      <Text style={[styles.scoreValue, accent && styles.scoreValueAccent]} maxFontSizeMultiplier={1.2}>{value}</Text>
+      <Text style={styles.scoreLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {},
   header: {
     flexDirection:  'row',
-    alignItems:     'flex-start',
+    alignItems:     'center',
     justifyContent: 'space-between',
     gap:            8,
-    marginBottom:   16,
+    marginBottom:   8,
   },
-  headerTexts: { flexShrink: 1, gap: 4 },
-  title:       { fontSize: 20, fontWeight: '800', color: colors.text },
-  subtitle:    { fontSize: 13, fontWeight: '400', color: colors.textMuted },
+  title: { flexShrink: 1, fontSize: 20, fontWeight: '800', color: colors.text },
   headerAddBtn: {
     flexDirection: 'row',
     alignItems:    'center',
     gap:           4,
-    paddingVertical: 4,
+    minHeight:     44,
   },
   headerAddBtnText: {
-    fontSize:   13,
+    fontSize:   15,
     fontWeight: '700',
-    color:      colors.text,
+    color:      colors.accentBlueText,
   },
   loadingWrap: {
-    paddingVertical: 24,
-    alignItems:      'center',
-  },
-
-  // ── Empty state ────────────────────────────────────────────────────────
-  emptyState: {
-    alignItems:      'center',
     paddingVertical: 16,
-    gap:             8,
-  },
-  emptyIconCircle: {
-    width:           56,
-    height:          56,
-    borderRadius:    28,
-    backgroundColor: colors.accentBlueSoft,
-    alignItems:      'center',
-    justifyContent:  'center',
-    marginBottom:    8,
-  },
-  emptyTitle: {
-    fontSize:   15,
-    fontWeight: '700',
-    color:      colors.text,
+    alignItems:      'flex-start',
   },
   emptyText: {
-    fontSize:   13,
-    fontWeight: '400',
-    color:      colors.textMuted,
-    textAlign:  'center',
-  },
-  emptyAddBtn: {
-    flexDirection:    'row',
-    alignItems:       'center',
-    justifyContent:   'center',
-    gap:              4,
-    alignSelf:        'stretch',
-    minHeight:        48,
-    borderRadius:     16,
-    backgroundColor:  colors.accentBlue,
-    marginTop:        8,
-  },
-  emptyAddBtnText: {
     fontSize:   15,
-    fontWeight: '700',
-    color:      colors.dark,
+    lineHeight: 22,
+    color:      colors.textMuted,
   },
 
   // ── Segmented Profi/Amateur toggle ────────────────────────────────────
@@ -343,68 +276,43 @@ const styles = StyleSheet.create({
     color: colors.dark,
   },
 
-  // ── Summary ────────────────────────────────────────────────────────────
-  summaryBox: {
-    backgroundColor: colors.card,
-    borderRadius:    16,
-    borderWidth:      1,
-    borderColor:      colors.hairline,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    alignItems:      'center',
-    marginBottom:    16,
-  },
-  recordHeadline: {
-    fontSize:      32,
-    fontWeight:    '800',
-    color:         colors.text,
-    letterSpacing: -0.5,
-  },
-  recordBar: {
-    flexDirection:   'row',
-    width:           '100%',
-    height:          6,
-    borderRadius:    3,
-    overflow:        'hidden',
-    marginTop:       16,
-    backgroundColor: colors.hairline,
-  },
-  recordBarSeg: { height: '100%' },
-  legendRow: {
-    flexDirection:   'row',
-    justifyContent:  'center',
-    gap:             16,
-    marginTop:       16,
-  },
-  legendItem: {
+  // ── Scoreboard ─────────────────────────────────────────────────────
+  scoreboard: {
     flexDirection: 'row',
-    alignItems:    'center',
-    gap:           4,
+    alignItems:    'flex-start',
+    gap:           8,
+    marginTop:     8,
   },
-  legendDot: {
-    width:        8,
-    height:       8,
-    borderRadius: 4,
+  score: {
+    flex:       1,
+    minWidth:   0,
+    alignItems: 'flex-start',
   },
-  legendLabel: {
-    fontSize:   12,
-    fontWeight: '500',
-    color:      colors.textMuted,
+  scoreValue: {
+    fontFamily: fonts.display,
+    fontSize:   64,
+    lineHeight: 66,
+    color:      colors.text,
   },
-  koChip: {
-    flexDirection:    'row',
-    alignItems:       'center',
-    gap:              4,
-    paddingHorizontal: 8,
-    paddingVertical:  4,
-    borderRadius:     8,
-    backgroundColor:  colors.accentBlueSoft,
-    marginTop:        16,
+  scoreValueAccent: {
+    color: colors.accentBlueText,
   },
-  koChipText: {
-    fontSize:   11,
+  scoreDash: {
+    fontFamily: fonts.display,
+    fontSize:   40,
+    lineHeight: 66,
+    color:      colors.hairline,
+  },
+  scoreLabel: {
+    fontSize:   13,
     fontWeight: '700',
     color:      colors.text,
+  },
+  scoreMeta: {
+    fontSize:     13,
+    color:        colors.textMuted,
+    marginTop:    8,
+    marginBottom: 8,
   },
 
   // ── Fight rows ─────────────────────────────────────────────────────────

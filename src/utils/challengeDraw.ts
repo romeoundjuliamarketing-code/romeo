@@ -30,6 +30,54 @@ export function drawChallenge(
 }
 
 function pickOne(cards: SparringChallenge[], random: () => number): SparringChallenge {
-  const index = Math.min(cards.length - 1, Math.max(0, Math.floor(random() * cards.length)));
-  return cards[index];
+  return cards[pickIndex(cards.length, random)];
+}
+
+function pickIndex(length: number, random: () => number): number {
+  return Math.min(length - 1, Math.max(0, Math.floor(random() * length)));
+}
+
+export interface DrawSetResult {
+  cards:    SparringChallenge[];
+  usedIds:  string[];
+}
+
+// Draws `count` cards at once, all different from each other — that is what keeps the
+// two fighters of a round from getting the same mission. Cards already used in the
+// session are avoided until the pool runs dry, then it starts over without repeating
+// anything from the set being drawn right now. Returns fewer cards than asked for only
+// when the pool itself is smaller; callers check that before starting a session.
+export function drawChallengeSet(
+  pool:    SparringChallenge[],
+  usedIds: string[],
+  count:   number,
+  random:  () => number = Math.random,
+): DrawSetResult | null {
+  if (pool.length === 0 || count <= 0) return null;
+
+  const used = new Set(usedIds);
+  let available = pool.filter((c) => !used.has(c.id));
+  const picked: SparringChallenge[] = [];
+  let recycled = false;
+
+  while (picked.length < count) {
+    if (available.length === 0) {
+      const taken = new Set(picked.map((c) => c.id));
+      available = pool.filter((c) => !taken.has(c.id));
+      recycled = true;
+      // Pool smaller than the set — hand back what there is.
+      if (available.length === 0) break;
+    }
+    const index = pickIndex(available.length, random);
+    picked.push(available[index]);
+    available = available.filter((_, i) => i !== index);
+  }
+
+  if (picked.length === 0) return null;
+
+  const pickedIds = picked.map((c) => c.id);
+  return {
+    cards:   picked,
+    usedIds: recycled ? pickedIds : [...usedIds, ...pickedIds],
+  };
 }

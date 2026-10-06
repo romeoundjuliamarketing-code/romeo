@@ -28,6 +28,7 @@ import ChatImagePicker from '../components/chat/ChatImagePicker';
 import ChatComposer from '../components/chat/ChatComposer';
 import NewMessagesPill from '../components/chat/NewMessagesPill';
 import SparringChatInfoBanner from '../components/chat/SparringChatInfoBanner';
+import SparringChatSummary, { type SparringSummaryData } from '../components/chat/SparringChatSummary';
 import SparringChatParticipantBar from '../components/chat/SparringChatParticipantBar';
 import SparringRulesConsentSheet from '../components/sparring/SparringRulesConsentSheet';
 import type { Participant } from '../components/chat/SparringChatParticipantBar';
@@ -35,9 +36,12 @@ import type { RootStackParamList } from '../navigation/types';
 import type { GroupMessageWithSender } from '../hooks/useSparringGroupChat';
 import { chatDateLabel } from '../utils/chatDate';
 import { computeLayoutFlags } from '../utils/chatMessages';
-import { useChatListScroll, NEAR_LATEST_PX } from '../hooks/useChatListScroll';
+import { useChatListScroll, chatKeyExtractor, CHAT_MAINTAIN_POSITION } from '../hooks/useChatListScroll';
 import { checkText, filterErrorMessage } from '../utils/contentFilter';
 import { useBannedWords } from '../hooks/useBannedWords';
+import { useBlockedUsers } from '../hooks/useBlockedUsers';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
+import { withoutBlocked } from '../utils/blockedFilter';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SparringGroupChat'>;
 
@@ -50,12 +54,6 @@ function getCountdown(iso: string): string {
   if (diff === 0)   return `Heute · ${time} Uhr`;
   if (diff === 1)   return `Morgen · ${time} Uhr`;
   return `In ${diff} Tagen · ${time} Uhr`;
-}
-
-const MAINTAIN_POSITION = { minIndexForVisible: 0, autoscrollToTopThreshold: NEAR_LATEST_PX };
-
-function keyExtractor(m: GroupMessageWithSender): string {
-  return m.id;
 }
 
 function sameSenderGroup(a: GroupMessageWithSender, b: GroupMessageWithSender): boolean {
@@ -81,8 +79,16 @@ export default function SparringGroupChatScreen() {
 
   const [settingsVisible, setSettingsVisible] = useState(false);
 
+  const { blockedIds, refetch: refetchBlocked } = useBlockedUsers();
+  // Blocking happens on a profile pushed over this chat; pick it up on return.
+  useFocusRefetch(refetchBlocked);
+
   // Inverted list: index 0 is the newest message and sits at the bottom.
-  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
+  // Blocked senders are hidden at render time only, so paging stays intact.
+  const newestFirst = useMemo(
+    () => [...withoutBlocked(messages, blockedIds, (m) => (m.is_system ? null : m.sender_id))].reverse(),
+    [messages, blockedIds],
+  );
   const userId      = user?.id ?? null;
   const isOwnMsg    = useCallback((m: GroupMessageWithSender) => m.sender_id === userId, [userId]);
   const { listRef, onScroll, showHint, scrollToLatest } = useChatListScroll(newestFirst, isOwnMsg);
@@ -109,6 +115,8 @@ export default function SparringGroupChatScreen() {
     address: string; signupCount: number; maxSlots: number;
   } | null>(null);
   const [participants,   setParticipants]   = useState<Participant[]>([]);
+  // Meeting summary shown while the chat has no messages yet.
+  const [summary,        setSummary]        = useState<SparringSummaryData | null>(null);
   const [isSignedUp,     setIsSignedUp]     = useState(false);
   const [signupLoading,  setSignupLoading]  = useState(false);
   // Open while the user confirms the Sparr-Grundregeln before joining
@@ -118,7 +126,7 @@ export default function SparringGroupChatScreen() {
     const [sparringRes, signupsRes] = await Promise.all([
       supabase
         .from('open_sparrings')
-        .select('address, max_slots')
+        .select('address, max_slots, title, discipline, scheduled_at, duration_min, notes, access_note, gym_id, studio_id')
         .eq('id', sparringId)
         .single(),
       supabase
@@ -129,10 +137,30 @@ export default function SparringGroupChatScreen() {
     ]);
 
     if (sparringRes.data !== null) {
+      const sp = sparringRes.data;
       setSparringInfo({
-        address:     sparringRes.data.address,
+        address:     sp.address,
         signupCount: signupsRes.data?.length ?? 0,
-        maxSlots:    sparringRes.data.max_slots,
+        maxSlots:    sp.max_slots,
+      });
+      // Gym (or studio) name for the empty-chat summary; one small lookup.
+      const placeId = sp.gym_id ?? sp.studio_id;
+      let placeName: string | null = null;
+      if (placeId !== null) {
+        const { data: place } = await supabase.from('studios').select('name').eq('id', placeId).maybeSingle();
+        placeName = place?.name ?? null;
+      }
+      setSummary({
+        discipline:  sp.discipline,
+        title:       sp.title,
+        scheduledAt: sp.scheduled_at,
+        durationMin: sp.duration_min,
+        address:     sp.address,
+        placeName,
+        notes:       sp.notes,
+        accessNote:  sp.access_note,
+        signupCount: signupsRes.data?.length ?? 0,
+        maxSlots:    sp.max_slots,
       });
     }
 
@@ -234,19 +262,22 @@ export default function SparringGroupChatScreen() {
       {/* Messages */}
       {loading ? (
         <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
+      ) : newestFirst.length === 0 && summary !== null ? (
+        <View style={styles.listWrap}>
+          <SparringChatSummary data={summary} />
+        </View>
       ) : (
         <View style={styles.listWrap}>
           <FlatList
             ref={listRef}
             inverted
             data={newestFirst}
-            keyExtractor={keyExtractor}
+            keyExtractor={chatKeyExtractor}
             renderItem={renderItem}
             contentContainerStyle={styles.messageList}
             onScroll={onScroll}
             scrollEventThrottle={100}
-            // Keeps the reading position when messages arrive; follows them near the bottom.
-            maintainVisibleContentPosition={MAINTAIN_POSITION}
+            maintainVisibleContentPosition={CHAT_MAINTAIN_POSITION}
             onEndReached={hasMore ? loadOlder : undefined}
             onEndReachedThreshold={0.5}
             ListFooterComponent={loadingOlder

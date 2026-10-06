@@ -46,22 +46,28 @@ const RC_ENTITLEMENT_ID = 'Sparr Pro';
 export function useEntitlement(refetchTrigger = 0): {
   entitlement: EntitlementState;
   loading: boolean;
+  error: boolean;
   refetch: () => Promise<void>;
 } {
   const { user } = useAuth();
-  const cacheKey = user ? `useEntitlement:${user.id}` : null;
+  const userId = user?.id ?? null;
+  const cacheKey = userId === null ? null : `useEntitlement:${userId}`;
   const cached = cacheKey ? getCached<EntitlementSnapshot>(cacheKey) : undefined;
   const [entitlement, setEntitlement] = useState<EntitlementState>(() => cached?.entitlement ?? DEFAULT_ENTITLEMENT);
-  const [loading, setLoading] = useState(cached === undefined);
+  const [loading, setLoading] = useState(true);
+  const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
+  const [error, setError] = useState(false);
 
   const refetch = useCallback(async (): Promise<void> => {
-    if (user === null) {
+    if (userId === null) {
       setEntitlement(DEFAULT_ENTITLEMENT);
+      setError(false);
+      setResolvedUserId(null);
       setLoading(false);
       return;
     }
 
-    await loginRevenueCat(user.id);
+    await loginRevenueCat(userId).catch(() => undefined);
 
     const [rcInfo, supaResult] = await Promise.all([
       Purchases.getCustomerInfo().catch(() => null),
@@ -75,7 +81,9 @@ export function useEntitlement(refetchTrigger = 0): {
 
     if (error !== null || data === null || data.length === 0) {
       if (error !== null) reportNetworkError(error);
-      setEntitlement({ ...DEFAULT_ENTITLEMENT, hasAccess: rcHasAccess });
+      setError(!rcHasAccess);
+      if (rcHasAccess) setEntitlement({ ...DEFAULT_ENTITLEMENT, hasAccess: true });
+      setResolvedUserId(userId);
       setLoading(false);
       return;
     }
@@ -106,13 +114,20 @@ export function useEntitlement(refetchTrigger = 0): {
       extraSeats: row.extra_seats,
     };
     setEntitlement(newEntitlement);
+    setError(false);
+    setResolvedUserId(userId);
     if (cacheKey) setCached<EntitlementSnapshot>(cacheKey, { entitlement: newEntitlement });
     setLoading(false);
-  }, [user, cacheKey]);
+  }, [userId, cacheKey]);
 
   useEffect(() => {
     void refetch();
   }, [refetch, refetchTrigger]);
 
-  return { entitlement, loading, refetch };
+  return {
+    entitlement: resolvedUserId === userId ? entitlement : DEFAULT_ENTITLEMENT,
+    loading: loading || resolvedUserId !== userId,
+    error,
+    refetch,
+  };
 }

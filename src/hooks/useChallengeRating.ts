@@ -1,26 +1,21 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/queryCache';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import type { ClarityValue, SparringChallenge } from '../data/sparringChallenges';
 
-// How often a played card is put up for rating. The counter runs per session.
-const PROMPT_EVERY_N_CARDS = 4;
-
 interface UseChallengeRatingResult {
-  ratedIds:      Set<string>;
-  submit:        (challengeId: string, clarity: ClarityValue) => void;
-  // Card the user should be asked about right now, or null.
-  promptCard:    SparringChallenge | null;
-  // Report a card the user just put aside; may raise a prompt for it.
-  notePlayed:    (challenge: SparringChallenge | null) => void;
-  dismissPrompt: () => void;
+  ratedIds:   Set<string>;
+  submit:     (challengeId: string, clarity: ClarityValue) => void;
+  // First card of the given list the user has not rated yet, or null. Callers ask at
+  // most once — the clarity question must never interrupt a running flow.
+  pickUnrated: (cards: SparringChallenge[]) => SparringChallenge | null;
 }
 
-// Owns everything about clarity ratings: which cards the user already rated, when to
-// ask again, and the write itself. Keeping the cadence here rather than in the screen
-// means the whole policy lives next to the data it depends on.
+// Owns everything about clarity ratings: which cards the user already rated and the
+// write itself. Where to ask is the caller's decision — a session asks once at the end,
+// the quick draw asks inline after a card was marked done.
 export function useChallengeRating(): UseChallengeRatingResult {
   const { user } = useAuth();
   const cacheKey = user ? `useChallengeRating:${user.id}` : null;
@@ -30,8 +25,6 @@ export function useChallengeRating(): UseChallengeRatingResult {
   const cached = Array.isArray(cachedRaw) ? (cachedRaw as string[]) : undefined;
 
   const [ratedIds, setRatedIds] = useState<Set<string>>(() => new Set(cached ?? []));
-  const [promptCard, setPromptCard] = useState<SparringChallenge | null>(null);
-  const playedCount = useRef(0);
 
   // Replaces the set and mirrors it into the query cache. Kept out of the state
   // updater so the cache write cannot run twice for one change.
@@ -71,17 +64,9 @@ export function useChallengeRating(): UseChallengeRatingResult {
     return () => { cancelled = true; };
   }, [user, cacheKey]);
 
-  const notePlayed = useCallback((challenge: SparringChallenge | null): void => {
-    // Counts every draw, including the very first one that replaces nothing — the
-    // cadence is "every 4th draw", not "every 4th card with a predecessor".
-    playedCount.current += 1;
-    if (challenge === null) return;
-    if (playedCount.current % PROMPT_EVERY_N_CARDS !== 0) return;
-    if (ratedIds.has(challenge.id)) return;
-    setPromptCard(challenge);
-  }, [ratedIds]);
-
-  const dismissPrompt = useCallback((): void => setPromptCard(null), []);
+  const pickUnrated = useCallback((cards: SparringChallenge[]): SparringChallenge | null => (
+    cards.find((card) => !ratedIds.has(card.id)) ?? null
+  ), [ratedIds]);
 
   const submit = useCallback(
     (challengeId: string, clarity: ClarityValue): void => {
@@ -118,5 +103,5 @@ export function useChallengeRating(): UseChallengeRatingResult {
     [user, ratedIds, applyRatedIds],
   );
 
-  return { ratedIds, submit, promptCard, notePlayed, dismissPrompt };
+  return { ratedIds, submit, pickUnrated };
 }

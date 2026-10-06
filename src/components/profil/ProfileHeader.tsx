@@ -1,159 +1,309 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity, useWindowDimensions } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import { stanceLabel } from '../../utils/stance';
-import type { FactRow } from '../../utils/athleteProfile';
+import { fonts } from '../../theme/typography';
+import { coverHeightFor } from '../../utils/coverLayout';
+import type { Focus } from '../../utils/coverLayout';
 import type { FighterCardData } from './FighterCard';
+import type { ToolbarAction } from './ProfileParts';
 import DisciplineBadges from './DisciplineBadges';
-import ProfilePhoto from './ProfilePhoto';
+import ZoomableProfilePhoto from './ZoomableProfilePhoto';
+import CountryFlag from '../common/CountryFlag';
+import { countryByCode } from '../../utils/countries';
+import CoverImage from './CoverImage';
+import RingRopesBackdrop from '../common/RingRopesBackdrop';
 
-const PHOTO = 96;
+const AVATAR = 88;
+const AVATAR_OVERLAP = 32;
+const SIDE = 16;
 
-// Profile page header — a compact, standalone rendering of the same profile
-// data the shareable fighter card uses: photo left, name/fighter name/badge
-// right, gym + place, discipline badges and one line of body numbers.
-// `actions` renders below (own: edit + share; foreign: existing actions).
-export default function ProfileHeader({ data, actions }: {
-  data:    FighterCardData;
-  actions: React.ReactNode;
+export interface HeroGym {
+  id:   string;
+  name: string;
+  city: string;
+}
+
+// Profile hero in the manner of a fight poster: a wide training/cover photo
+// (or the ring-rope graphic) fills the top of the screen, the name stands big
+// at its lower edge over a dark gradient, a strip of blue tape carries the
+// fighter name, the avatar sits on the photo edge. Gym, place, disciplines and
+// the compact actions follow directly below on the page background.
+export default function ProfileHeader({
+  data, coverUrl, coverFocus, isProfessional, gym, hometown, countryCode, onPressGym, onBack, toolbar, actions,
+}: {
+  data:           FighterCardData;
+  coverUrl:       string | null;
+  coverFocus:     Focus;
+  isProfessional: boolean;
+  gym:            HeroGym | null;
+  hometown:       string | null;
+  countryCode:    string | null;
+  onPressGym?:    () => void;
+  onBack?:        () => void;
+  toolbar:        ToolbarAction[];
+  actions:        React.ReactNode;
 }): React.ReactElement {
+  const insets = useSafeAreaInsets();
+  const { width, height: screenHeight } = useWindowDimensions();
+  const [coverFailed, setCoverFailed] = useState(false);
+  const coverHeight = coverHeightFor(screenHeight) + insets.top;
+  const hasCover = coverUrl !== null && coverUrl.length > 0 && !coverFailed;
+
   const displayName = data.name !== null && data.name.trim().length > 0 ? data.name.trim() : 'Kämpfer';
-  const place = [data.gymName, data.location].filter((v): v is string => v !== null && v.trim().length > 0);
-  const stanceText = stanceLabel(data.stance);
-  const numbers: FactRow[] = [];
-  if (data.weightKg !== null) numbers.push({ label: 'Gewicht', value: `${data.weightKg} kg` });
-  if (data.heightCm !== null) numbers.push({ label: 'Größe', value: `${data.heightCm} cm` });
-  if (stanceText !== null) numbers.push({ label: 'Auslage', value: stanceText });
+  const nickname = data.nickname !== null && data.nickname.trim().length > 0 ? data.nickname.trim() : null;
+  const town = hometown !== null && hometown.trim().length > 0 ? hometown.trim() : null;
+  const country = countryByCode(countryCode);
 
   return (
-    <View style={styles.header}>
-      <View style={styles.identity}>
-        <ProfilePhoto uri={data.avatarUrl} name={data.name} size={PHOTO} />
+    <View>
+      <View style={[styles.cover, { height: coverHeight }]}>
+        {hasCover
+          ? <CoverImage uri={coverUrl as string} focus={coverFocus} frame={{ width, height: coverHeight }} onError={() => setCoverFailed(true)} />
+          : <RingRopesBackdrop />}
 
-        <View style={styles.names}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name} accessibilityRole="header">
-              {displayName}
-              {data.isVerified && (
-                <Text accessibilityLabel=" verifiziert">
-                  {'  '}
-                  <Ionicons name="checkmark-circle" size={20} color={colors.accentBlue} />
-                </Text>
-              )}
-            </Text>
+        {/* Scrims: top for the toolbar, bottom for the name */}
+        <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+          <Defs>
+            <LinearGradient id="heroScrim" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={colors.dark} stopOpacity={hasCover ? 0.45 : 0} />
+              <Stop offset="0.28" stopColor={colors.dark} stopOpacity="0" />
+              <Stop offset="0.5" stopColor={colors.dark} stopOpacity="0" />
+              <Stop offset="1" stopColor={colors.dark} stopOpacity="0.88" />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#heroScrim)" />
+        </Svg>
+
+        <View style={[styles.toolbar, { top: insets.top }]}>
+          {onBack !== undefined ? (
+            <TouchableOpacity style={styles.chip} onPress={onBack} accessibilityRole="button" accessibilityLabel="Zurück">
+              <Ionicons name="chevron-back" size={22} color={colors.headerTextPrimary} />
+            </TouchableOpacity>
+          ) : <View />}
+          <View style={styles.toolbarRight}>
+            {toolbar.map((a) => (
+              <TouchableOpacity
+                key={a.label}
+                style={styles.chip}
+                onPress={a.onPress}
+                accessibilityRole="button"
+                accessibilityLabel={a.label}
+              >
+                <Ionicons name={a.icon} size={20} color={colors.headerTextPrimary} />
+              </TouchableOpacity>
+            ))}
           </View>
-          {data.nickname !== null && data.nickname.trim().length > 0 && (
-            <View style={styles.nicknameRow}>
-              <View style={styles.nicknameMark} />
-              <Text style={styles.nickname}>„{data.nickname.trim()}“</Text>
+        </View>
+
+        <Animated.View entering={FadeInDown.duration(360)} style={styles.nameBlock}>
+          {nickname !== null ? (
+            <Animated.View entering={FadeIn.delay(140).duration(300)} style={styles.tape}>
+              {/* Only the strip is tilted; the text stays unrotated and sharp */}
+              <View style={styles.tapeStrip} />
+              <Text style={styles.tapeText} numberOfLines={1} maxFontSizeMultiplier={1.4}>„{nickname}“</Text>
+            </Animated.View>
+          ) : (
+            <View style={styles.tapeMark} />
+          )}
+          <Text
+            style={styles.name}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.55}
+            maxFontSizeMultiplier={1.2}
+            accessibilityRole="header"
+            accessibilityLabel={data.isVerified ? `${displayName}, verifiziert` : displayName}
+          >
+            {displayName}
+          </Text>
+          {country !== null && (
+            <View style={styles.flag} accessible accessibilityLabel={`Flagge: ${country.name}`}>
+              <CountryFlag code={country.code} width={40} tilted />
             </View>
           )}
-          {place.length > 0 && (
-            <View style={styles.placeRow}>
-              <Ionicons name="location-sharp" size={14} color={colors.textMuted} />
-              <Text style={styles.place}>{place.join(' · ')}</Text>
+        </Animated.View>
+
+        <View style={styles.avatar}>
+          <ZoomableProfilePhoto uri={data.avatarUrl} name={data.name} size={AVATAR} />
+          {data.isVerified && (
+            <View style={styles.verified} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+              <Ionicons name="checkmark-circle" size={24} color={colors.accentBlue} />
             </View>
           )}
         </View>
       </View>
 
-      <DisciplineBadges disciplines={data.disciplines} />
+      {/* Without a place line the next row must clear the overlapping avatar. */}
+      <View style={[styles.below, gym === null && town === null && styles.belowClearAvatar]}>
+        {(gym !== null || town !== null) && (
+          <View style={styles.placeRow}>
+            <Ionicons name="location-sharp" size={16} color={colors.accentBlue} />
+            {gym !== null ? (
+              <Pressable
+                onPress={onPressGym}
+                disabled={onPressGym === undefined}
+                accessibilityRole={onPressGym !== undefined ? 'link' : 'text'}
+                hitSlop={8}
+                style={({ pressed }) => [styles.placePress, pressed && styles.pressed]}
+              >
+                <Text style={styles.place}>
+                  <Text style={styles.placeStrong}>{gym.name}</Text>
+                  {gym.city.length > 0 ? `, ${gym.city}` : ''}
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={[styles.place, styles.placePress]}>{town}</Text>
+            )}
+          </View>
+        )}
 
-      {numbers.length > 0 && (
-        <View style={styles.numbers}>
-          {numbers.map((n, i) => (
-            <View key={n.label} style={[styles.number, i > 0 && styles.numberDivider]}>
-              <Text style={styles.numberValue} numberOfLines={1} adjustsFontSizeToFit>{n.value}</Text>
-              <Text style={styles.numberLabel}>{n.label}</Text>
-            </View>
-          ))}
-        </View>
-      )}
+        {(data.disciplines.length > 0 || isProfessional) && (
+          <View style={styles.labels}>
+            <DisciplineBadges disciplines={data.disciplines} />
+            {isProfessional && (
+              <View style={styles.proBadge}>
+                <Text style={styles.proText}>Profi</Text>
+              </View>
+            )}
+          </View>
+        )}
 
-      {actions}
+        {actions}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    gap: 16,
+  cover: {
+    width:           '100%',
+    backgroundColor: colors.dark,
+    overflow:        'visible',
+    zIndex:          1,
   },
-  identity: {
+  toolbar: {
+    position:          'absolute',
+    left:              0,
+    right:             0,
+    flexDirection:     'row',
+    justifyContent:    'space-between',
+    paddingHorizontal: 8,
+    paddingTop:        8,
+  },
+  toolbarRight: {
     flexDirection: 'row',
-    alignItems:    'center',
-    gap:           16,
-  },
-  names: {
-    flex: 1,
-    gap:  4,
-  },
-  nameRow: {
-    flexDirection: 'row',
-  },
-  name: {
-    flexShrink:    1,
-    fontSize:      26,
-    fontWeight:    '900',
-    letterSpacing: -0.5,
-    lineHeight:    30,
-    color:         colors.text,
-  },
-  nicknameRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
     gap:           8,
   },
-  nicknameMark: {
-    width:           16,
-    height:          4,
-    borderRadius:    2,
-    backgroundColor: colors.accentBlue,
+  chip: {
+    width:           44,
+    height:          44,
+    borderRadius:    22,
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: colors.coverChip,
   },
-  nickname: {
-    flexShrink: 1,
-    fontSize:   16,
+  nameBlock: {
+    position: 'absolute',
+    left:     SIDE,
+    right:    SIDE + AVATAR + 8,
+    bottom:   AVATAR_OVERLAP + 16,
+    gap:      8,
+  },
+  tape: {
+    alignSelf:         'flex-start',
+    maxWidth:          '100%',
+    paddingHorizontal: 8,
+    paddingVertical:   4,
+  },
+  tapeStrip: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.accentBlue,
+    transform:       [{ rotate: '-2deg' }],
+  },
+  tapeText: {
+    fontSize:   15,
     fontWeight: '800',
-    color:      colors.text,
+    color:      colors.dark,
+  },
+  tapeMark: {
+    width:           40,
+    height:          8,
+    backgroundColor: colors.accentBlue,
+    transform:       [{ rotate: '-2deg' }],
+  },
+  name: {
+    fontFamily:    fonts.display,
+    fontSize:      52,
+    lineHeight:    52,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    color:         colors.headerTextPrimary,
+  },
+  flag: {
+    alignSelf: 'flex-start',
+  },
+  avatar: {
+    position: 'absolute',
+    right:    SIDE,
+    bottom:   -AVATAR_OVERLAP,
+  },
+  verified: {
+    position:        'absolute',
+    right:           -8,
+    bottom:          -8,
+    borderRadius:    16,
+    backgroundColor: colors.card,
+  },
+  below: {
+    paddingHorizontal: SIDE,
+    paddingTop:        16,
+    gap:               16,
+  },
+  belowClearAvatar: {
+    paddingTop: AVATAR_OVERLAP + 16,
   },
   placeRow: {
     flexDirection: 'row',
     alignItems:    'flex-start',
-    gap:           4,
-    marginTop:     4,
+    gap:           8,
+    paddingRight:  AVATAR + 8,
+    minHeight:     24,
+  },
+  placePress: {
+    flexShrink: 1,
+  },
+  pressed: {
+    opacity: 0.6,
   },
   place: {
-    flexShrink: 1,
-    fontSize:   14,
-    lineHeight: 20,
+    fontSize:   15,
+    lineHeight: 22,
     color:      colors.textMuted,
   },
-  numbers: {
-    flexDirection:   'row',
-    backgroundColor: colors.card,
-    borderRadius:    16,
-    borderWidth:     1,
-    borderColor:     colors.hairline,
-    paddingVertical: 8,
-  },
-  number: {
-    flex:              1,
-    alignItems:        'center',
-    paddingHorizontal: 4,
-    gap:               4,
-  },
-  numberDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: colors.hairline,
-  },
-  numberValue: {
-    fontSize:   18,
-    fontWeight: '900',
+  placeStrong: {
+    fontWeight: '700',
     color:      colors.text,
   },
-  numberLabel: {
-    fontSize: 12,
-    color:    colors.textMuted,
+  labels: {
+    flexDirection: 'row',
+    flexWrap:      'wrap',
+    gap:           8,
+  },
+  proBadge: {
+    minHeight:         32,
+    paddingHorizontal: 8,
+    borderRadius:      8,
+    borderWidth:       1,
+    borderColor:       colors.dark,
+    justifyContent:    'center',
+  },
+  proText: {
+    fontSize:   12,
+    fontWeight: '800',
+    color:      colors.text,
   },
 });

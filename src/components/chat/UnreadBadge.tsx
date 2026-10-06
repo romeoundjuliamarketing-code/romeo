@@ -10,7 +10,7 @@ export default function UnreadBadge({ count }: Props) {
   if (count === 0) return null;
   return (
     <View style={styles.badge}>
-      <Text style={styles.text}>{count > 99 ? '99+' : String(count)}</Text>
+      <Text style={styles.text} maxFontSizeMultiplier={1.3}>{count > 99 ? '99+' : String(count)}</Text>
     </View>
   );
 }

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import { canonicalIso, keysetOrFilter } from '../utils/chatMessages';
+import { fetchChatPage } from '../lib/chatPage';
 import type { PageQuery } from '../utils/chatSync';
 import { useChatMessageStream } from './useChatMessageStream';
 import type { EventMessage } from '../types/database.types';
@@ -44,24 +44,9 @@ export function useEventGroupChat(
 
   const isReadOnly = computeIsReadOnly(scheduledAt, durationMin);
 
-  const fetchPage = useCallback(async (query: PageQuery, limit: number): Promise<EventMessage[]> => {
-    let q = supabase.from('event_messages').select('*').eq('event_id', eventId);
-    const ascending = query.kind === 'after';
-    if (query.kind !== 'latest') {
-      const keyset = keysetOrFilter(query.kind, query.cursor);
-      const ts     = canonicalIso(query.cursor.created_at);
-      if (keyset !== null)             q = q.or(keyset);
-      else if (query.kind === 'after') q = q.gte('created_at', ts);
-      else                             q = q.lt('created_at', ts);
-    }
-    const { data, error } = await q
-      .order('created_at', { ascending })
-      .order('id',         { ascending })
-      .limit(limit);
-    if (error !== null) throw error;
-    const rows = data ?? [];
-    return ascending ? rows : rows.reverse();
-  }, [eventId]);
+  const fetchPage = useCallback((query: PageQuery, limit: number): Promise<EventMessage[]> =>
+    fetchChatPage(supabase.from('event_messages').select('*').eq('event_id', eventId), query, limit),
+  [eventId]);
 
   // Resolves names/avatars for unknown senders once and caches them.
   const enrich = useCallback(async (rows: EventMessage[]): Promise<EventMessageWithSender[]> => {
@@ -104,8 +89,6 @@ export function useEventGroupChat(
   });
 
   const { currentSync } = stream;
-
-  useEffect(() => { void markRead(); }, [markRead]);
 
   const clearSendError = useCallback(() => setSendError(null), []);
 

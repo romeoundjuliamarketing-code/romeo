@@ -5,6 +5,13 @@ import { decideScrollOnNewest, type ChatRow } from '../utils/chatMessages';
 // In an inverted list offset 0 is the latest message.
 export const NEAR_LATEST_PX = 80;
 
+// Keeps the reading position when messages arrive; follows them natively near the bottom.
+export const CHAT_MAINTAIN_POSITION = { minIndexForVisible: 0, autoscrollToTopThreshold: NEAR_LATEST_PX };
+
+export function chatKeyExtractor(m: ChatRow): string {
+  return m.id;
+}
+
 export interface ChatListScroll<T> {
   listRef:               RefObject<FlatList<T> | null>;
   onScroll:              (e: NativeSyntheticEvent<NativeScrollEvent>) => void;

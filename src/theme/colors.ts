@@ -11,6 +11,7 @@ export const colors = {
   inactive:      '#8A8A8A', // alias → textTertiary
   textMuted:     '#6B6B6B', // small secondary text on off-white (≥ 4.5:1)
   hairline:      '#E2DFD8', // fine section divider on off-white
+  fieldBorder:   '#D6D2C9', // warm-grey input border on white (login)
 
   // ── Accent ────────────────────────────────────────────────────────────────
   accent:          '#C8A882', // warm gold (legacy, prefer accentBlue)
@@ -18,6 +19,9 @@ export const colors = {
   accentBlue:      '#4A90D9', // primary interactive accent
   accentBlueMuted: 'rgba(74,144,217,0.3)',
   accentBlueSoft:  'rgba(74,144,217,0.15)',
+  accentBluePressed: '#3A78BB', // primary button while held down
+  accentBlueText:  '#2F6CAD', // blue for text/links on light surfaces (>= 4.5:1)
+  accentBlueTint:  '#E3ECF7', // light brand-blue surface (login / intro backdrop)
 
   // ── Borders ───────────────────────────────────────────────────────────────
   border:       'rgba(20,20,20,0.08)',
@@ -100,4 +104,10 @@ export const colors = {
   mapOverlay:       'rgba(0,0,0,0.55)',
   heroBannerScrim:  'rgba(0,0,0,0.25)',
   heroFloatingBtn:  'rgba(0,0,0,0.5)',
+
+  // ── Profile cover / gym banner (on dark or photo) ─────────────────────────
+  coverRope:        'rgba(255,255,255,0.14)',  // ring-rope lines of the cover fallback
+  coverTextMuted:   'rgba(255,255,255,0.82)',  // small text on the darkened cover
+  coverChip:        'rgba(10,10,10,0.45)',     // round toolbar buttons over a photo
+  flagGloss:        'rgba(255,255,255,0.30)',  // cartoon highlight on flag stickers
 };

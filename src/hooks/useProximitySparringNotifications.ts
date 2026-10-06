@@ -12,7 +12,7 @@ import type { RootStackParamList } from '../navigation/types';
 export const PROXIMITY_RADIUS_KEY = 'proximity_radius_km';
 const NOTIFIED_KEY                 = 'proximity_notified_v1';
 const NO_SPARRINGS_KEY             = 'no_sparrings_notified_at_v1';
-const DEFAULT_RADIUS_KM            = 30;
+export const DEFAULT_RADIUS_KM     = 30;
 const TTL_MS                       = 24 * 60 * 60 * 1000; // 24 hours
 const NO_SPARRINGS_COOLDOWN_MS     = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -68,7 +68,7 @@ export function useProximitySparringNotifications(): void {
   //  - the local "no sparrings nearby" nudge opens the create flow
   //  - a server push carrying data.sparring_id opens that sparring's detail
   //    sheet (sparring_signup, ..._cancelled, ..._promoted, confirm_7d/24h,
-  //    slot_expired, attendance_reminder — see push payload contract).
+  //    slot_expired, attendance_reminder, sparring_updated — see push payload contract).
   //    Chat pushes (kind === 'sparring_message') keep their own tap behaviour.
   useEffect(() => {
     function handleResponse(response: Notifications.NotificationResponse): void {

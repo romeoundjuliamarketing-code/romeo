@@ -68,7 +68,14 @@ export function mergeMessages<T extends ChatRow>(existing: T[], incoming: T[]): 
     }
   }
   if (fresh.length === 0) return existing;
-  return [...existing, ...fresh].sort(compareRows);
+  fresh.sort(compareRows);
+  // Common realtime case: everything new sorts after the current newest -> plain append.
+  const last = existing[existing.length - 1];
+  if (last === undefined || compareRows(last, fresh[0]) < 0) return [...existing, ...fresh];
+  // General case: parse each timestamp once instead of twice per comparison.
+  const keyed = [...existing, ...fresh].map((m) => ({ m, k: timeKey(m.created_at), id: m.id.toLowerCase() }));
+  keyed.sort((a, b) => (a.k !== b.k ? (a.k < b.k ? -1 : 1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return keyed.map((x) => x.m);
 }
 
 export function hasMoreAfterPage(pageLength: number, pageSize: number = CHAT_PAGE_SIZE): boolean {

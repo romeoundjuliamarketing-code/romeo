@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, useReducedMotion } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import type { FactRow } from '../../utils/athleteProfile';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -13,39 +12,6 @@ export interface ToolbarAction {
   icon:    IconName;
   label:   string;
   onPress: () => void;
-}
-
-// Compact top toolbar of the profile: title or back on the left, small icon
-// actions on the right (visually 22 px, touch target 44 px).
-export function ProfileToolbar({ title, onBack, actions }: {
-  title?:   string;
-  onBack?:  () => void;
-  actions:  ToolbarAction[];
-}): React.ReactElement {
-  return (
-    <View style={styles.toolbar}>
-      {onBack !== undefined ? (
-        <TouchableOpacity style={styles.toolBtn} onPress={onBack} accessibilityRole="button" accessibilityLabel="Zurück">
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-      ) : (
-        <Text style={styles.toolbarTitle} accessibilityRole="header">{title}</Text>
-      )}
-      <View style={styles.toolbarActions}>
-        {actions.map((a) => (
-          <TouchableOpacity
-            key={a.label}
-            style={styles.toolBtn}
-            onPress={a.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={a.label}
-          >
-            <Ionicons name={a.icon} size={22} color={colors.text} />
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
 }
 
 // ─── Buttons with press feedback ───────────────────────────────────────────
@@ -121,57 +87,7 @@ export function ProfileSection({ title, children }: { title: string; children: R
   );
 }
 
-export function SectionDivider(): React.ReactElement {
-  return <View style={styles.divider} />;
-}
-
-// Own-profile prompt for an empty section (never shown on foreign profiles).
-export function AddPrompt({ label, onPress }: { label: string; onPress: () => void }): React.ReactElement {
-  return (
-    <TouchableOpacity style={styles.addPrompt} onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
-      <Ionicons name="add-circle-outline" size={20} color={colors.accentBlue} />
-      <Text style={styles.addPromptText}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-// Label/value list, e.g. "So trainiere ich".
-export function FactList({ rows }: { rows: FactRow[] }): React.ReactElement {
-  return (
-    <View style={styles.factList}>
-      {rows.map((r) => (
-        <View key={r.label} style={styles.factRow}>
-          <Text style={styles.factLabel}>{r.label}</Text>
-          <Text style={styles.factValue}>{r.value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  toolbar: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    justifyContent:    'space-between',
-    paddingHorizontal: 8,
-    minHeight:         48,
-  },
-  toolbarTitle: {
-    paddingLeft: 8,
-    fontSize:    22,
-    fontWeight:  '900',
-    color:       colors.text,
-  },
-  toolbarActions: {
-    flexDirection: 'row',
-  },
-  toolBtn: {
-    width:          44,
-    height:         44,
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
   primaryBtn: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -214,42 +130,5 @@ const styles = StyleSheet.create({
     fontSize:   20,
     fontWeight: '800',
     color:      colors.text,
-  },
-  divider: {
-    height:          1,
-    backgroundColor: colors.hairline,
-  },
-  addPrompt: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           8,
-    minHeight:     44,
-  },
-  addPromptText: {
-    flex:       1,
-    fontSize:   15,
-    fontWeight: '700',
-    color:      colors.text,
-  },
-  factList: {
-    gap: 8,
-  },
-  factRow: {
-    flexDirection:  'row',
-    flexWrap:       'wrap',
-    justifyContent: 'space-between',
-    columnGap:      16,
-    paddingVertical: 4,
-  },
-  factLabel: {
-    fontSize: 15,
-    color:    colors.textMuted,
-  },
-  factValue: {
-    flexShrink: 1,
-    fontSize:   15,
-    fontWeight: '700',
-    color:      colors.text,
-    textAlign:  'right',
   },
 });

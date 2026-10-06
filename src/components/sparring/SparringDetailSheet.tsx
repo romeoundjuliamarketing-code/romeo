@@ -11,8 +11,9 @@ import {
 import Animated from 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import SparringGymRow from './SparringGymRow';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import ViewShot from 'react-native-view-shot';
 import Share from 'react-native-share';
@@ -34,7 +35,6 @@ import SparringCommitmentResultCard from './SparringCommitmentResultCard';
 import type { SparringCommitmentResult } from './SparringCommitmentResultCard';
 import SparringCancelConfirmCard from './SparringCancelConfirmCard';
 import SparringStoryCard from './SparringStoryCard';
-import MapBoostSheet from './MapBoostSheet';
 import { usePopAnimation } from './SparringPopCard';
 
 interface Props {
@@ -46,6 +46,8 @@ interface Props {
   onConfirm:         () => void;
   onCancelSignup:    () => void;
   onDeactivate:      () => void;
+  /** Organizer only: open the edit sheet (the caller closes this window first). */
+  onEdit:            () => void;
   onOpenChat:        () => void;
   /** Rules consent gate — rendered inside this sheet's Modal (see below). */
   consentVisible:    boolean;
@@ -58,7 +60,6 @@ interface Props {
   cancelAskVisible:        boolean;
   onCancelAskClose:        () => void;
   onCancelAskConfirm:      () => void;
-  onBoostActivated?: () => void;
   loading:           boolean;
 }
 
@@ -90,12 +91,11 @@ function formatDateTime(iso: string): string {
 }
 
 export default function SparringDetailSheet({
-  sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onOpenChat,
+  sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onEdit, onOpenChat,
   consentVisible, onConsentClose, onConsentConfirm, commitmentResult, onCommitmentResultClose,
   cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
-  onBoostActivated, loading,
+  loading,
 }: Props) {
-  const [boostSheetVisible, setBoostSheetVisible] = useState(false);
   // Reload participants when the slot count or the user's own status changes
   // (join/cancel/confirm keep the window open and refresh `sparring`).
   const [participantsVersion, setParticipantsVersion] = useState(0);
@@ -237,6 +237,7 @@ export default function SparringDetailSheet({
               verifiedOnly={sparring.verified_only}
               isCreator={isCreator}
               hasStarted={started}
+              edited={sparring.edited_at !== null}
               onClose={dismiss}
             />
 
@@ -246,6 +247,14 @@ export default function SparringDetailSheet({
               showsVerticalScrollIndicator={false}
             >
               <SparringLocationRow primary={location.primary} secondary={location.secondary} />
+              <SparringGymRow
+                gymId={sparring.gym_id}
+                accessNote={sparring.access_note}
+                onOpenGym={(gymId) => {
+                  // Close the window first so the gym page opens on top.
+                  close(() => navigation.navigate('GymDetail', { gymId }));
+                }}
+              />
 
               <View style={styles.section}>
                 <SparringParticipantsSummary
@@ -330,16 +339,18 @@ export default function SparringDetailSheet({
 
               {isCreator && (
                 <View style={styles.actions}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => setBoostSheetVisible(true)}
-                    disabled={loading}
-                    activeOpacity={0.8}
-                    accessibilityRole="button"
-                  >
-                    <MaterialCommunityIcons name="star-circle-outline" size={18} color={colors.accentBlue} />
-                    <Text style={styles.actionBtnText}>Karten-Boost</Text>
-                  </TouchableOpacity>
+                  {!started && sparring.is_active && (
+                    <TouchableOpacity
+                      style={styles.actionBtn}
+                      onPress={onEdit}
+                      disabled={loading}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                    >
+                      <Ionicons name="create-outline" size={18} color={colors.accentBlue} />
+                      <Text style={styles.actionBtnText}>Bearbeiten</Text>
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={styles.actionBtn}
                     onPress={onDeactivate}
@@ -361,7 +372,8 @@ export default function SparringDetailSheet({
                 title={s.title}
                 discipline={s.discipline}
                 areaLabel={coarseAreaLabel({ studioName: s.studio_name, address: s.address })}
-                dateTimeLabel={formatDateTime(s.scheduled_at)}
+                scheduledAt={s.scheduled_at}
+                durationMin={s.duration_min}
                 slotsLeftLabel={isFull ? 'Ausgebucht' : `${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`}
               />
             </ViewShot>
@@ -399,17 +411,6 @@ export default function SparringDetailSheet({
             />
           )}
 
-          {isCreator && boostSheetVisible && (
-            <MapBoostSheet
-              sparringId={sparring.id}
-              visible={boostSheetVisible}
-              onClose={() => setBoostSheetVisible(false)}
-              onBoostActivated={() => {
-                setBoostSheetVisible(false);
-                onBoostActivated?.();
-              }}
-            />
-          )}
         </View>
       </GestureHandlerRootView>
     </Modal>

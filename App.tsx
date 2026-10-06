@@ -51,6 +51,8 @@ function App() {
     Inter_400Regular,
     Inter_600SemiBold,
     Inter_700Bold,
+    // Condensed sport face for short headlines only (see src/theme/typography.ts).
+    BarlowCondensed_800ExtraBold: require('./assets/fonts/BarlowCondensed-ExtraBold.ttf'),
   });
 
   if (!fontsLoaded) {

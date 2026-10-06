@@ -19,6 +19,7 @@ export interface ProfileDraft {
   weightClass:   string;
   ageYears:      string;
   nationality:   string;
+  countryCode:   string;
   hometown:      string;
   motto:         string;
   instagram:     string;
@@ -67,6 +68,7 @@ export function toDraft(p: Profile): ProfileDraft {
     weightClass:   p.weight_class ?? '',
     ageYears:      numText(p.age_years),
     nationality:   p.nationality ?? '',
+    countryCode:   p.country_code ?? '',
     hometown:      p.hometown ?? '',
     motto:         p.motto ?? '',
     instagram:     normalizeInstagramHandle(p.instagram_url ?? ''),
@@ -101,7 +103,7 @@ export function draftToUpdate(d: ProfileDraft): { update: ProfileUpdate; errors:
   const errors: DraftErrors = {};
   const height = parseInt10(d.heightCm, 100, 250, 'Körpergröße zwischen 100 und 250 cm.');
   const armSpan = parseInt10(d.armSpanCm, 100, 250, 'Spannweite zwischen 100 und 250 cm.');
-  const age = parseInt10(d.ageYears, 14, 99, 'Alter zwischen 14 und 99 Jahren.');
+  const age = parseInt10(d.ageYears, 16, 99, 'Alter zwischen 16 und 99 Jahren.');
   const weight = parseWeight(d.weightKg);
   if (height.error) errors.heightCm = height.error;
   if (armSpan.error) errors.armSpanCm = armSpan.error;
@@ -122,6 +124,7 @@ export function draftToUpdate(d: ProfileDraft): { update: ProfileUpdate; errors:
     weight_class:   str(d.weightClass),
     age_years:      age.value,
     nationality:    str(d.nationality),
+    country_code:   str(d.countryCode),
     hometown:       str(d.hometown),
     motto:          str(d.motto),
     instagram_url:  str(normalizeInstagramHandle(d.instagram)),

@@ -1,54 +1,49 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useRef, useState } from 'react';
+import { TextInput, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { useCaptcha } from '../../hooks/useCaptcha';
 import type { AuthStackParamList } from '../../navigation/types';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
+import SocialSignInButtons from '../../components/auth/SocialSignInButtons';
+import AuthTextField from '../../components/auth/AuthTextField';
+import AuthScaffold, { AuthButton, AuthCaptchaNotice, AuthNotice, AuthSwitch } from '../../components/auth/AuthScaffold';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 
 export default function RegisterScreen() {
   const { signUp } = useAuth();
   const navigation = useNavigation<Nav>();
+  const passwordRef = useRef<TextInput>(null);
+  const confirmRef = useRef<TextInput>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const { captchaToken, setCaptchaToken, captchaKey, resetCaptcha } = useCaptcha();
   const [captchaError, setCaptchaError] = useState(false);
 
   const handleRegister = async () => {
-    if (!email.trim() || !password) {
-      setError('Bitte alle Felder ausfullen.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Passwort muss mindestens 6 Zeichen haben.');
-      return;
-    }
-    if (password !== passwordConfirm) {
-      setError('Passworter stimmen nicht uberein.');
-      return;
-    }
-    setError(null);
+    // Same checks as before, now shown at the field they belong to.
+    const nextEmailError = !email.trim() ? 'Bitte gib deine E-Mail-Adresse ein.' : null;
+    const nextPasswordError = !password
+      ? 'Bitte wähle ein Passwort.'
+      : password.length < 6 ? 'Das Passwort muss mindestens 6 Zeichen haben.' : null;
+    const nextConfirmError = nextPasswordError === null && password !== passwordConfirm
+      ? 'Die Passwörter stimmen nicht überein.'
+      : null;
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+    setConfirmError(nextConfirmError);
+    setFormError(null);
+    if (nextEmailError !== null || nextPasswordError !== null || nextConfirmError !== null) return;
+
     setLoading(true);
     // Captcha is best-effort: pass the token if the widget produced one, but
     // never block registration when it failed to load (e.g. datacenter networks).
@@ -57,9 +52,9 @@ export default function RegisterScreen() {
     if (authError) {
       console.error('[RegisterScreen] signUp error:', authError.message, authError.status);
       if (authError.message === 'User already registered') {
-        setError('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an.');
+        setEmailError('Diese E-Mail-Adresse ist bereits registriert. Bitte melde dich an.');
       } else {
-        setError('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
+        setFormError('Registrierung fehlgeschlagen. Bitte versuche es erneut.');
       }
       resetCaptcha();
     } else {
@@ -68,275 +63,83 @@ export default function RegisterScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+    <AuthScaffold
+      title="Konto erstellen"
+      subtitle="In einer Minute bist du dabei – finde Sparrings und trainiere mit anderen."
+      onBack={() => navigation.goBack()}
+      footer={(
+        <AuthSwitch text="Bereits registriert?" link="Anmelden" onPress={() => navigation.navigate('Login')} />
+      )}
+    >
+      <AuthTextField
+        label="E-Mail"
+        icon="mail-outline"
+        value={email}
+        onChangeText={(v) => { setEmail(v); setEmailError(null); }}
+        error={emailError}
+        placeholder="deine@email.de"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        autoComplete="email"
+        textContentType="emailAddress"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        submitBehavior="submit"
+      />
 
-          {/* ── Dark header ── */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.headerTextPrimary} />
-            </TouchableOpacity>
-            <Text style={styles.appName}>Sparr</Text>
-            <Text style={styles.headerSubtitle}>Konto erstellen</Text>
-          </View>
+      <AuthTextField
+        inputRef={passwordRef}
+        label="Passwort"
+        icon="lock-closed-outline"
+        isPassword
+        value={password}
+        onChangeText={(v) => { setPassword(v); setPasswordError(null); }}
+        error={passwordError}
+        placeholder="Mindestens 6 Zeichen"
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="next"
+        onSubmitEditing={() => confirmRef.current?.focus()}
+        submitBehavior="submit"
+      />
 
-          {/* ── Form card ── */}
-          <View style={styles.card}>
+      <AuthTextField
+        inputRef={confirmRef}
+        label="Passwort bestätigen"
+        icon="lock-closed-outline"
+        isPassword
+        value={passwordConfirm}
+        onChangeText={(v) => { setPasswordConfirm(v); setConfirmError(null); }}
+        error={confirmError}
+        placeholder="Passwort wiederholen"
+        autoComplete="new-password"
+        textContentType="newPassword"
+        returnKeyType="go"
+        onSubmitEditing={() => { void handleRegister(); }}
+      />
 
-            {/* Email */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>E-Mail</Text>
-              <View style={styles.inputRow}>
-                <Ionicons name="mail-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="deine@email.de"
-                  placeholderTextColor={colors.inactive}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  textContentType="emailAddress"
-                />
-              </View>
-            </View>
+      {formError !== null && <AuthNotice tone="error" text={formError} />}
 
-            {/* Passwort */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Passwort</Text>
-              <View style={styles.inputRow}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Mindestens 6 Zeichen"
-                  placeholderTextColor={colors.inactive}
-                  secureTextEntry={!showPassword}
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                />
-                <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeButton}>
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={18}
-                    color={colors.inactive}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
+      <TurnstileWidget
+        key={captchaKey}
+        size="flexible"
+        containerStyle={styles.captcha}
+        onToken={(t) => { setCaptchaError(false); setCaptchaToken(t); }}
+        onError={() => { setCaptchaError(true); setCaptchaToken(null); }}
+      />
+      {captchaError && (
+        <AuthCaptchaNotice actionLabel="registrieren" onRetry={() => { setCaptchaError(false); resetCaptcha(); }} />
+      )}
 
-            {/* Passwort bestatigen */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Passwort bestatigen</Text>
-              <View style={styles.inputRow}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={passwordConfirm}
-                  onChangeText={setPasswordConfirm}
-                  placeholder="Passwort wiederholen"
-                  placeholderTextColor={colors.inactive}
-                  secureTextEntry={!showPassword}
-                  autoComplete="new-password"
-                  textContentType="newPassword"
-                />
-              </View>
-            </View>
-
-            {/* Fehler */}
-            {error !== null && (
-              <View style={styles.errorBox}>
-                <Ionicons name="alert-circle-outline" size={15} color={styles.errorText.color} />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
-
-            <TurnstileWidget
-              key={captchaKey}
-              onToken={(t) => { setCaptchaError(false); setCaptchaToken(t); }}
-              onError={() => { setCaptchaError(true); setCaptchaToken(null); }}
-            />
-            {captchaError && (
-              <View style={styles.captchaErrorRow}>
-                <Text style={styles.captchaErrorText}>Sicherheitsprüfung nicht verfügbar. Du kannst dich trotzdem registrieren.</Text>
-                <TouchableOpacity onPress={() => { setCaptchaError(false); resetCaptcha(); }}>
-                  <Text style={styles.captchaRetryLink}>Erneut versuchen</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Registrieren-Button */}
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleRegister}
-              activeOpacity={0.8}
-              disabled={loading}
-            >
-              {loading
-                ? <ActivityIndicator color={colors.headerTextPrimary} />
-                : <Text style={styles.buttonText}>Konto erstellen</Text>
-              }
-            </TouchableOpacity>
-
-            {/* Link zu Login */}
-            <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Bereits registriert? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.footerLink}>Anmelden</Text>
-              </TouchableOpacity>
-            </View>
-
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <AuthButton label="Konto erstellen" loading={loading} onPress={() => { void handleRegister(); }} />
+      <SocialSignInButtons captchaToken={captchaToken ?? undefined} onCaptchaUsed={resetCaptcha} />
+    </AuthScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.headerBg,
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-
-  // Dark header
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 40,
-  },
-  backButton: {
-    marginBottom: 16,
-    alignSelf: 'flex-start',
-  },
-  appName: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: colors.headerTextPrimary,
-    letterSpacing: -1,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: colors.headerTextSecondary,
-    fontWeight: '400',
-  },
-
-  // Form card (light)
-  card: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 48,
-  },
-
-  // Field
-  fieldGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    height: 52,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
-  },
-  eyeButton: {
-    padding: 4,
-  },
-
-  // Error
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 13,
-    color: colors.deleteRed,
-    flex: 1,
-  },
-
-  // Button
-  button: {
-    backgroundColor: colors.headerBg,
-    borderRadius: 12,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: colors.headerTextPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-
-  // Footer
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  footerLink: {
-    fontSize: 14,
-    color: colors.accentBlue,
-    fontWeight: '600',
-  },
-  captchaErrorRow: {
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 16,
-  },
-  captchaErrorText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  captchaRetryLink: {
-    fontSize: 13,
-    color: colors.accentBlue,
-    fontWeight: '600',
+  captcha: {
+    // Spacing comes from the form gap.
+    marginBottom: 0,
   },
 });

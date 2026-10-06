@@ -8,17 +8,27 @@ import ClarityButtons from './ClarityButtons';
 const HEADING_LABEL = 'Kurz gefragt';
 const THANKS_LABEL  = 'Danke';
 const SKIP_LABEL    = 'Überspringen';
+const SKIP_ALL_LABEL = 'Alle überspringen';
 
 interface Props {
-  challenge: SparringChallenge;
-  onRate:    (clarity: ClarityValue) => void;
-  onSkip:    () => void;
+  challenge:  SparringChallenge;
+  onRate:     (clarity: ClarityValue) => void;
+  onSkip:     () => void;
+  // Position in a run of questions, e.g. "Karte 2 von 5". Replaces the heading.
+  progress?:  string;
+  // Ends the whole run at once. Only offered when there is more than one question.
+  onSkipAll?: () => void;
 }
 
-// Full-screen prompt asking how clear the card just put aside was. Shown occasionally
-// after a draw (see SparringChallengeScreen), separate from the inline rating row
-// that appears after a card is marked done.
-export default function ChallengeRatingOverlay({ challenge, onRate, onSkip }: Props): React.ReactElement {
+// Full-screen prompt asking how clear a played card was. The deck asks about every
+// card of the visit, one after another, when the player leaves the game.
+export default function ChallengeRatingOverlay({
+  challenge,
+  onRate,
+  onSkip,
+  progress,
+  onSkipAll,
+}: Props): React.ReactElement {
   const { selected, choose } = useClarityChoice(onRate);
 
   return (
@@ -31,7 +41,7 @@ export default function ChallengeRatingOverlay({ challenge, onRate, onSkip }: Pr
     >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.heading}>{HEADING_LABEL}</Text>
+          <Text style={styles.heading}>{progress ?? HEADING_LABEL}</Text>
           <Text style={styles.question} numberOfLines={3}>
             {selected === null
               ? `Wie verständlich war „${challenge.title}“?`
@@ -56,6 +66,17 @@ export default function ChallengeRatingOverlay({ challenge, onRate, onSkip }: Pr
               accessibilityRole="button"
             >
               <Text style={styles.skipLabel}>{SKIP_LABEL}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {selected === null && onSkipAll !== undefined ? (
+            <TouchableOpacity
+              style={styles.skipAllButton}
+              onPress={onSkipAll}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <Text style={styles.skipAllLabel}>{SKIP_ALL_LABEL}</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -113,5 +134,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  skipAllButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  skipAllLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
   },
 });

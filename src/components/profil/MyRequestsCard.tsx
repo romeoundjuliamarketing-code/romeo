@@ -45,10 +45,29 @@ const CONTRACT_STATUS_COLORS: Record<string, string> = {
 
 interface Props {
   refetchTrigger?: number;
+  /** Only this studio's entries that are still running (gym page, legacy access). */
+  studioId?: string;
 }
 
-export default function MyRequestsCard({ refetchTrigger = 0 }: Props): React.ReactElement | null {
-  const { trialBookings, contracts, loading, refetch, cancelTrial } = useMyStudioRequests(refetchTrigger);
+// Running = still has consequences: an open or upcoming trial, a contract
+// that has not ended. Shared with the gym page to decide whether to offer it.
+export function isRunningTrial(b: { status: string; requested_date: string }): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  return b.status === 'pending' || (b.status === 'confirmed' && b.requested_date >= today);
+}
+export function isRunningContract(c: { status: string }): boolean {
+  return c.status === 'pending' || c.status === 'active' || c.status === 'cancellation_requested';
+}
+
+export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props): React.ReactElement | null {
+  const all = useMyStudioRequests(refetchTrigger);
+  const { loading, refetch, cancelTrial } = all;
+  const trialBookings = studioId === undefined
+    ? all.trialBookings
+    : all.trialBookings.filter((b) => b.studio_id === studioId && isRunningTrial(b));
+  const contracts = studioId === undefined
+    ? all.contracts
+    : all.contracts.filter((c) => c.studio_id === studioId && isRunningContract(c));
   const { requestCancellation } = useMembershipActions();
 
   async function handleCancelTrial(id: string): Promise<void> {

@@ -15,6 +15,8 @@ interface UseProfileResult {
   error: string | null;
   updateProfile: (updates: ProfileUpdate) => Promise<{ error: string | null }>;
   uploadAvatar: (localUri: string) => Promise<{ error: string | null }>;
+  uploadCover: (localUri: string, focus: { x: number; y: number }) => Promise<{ error: string | null }>;
+  removeCover: () => Promise<{ error: string | null }>;
 }
 
 export function useProfile(refetchTrigger = 0): UseProfileResult {
@@ -124,5 +126,42 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
     }
   }
 
-  return { profile, loading, error, updateProfile, uploadAvatar };
+  // Optional cover photo: same bucket and upload path as the avatar
+  // (<uid>/cover.<ext>), framing stored as a focus point.
+  async function uploadCover(localUri: string, focus: { x: number; y: number }): Promise<{ error: string | null }> {
+    if (user === null) return { error: 'Nicht angemeldet.' };
+    try {
+      const base64 = await FileSystem.readAsStringAsync(localUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const rawExt = localUri.split('.').pop()?.split('?')[0].toLowerCase() ?? '';
+      const ext = rawExt === 'png' || rawExt === 'webp' ? rawExt : 'jpg';
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const path = `${user.id}/cover.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, base64Decode(base64), { upsert: true, contentType: mime });
+      if (uploadError !== null) return { error: uploadError.message };
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      return await updateProfile({
+        cover_url:     `${urlData.publicUrl}?t=${Date.now()}`,
+        cover_focus_x: focus.x,
+        cover_focus_y: focus.y,
+      });
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Hochladen.' };
+    }
+  }
+
+  async function removeCover(): Promise<{ error: string | null }> {
+    if (user === null) return { error: 'Nicht angemeldet.' };
+    const result = await updateProfile({ cover_url: null, cover_focus_x: 0.5, cover_focus_y: 0.5 });
+    if (result.error === null) {
+      // Best effort: the profile no longer points at the file either way.
+      void supabase.storage.from('avatars').remove(['jpg', 'png', 'webp'].map((x) => `${user.id}/cover.${x}`));
+    }
+    return result;
+  }
+
+  return { profile, loading, error, updateProfile, uploadAvatar, uploadCover, removeCover };
 }

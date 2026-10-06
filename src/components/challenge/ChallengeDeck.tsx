@@ -21,15 +21,18 @@ const EXIT_MS = 160; // played card arcs away
 const LIFT_MS = 150; // next card rises off the deck
 const FLIP_MS = 330; // and turns over, overshooting a little
 
-// How far the turn carries past face-up before springing back.
+// How far the turn carries past face-up before swinging back.
 const FLIP_OVERSHOOT_DEG = 188;
+
+// Final settle of everything that moves the face card. Timed, never sprung: the card
+// must reach its exact rest values quickly so it is drawn sharp (see frontStyle).
+const SETTLE_MS = 140;
 
 // Total time a draw is blocked, see SparringChallengeScreen.
 export const DRAW_ANIMATION_MS = EXIT_MS + LIFT_MS + FLIP_MS;
 
 interface Props {
   card:      SparringChallenge | null;
-  done:      boolean;
   size:      CardSize;
   onPress?:  () => void;
   disabled?: boolean;
@@ -40,7 +43,6 @@ interface Props {
 // visibility switches at 90 degrees — backfaceVisibility is unreliable on Android.
 export default function ChallengeDeck({
   card,
-  done,
   size,
   onPress,
   disabled = false,
@@ -72,10 +74,12 @@ export default function ChallengeDeck({
     flip.value       = 0;
     translateY.value = 0;
 
-    // 1. rise off the deck and settle back down once the turn is nearly through
+    // 1. rise off the deck and settle back down once the turn is nearly through.
+    // Timed, not sprung: a spring leaves the card on sub-pixel offsets for most of a
+    // second, and the brief text stays soft until it finally rests.
     translateY.value = withSequence(
       withTiming(-20, { duration: LIFT_MS, easing: Easing.out(Easing.quad) }),
-      withDelay(FLIP_MS - 140, withSpring(0, { damping: 14, stiffness: 190 })),
+      withDelay(FLIP_MS - 140, withTiming(0, { duration: SETTLE_MS, easing: Easing.out(Easing.cubic) })),
     );
 
     // On a near-black screen a drop shadow would be invisible, so depth comes from
@@ -85,8 +89,10 @@ export default function ChallengeDeck({
       withDelay(FLIP_MS - 140, withSpring(0, { damping: 14, stiffness: 190 })),
     );
 
-    // 2. + 3. turn over past face-up, then spring back — the overshoot is what makes
-    // the flip read as weight rather than a slide.
+    // 2. + 3. turn over past face-up, then swing back — the overshoot is what makes
+    // the flip read as weight rather than a slide. The swing back is timed so it lands
+    // on exactly 180 at a known moment; a spring would wobble around 180 by fractions
+    // of a degree for about a second, and a tilted card is resampled, i.e. blurry.
     if (next !== null) {
       flip.value = withDelay(
         LIFT_MS,
@@ -95,7 +101,7 @@ export default function ChallengeDeck({
             duration: Math.round(FLIP_MS * 0.82),
             easing: Easing.out(Easing.cubic),
           }),
-          withSpring(180, { damping: 12, stiffness: 170 }),
+          withTiming(180, { duration: SETTLE_MS, easing: Easing.inOut(Easing.quad) }),
         ),
       );
     }
@@ -148,14 +154,21 @@ export default function ChallengeDeck({
     ],
   }));
 
+  // At rest a face carries no transform at all. Even perspective + rotateY(0deg) is a
+  // non-affine 3D matrix: the platform then composites the card as a filtered texture
+  // instead of drawing it pixel-aligned, and text and logo look soft or pixelated.
   const backStyle = useAnimatedStyle(() => ({
     opacity: flip.value < 90 ? 1 : 0,
-    transform: [{ perspective: 1800 }, { rotateY: `${flip.value}deg` }],
+    transform: flip.value === 0
+      ? []
+      : [{ perspective: 1800 }, { rotateY: `${flip.value}deg` }],
   }));
 
   const frontStyle = useAnimatedStyle(() => ({
     opacity: flip.value < 90 ? 0 : 1,
-    transform: [{ perspective: 1800 }, { rotateY: `${flip.value - 180}deg` }],
+    transform: flip.value === 180
+      ? []
+      : [{ perspective: 1800 }, { rotateY: `${flip.value - 180}deg` }],
   }));
 
   const nearStyle = useAnimatedStyle(() => ({
@@ -192,7 +205,7 @@ export default function ChallengeDeck({
         style={[styles.wrap, layerSize]}
         onPress={onPress}
         onPressIn={() => { press.value = withTiming(0.97, { duration: 90 }); }}
-        onPressOut={() => { press.value = withSpring(1, { damping: 14, stiffness: 220 }); }}
+        onPressOut={() => { press.value = withTiming(1, { duration: SETTLE_MS, easing: Easing.out(Easing.quad) }); }}
         disabled={disabled || onPress === undefined}
         // The card is one tap target — the brief inside must not swallow the tap.
         pointerEvents="box-only"
@@ -212,7 +225,7 @@ export default function ChallengeDeck({
 
           {displayCard !== null ? (
             <Animated.View style={[styles.face, frontStyle]}>
-              <ChallengeCard challenge={displayCard} size={size} done={done} scrollable={false} elevated={false} />
+              <ChallengeCard challenge={displayCard} size={size} scrollable={false} elevated={false} />
             </Animated.View>
           ) : null}
         </Animated.View>

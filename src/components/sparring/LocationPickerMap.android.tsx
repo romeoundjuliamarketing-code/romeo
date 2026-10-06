@@ -13,10 +13,13 @@ import type { LocationPickerMapProps } from './LocationPickerMap.types';
 
 // MapLibre + OpenFreeMap tiles — no API key, no cost. Mirrors SparringMapView.android.tsx.
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
-const INITIAL_CENTER: [number, number] = [11.58, 48.14]; // [lng, lat] GeoJSON order
-const INITIAL_ZOOM = 11;
+// Without a position: Germany overview instead of a made-up city.
+const OVERVIEW_CENTER: [number, number] = [10.4, 51.2]; // [lng, lat] GeoJSON order
+const OVERVIEW_ZOOM = 5;
+const USER_ZOOM = 13;
 
 export default function LocationPickerMap({
+  initialCenter,
   centerOn,
   marker,
   onPress,
@@ -28,7 +31,7 @@ export default function LocationPickerMap({
     if (centerOn === null) return;
     cameraRef.current?.setStop({
       center: [centerOn.longitude, centerOn.latitude],
-      zoom: 13,
+      zoom: USER_ZOOM,
       duration: 600,
     });
   }, [centerOn]);
@@ -42,7 +45,11 @@ export default function LocationPickerMap({
         onPress(lat, lng);
       }}
     >
-      <Camera ref={cameraRef} initialViewState={{ center: INITIAL_CENTER, zoom: INITIAL_ZOOM }} />
+      <Camera ref={cameraRef} initialViewState={
+          initialCenter !== null
+            ? { center: [initialCenter.longitude, initialCenter.latitude], zoom: USER_ZOOM }
+            : { center: OVERVIEW_CENTER, zoom: OVERVIEW_ZOOM }
+        } />
       {showsUserLocation && <UserLocation />}
       {marker !== null && (
         <Marker lngLat={[marker.longitude, marker.latitude]}>

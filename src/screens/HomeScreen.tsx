@@ -1,247 +1,214 @@
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Platform,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
-import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import HeroSection from '../components/home/HeroSection';
-import WaterBottleCard from '../components/home/WaterBottleCard';
-import WeightCheckInModal from '../components/home/WeightCheckInModal';
-import PaywallCard from '../components/common/PaywallCard';
-import { useWorkoutStats } from '../hooks/useWorkoutStats';
-import { useSchedule } from '../hooks/useSchedule';
-import { useParticipation } from '../hooks/useParticipation';
-import { useDailyStretch } from '../hooks/useDailyStretch';
-import { useDailyMobility } from '../hooks/useDailyMobility';
+import FocusedStatusBar from '../components/common/FocusedStatusBar';
+import HomeHeader from '../components/home/HomeHeader';
+import HomeNextSparring, { HomeNextSparringPlaceholder } from '../components/home/HomeNextSparring';
+import HomeCardDeckEntry from '../components/home/HomeCardDeckEntry';
+import HomeFightNight from '../components/home/HomeFightNight';
+import { AnnouncementNotice } from '../components/home/HomeNotices';
+import NearbySparringsCard from '../components/home/NearbySparringsCard';
+import LocationPickerModal from '../components/sparring/LocationPickerModal';
+import { useAuth } from '../context/AuthContext';
 import { useProfile } from '../hooks/useProfile';
 import { useAnnouncement } from '../hooks/useAnnouncement';
-import { useWaterTracking } from '../hooks/useWaterTracking';
-import { useWeight } from '../hooks/useWeight';
 import { useNotifications } from '../hooks/useNotifications';
 import { useProximitySparringNotifications } from '../hooks/useProximitySparringNotifications';
 import { useNotificationsContext } from '../context/NotificationsContext';
-import ConfettiOverlay from '../components/ernaehrung/ConfettiOverlay';
-import { useEntitlement } from '../hooks/useEntitlement';
+import { useSearchLocation } from '../hooks/useSearchLocation';
+import { useNearbySparrings } from '../hooks/useNearbySparrings';
+import { useHomeNow, useHomeSparring } from '../hooks/useHomeSparring';
+import { useCommunityMemberCount } from '../hooks/useCommunityMemberCount';
+import { freePreviewChallenge } from '../utils/challengeAvailability';
+import { useFightEvents } from '../hooks/useFightEvents';
+import { HOME_RADIUS_KM, RADIUS_OPTIONS_KM } from '../utils/sparringSearch';
+import { fightEventStart } from '../utils/fightEvents';
+import type { FightEvent, FightPromotion } from '../utils/fightEvents';
+import type { HomeSparring } from '../utils/homeAgenda';
+import { SHOW_EVENTS } from '../data/sparringConfig';
 import type { RootStackParamList } from '../navigation/types';
-import type { StudioSchedule } from '../types/database.types';
 
-const WEIGHT_DISMISSED_KEY = 'weight_checkin_dismissed';
-const PREWORKOUT_KEY = 'preworkout_enabled';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type StatIcon = 'flame-outline' | 'star-outline' | 'barbell-outline' | 'trophy-outline';
-
-type StatEntry = { label: string; value: string; unit: string; icon: StatIcon };
-
-// ─── Component ────────────────────────────────────────────────────────────────
+// Home on one continuous warm background (also behind the status bar): compact
+// header; with an upcoming commitment the appointment leads, then the card
+// stack and the dark "ring corner" with sparrings nearby. Without one, the card
+// stack leads and the ring corner carries the single empty invitation.
+// Then the fight-night block ("Gemeinsam Kämpfe schauen"). The studio schedule is reached from the studio screens, not Home.
+// Previous versions: git branches backup/home-v1 … v5-2026-09-28; removed
+// paused cards (water, stretch, points): backup/vor-aufraeumen-2026-10-04.
 
 export default function HomeScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { user } = useAuth();
   const [focusTrigger,    setFocusTrigger]    = useState(0);
-  const [showConfetti,    setShowConfetti]    = useState(false);
-  const [showWeightModal, setShowWeightModal] = useState(false);
-  const weightCheckTriggered = useRef(false);
 
   useFocusRefetch(() => setFocusTrigger((n) => n + 1));
+  const now = useHomeNow(() => setFocusTrigger((n) => n + 1));
 
-  const { isNewWeek, loading: weightLoading, logWeight } = useWeight(focusTrigger);
   const { profile } = useProfile(focusTrigger);
   const { announcement, deleteAnnouncement } = useAnnouncement(focusTrigger);
-  const { entitlement } = useEntitlement(focusTrigger);
-  const { completedDayIndices, totalPoints, totalWorkouts, streak, rank, refetch: refetchStats } = useWorkoutStats(focusTrigger);
-  // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
-  const todayDow = (new Date().getDay() + 6) % 7;
-  const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
-  const { scheduleTrainingReminders } = useNotifications();
+  // Push token + one-time cleanup of removed local reminders.
+  useNotifications();
   useProximitySparringNotifications();
   const { unreadCount: unreadNotificationCount } = useNotificationsContext();
-  const { isParticipating, participate, cancelParticipation } = useParticipation();
-  const { isDone: stretchDone, isUrgent: stretchUrgent, logStretch } = useDailyStretch();
-  const { isDone: mobilityDone, isUrgent: mobilityUrgent, logMobility } = useDailyMobility();
-  // Show weight check-in modal on Mondays when no entry exists for this week
-  useEffect(() => {
-    if (weightLoading) return;
-    if (!isNewWeek) return;
-    if (todayDow !== 0) return; // only on Mondays (0 = Mon in remapped week)
-    if (weightCheckTriggered.current) return;
-
-    async function maybeShow(): Promise<void> {
-      const dismissed = await AsyncStorage.getItem(WEIGHT_DISMISSED_KEY);
-      const todayIso = new Date().toISOString().split('T')[0];
-      if (dismissed === todayIso) return;
-      weightCheckTriggered.current = true;
-      setTimeout(() => setShowWeightModal(true), 600);
-    }
-
-    void maybeShow();
-  }, [weightLoading, isNewWeek]);
-
-  useEffect(() => {
-    if (schedule.length > 0) {
-      void (async () => {
-        const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
-        await scheduleTrainingReminders(schedule, stored === 'true');
-      })();
-    }
-  }, [schedule, scheduleTrainingReminders]);
-
-  async function handleWeightSubmit(kg: number): Promise<void> {
-    setShowWeightModal(false);
-    await logWeight(kg);
-  }
-
-  async function handleWeightLater(): Promise<void> {
-    setShowWeightModal(false);
-    const todayIso = new Date().toISOString().split('T')[0];
-    await AsyncStorage.setItem(WEIGHT_DISMISSED_KEY, todayIso);
-  }
-
-  const { amountMl, goalMl, hydrationMode, setHydrationMode, addWater, loading: waterLoading } = useWaterTracking(
-    () => setShowConfetti(true),
+  const home = useHomeSparring(user?.id ?? null, now, focusTrigger);
+  const communityCount = useCommunityMemberCount(user !== null);
+  const cardPreview = freePreviewChallenge();
+  // Paused with SHOW_EVENTS: no request while the block is hidden.
+  const fight = useFightEvents(SHOW_EVENTS && user !== null, focusTrigger);
+  // "Sparrings in meiner Nähe": fixed 30 km, same search as the map/list.
+  // Home never asks for location permission — only the map or the picker do.
+  const { status: searchLocationStatus, location: searchLocation, setManual } = useSearchLocation({ askPermission: false });
+  const { status: nearbyStatus, sparrings: nearbySparrings, refetch: refetchNearby } = useNearbySparrings(
+    searchLocation,
+    HOME_RADIUS_KM,
     focusTrigger,
   );
+  const [locationPickerVisible, setLocationPickerVisible] = useState(false);
 
-  const todaySessionDate = new Date().toISOString().split('T')[0];
-
-  async function handleSessionParticipate(session: StudioSchedule): Promise<void> {
-    await participate(
-      session.id,
-      todaySessionDate,
-      session.points_per_30min,
-      session.duration_min,
-      session.training_name,
-      session.training_type,
-    );
-    refetchStats();
-    // Re-schedule notifications so only confirmed sessions get reminders
-    const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
-    await scheduleTrainingReminders(schedule, stored === 'true');
+  function openNearby(radiusKm: number): void {
+    navigation.navigate('Tabs', { screen: 'Sparring', params: { nearbyRadiusKm: radiusKm, nearbyEntryAt: Date.now() } });
   }
 
-  async function handleSessionCancel(session: StudioSchedule): Promise<void> {
-    await cancelParticipation(session.id, todaySessionDate);
-    refetchStats();
-    // Remove reminders for the cancelled session
-    const stored = await AsyncStorage.getItem(PREWORKOUT_KEY);
-    await scheduleTrainingReminders(schedule, stored === 'true');
+  function openSparring(sparringId: string): void {
+    navigation.navigate('Tabs', { screen: 'Sparring', params: { focusSparringId: sparringId } });
   }
 
-  const STATS: StatEntry[] = [
-    { label: 'Streak',       value: String(streak),          unit: 'Tage',   icon: 'flame-outline'   },
-    { label: 'Punkte',       value: String(totalPoints),     unit: 'XP',     icon: 'star-outline'    },
-    { label: 'Workouts',     value: String(totalWorkouts),   unit: 'gesamt', icon: 'barbell-outline' },
-    { label: 'Gruppenplatz', value: rank !== null ? `#${rank}` : '–', unit: 'Rang', icon: 'trophy-outline' },
-  ];
+  function openSparringChat(sparring: HomeSparring): void {
+    navigation.navigate('SparringGroupChat', {
+      sparringId:    sparring.id,
+      sparringTitle: sparring.title,
+      scheduledAt:   sparring.scheduledAt,
+      durationMin:   sparring.durationMin,
+      isOrganizer:   sparring.role === 'organizer',
+    });
+  }
+
+  // Event map in watch-party mode for this promotion (and fight night, when
+  // known). An official fight night is never turned into a watch party here.
+  function openWatchParties(promotion: FightPromotion, event: FightEvent | null): void {
+    navigation.navigate('Tabs', {
+      screen: 'Sparring',
+      params: {
+        watchEntryAt:   Date.now(),
+        watchPromotion: promotion,
+        watchEventName: event?.name,
+        watchStart:     event !== null ? fightEventStart(event)?.toISOString() : undefined,
+        watchEventDate: event?.eventDate,
+      },
+    });
+  }
+
+  const featured = home.featured;
+
+  const nearby = (
+    <NearbySparringsCard
+      radiusKm={HOME_RADIUS_KM}
+      locationLabel={searchLocation?.label ?? null}
+      locationStatus={searchLocationStatus}
+      status={nearbyStatus}
+      sparrings={nearbySparrings}
+      now={now}
+      onOpen={() => openNearby(HOME_RADIUS_KM)}
+      onOpenSparring={openSparring}
+      onPickLocation={() => setLocationPickerVisible(true)}
+      onRetry={refetchNearby}
+      onWiden={() => openNearby(RADIUS_OPTIONS_KM.find((km) => km > HOME_RADIUS_KM) ?? HOME_RADIUS_KM)}
+      onCreate={() => navigation.navigate('Tabs', { screen: 'Sparring', params: { openCreate: true } })}
+      hasCommitment={featured !== null}
+    />
+  );
+
+  const cardEntry = <HomeCardDeckEntry preview={cardPreview} onDraw={() => navigation.navigate('Tabs', { screen: 'Karten' })} />;
+
+  const fightNight = (
+    <HomeFightNight events={fight.events} status={fight.status} now={now} onWatch={openWatchParties} />
+  );
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
-        style={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.content}>
-        <HeroSection
-          name={profile?.name ?? null}
-          announcement={announcement}
-          isCoach={profile?.is_coach ?? false}
-          onDeleteAnnouncement={() => { void deleteAnnouncement(); }}
-          completedDayIndices={completedDayIndices}
-          streak={streak}
-          todaySessions={schedule}
-          isSessionParticipating={isParticipating}
-          onSessionParticipate={(s) => { void handleSessionParticipate(s); }}
-          onSessionCancel={(s) => { void handleSessionCancel(s); }}
-          stretchDone={stretchDone}
-          stretchUrgent={stretchUrgent}
-          onStretch={() => { void logStretch().then(refetchStats); }}
-          mobilityDone={mobilityDone}
-          mobilityUrgent={mobilityUrgent}
-          onMobility={() => { void logMobility().then(refetchStats); }}
-          onNotificationsPress={() => { navigation.navigate('Notifications'); }}
-          unreadNotificationCount={unreadNotificationCount}
-        />
-
-        {/* ── Stats section (light) ── */}
-        <View style={styles.lightSection}>
-          <View style={styles.waterCardWrap}>
-            <WaterBottleCard
-              amountMl={amountMl}
-              goalMl={goalMl}
-              hydrationMode={hydrationMode}
-              onHydrationModeChange={(mode) => { void setHydrationMode(mode); }}
-              loading={waterLoading}
-              onAdd250={() => { void addWater(250); }}
-              onAdd500={() => { void addWater(500); }}
-              focusTrigger={focusTrigger}
+      <FocusedStatusBar style="dark" />
+      <View style={styles.page}>
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
+            <HomeHeader
+              name={profile?.name ?? null}
+              unreadNotificationCount={unreadNotificationCount}
+              onNotificationsPress={() => navigation.navigate('Notifications')}
+              communityCount={communityCount}
             />
+
+            <View style={styles.sections}>
+              {/* With a commitment (or while it is still loading) the
+                  appointment leads; without one, Sparr Cards lead and the
+                  nearby section carries the "none yet" note. A load error is
+                  never shown as "no commitment". */}
+              {home.status === 'loading' && <HomeNextSparringPlaceholder />}
+              {featured !== null && (
+                <HomeNextSparring
+                  sparring={featured}
+                  now={now}
+                  currentUserId={user?.id ?? null}
+                  upcomingCount={home.upcomingCount}
+                  chatUnread={home.chatUnread}
+                  confirming={home.confirming}
+                  confirmError={home.confirmError}
+                  onConfirm={home.confirm}
+                  onDetails={() => openSparring(featured.id)}
+                  onChat={() => openSparringChat(featured)}
+                  onAll={() => navigation.navigate('SparringChatList')}
+                />
+              )}
+
+              {cardEntry}
+
+              {home.status === 'error' && (
+                <TouchableOpacity style={styles.loadError} onPress={home.retry} accessibilityRole="button">
+                  <Text style={styles.loadErrorText}>Deine Termine konnten nicht geladen werden. Erneut versuchen</Text>
+                </TouchableOpacity>
+              )}
+
+              {announcement !== null && (
+                <AnnouncementNotice
+                  message={announcement.message}
+                  canDelete={profile?.is_coach ?? false}
+                  onDelete={() => { void deleteAnnouncement(); }}
+                />
+              )}
+
+              {nearby}
+              {SHOW_EVENTS && fightNight}
+            </View>
           </View>
+        </ScrollView>
+      </View>
 
-          {entitlement.hasAccess ? (
-            <>
-              <Text style={styles.sectionTitle}>Deine Stats</Text>
-              <View style={styles.statsGrid}>
-                {STATS.map((stat) => (
-                  <View key={stat.label} style={styles.statCard}>
-                    <Ionicons
-                      name={stat.icon}
-                      size={22}
-                      color={colors.accentBlue}
-                      style={styles.statIcon}
-                    />
-                    <Text style={styles.statValue}>{stat.value}</Text>
-                    <Text style={styles.statUnit}>{stat.unit}</Text>
-                    <Text style={styles.statLabel}>{stat.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : (
-            <PaywallCard
-              title="Punkte & Stats im Abo"
-              message="Punkte, Rang und Leistungs-Statistiken sind nur mit einem aktiven Abo verfügbar."
-              onPressCta={() => navigation.navigate('Paywall')}
-            />
-          )}
-
-        </View>
-        </View>
-      </ScrollView>
-
-      <WeightCheckInModal
-        visible={showWeightModal}
-        onSubmit={(kg) => { void handleWeightSubmit(kg); }}
-        onLater={() => { void handleWeightLater(); }}
-      />
-
-      <ConfettiOverlay
-        visible={showConfetti}
-        onComplete={() => setShowConfetti(false)}
+      <LocationPickerModal
+        visible={locationPickerVisible}
+        onClose={() => setLocationPickerVisible(false)}
+        onConfirm={(lat, lng, displayAddress) => {
+          setLocationPickerVisible(false);
+          void setManual(lat, lng, displayAddress);
+        }}
       />
     </SafeAreaView>
   );
 }
 
-
 // ─── Styles ───────────────────────────────────────────────────────────────────
-
-const CARD_RADIUS = 16;
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.headerBg,
+    backgroundColor: colors.background,
   },
   scroll: {
+    flex: 1,
+  },
+  page: {
     flex: 1,
   },
   content: {
@@ -250,71 +217,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
   },
-
-  // Light section below the dark hero
-  lightSection: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  sections: {
     paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingTop: 8,
+    gap: 32,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 8,
-    marginBottom: 16,
+  loadError: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
-  waterCardWrap: {
-    marginBottom: 24,
-  },
-
-  // Stats grid
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    marginBottom: 24,
-  },
-  statCard: {
-    backgroundColor: colors.card,
-    borderRadius: CARD_RADIUS,
-    padding: 16,
-    width: '47.5%',
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.headerBg,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  statIcon: {
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.5,
-    marginBottom: 2,
-  },
-  statUnit: {
-    fontSize: 11,
-    color: colors.inactive,
-    fontWeight: '500',
-  },
-  statLabel: {
-    fontSize: 13,
+  loadErrorText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.accentBlue,
   },
 });

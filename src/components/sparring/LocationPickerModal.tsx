@@ -15,6 +15,12 @@ import LocationPickerMap from './LocationPickerMap';
 
 type Coord = { latitude: number; longitude: number };
 
+const START_TIMEOUT_MS = 5000;
+
+function toCoord(c: { latitude: number; longitude: number }): Coord {
+  return { latitude: c.latitude, longitude: c.longitude };
+}
+
 type Props = {
   visible: boolean;
   onClose: () => void;
@@ -23,24 +29,52 @@ type Props = {
 
 export default function LocationPickerModal({ visible, onClose, onConfirm }: Props) {
   const insets = useSafeAreaInsets();
+  // 'pending' until the start position is known: the map mounts directly at
+  // the user instead of a fixed city (a later camera jump is unreliable while
+  // the map is still loading). null = no position, overview of Germany.
+  const [start, setStart] = useState<Coord | null | 'pending'>('pending');
   const [userCenter, setUserCenter] = useState<Coord | null>(null);
   const [marker, setMarker] = useState<Coord | null>(null);
   const [displayAddress, setDisplayAddress] = useState('');
   const [geocoding, setGeocoding] = useState(false);
 
-  // Center map on user location when modal opens
   useEffect(() => {
     if (!visible) return;
+    let cancelled = false;
     setMarker(null);
     setDisplayAddress('');
-    Location.requestForegroundPermissionsAsync().then(({ status }) => {
-      if (status !== 'granted') return;
-      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).then(
-        ({ coords }) => {
-          setUserCenter({ latitude: coords.latitude, longitude: coords.longitude });
-        },
-      );
-    });
+    setUserCenter(null);
+    setStart('pending');
+    // Never keep the user waiting on a slow GPS fix: open without it.
+    const timeout = setTimeout(() => {
+      if (!cancelled) setStart((s) => (s === 'pending' ? null : s));
+    }, START_TIMEOUT_MS);
+
+    void (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (status !== 'granted') { setStart(null); return; }
+        // Last known position is instant; the fresh fix refines it afterwards.
+        const last = await Location.getLastKnownPositionAsync();
+        if (cancelled) return;
+        if (last !== null) {
+          setStart((s) => (s === 'pending' ? toCoord(last.coords) : s));
+        }
+        const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (cancelled) return;
+        const coord = toCoord(current.coords);
+        setStart((s) => (s === 'pending' ? coord : s));
+        setUserCenter(coord);
+      } catch {
+        if (!cancelled) setStart((s) => (s === 'pending' ? null : s));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, [visible]);
 
   async function handleMapPress(latitude: number, longitude: number): Promise<void> {
@@ -89,12 +123,20 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={styles.root}>
-        <LocationPickerMap
-          centerOn={userCenter}
-          marker={marker}
-          onPress={handleMapPress}
-          showsUserLocation
-        />
+        {start === 'pending' ? (
+          <View style={styles.locating}>
+            <ActivityIndicator color={colors.accentBlue} />
+            <Text style={styles.locatingText}>Dein Standort wird ermittelt …</Text>
+          </View>
+        ) : (
+          <LocationPickerMap
+            initialCenter={start}
+            centerOn={userCenter}
+            marker={marker}
+            onPress={handleMapPress}
+            showsUserLocation
+          />
+        )}
 
         {/* Top bar */}
         <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
@@ -146,6 +188,16 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  locating: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  locatingText: {
+    fontSize: 15,
+    color: colors.textMuted,
   },
   // Top bar
   topBar: {

@@ -20,7 +20,7 @@ Kurzregeln stehen in `CLAUDE.md` (Abschnitt „UI-Performance“). Hier stehen d
 - Keine erfundenen festen Zeilenhöhen (`getItemLayout` nur bei wirklich fixer Höhe). Bilder in Zellen mit festen Abmessungen, damit nichts nachspringt.
 - `renderItem` und Zellen-Props stabil halten (`useCallback`, Objekt-Identität erhalten). Zellen gezielt mit `React.memo`, nicht pauschal jede Komponente.
 
-**Chats** (Referenz: `useChatMessageStream`, `src/utils/chatSync.ts`, `src/utils/chatMessages.ts`)
+**Chats** (Referenz: `useChatMessageStream`, `src/lib/chatPage.ts`, `src/utils/chatSync.ts`, `src/utils/chatMessages.ts`)
 - Invertierte `FlatList` + `maintainVisibleContentPosition`, paginiert mit `CHAT_PAGE_SIZE`. Nie den ganzen Verlauf laden.
 - Sortierung und Keyset-Pagination immer über `(created_at, id)`. `now()` ist pro Transaktion gleich, gleiche Zeitstempel kommen also vor.
 - Jede Quelle (Seite, Realtime, eigene Insert-Antwort) läuft über `mergeMessages`. Die vorhandene Zeile gewinnt, damit nichts remountet.
@@ -37,6 +37,7 @@ Kurzregeln stehen in `CLAUDE.md` (Abschnitt „UI-Performance“). Hier stehen d
 - `LayoutAnimation` ist für einmaliges Auf- und Zuklappen erlaubt, nicht während Scrollen oder Gesten.
 - Neue Dauer- oder Eingangsanimationen respektieren „Bewegung reduzieren“ (`useReducedMotion()` aus Reanimated).
 - Keine Web-Konzepte (`will-change` o. Ä.) auf native Screens übertragen.
+- **Ruhezustand ist scharf:** Inhalt mit Text/Bildern (Karten, Sheets) steht nach der Animation ohne Rest-Transform da. Solange `scale`, Sub-Pixel-`translate` oder 3D (`perspective`/`rotateX/Y`) aktiv sind, wird die Ebene gefiltert gezeichnet und wirkt unscharf/verpixelt. Darum: (1) die letzte Phase mit `withTiming` auf den exakten Endwert, nicht mit `withSpring` (Federn pendeln fast eine Sekunde um den Zielwert); (2) 3D-Transforms im Ruhezustand ganz weglassen (`transform: []`), denn auch `perspective` + `rotateY(0deg)` ist keine reine 2D-Matrix; (3) keine Schatten ohne `shadowPath` auf gedrehten Ebenen. Referenz: `ChallengeDeck.tsx`. Federn sind okay für Flächen ohne Inhalt (Stapelkarten, Buttons) oder wenn danach ohnehin nichts gelesen wird.
 
 **Rendering/State**
 - Der React Compiler ist **nicht** aktiv (`babel-plugin-react-compiler` installiert, nicht eingeschaltet). Memoisierung also gezielt und manuell.

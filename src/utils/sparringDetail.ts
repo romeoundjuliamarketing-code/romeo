@@ -94,7 +94,7 @@ export function summarizeParticipants(
   };
 }
 
-function firstName(name: string | null): string {
+export function firstName(name: string | null): string {
   const trimmed = name?.trim() ?? '';
   return trimmed.length > 0 ? trimmed.split(/\s+/)[0] : 'Unbekannt';
 }

@@ -12,7 +12,7 @@ function profile(overrides: Record<string, unknown> = {}) {
     name: 'Romeo', nickname: null, bio: null, disciplines: ['Boxen'], stance: null,
     training_focus: null, favorite_move: null, height_cm: 180, arm_span_cm: null,
     weight_kg: 72.5, weight_class: null, age_years: 27, nationality: null, hometown: null,
-    motto: null, instagram_url: 'romeo.boxt',
+    motto: null, instagram_url: 'romeo.boxt', country_code: null,
     ...overrides,
   } as never;
 }
@@ -58,6 +58,15 @@ describe('draft conversion', () => {
     const { update } = draftToUpdate({ ...toDraft(profile()), motto: '   ', nickname: '  Hammer ' });
     expect(update.motto).toBeNull();
     expect(update.nickname).toBe('Hammer');
+  });
+
+  it('round-trips the flag country code and clears it to null', () => {
+    const d = toDraft(profile({ country_code: 'DE' }));
+    expect(d.countryCode).toBe('DE');
+    expect(changedFields(draftToUpdate(d).update, profile({ country_code: 'DE' }))).toEqual({});
+    expect(draftToUpdate({ ...d, countryCode: '' }).update.country_code).toBeNull();
+    expect(changedFields(draftToUpdate({ ...d, countryCode: 'GB-SCT' }).update, profile({ country_code: 'DE' })))
+      .toEqual({ country_code: 'GB-SCT' });
   });
 });
 

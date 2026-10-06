@@ -1,20 +1,27 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { areaLabel, challengePosition, challengesForArea } from '../data/sparringChallenges';
+import { areaLabel } from '../data/sparringChallenges';
+import { availableChallengeAreas, playableChallengesForArea } from '../utils/challengeAvailability';
 import type { SparringChallenge } from '../data/sparringChallenges';
 import { useProfile } from '../hooks/useProfile';
 import { useSparringChallenge } from '../hooks/useSparringChallenge';
-import { useChallengeRating } from '../hooks/useChallengeRating';
 import ChallengeAreaPicker from '../components/challenge/ChallengeAreaPicker';
 import ChallengeHeader from '../components/challenge/ChallengeHeader';
 import ChallengeDeck, { DRAW_ANIMATION_MS } from '../components/challenge/ChallengeDeck';
 import ChallengeBrowser from '../components/challenge/ChallengeBrowser';
-import ChallengeClarityRating from '../components/challenge/ChallengeClarityRating';
+import CardGameHint from '../components/challenge/CardGameHint';
 import ChallengeRatingOverlay from '../components/challenge/ChallengeRatingOverlay';
-import { useCardSize } from '../components/challenge/cardLayout';
+import { useExitCardFeedback } from '../hooks/useExitCardFeedback';
+import { CARD_ASPECT, useCardSize } from '../components/challenge/cardLayout';
+import type { CardSize } from '../components/challenge/cardLayout';
+
+// Vertical room the deck needs beyond the card itself: the deckArea padding plus the
+// stacked cards peeking out above the top card.
+const DECK_VERTICAL_RESERVE = 16 * 2 + 8;
 import { colors } from '../theme/colors';
 
 export default function SparringChallengeScreen(): React.ReactElement {
@@ -24,7 +31,23 @@ export default function SparringChallengeScreen(): React.ReactElement {
   const [pickerVisible, setPickerVisible] = useState(false);
   const [drawing, setDrawing] = useState(false);
   const drawTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const cardSize = useCardSize();
+  const screenCardSize = useCardSize();
+  const [deckHeight, setDeckHeight] = useState<number | null>(null);
+
+  // The card is sized to the room the deck area really has, not to the window. The
+  // deck is absolutely positioned, so a card taller than its area would draw over the
+  // status line and the rating below (they grow and shrink while playing).
+  const cardSize = useMemo<CardSize>(() => {
+    if (deckHeight === null) return screenCardSize;
+    const byHeight = Math.floor((deckHeight - DECK_VERTICAL_RESERVE) * CARD_ASPECT);
+    const width    = Math.max(120, Math.min(screenCardSize.width, byHeight));
+    return { width, height: Math.round(width / CARD_ASPECT) };
+  }, [deckHeight, screenCardSize]);
+
+  const onDeckLayout = useCallback((e: LayoutChangeEvent): void => {
+    const next = Math.round(e.nativeEvent.layout.height);
+    setDeckHeight((prev) => (prev === next ? prev : next));
+  }, []);
 
   const {
     area,
@@ -33,53 +56,34 @@ export default function SparringChallengeScreen(): React.ReactElement {
     deckSize,
     remaining,
     draw,
-    toggleDone,
-    isDone,
-    doneCount,
     loading,
     areaChosen,
   } = useSparringChallenge(profile?.disciplines ?? []);
-  const {
-    ratedIds,
-    submit: submitClarityRating,
-    promptCard,
-    notePlayed,
-    dismissPrompt,
-  } = useChallengeRating();
 
   useEffect(() => () => {
     if (drawTimer.current !== null) clearTimeout(drawTimer.current);
   }, []);
 
   // Blocks a second draw while the card is still moving, so rapid taps cannot burn
-  // through the deck. The same timer reports the card just put aside once the flip
-  // has finished — whether that raises a rating prompt is useChallengeRating's call.
+  // through the deck.
   const handleDraw = useCallback((): void => {
     if (drawing || deckSize === 0) return;
-    const replacedCard = current;
     setDrawing(true);
     draw();
-    drawTimer.current = setTimeout(() => {
-      setDrawing(false);
-      notePlayed(replacedCard);
-    }, DRAW_ANIMATION_MS + 40);
-  }, [drawing, deckSize, draw, current, notePlayed]);
+    drawTimer.current = setTimeout(() => setDrawing(false), DRAW_ANIMATION_MS + 40);
+  }, [drawing, deckSize, draw]);
 
-  const areaCards = challengesForArea(area);
+  const feedback = useExitCardFeedback(current);
+
+  const areaCards = playableChallengesForArea(area);
   const deckEmpty = deckSize === 0;
   const hasCard   = current !== null;
-  const cardDone  = current !== null && isDone(current.id);
-
-  // Position of the drawn card inside its deck, e.g. "Karte 2 von 3".
-  const cardPosition = current === null
-    ? null
-    : `Karte ${challengePosition(current)} von ${deckSize}`;
 
   const status = deckEmpty
     ? 'Noch keine Karten in diesem Bereich'
     : remaining === 0
-      ? `Deck durchgespielt · ${doneCount} geschafft`
-      : `${remaining} ${remaining === 1 ? 'Karte' : 'Karten'} übrig · ${doneCount} geschafft`;
+      ? 'Deck durchgespielt'
+      : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -88,7 +92,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
         icon="chevron-back"
         iconLabel="Zurück"
         onPress={() => navigation.goBack()}
-        right={loading || !areaChosen ? undefined : (
+        right={loading || !areaChosen || availableChallengeAreas().length < 2 ? undefined : (
           <TouchableOpacity
             style={styles.areaButton}
             onPress={() => setPickerVisible(true)}
@@ -102,6 +106,8 @@ export default function SparringChallengeScreen(): React.ReactElement {
         )}
       />
 
+      <CardGameHint />
+
       {loading ? (
         <View style={styles.loading}>
           <ActivityIndicator color={colors.accentBlue} />
@@ -110,17 +116,11 @@ export default function SparringChallengeScreen(): React.ReactElement {
         <ChallengeAreaPicker current={area} onSelect={setArea} />
       ) : (
         <View style={styles.body}>
-          <View style={styles.missionRow}>
-            <Text style={styles.missionLabel}>DEINE MISSION</Text>
-            {cardPosition !== null ? (
-              <Text style={styles.missionCount}>{cardPosition}</Text>
-            ) : null}
-          </View>
+          <Text style={styles.missionLabel}>DEINE MISSION</Text>
 
-          <View style={styles.deckArea}>
+          <View style={styles.deckArea} onLayout={onDeckLayout}>
             <ChallengeDeck
               card={current}
-              done={cardDone}
               size={cardSize}
               onPress={handleDraw}
               disabled={deckEmpty || drawing}
@@ -128,55 +128,17 @@ export default function SparringChallengeScreen(): React.ReactElement {
           </View>
 
           <View style={styles.actions}>
-            {current !== null && cardDone && !ratedIds.has(current.id) ? (
-              <ChallengeClarityRating
-                key={current.id}
-                onRate={(clarity) => submitClarityRating(current.id, clarity)}
-              />
-            ) : (
-              <Text style={styles.status}>{status}</Text>
-            )}
+            {status !== null ? <Text style={styles.status}>{status}</Text> : null}
 
-            {hasCard ? (
-              <View style={styles.actionRow}>
-                <TouchableOpacity
-                  style={[styles.primaryBtn, styles.rowPrimary, cardDone && styles.primaryBtnDone]}
-                  onPress={() => toggleDone(current.id)}
-                  activeOpacity={0.85}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: cardDone }}
-                >
-                  <Ionicons
-                    name={cardDone ? 'checkmark-circle' : 'checkmark'}
-                    size={18}
-                    color={cardDone ? colors.accentBlue : colors.headerTextPrimary}
-                  />
-                  <Text style={[styles.primaryLabel, cardDone && styles.primaryLabelDone]}>
-                    Geschafft
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.secondaryBtn, drawing && styles.btnBusy]}
-                  onPress={handleDraw}
-                  activeOpacity={0.8}
-                  disabled={drawing}
-                  accessibilityRole="button"
-                >
-                  <Text style={styles.secondaryLabel}>Neue Karte</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                style={[styles.primaryBtn, styles.singlePrimary, (deckEmpty || drawing) && styles.btnBusy]}
-                onPress={handleDraw}
-                activeOpacity={0.85}
-                disabled={deckEmpty || drawing}
-                accessibilityRole="button"
-              >
-                <Text style={styles.primaryLabel}>Karte ziehen</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.primaryBtn, (deckEmpty || drawing) && styles.btnBusy]}
+              onPress={handleDraw}
+              activeOpacity={0.85}
+              disabled={deckEmpty || drawing}
+              accessibilityRole="button"
+            >
+              <Text style={styles.primaryLabel}>{hasCard ? 'Neue Karte' : 'Karte ziehen'}</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.linkBtn}
@@ -190,25 +152,12 @@ export default function SparringChallengeScreen(): React.ReactElement {
         </View>
       )}
 
-      {promptCard !== null ? (
-        <ChallengeRatingOverlay
-          challenge={promptCard}
-          onRate={(clarity) => {
-            submitClarityRating(promptCard.id, clarity);
-            dismissPrompt();
-          }}
-          onSkip={dismissPrompt}
-        />
-      ) : null}
-
       {browserVisible ? (
         <ChallengeBrowser
           visible
           cards={areaCards}
           areaTitle={areaLabel(area)}
           onClose={() => setBrowserVisible(false)}
-          isDone={isDone}
-          onToggleDone={toggleDone}
         />
       ) : null}
 
@@ -220,6 +169,17 @@ export default function SparringChallengeScreen(): React.ReactElement {
             setPickerVisible(false);
           }}
           onClose={() => setPickerVisible(false)}
+        />
+      ) : null}
+
+      {feedback !== null ? (
+        <ChallengeRatingOverlay
+          key={feedback.card.id}
+          challenge={feedback.card}
+          progress={feedback.progress}
+          onRate={feedback.rate}
+          onSkip={feedback.skip}
+          onSkipAll={feedback.skipAll}
         />
       ) : null}
     </SafeAreaView>
@@ -256,22 +216,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
   },
-  missionRow: {
-    marginTop: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
   missionLabel: {
+    marginTop: 16,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 1.6,
-    color: colors.headerTextSecondary,
-  },
-  missionCount: {
-    fontSize: 11,
-    fontWeight: '600',
     color: colors.headerTextSecondary,
   },
   deckArea: {
@@ -291,14 +240,9 @@ const styles = StyleSheet.create({
     color: colors.headerTextSecondary,
   },
 
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  primaryBtn: {
     width: '100%',
     maxWidth: 320,
-  },
-  primaryBtn: {
     height: 54,
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,41 +251,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: colors.accentBlue,
   },
-  rowPrimary: {
-    flex: 1.3,
-  },
-  singlePrimary: {
-    width: '100%',
-    maxWidth: 320,
-  },
-  primaryBtnDone: {
-    backgroundColor: colors.accentBlueSoft,
-    borderWidth: 1,
-    borderColor: colors.accentBlue,
-  },
   primaryLabel: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.headerTextPrimary,
   },
-  primaryLabelDone: {
-    color: colors.accentBlue,
-  },
 
-  secondaryBtn: {
-    flex: 1,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.headerBorder,
-  },
-  secondaryLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.headerTextPrimary,
-  },
   btnBusy: {
     opacity: 0.5,
   },

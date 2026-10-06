@@ -184,6 +184,8 @@ interface Props {
   venueId?:   string;
   /** Called after a successful venue-event creation, before onClose. */
   onCreated?: () => void;
+  /** Prefills "Was wird gezeigt" (e.g. an official fight night) when the sheet opens empty. */
+  initialFightCard?: string;
 }
 
 function nextDay18h(): Date {
@@ -193,7 +195,7 @@ function nextDay18h(): Date {
   return d;
 }
 
-export default function CreateEventSheet({ visible, onClose, onCreate, venueId, onCreated }: Props) {
+export default function CreateEventSheet({ visible, onClose, onCreate, venueId, onCreated, initialFightCard }: Props) {
   const { createVenueEvent } = useEventActions();
 
   const [title,                setTitle]                = useState('');
@@ -263,6 +265,8 @@ export default function CreateEventSheet({ visible, onClose, onCreate, venueId, 
   // Animate in / out with the Modal's `visible` flag.
   useEffect(() => {
     if (visible) {
+      // Only the fight night is preselected; place and meeting time stay with the host.
+      if (initialFightCard !== undefined && fightCard.trim().length === 0) setFightCard(initialFightCard);
       hasEnteredRef.current = false;
       translateY.value = OFF_SCREEN;
       // Size + slide in once measured (layout callbacks below), or immediately on

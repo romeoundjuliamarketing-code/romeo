@@ -1,302 +1,184 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
-  TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../context/AuthContext';
 import { useCaptcha } from '../../hooks/useCaptcha';
+import { requestPasswordReset } from '../../lib/passwordReset';
 import type { AuthStackParamList } from '../../navigation/types';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
+import SocialSignInButtons from '../../components/auth/SocialSignInButtons';
+import AuthTextField from '../../components/auth/AuthTextField';
+import { AuthCaptchaNotice } from '../../components/auth/AuthScaffold';
+import LoginScaffold, { LoginNotice, LoginSwitch } from '../../components/auth/LoginScaffold';
+import LoginButton from '../../components/auth/LoginButton';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const navigation = useNavigation<Nav>();
+  const passwordRef = useRef<TextInput>(null);
+  // Blocks a second sign-in from a double tap before the busy state renders.
+  const signingIn = useRef(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [resetSending, setResetSending] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const { captchaToken, setCaptchaToken, captchaKey, resetCaptcha } = useCaptcha();
   const [captchaError, setCaptchaError] = useState(false);
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      setError('Bitte E-Mail und Passwort eingeben.');
-      return;
-    }
-    setError(null);
+    const missingEmail = !email.trim();
+    const missingPassword = !password;
+    setEmailError(missingEmail ? 'Bitte gib deine E-Mail-Adresse ein.' : null);
+    setPasswordError(missingPassword ? 'Bitte gib dein Passwort ein.' : null);
+    setFormError(null);
+    if (missingEmail || missingPassword) return;
+    if (signingIn.current) return;
+
+    signingIn.current = true;
     setLoading(true);
     // Captcha is best-effort: pass the token if the widget produced one, but
     // never block the login when it failed to load (e.g. datacenter networks).
     const { error: authError } = await signIn(email.trim(), password, captchaToken ?? undefined);
+    signingIn.current = false;
     setLoading(false);
     if (authError) {
-      setError('E-Mail oder Passwort falsch.');
+      setFormError('E-Mail oder Passwort falsch.');
       resetCaptcha();
     }
     // On success, session change in AuthContext triggers navigation automatically
   };
 
+  // Same reset flow as in the settings (sparr://reset-password is handled by
+  // RootNavigator's recovery screen). The reply never reveals whether an
+  // account exists.
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setEmailError('Gib deine E-Mail-Adresse ein, dann schicken wir dir einen Link.');
+      return;
+    }
+    setEmailError(null);
+    setFormError(null);
+    setResetSending(true);
+    const { error } = await requestPasswordReset(email.trim(), captchaToken ?? undefined);
+    setResetSending(false);
+    resetCaptcha();
+    if (error !== null) {
+      setFormError('Der Link konnte gerade nicht gesendet werden. Bitte versuche es gleich noch einmal.');
+      return;
+    }
+    setResetSent(true);
+  };
+
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+    <LoginScaffold
+      titleLead="Bereit für die"
+      titleAccent="nächste Runde?"
+      subtitle="Melde dich an und finde dein nächstes Sparring."
+    >
+      <AuthTextField
+        variant="warm"
+        label="E-Mail"
+        icon="mail-outline"
+        value={email}
+        onChangeText={(v) => { setEmail(v); setEmailError(null); setResetSent(false); }}
+        error={emailError}
+        placeholder="deine@email.de"
+        autoCapitalize="none"
+        keyboardType="email-address"
+        autoComplete="email"
+        textContentType="emailAddress"
+        returnKeyType="next"
+        onSubmitEditing={() => passwordRef.current?.focus()}
+        submitBehavior="submit"
+      />
 
-          {/* ── Dark header ── */}
-          <View style={styles.header}>
-            <Text style={styles.appName}>Sparr</Text>
-            <Text style={styles.headerSubtitle}>Anmelden</Text>
-          </View>
+      <View style={styles.passwordBlock}>
+        <AuthTextField
+          variant="warm"
+          inputRef={passwordRef}
+          label="Passwort"
+          icon="lock-closed-outline"
+          isPassword
+          value={password}
+          onChangeText={(v) => { setPassword(v); setPasswordError(null); }}
+          error={passwordError}
+          placeholder="Dein Passwort"
+          autoComplete="password"
+          textContentType="password"
+          returnKeyType="go"
+          onSubmitEditing={() => { void handleLogin(); }}
+        />
+        <TouchableOpacity
+          style={styles.forgot}
+          onPress={() => { void handleForgotPassword(); }}
+          disabled={resetSending}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+        >
+          {resetSending
+            ? <ActivityIndicator size="small" color={colors.accentBlueText} />
+            : <Text style={styles.forgotText}>Passwort vergessen?</Text>}
+        </TouchableOpacity>
+      </View>
 
-          {/* ── Form card ── */}
-          <View style={styles.card}>
+      {resetSent && (
+        <LoginNotice
+          tone="info"
+          text={`Falls ein Konto zu ${email.trim()} existiert, haben wir dir einen Link zum Zurücksetzen geschickt.`}
+        />
+      )}
+      {formError !== null && <LoginNotice tone="error" text={formError} />}
 
-            {/* Email */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>E-Mail</Text>
-              <View style={styles.inputRow}>
-                <Ionicons name="mail-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="deine@email.de"
-                  placeholderTextColor={colors.inactive}
-                  autoCapitalize="none"
-                  keyboardType="email-address"
-                  autoComplete="email"
-                  textContentType="emailAddress"
-                />
-              </View>
-            </View>
+      {/* Visible security check: it produces the token the sign-in sends, so it
+          sits right before the button. Best-effort — never blocks the login. */}
+      <TurnstileWidget
+        key={captchaKey}
+        size="flexible"
+        containerStyle={styles.captcha}
+        onToken={(t) => { setCaptchaError(false); setCaptchaToken(t); }}
+        onError={() => { setCaptchaError(true); setCaptchaToken(null); }}
+      />
+      {captchaError && (
+        <AuthCaptchaNotice actionLabel="anmelden" onRetry={() => { setCaptchaError(false); resetCaptcha(); }} />
+      )}
 
-            {/* Passwort */}
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Passwort</Text>
-              <View style={styles.inputRow}>
-                <Ionicons name="lock-closed-outline" size={18} color={colors.inactive} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Passwort"
-                  placeholderTextColor={colors.inactive}
-                  secureTextEntry={!showPassword}
-                  autoComplete="password"
-                  textContentType="password"
-                />
-                <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={styles.eyeButton}>
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={18}
-                    color={colors.inactive}
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Fehler */}
-            {error !== null && (
-              <View style={styles.errorBox}>
-                <Ionicons name="alert-circle-outline" size={15} color={styles.errorText.color} />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
-
-            <TurnstileWidget
-              key={captchaKey}
-              onToken={(t) => { setCaptchaError(false); setCaptchaToken(t); }}
-              onError={() => { setCaptchaError(true); setCaptchaToken(null); }}
-            />
-            {captchaError && (
-              <View style={styles.captchaErrorRow}>
-                <Text style={styles.captchaErrorText}>Sicherheitsprüfung nicht verfügbar. Du kannst dich trotzdem anmelden.</Text>
-                <TouchableOpacity onPress={() => { setCaptchaError(false); resetCaptcha(); }}>
-                  <Text style={styles.captchaRetryLink}>Erneut versuchen</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Anmelden-Button */}
-            <TouchableOpacity
-              style={[styles.button, loading && styles.buttonDisabled]}
-              onPress={handleLogin}
-              activeOpacity={0.8}
-              disabled={loading}
-            >
-              {loading
-                ? <ActivityIndicator color={colors.headerTextPrimary} />
-                : <Text style={styles.buttonText}>Anmelden</Text>
-              }
-            </TouchableOpacity>
-
-            {/* Link zu Registrierung */}
-            <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Noch kein Konto? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.footerLink}>Registrieren</Text>
-              </TouchableOpacity>
-            </View>
-
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      <View style={styles.actions}>
+        <LoginButton label="Anmelden" loading={loading} onPress={() => { void handleLogin(); }} />
+        <SocialSignInButtons captchaToken={captchaToken ?? undefined} onCaptchaUsed={resetCaptcha} />
+        <LoginSwitch text="Neu bei Sparr?" link="Registrieren" onPress={() => navigation.navigate('Register')} />
+      </View>
+    </LoginScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.headerBg,
+  captcha: {
+    // Spacing comes from the form gap.
+    marginBottom: 0,
   },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-
-  // Dark header
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 48,
-    paddingBottom: 40,
-  },
-  appName: {
-    fontSize: 34,
-    fontWeight: '800',
-    color: colors.headerTextPrimary,
-    letterSpacing: -1,
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: colors.headerTextSecondary,
-    fontWeight: '400',
-  },
-
-  // Form card (light)
-  card: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 48,
-  },
-
-  // Field
-  fieldGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 16,
-    height: 52,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
-  },
-  eyeButton: {
-    padding: 4,
-  },
-
-  // Error
-  errorBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 16,
-  },
-  errorText: {
-    fontSize: 13,
-    color: colors.deleteRed,
-    flex: 1,
-  },
-
-  // Button
-  button: {
-    backgroundColor: colors.headerBg,
-    borderRadius: 12,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  buttonText: {
-    color: colors.headerTextPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-
-  // Footer
-  footerRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  footerText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  footerLink: {
-    fontSize: 14,
-    color: colors.accentBlue,
-    fontWeight: '600',
-  },
-  captchaErrorRow: {
-    alignItems: 'center',
+  passwordBlock: {
     gap: 8,
-    marginBottom: 16,
   },
-  captchaErrorText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    textAlign: 'center',
+  forgot: {
+    alignSelf:       'flex-end',
+    minHeight:       44,
+    justifyContent:  'center',
   },
-  captchaRetryLink: {
-    fontSize: 13,
-    color: colors.accentBlue,
+  forgotText: {
+    fontSize:   14,
     fontWeight: '600',
+    color:      colors.accentBlueText,
+  },
+  actions: {
+    gap: 8,
   },
 });

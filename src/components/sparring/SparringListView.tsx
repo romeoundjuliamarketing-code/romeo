@@ -1,0 +1,313 @@
+import React, { useCallback } from 'react';
+import { View, Text, FlatList, Image, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../theme/colors';
+import type { SearchRadius } from '../../utils/sparringSearch';
+import { compactDateLabel, sparringLocationLines } from '../../utils/sparringDetail';
+import { formatDistanceKm } from '../../utils/sparringSearch';
+import { getInitials } from '../../utils/initials';
+import type { NearbySparring, NearbyStatus } from '../../hooks/useNearbySparrings';
+import type { SearchLocationStatus } from '../../hooks/useSearchLocation';
+
+interface Props {
+  sparrings:      NearbySparring[];
+  status:         NearbyStatus;
+  locationStatus: SearchLocationStatus;
+  radiusKm:       SearchRadius;
+  currentUserId:  string | null;
+  /** Space above the first row (overlaying search bar) and below the last. */
+  topInset:       number;
+  bottomInset:    number;
+  onPress:        (s: NearbySparring) => void;
+  onRetry:        () => void;
+  onPickLocation: () => void;
+  onWiden:        (() => void) | null;
+  onCreate:       () => void;
+}
+
+// List view of the nearby search — the same hits as the map markers, nearest
+// first. Shows only fields the search delivers; nothing is filled in.
+export default function SparringListView({
+  sparrings, status, locationStatus, radiusKm, currentUserId, topInset, bottomInset,
+  onPress, onRetry, onPickLocation, onWiden, onCreate,
+}: Props): React.ReactElement {
+  const renderItem = useCallback(
+    ({ item }: { item: NearbySparring }) => (
+      <SparringListRow sparring={item} isOwn={item.created_by === currentUserId} onPress={onPress} />
+    ),
+    [currentUserId, onPress],
+  );
+
+  const contentStyle = { paddingTop: topInset, paddingBottom: bottomInset };
+
+  let empty: React.ReactElement | null = null;
+  if (locationStatus === 'none') {
+    empty = (
+      <Notice text="Wähle einen Ort, um Sparrings in deiner Umgebung zu sehen.">
+        <NoticeAction label="Standort wählen" icon="location-outline" onPress={onPickLocation} />
+      </Notice>
+    );
+  } else if (status === 'error') {
+    empty = (
+      <Notice text="Sparrings konnten gerade nicht geladen werden.">
+        <NoticeAction label="Erneut versuchen" icon="refresh" onPress={onRetry} />
+      </Notice>
+    );
+  } else if (locationStatus === 'loading' || status === 'loading' || status === 'idle') {
+    empty = (
+      <View style={styles.notice}>
+        <ActivityIndicator color={colors.accentBlue} />
+      </View>
+    );
+  } else {
+    empty = (
+      <Notice text={radiusKm === null ? 'Aktuell keine kommenden Sparrings' : `Aktuell keine Sparrings im Umkreis von ${radiusKm} km`}>
+        {onWiden !== null && <NoticeAction label="Umkreis erweitern" icon="resize-outline" onPress={onWiden} />}
+        <NoticeAction label="Sparring anbieten" icon="add-circle-outline" onPress={onCreate} />
+      </Notice>
+    );
+  }
+
+  return (
+    <FlatList
+      style={styles.list}
+      data={status === 'error' || locationStatus === 'none' ? [] : sparrings}
+      keyExtractor={keyExtractor}
+      renderItem={renderItem}
+      contentContainerStyle={[styles.content, contentStyle]}
+      ListEmptyComponent={empty}
+      ListFooterComponent={sparrings.length > 0 ? <Text style={styles.footnote}>Entfernung in Luftlinie</Text> : null}
+      showsVerticalScrollIndicator={false}
+    />
+  );
+}
+
+function keyExtractor(item: NearbySparring): string {
+  return item.id;
+}
+
+const SparringListRow = React.memo(function SparringListRow({
+  sparring, isOwn, onPress,
+}: {
+  sparring: NearbySparring;
+  isOwn:    boolean;
+  onPress:  (s: NearbySparring) => void;
+}) {
+  const location = sparringLocationLines({
+    studioId:   sparring.studio_id,
+    studioName: sparring.studio_name,
+    studioCity: sparring.studio_city,
+    address:    sparring.address,
+  });
+  const slotsLeft = sparring.max_slots - sparring.signup_count;
+  const full = slotsLeft <= 0;
+  const slotsLabel = full ? 'Voll · Warteliste' : `${slotsLeft} ${slotsLeft === 1 ? 'Platz' : 'Plätze'} frei`;
+  const ownStatus = isOwn
+    ? 'Dein Sparring'
+    : sparring.my_status === 'pending' || sparring.my_status === 'confirmed'
+      ? 'Du bist dabei'
+      : sparring.my_status === 'waitlisted'
+        ? 'Auf der Warteliste'
+        : null;
+  const distance = formatDistanceKm(sparring.distance_km);
+
+  return (
+    <TouchableOpacity
+      style={styles.row}
+      onPress={() => onPress(sparring)}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`${sparring.discipline}, ${compactDateLabel(sparring.scheduled_at)}, ${location.primary}, ${distance} entfernt, ${slotsLabel}`}
+    >
+      <View style={styles.rowTop}>
+        <Text style={styles.date} numberOfLines={1}>{compactDateLabel(sparring.scheduled_at)}</Text>
+        <Text style={styles.distance}>{distance}</Text>
+      </View>
+
+      <Text style={styles.discipline} numberOfLines={1}>{sparring.discipline}</Text>
+      <Text style={styles.place} numberOfLines={1}>{location.primary}</Text>
+
+      <View style={styles.rowBottom}>
+        <View style={styles.host}>
+          <View style={styles.avatar}>
+            {sparring.host_avatar_url !== null && sparring.host_avatar_url.length > 0 ? (
+              <Image source={{ uri: sparring.host_avatar_url }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarInitials}>{getInitials(sparring.host_name)}</Text>
+            )}
+          </View>
+          {sparring.host_name !== null && (
+            <Text style={styles.hostName} numberOfLines={1}>{sparring.host_name}</Text>
+          )}
+        </View>
+        <View style={styles.tags}>
+          {ownStatus !== null && <Text style={[styles.tag, styles.tagAccent]}>{ownStatus}</Text>}
+          <Text style={[styles.tag, full && styles.tagMuted]}>{slotsLabel}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+function Notice({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.notice}>
+      <Text style={styles.noticeText}>{text}</Text>
+      <View style={styles.noticeActions}>{children}</View>
+    </View>
+  );
+}
+
+function NoticeAction({ label, icon, onPress }: {
+  label: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.noticeAction} onPress={onPress} activeOpacity={0.7} accessibilityRole="button">
+      <Ionicons name={icon} size={18} color={colors.accentBlue} />
+      <Text style={styles.noticeActionText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+const AVATAR = 32;
+
+const styles = StyleSheet.create({
+  list: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  content: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  row: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
+    gap: 4,
+  },
+  rowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  date: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    color: colors.accentBlue,
+  },
+  distance: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  discipline: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  place: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  rowBottom: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  host: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 1,
+  },
+  avatar: {
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: AVATAR,
+    height: AVATAR,
+  },
+  avatarInitials: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  hostName: {
+    flexShrink: 1,
+    fontSize: 13,
+    color: colors.text,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: 8,
+    flexShrink: 1,
+  },
+  tag: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tagMuted: {
+    color: colors.textMuted,
+  },
+  tagAccent: {
+    color: colors.accentBlue,
+    backgroundColor: colors.accentBlueSoft,
+  },
+  footnote: {
+    marginTop: 8,
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+  },
+  notice: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    gap: 8,
+  },
+  noticeText: {
+    fontSize: 15,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  noticeActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    columnGap: 24,
+  },
+  noticeAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+  },
+  noticeActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.accentBlue,
+  },
+});

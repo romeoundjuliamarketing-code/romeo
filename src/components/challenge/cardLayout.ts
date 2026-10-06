@@ -5,9 +5,15 @@ import { colors } from '../../theme/colors';
 // Width / height of a real playing card.
 export const CARD_ASPECT = 0.7;
 
-export const CARD_RADIUS = 18;
+export const CARD_RADIUS = 24;
 
 export const MAX_CARD_WIDTH = 344;
+
+// Outer margin of the session screens.
+export const SESSION_GUTTER = 24;
+
+// Widest a session card gets, so it keeps card proportions on tablets.
+const MAX_SESSION_CARD_WIDTH = 440;
 
 export interface CardSize {
   width:  number;
@@ -31,7 +37,14 @@ export function useCardSize(maxHeightFraction = 0.56): CardSize {
   }, [width, height, maxHeightFraction]);
 }
 
-export const cardShadow = Platform.select({
+// Full width between the session gutters. Height is left to the card's content
+// (ChallengeCard fitContent), so only the width is fixed here.
+export function useSessionCardWidth(): number {
+  const { width } = useWindowDimensions();
+  return Math.round(Math.min(width - SESSION_GUTTER * 2, MAX_SESSION_CARD_WIDTH));
+}
+
+export const cardShadow =Platform.select({
   ios:     { shadowColor: colors.dark, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16 },
   android: { elevation: 8 },
 });

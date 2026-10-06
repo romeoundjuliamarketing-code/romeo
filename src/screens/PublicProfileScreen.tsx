@@ -24,24 +24,26 @@ import type { FightRecord, ReportReason } from '../types/database.types';
 import { supabase } from '../lib/supabase';
 import { useSparringRatings } from '../hooks/useSparringRatings';
 import { useUserReport }      from '../hooks/useUserReport';
+import { useBlockedUsers }    from '../hooks/useBlockedUsers';
 import { SHOW_SPARRING_STARS } from '../data/sparringConfig';
 import FightRecordCard        from '../components/profil/FightRecordCard';
 import type { FighterCardData } from '../components/profil/FighterCard';
 import ProfileHeader          from '../components/profil/ProfileHeader';
 import ProfileShareSheet      from '../components/profil/ProfileShareSheet';
 import {
-  ProfileToolbar,
   PrimaryButton,
   SecondaryButton,
   ProfileSection,
-  SectionDivider,
-  FactList,
 } from '../components/profil/ProfileParts';
+import { BlockTitle, BodyStats, ProfileBio, TrainingStatement } from '../components/profil/ProfileFacts';
+import HomeGymBlock from '../components/profil/HomeGymBlock';
+import FocusedStatusBar from '../components/common/FocusedStatusBar';
+import { useGym } from '../hooks/useGyms';
+import { stanceLabel } from '../utils/stance';
 import SparringActivityCard   from '../components/profil/SparringActivityCard';
 import ProfileQrShareSheet    from '../components/profil/ProfileQrShareSheet';
 import { useAuth }            from '../context/AuthContext';
-import { getInitials }        from '../utils/initials';
-import { cardBackFacts, trainingFacts } from '../utils/athleteProfile';
+import { bodyStats, cardBackFacts, trainingHeadline } from '../utils/athleteProfile';
 import { instagramProfileUrl } from '../utils/profileDraft';
 import type { CardFrameId }   from '../data/cardFrames';
 import type { Stance }        from '../utils/stance';
@@ -80,6 +82,7 @@ interface PublicProfile {
   height_cm:         number | null;
   arm_span_cm:       number | null;
   nationality:       string | null;
+  country_code:      string | null;
   hometown:          string | null;
   bio:               string | null;
   instagram_url:     string | null;
@@ -92,16 +95,15 @@ interface PublicProfile {
   motto:             string | null;
   favorite_move:     string | null;
   training_focus:    string | null;
+  cover_url:         string | null;
+  cover_focus_x:     number;
+  cover_focus_y:     number;
+  home_gym_id:       string | null;
 }
 
 interface CurrentUserCoachInfo {
   is_coach:  boolean;
   studio_id: string | null;
-}
-
-interface StudioInfo {
-  name: string;
-  city: string;
 }
 
 // ── component ──────────────────────────────────────────────────────────────────
@@ -119,7 +121,6 @@ export default function PublicProfileScreen(): React.ReactElement {
 
   const [profile,        setProfile]        = useState<PublicProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [studio,         setStudio]         = useState<StudioInfo | null>(null);
   // "Profil teilen": preview of the collectible fighter card
   const [shareVisible,   setShareVisible]   = useState(false);
 
@@ -133,6 +134,8 @@ export default function PublicProfileScreen(): React.ReactElement {
     useSparringRatings(userId, sparringId ?? '', ratingTrigger);
 
   const { submitReport } = useUserReport();
+  const { blockedIds, block, unblock } = useBlockedUsers();
+  const isBlocked = blockedIds.has(userId);
 
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [selectedStars,      setSelectedStars]      = useState(0);
@@ -156,7 +159,7 @@ export default function PublicProfileScreen(): React.ReactElement {
     setProfileLoading(true);
     void supabase
       .from('profiles')
-      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, coach_verified_at, studio_id, nickname, weight_class, weight_kg, height_cm, arm_span_cm, nationality, hometown, bio, instagram_url, profile_code, stance, training_since, training_frequency, is_professional, card_frame, motto, favorite_move, training_focus')
+      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, coach_verified_at, studio_id, nickname, weight_class, weight_kg, height_cm, arm_span_cm, nationality, country_code, hometown, bio, instagram_url, profile_code, stance, training_since, training_frequency, is_professional, card_frame, motto, favorite_move, training_focus, cover_url, cover_focus_x, cover_focus_y, home_gym_id')
       .eq('id', userId)
       .single()
       .then(({ data }) => {
@@ -177,6 +180,7 @@ export default function PublicProfileScreen(): React.ReactElement {
             height_cm:         data.height_cm ?? null,
             arm_span_cm:       data.arm_span_cm ?? null,
             nationality:       data.nationality ?? null,
+            country_code:      data.country_code ?? null,
             hometown:          data.hometown ?? null,
             bio:               data.bio ?? null,
             instagram_url:     data.instagram_url ?? null,
@@ -189,6 +193,10 @@ export default function PublicProfileScreen(): React.ReactElement {
             motto:             data.motto ?? null,
             favorite_move:     data.favorite_move ?? null,
             training_focus:    data.training_focus ?? null,
+            cover_url:         data.cover_url ?? null,
+            cover_focus_x:     data.cover_focus_x ?? 0.5,
+            cover_focus_y:     data.cover_focus_y ?? 0.5,
+            home_gym_id:       data.home_gym_id ?? null,
           });
         }
         setProfileLoading(false);
@@ -196,18 +204,8 @@ export default function PublicProfileScreen(): React.ReactElement {
     return () => { cancelled = true; };
   }, [userId]);
 
-  // Load studio info once profile has studio_id
-  useEffect(() => {
-    if (profile?.studio_id === null || profile?.studio_id === undefined) return;
-    void supabase
-      .from('studios')
-      .select('name, city')
-      .eq('id', profile.studio_id)
-      .single()
-      .then(({ data }) => {
-        if (data !== null) setStudio({ name: data.name as string, city: data.city as string });
-      });
-  }, [profile?.studio_id]);
+  // "Hier trainiere ich" — the self-declared gym, not the team membership.
+  const { gym: homeGym } = useGym(profile?.home_gym_id ?? null);
 
   // Load target fight record
   useEffect(() => {
@@ -297,7 +295,6 @@ export default function PublicProfileScreen(): React.ReactElement {
 
   // Existing meaning: confirmed by a coach of the studio (or just vouched).
   const isVerified = profile?.coach_verified_at != null || vouched;
-  const training   = profile !== null ? trainingFacts(profile) : [];
   const bio        = profile?.bio?.trim() ?? '';
 
   // ── render ────────────────────────────────────────────────────────────────────
@@ -319,8 +316,8 @@ export default function PublicProfileScreen(): React.ReactElement {
     weightKg:      profile?.weight_kg ?? null,
     heightCm:      profile?.height_cm ?? null,
     stance:        profile?.stance ?? null,
-    gymName:       studio?.name ?? null,
-    location:      studio?.city ?? profile?.hometown ?? null,
+    gymName:       homeGym?.name ?? null,
+    location:      homeGym?.city ?? profile?.hometown ?? null,
     frame:         profile?.card_frame ?? null,
     motto:         profile?.motto ?? null,
     favoriteMove:  profile?.favorite_move ?? null,
@@ -328,83 +325,98 @@ export default function PublicProfileScreen(): React.ReactElement {
     backFacts:     profile !== null ? cardBackFacts(profile) : [],
   };
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ProfileToolbar
-        onBack={() => navigation.goBack()}
-        actions={[
-          { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
-          {
-            icon: 'flag-outline',
-            label: 'Profil melden',
-            onPress: () => { setReportModalVisible(true); setReportConfirmed(false); },
+  const openGym = (gymId: string) => navigation.push('GymDetail', { gymId });
+
+  const handleBlockToggle = (): void => {
+    const displayName = profile?.name ?? 'Diese Person';
+    const onError = ({ error }: { error: string | null }): void => {
+      if (error !== null) Alert.alert('Fehler', 'Das hat nicht geklappt. Bitte versuche es erneut.');
+    };
+    if (isBlocked) {
+      void unblock(userId).then(onError);
+      return;
+    }
+    Alert.alert(
+      `${displayName} blockieren?`,
+      'Du siehst keine Chat-Nachrichten mehr von dieser Person. Sie wird nicht benachrichtigt. Du kannst das in den Einstellungen jederzeit aufheben.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Blockieren',
+          style: 'destructive',
+          onPress: () => {
+            void block({ id: userId, name: profile?.name ?? null, avatarUrl: profile?.avatar_url ?? null }).then(onError);
           },
-        ]}
-      />
+        },
+      ],
+    );
+  };
+
+  return (
+    <View style={styles.safeArea}>
+      <FocusedStatusBar style="light" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.page}>
-          <ProfileHeader
-            data={cardData}
-            actions={(
-              <View style={styles.cardActions}>
-                {/* Main action: only what this viewer can actually do here */}
-                {canVouch && !vouched && (
-                  <PrimaryButton
-                    icon="shield-checkmark-outline"
-                    label="Als Mitglied bestätigen"
-                    loading={vouching}
-                    onPress={() => { void handleVouch(); }}
-                  />
-                )}
-                {canRateNow && (
-                  <PrimaryButton icon="star-outline" label="Jetzt bewerten" onPress={() => setRatingModalVisible(true)} />
-                )}
-                <SecondaryButton icon="share-social-outline" label="Profil teilen" onPress={() => setShareVisible(true)} />
+        <ProfileHeader
+          data={cardData}
+          coverUrl={profile?.cover_url ?? null}
+          coverFocus={{ x: profile?.cover_focus_x ?? 0.5, y: profile?.cover_focus_y ?? 0.5 }}
+          isProfessional={profile?.is_professional === true}
+          gym={homeGym !== null ? { id: homeGym.id, name: homeGym.name, city: homeGym.city } : null}
+          hometown={profile?.hometown ?? null}
+          countryCode={profile?.country_code ?? null}
+          onPressGym={homeGym !== null ? () => openGym(homeGym.id) : undefined}
+          onBack={() => navigation.goBack()}
+          toolbar={[
+            { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
+            {
+              icon: 'flag-outline',
+              label: 'Profil melden',
+              onPress: () => { setReportModalVisible(true); setReportConfirmed(false); },
+            },
+            ...(currentUserId !== null && currentUserId !== userId ? [{
+              icon: isBlocked ? 'lock-open-outline' as const : 'ban-outline' as const,
+              label: isBlocked ? 'Blockierung aufheben' : 'Blockieren',
+              onPress: handleBlockToggle,
+            }] : []),
+          ]}
+          actions={(
+            <View style={styles.cardActions}>
+              {/* Main action: only what this viewer can actually do here */}
+              {canVouch && !vouched && (
+                <PrimaryButton
+                  icon="shield-checkmark-outline"
+                  label="Als Mitglied bestätigen"
+                  loading={vouching}
+                  onPress={() => { void handleVouch(); }}
+                />
+              )}
+              {canRateNow && (
+                <PrimaryButton icon="star-outline" label="Jetzt bewerten" onPress={() => setRatingModalVisible(true)} />
+              )}
+              <View style={styles.shareRow}>
+                <SecondaryButton icon="share-social-outline" label="Teilen" onPress={() => setShareVisible(true)} />
               </View>
-            )}
-          />
-
-          {bio.length > 0 && (
-            <>
-              <SectionDivider />
-              <ProfileSection title="Über mich">
-                <Text style={styles.bioText}>{bio}</Text>
-              </ProfileSection>
-            </>
+            </View>
           )}
+        />
 
-          {training.length > 0 && (
-            <>
-              <SectionDivider />
-              <ProfileSection title="So trainiere ich">
-                <FactList rows={training} />
-              </ProfileSection>
-            </>
+        <View style={styles.page}>
+          {isBlocked && (
+            <Text style={styles.blockedHint}>Du hast diese Person blockiert. Ihre Chat-Nachrichten siehst du nicht.</Text>
           )}
+          {/* Empty parts of a foreign profile are simply left out */}
+          <View style={styles.group}>
+            <BodyStats stats={profile !== null ? bodyStats(profile, stanceLabel(profile.stance)) : []} />
+            <ProfileBio bio={bio} />
+            <TrainingStatement headline={profile !== null ? trainingHeadline(profile) : null} />
+          </View>
 
-          {/* Gym (read-only). Studios have no logo — initials instead. */}
-          {studio !== null && (
-            <>
-              <SectionDivider />
-              <ProfileSection title="Gym">
-                <View style={styles.teamRow}>
-                  <View style={styles.teamLogo}>
-                    <Text style={styles.teamLogoText}>{getInitials(studio.name)}</Text>
-                  </View>
-                  <View style={styles.flex}>
-                    <Text style={styles.teamName} numberOfLines={2}>{studio.name}</Text>
-                    {studio.city.length > 0 && <Text style={styles.teamCity}>{studio.city}</Text>}
-                  </View>
-                </View>
-              </ProfileSection>
-            </>
-          )}
+          <HomeGymBlock gym={homeGym} onOpen={openGym} />
 
-          <SectionDivider />
           {profile?.show_fight_record === true ? (
             <FightRecordCard
               fights={targetFights}
@@ -414,18 +426,17 @@ export default function PublicProfileScreen(): React.ReactElement {
               readOnly
             />
           ) : (
-            <ProfileSection title="Kampfrekord">
+            <View style={styles.group}>
+              <BlockTitle>Kampfrekord</BlockTitle>
               <Text style={styles.emptyRecordText}>Die Kämpfe werden in diesem Profil nicht öffentlich gezeigt.</Text>
-            </ProfileSection>
+            </View>
           )}
 
-          <SectionDivider />
           <SparringActivityCard userId={userId} isOwn={false} />
 
           {/* Star average — hidden behind SHOW_SPARRING_STARS in favour of the reliability quote */}
           {SHOW_SPARRING_STARS && (
             <>
-              <SectionDivider />
               <ProfileSection title="Bewertungen">
                 <View style={styles.starsRow}>
                   {[1, 2, 3, 4, 5].map((s) => (
@@ -645,7 +656,7 @@ export default function PublicProfileScreen(): React.ReactElement {
         profileCode={profile?.profile_code ?? null}
         isOwn={false}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -667,55 +678,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
     paddingBottom: 48,
   },
   page: {
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
-    gap: 24,
+    paddingHorizontal: 16,
+    paddingTop: 32,
+    gap: 40,
   },
-  flex: {
-    flex: 1,
+  group: {
+    gap: 24,
   },
   cardActions: {
     gap: 8,
   },
-  bioText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.text,
-  },
-
-  // Gym (read-only)
-  teamRow: {
+  shareRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  teamLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.dark,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  teamLogoText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.card,
-  },
-  teamName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  teamCity: {
-    fontSize: 13,
-    color: colors.textMuted,
   },
 
   // Instagram
@@ -739,6 +719,12 @@ const styles = StyleSheet.create({
   existingRatingComment: {
     fontSize: 14,
     color: colors.text,
+  },
+
+  blockedHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
   },
 
   // Record hidden by the owner

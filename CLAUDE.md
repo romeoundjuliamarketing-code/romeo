@@ -17,7 +17,7 @@ die App liest sie nur für Schnitt+Anzahl (SELECT-Policy `authenticated`).
 npx expo start --ios        # Simulator (kein Expo Go — Dev-Build noetig)
 npx expo start --android
 npx tsc --noEmit            # nach JEDER Codeaenderung pflicht
-npx jest                    # Tests; einzeln: npx jest src/utils/nutritionEngine.test.ts
+npx jest                    # Tests; einzeln: npx jest src/utils/sparringSearch.test.ts
 ```
 Kein separater Build-Schritt, kein Linter.
 
@@ -38,15 +38,10 @@ Test-Setup (`babel.config.js` + `jest.config.js`) ist environment-aware. In Test
 - Rekursive RLS vermeiden: Subqueries auf dieselbe Tabelle als `SECURITY DEFINER`-Funktion auslagern (z.B. `get_my_studio_id()`).
 
 **Feature-Map** (Details im jeweiligen Code/Test):
-- **Punkte:** `profiles.total_points`; RPCs `add_/deduct_workout_points`, `mark_/unmark_attendance`. Calc `Math.max(1, Math.floor(min/30)) * pointsPer30Min`.
+- **Entfernt (2026-10-04):** Training/Workouts/Timer, Punkte/XP/Serien, Ernaehrung/Nutrition Engine, Wasser (inkl. iOS-Widget), Montags-Gewicht, Studio-Stundenplan, Coach-Chat, Karten-Boost. Stand davor: Branch `backup/vor-aufraeumen-2026-10-04`. Server-RPCs/Tabellen (`add_/deduct_workout_points`, `mark_/unmark_attendance`, `water_logs`, `weight_logs`) bestehen noch fuer alte App-Versionen.
 - **Coach:** Peer-Vouching `coach_nominations`+`coach_votes`; Selbst-Demotion `self_demote_coach`; Selbst-Nominierung clientseitig blockiert.
-- **Subscription/Paywall:** `get_my_entitlement()` RPC; Plaene `individual`/`studio`; IAP RevenueCat+StoreKit (iOS, kein Stripe); `PaywallScreen.tsx` + `PaywallCard.tsx`; Team via `create_studio_with_owner` (nur studio-Plan).
+- **Subscription/Paywall:** `get_my_entitlement()` RPC; Plaene `individual`/`studio`; IAP RevenueCat+StoreKit (iOS, kein Stripe); `PaywallScreen.tsx`; Team via `create_studio_with_owner` (nur studio-Plan).
 - **Studio-Einladungscode:** `create_studio_invite`/`accept_studio_invite` RPCs; Hook `useStudioInvite.ts`.
-- **Nutrition Engine:** `src/utils/nutritionEngine.ts` (pure TS); Mifflin-St Jeor; Modi `recommended/faster/aggressive`; Szenario mit Deadline → `findModeForRate()`/`autoSelectMode`. Hooks `useNutritionTargets` + `useWeightGoalCoach`. 62 Tests.
-- **Trainingspensum:** `profiles.training_frequency` (`low/medium/high`) → Aktivitaetslevel-Mapping in `useNutritionTargets`.
-- **Wassertracking:** `water_logs`; Hook `useWaterTracking`; dynamisches Ziel aus Gewicht/Alter/Modus; 5 XP-Bonus.
-- **Maskottchen-Modals (montags):** `WeightCheckInModal.tsx`, `NutritionAdjustmentModal.tsx`. Konfetti: `ConfettiOverlay.tsx`.
-- **Coach Studio-Plan-Editor:** `useStudioScheduleEditor.ts`; `ScheduleEntrySheet showCoachFields`.
 - **Partner-Venues:** Bars/Locations mit Profil (`venues`/`venue_photos`/`venue_ratings`); B2B-Freischaltung serverseitig via `grant_venue_partner(...)` (service_role, kein IAP); Partner-Events gratis via `create_venue_event`; `VenueDetailScreen` rollenbewusst; persistente Map-Marker; „Meine Location"-Einstieg im Profil. Spec/Plan unter `docs/superpowers/`.
 
 **Kritische Fallstricke:**

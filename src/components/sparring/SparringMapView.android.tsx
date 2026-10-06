@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Animated, View, PanResponder, StyleSheet, Text, Image, TouchableOpacity } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet } from 'react-native';
 import {
   Map,
   Camera,
@@ -8,91 +7,19 @@ import {
   UserLocation,
   type CameraRef,
 } from '@maplibre/maplibre-react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
-import { colors } from '../../theme/colors';
-import { getTimeWindow } from '../../utils/sparringTimeWindow';
+import { sparringMarkerLabel } from '../../utils/sparringMarkerLabel';
+import { OVERVIEW_REGION } from '../../utils/mapStartRegion';
+import type { MapRegion } from '../../utils/mapStartRegion';
 import type { SparringMapViewProps } from './SparringMapView.types';
 import type { VenueMapMarker } from '../../hooks/useVenueMapMarkers';
 import ActiveMarkerScale from './ActiveMarkerScale';
+import { SparringPin, FeaturedPin, StudioPin, EventPin, VenuePin } from './MapMarkers';
 
 const MAP_STYLE = 'https://tiles.openfreemap.org/styles/liberty';
 
-const INITIAL_CENTER: [number, number] = [11.58, 48.14]; // [lng, lat] GeoJSON order
+// Overview until the start region is decided ([lng, lat] GeoJSON order).
+const INITIAL_CENTER: [number, number] = [OVERVIEW_REGION.longitude, OVERVIEW_REGION.latitude];
 const INITIAL_ZOOM = 5;
-const MIN_ZOOM     = 1;
-const MAX_ZOOM     = 16;
-
-const TRACK_HEIGHT  = 160;
-const THUMB_SIZE    = 28;
-const INITIAL_THUMB = TRACK_HEIGHT / 2;
-
-const MARKER_CONFIGS = {
-  jetzt:      { iconStyle: 'markerJetzt'      as const, icon: 'flame'        as const, size: 20 },
-  demnaechst: { iconStyle: 'markerDemnaechst' as const, icon: 'calendar'     as const, size: 18 },
-  bald:       { iconStyle: 'markerBald'       as const, icon: 'time-outline' as const, size: 18 },
-};
-
-function SparringMarker({ window: tw }: { window: 'jetzt' | 'demnaechst' | 'bald' }) {
-  const { iconStyle, icon, size } = MARKER_CONFIGS[tw];
-  return (
-    <View style={[styles.markerBase, styles[iconStyle]]}>
-      <Ionicons name={icon} size={size} color={colors.card} />
-    </View>
-  );
-}
-
-function FeaturedMarker({ isAtStudio }: { isAtStudio: boolean }) {
-  const ringColor = isAtStudio ? colors.studioGold : colors.accentBlue;
-  return (
-    <View style={styles.featuredMarkerWrapper}>
-      <View style={[styles.featuredMarkerBase, { borderColor: ringColor }]}>
-        <Image
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          source={require('../../../assets/logo-home.png')}
-          style={styles.featuredLogo}
-          resizeMode="contain"
-        />
-      </View>
-      <View style={[styles.featuredLabel, { backgroundColor: ringColor }]}>
-        <Text style={styles.featuredLabelText}>Sparr Pick</Text>
-      </View>
-    </View>
-  );
-}
-
-function SparringAtStudioMarker({ window: tw }: { window: 'jetzt' | 'demnaechst' | 'bald' }) {
-  const { iconStyle } = MARKER_CONFIGS[tw];
-  return (
-    <View style={[styles.markerBase, styles[iconStyle]]}>
-      <Ionicons name="business" size={18} color={colors.card} />
-    </View>
-  );
-}
-
-function StudioDotMarker() {
-  return (
-    <View style={styles.studioDotBase}>
-      <Ionicons name="business" size={14} color={colors.card} />
-    </View>
-  );
-}
-
-function VenueMarker() {
-  return (
-    <View style={styles.venueDotBase}>
-      <Ionicons name="location" size={16} color={colors.card} />
-    </View>
-  );
-}
-
-function EventMarker() {
-  return (
-    <View style={styles.eventMarkerBase}>
-      <MaterialCommunityIcons name="television-play" size={18} color={colors.card} />
-    </View>
-  );
-}
 
 export default function SparringMapView({
   sparrings,
@@ -100,54 +27,49 @@ export default function SparringMapView({
   onSparringPress,
   activeSparringId,
   onStudioPress,
-  totalUnread,
-  onChatPress,
   events = [],
   onEventPress,
   venueDots,
   onVenuePress,
+  startRegion,
+  overlayTop,
+  overlayBottom,
+  onUserRegionChange,
 }: SparringMapViewProps) {
-  const cameraRef     = useRef<CameraRef>(null);
-  const insets        = useSafeAreaInsets();
-  const thumbAnim     = useRef(new Animated.Value(INITIAL_THUMB)).current;
-  const gestureStartY = useRef(INITIAL_THUMB);
-  const thumbYRef     = useRef(INITIAL_THUMB);
+  const cameraRef      = useRef<CameraRef>(null);
+  // Once the user touched the map, a late start region must not yank it away.
+  const userTouchedRef = useRef(false);
+  const appliedRef     = useRef<MapRegion | null>(null);
+  // Read at fit time only: a changing overlay must not re-fit the camera.
+  const overlayRef     = useRef({ top: overlayTop, bottom: overlayBottom });
+  overlayRef.current   = { top: overlayTop, bottom: overlayBottom };
 
+  // The first region respects a user who already panned; every later one is
+  // an explicit search change (location/radius) and always moves the map.
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted' || cancelled) return;
-      const { coords } = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      if (cancelled) return;
-      cameraRef.current?.setStop({
-        center: [coords.longitude, coords.latitude],
-        zoom: 10,
-        duration: 1000,
-      });
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    if (startRegion === null || appliedRef.current === startRegion) return;
+    if (appliedRef.current === null && userTouchedRef.current) return;
+    appliedRef.current = startRegion;
+    const halfLat = startRegion.latitudeDelta / 2;
+    const halfLng = startRegion.longitudeDelta / 2;
+    cameraRef.current?.fitBounds(
+      [
+        startRegion.longitude - halfLng,
+        startRegion.latitude - halfLat,
+        startRegion.longitude + halfLng,
+        startRegion.latitude + halfLat,
+      ],
+      {
+        duration: 800,
+        // Fit the search area into the part the overlays leave free.
+        padding:  { top: overlayRef.current.top, bottom: overlayRef.current.bottom, left: 16, right: 16 },
+      },
+    );
+  }, [startRegion]);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder:  () => true,
-      onPanResponderGrant: () => {
-        gestureStartY.current = thumbYRef.current;
-      },
-      onPanResponderMove: (_evt, gs) => {
-        const next = Math.max(0, Math.min(TRACK_HEIGHT, gestureStartY.current + gs.dy));
-        thumbYRef.current = next;
-        thumbAnim.setValue(next);
-        const t       = next / TRACK_HEIGHT; // 0=top=zoomed in, 1=bottom=zoomed out
-        const newZoom = MAX_ZOOM - t * (MAX_ZOOM - MIN_ZOOM);
-        cameraRef.current?.zoomTo(newZoom, { duration: 0 });
-      },
-    }),
-  ).current;
+  // Required attribution and logo stay visible above the bottom controls.
+  const attributionPosition = useMemo(() => ({ bottom: overlayBottom + 8, right: 8 }), [overlayBottom]);
+  const logoPosition        = useMemo(() => ({ bottom: overlayBottom + 8, left: 8 }), [overlayBottom]);
 
   const sortedSparrings = useMemo(
     () => [...sparrings].sort((a, b) => Number(a.is_featured) - Number(b.is_featured)),
@@ -155,8 +77,25 @@ export default function SparringMapView({
   );
 
   return (
-    <View style={styles.root}>
-      <Map mapStyle={MAP_STYLE} style={styles.map}>
+    <View style={styles.root} onTouchStart={() => { userTouchedRef.current = true; }}>
+      <Map
+        mapStyle={MAP_STYLE}
+        style={styles.map}
+        attributionPosition={attributionPosition}
+        logoPosition={logoPosition}
+        onRegionDidChange={(e) => {
+          const { userInteraction, bounds } = e.nativeEvent;
+          if (!userInteraction || onUserRegionChange === undefined) return;
+          // [west, south, east, north]
+          const [west, south, east, north] = bounds;
+          onUserRegionChange({
+            latitude:       (south + north) / 2,
+            longitude:      (west + east) / 2,
+            latitudeDelta:  north - south,
+            longitudeDelta: east - west,
+          });
+        }}
+      >
         <Camera
           ref={cameraRef}
           initialViewState={{ center: INITIAL_CENTER, zoom: INITIAL_ZOOM }}
@@ -171,11 +110,14 @@ export default function SparringMapView({
           >
             <ActiveMarkerScale active={s.id === activeSparringId}>
               {s.is_featured
-                ? <FeaturedMarker isAtStudio={s.is_at_studio} />
-                : s.is_at_studio
-                  ? <SparringAtStudioMarker window={getTimeWindow(s.scheduled_at)} />
-                  : <SparringMarker window={getTimeWindow(s.scheduled_at)} />
-              }
+                ? <FeaturedPin atStudio={s.is_at_studio} active={s.id === activeSparringId} />
+                : (
+                  <SparringPin
+                    label={sparringMarkerLabel(s.discipline, s.scheduled_at)}
+                    atStudio={s.is_at_studio}
+                    active={s.id === activeSparringId}
+                  />
+                )}
             </ActiveMarkerScale>
           </Marker>
         ))}
@@ -186,7 +128,7 @@ export default function SparringMapView({
             lngLat={[st.lng, st.lat]}
             onPress={() => onStudioPress(st)}
           >
-            <StudioDotMarker />
+            <StudioPin />
           </Marker>
         ))}
 
@@ -196,7 +138,7 @@ export default function SparringMapView({
             lngLat={[e.lng!, e.lat!]}
             onPress={() => { if (onEventPress) onEventPress(e); }}
           >
-            <EventMarker />
+            <EventPin />
           </Marker>
         ))}
 
@@ -206,33 +148,10 @@ export default function SparringMapView({
             lngLat={[venue.lng, venue.lat]}
             onPress={() => onVenuePress(venue)}
           >
-            <VenueMarker />
+            <VenuePin />
           </Marker>
         ))}
       </Map>
-
-      <View style={styles.zoomSliderOuter} pointerEvents="box-none">
-        <Ionicons name="add" size={16} color={colors.textSecondary} />
-        <View style={[styles.zoomTrackWrapper, { height: TRACK_HEIGHT + THUMB_SIZE }]}>
-          <View style={styles.zoomTrack} />
-          <Animated.View
-            style={[styles.zoomThumb, { top: Animated.subtract(thumbAnim, THUMB_SIZE / 2) }]}
-            {...panResponder.panHandlers}
-          />
-        </View>
-        <Ionicons name="remove" size={16} color={colors.textSecondary} />
-      </View>
-
-      <TouchableOpacity style={[styles.chatBtn, { bottom: insets.bottom + 16 }]} onPress={onChatPress} activeOpacity={0.85}>
-        <Ionicons name="chatbubbles-outline" size={22} color={colors.card} />
-        {totalUnread > 0 && (
-          <View style={styles.chatBtnBadge}>
-            <Text style={styles.chatBtnBadgeText}>
-              {totalUnread > 99 ? '99+' : String(totalUnread)}
-            </Text>
-          </View>
-        )}
-      </TouchableOpacity>
     </View>
   );
 }
@@ -240,131 +159,4 @@ export default function SparringMapView({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   map:  { flex: 1 },
-  markerBase: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-  },
-  markerJetzt:      { backgroundColor: colors.deleteRed },
-  markerDemnaechst: { backgroundColor: colors.sparringsOrange },
-  markerBald:       { backgroundColor: colors.accentBlue },
-  featuredMarkerWrapper: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  featuredMarkerBase: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.accentBlue,
-    elevation: 6,
-  },
-  featuredLogo: { width: 32, height: 32 },
-  featuredLabel: {
-    backgroundColor: colors.accentBlue,
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  featuredLabelText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.card,
-    letterSpacing: 0.3,
-  },
-  studioDotBase: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.studioGold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
-  },
-  venueDotBase: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.catPartnertraining,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-  },
-  eventMarkerBase: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.sparringsOrange,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-  },
-  zoomSliderOuter: {
-    position: 'absolute',
-    right: 16,
-    top: '30%',
-    alignItems: 'center',
-    gap: 8,
-  },
-  zoomTrackWrapper: {
-    width: 28,
-    alignItems: 'center',
-  },
-  zoomTrack: {
-    position: 'absolute',
-    top: 14,
-    bottom: 14,
-    width: 4,
-    borderRadius: 2,
-    backgroundColor: colors.card,
-    elevation: 2,
-  },
-  zoomThumb: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.card,
-    elevation: 4,
-  },
-  chatBtn: {
-    position:        'absolute',
-    bottom:          32,
-    left:            16,
-    width:           52,
-    height:          52,
-    borderRadius:    26,
-    backgroundColor: colors.dark,
-    alignItems:      'center',
-    justifyContent:  'center',
-    shadowColor:     colors.dark,
-    shadowOffset:    { width: 0, height: 2 },
-    shadowOpacity:   0.25,
-    shadowRadius:    6,
-    elevation:       6,
-  },
-  chatBtnBadge: {
-    position:          'absolute',
-    top:               -2,
-    right:             -2,
-    minWidth:          18,
-    height:            18,
-    borderRadius:      9,
-    backgroundColor:   colors.deleteRed,
-    alignItems:        'center',
-    justifyContent:    'center',
-    paddingHorizontal: 3,
-  },
-  chatBtnBadgeText: {
-    fontSize:   10,
-    fontWeight: '700',
-    color:      colors.card,
-  },
 });

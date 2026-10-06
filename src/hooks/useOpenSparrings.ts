@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
@@ -23,6 +24,11 @@ export interface SparringWithMeta {
   is_at_studio: boolean;
   verified_only: boolean;
   created_at: string;
+  // Set by update_sparring (any edit) — shown as "Bearbeitet".
+  edited_at: string | null;
+  // Gym the sparring takes place at (a location, not an organizer) + access note.
+  gym_id: string | null;
+  access_note: string | null;
   studio_name: string;
   studio_city: string;
   // Slot holders only (pending + confirmed) — never cancelled/expired/waitlisted.
@@ -35,7 +41,7 @@ export interface SparringWithMeta {
   my_status: SparringSignupStatus | null;
 }
 
-type OpenSparringRow = {
+export type OpenSparringRow = {
   id: string;
   studio_id: string | null;
   created_by: string;
@@ -53,9 +59,14 @@ type OpenSparringRow = {
   is_at_studio: boolean | null;
   verified_only: boolean | null;
   created_at: string;
+  // Absent until the sparring-edit migration is deployed.
+  edited_at?: string | null;
+  // Absent until the athlete-profile-gyms migration is deployed.
+  gym_id?: string | null;
+  access_note?: string | null;
 };
 
-type StudioJoin = { name: string; city: string } | null;
+export type StudioJoin = { name: string; city: string } | null;
 
 interface RowMeta {
   studio: StudioJoin;
@@ -87,6 +98,9 @@ function mapSparringRow(row: OpenSparringRow, meta: RowMeta): SparringWithMeta {
     is_at_studio: row.is_at_studio ?? false,
     verified_only: row.verified_only ?? false,
     created_at: row.created_at,
+    edited_at: row.edited_at ?? null,
+    gym_id: row.gym_id ?? null,
+    access_note: row.access_note ?? null,
     studio_name: meta.studio?.name ?? 'Privat',
     studio_city: meta.studio?.city ?? '',
     signup_count: meta.signupCount,
@@ -144,6 +158,64 @@ export async function fetchSparringById(id: string, userId: string): Promise<Spa
   });
 }
 
+// Adds slot counts, boost flag and the user's own status to raw open_sparrings
+// rows (joined with studios). Shared by the full list and the nearby search so
+// both show the same numbers. `error` is the first failed lookup, if any.
+export async function enrichSparringRows(
+  rows: Array<OpenSparringRow & { studios: StudioJoin }>,
+  userId: string,
+  nowIso: string,
+): Promise<{ data: SparringWithMeta[]; error: PostgrestError | null }> {
+  const sparringIds = rows.map((r) => r.id);
+
+  const [mine, slots, boosts] = await Promise.all([
+    // Own status for every sparring, any status — drives my_status/CTA.
+    sparringIds.length > 0
+      ? supabase.from('sparring_signups').select('sparring_id, status').eq('user_id', userId).in('sparring_id', sparringIds)
+      : Promise.resolve({ data: [] as Array<{ sparring_id: string; status: SparringSignupStatus }>, error: null }),
+    // Only slot holders count towards signup_count/confirmed_count — spec 16.9.
+    sparringIds.length > 0
+      ? supabase
+          .from('sparring_signups')
+          .select('sparring_id, status')
+          .in('sparring_id', sparringIds)
+          .in('status', ['pending', 'confirmed'])
+      : Promise.resolve({ data: [] as Array<{ sparring_id: string; status: SparringSignupStatus }>, error: null }),
+    sparringIds.length > 0
+      ? supabase
+          .from('map_boosts')
+          .select('sparring_id')
+          .eq('is_active', true)
+          .gt('expires_at', nowIso)
+          .in('sparring_id', sparringIds)
+      : Promise.resolve({ data: [] as Array<{ sparring_id: string }>, error: null }),
+  ]);
+
+  const myStatusMap: Record<string, SparringSignupStatus> = {};
+  for (const s of mine.data ?? []) {
+    myStatusMap[s.sparring_id] = s.status;
+  }
+  const boostedIds = new Set((boosts.data ?? []).map((b) => b.sparring_id));
+  const signupCountMap: Record<string, number> = {};
+  const confirmedCountMap: Record<string, number> = {};
+  for (const s of slots.data ?? []) {
+    signupCountMap[s.sparring_id] = (signupCountMap[s.sparring_id] ?? 0) + 1;
+    if (s.status === 'confirmed') {
+      confirmedCountMap[s.sparring_id] = (confirmedCountMap[s.sparring_id] ?? 0) + 1;
+    }
+  }
+
+  const data = rows.map((r) => mapSparringRow(r, {
+    studio: r.studios,
+    isBoosted: boostedIds.has(r.id),
+    signupCount: signupCountMap[r.id] ?? 0,
+    confirmedCount: confirmedCountMap[r.id] ?? 0,
+    myStatus: myStatusMap[r.id] ?? null,
+  }));
+
+  return { data, error: mine.error ?? slots.error ?? boosts.error ?? null };
+}
+
 type OpenSparringsSnapshot = { sparrings: SparringWithMeta[] };
 
 export function useOpenSparrings(refetchTrigger = 0): {
@@ -179,50 +251,11 @@ export function useOpenSparrings(refetchTrigger = 0): {
         return;
       }
 
-      const sparringIds = (rows ?? []).map((r) => r.id);
-
-      const [{ data: mySignups }, { data: slotSignups }, { data: activeBoosts }] = await Promise.all([
-        // Own status for every sparring, any status — drives my_status/CTA.
-        supabase.from('sparring_signups').select('sparring_id, status').eq('user_id', user.id),
-        // Only slot holders count towards signup_count/confirmed_count — spec 16.9.
-        sparringIds.length > 0
-          ? supabase
-              .from('sparring_signups')
-              .select('sparring_id, status')
-              .in('sparring_id', sparringIds)
-              .in('status', ['pending', 'confirmed'])
-          : Promise.resolve({ data: [] as Array<{ sparring_id: string; status: SparringSignupStatus }>, error: null }),
-        sparringIds.length > 0
-          ? supabase
-              .from('map_boosts')
-              .select('sparring_id')
-              .eq('is_active', true)
-              .gt('expires_at', now)
-              .in('sparring_id', sparringIds)
-          : Promise.resolve({ data: [] as Array<{ sparring_id: string }>, error: null }),
-      ]);
-
-      const myStatusMap: Record<string, SparringSignupStatus> = {};
-      for (const s of mySignups ?? []) {
-        myStatusMap[s.sparring_id] = s.status;
-      }
-      const boostedIds = new Set((activeBoosts ?? []).map((b) => b.sparring_id));
-      const signupCountMap: Record<string, number> = {};
-      const confirmedCountMap: Record<string, number> = {};
-      for (const s of slotSignups ?? []) {
-        signupCountMap[s.sparring_id] = (signupCountMap[s.sparring_id] ?? 0) + 1;
-        if (s.status === 'confirmed') {
-          confirmedCountMap[s.sparring_id] = (confirmedCountMap[s.sparring_id] ?? 0) + 1;
-        }
-      }
-
-      const result: SparringWithMeta[] = (rows ?? []).map((r) => mapSparringRow(r as OpenSparringRow, {
-        studio: r.studios as StudioJoin,
-        isBoosted: boostedIds.has(r.id),
-        signupCount: signupCountMap[r.id] ?? 0,
-        confirmedCount: confirmedCountMap[r.id] ?? 0,
-        myStatus: myStatusMap[r.id] ?? null,
-      }));
+      const { data: result } = await enrichSparringRows(
+        (rows ?? []) as Array<OpenSparringRow & { studios: StudioJoin }>,
+        user.id,
+        now,
+      );
 
       reportNetworkSuccess();
       setSparrings(result);

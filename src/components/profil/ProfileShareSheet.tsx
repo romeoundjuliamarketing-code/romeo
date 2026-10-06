@@ -35,7 +35,6 @@ const STORY_PHOTO_H = 128;
 export default function ProfileShareSheet({
   visible, onClose, data, profileCode, isOwn, onSelectFrame,
 }: Props): React.ReactElement {
-  const [flipped, setFlipped] = useState(false);
   const [frameId, setFrameId] = useState<CardFrameId>(cardFrame(data.frame).id);
   const [savingFrame, setSavingFrame] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -44,11 +43,10 @@ export default function ProfileShareSheet({
   // Modal can measure zero insets, pushing the close button under the status bar.
   const insets = useSafeAreaInsets();
 
-  // Opening the sheet always starts on the front with the saved frame
-  // (keyed on `visible` only, so saving a frame does not flip the card back).
+  // Opening the sheet always starts with the saved frame
+  // (keyed on `visible` only, so saving a frame is not reset).
   useEffect(() => {
     if (visible) {
-      setFlipped(false);
       setFrameId(cardFrame(data.frame).id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -113,13 +111,8 @@ export default function ProfileShareSheet({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.page}>
-            <FighterCard data={previewData} flipped={flipped} isOwn={isOwn} />
-
-            <SecondaryButton
-              icon="sync-outline"
-              label={flipped ? 'Vorderseite zeigen' : 'Rückseite zeigen'}
-              onPress={() => setFlipped((v) => !v)}
-            />
+            {/* Shared profile shows the front only — no back side */}
+            <FighterCard data={previewData} flipped={false} isOwn={isOwn} frontOnly />
 
             {isOwn && onSelectFrame !== undefined && (
               <View style={styles.block}>

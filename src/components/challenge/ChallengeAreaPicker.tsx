@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { CHALLENGE_AREAS, challengesForArea } from '../../data/sparringChallenges';
+import { availableChallengeAreas } from '../../utils/challengeAvailability';
 import type { ChallengeArea } from '../../data/sparringChallenges';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import ChallengeHeader from './ChallengeHeader';
 
@@ -20,9 +20,8 @@ function AreaPickerContent({ current, onSelect }: Omit<Props, 'onClose'>): React
       <Text style={styles.title}>Für welche Disziplin willst du Karten?</Text>
 
       <View style={styles.list}>
-        {CHALLENGE_AREAS.map((entry) => {
+        {availableChallengeAreas().map((entry) => {
           const active = entry.key === current;
-          const count = challengesForArea(entry.key).length;
           return (
             <TouchableOpacity
               key={entry.key}
@@ -34,9 +33,6 @@ function AreaPickerContent({ current, onSelect }: Omit<Props, 'onClose'>): React
             >
               <Text style={styles.rowLabel}>
                 {entry.label}
-              </Text>
-              <Text style={[styles.rowCount, active && styles.rowCountActive]}>
-                {count} {count === 1 ? 'Karte' : 'Karten'}
               </Text>
             </TouchableOpacity>
           );
@@ -61,15 +57,21 @@ export default function ChallengeAreaPicker({ current, onSelect, onClose }: Prop
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
-        <ChallengeHeader
-          title="Disziplin"
-          icon="close"
-          iconLabel="Schliessen"
-          onPress={onClose}
-        />
-        <AreaPickerContent current={current} onSelect={onSelect} />
-      </SafeAreaView>
+      {/* Own provider: this Modal covers the whole screen, but it is opened from a
+          screen presented as a sheet, whose inset context reports no top inset. Without
+          this the header would sit under the notch. initialWindowMetrics gives the real
+          window insets right away, so nothing jumps on the first frame. */}
+      <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+        <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
+          <ChallengeHeader
+            title="Disziplin"
+            icon="close"
+            iconLabel="Schliessen"
+            onPress={onClose}
+          />
+          <AreaPickerContent current={current} onSelect={onSelect} />
+        </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }
@@ -110,14 +112,6 @@ const styles = StyleSheet.create({
   rowLabel: {
     fontSize: 18,
     fontWeight: '700',
-    color: colors.headerTextPrimary,
-  },
-  rowCount: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.headerTextSecondary,
-  },
-  rowCountActive: {
     color: colors.headerTextPrimary,
   },
 });

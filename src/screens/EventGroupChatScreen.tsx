@@ -19,9 +19,12 @@ import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-n
 import { colors } from '../theme/colors';
 import { useEventGroupChat } from '../hooks/useEventGroupChat';
 import { useAuth } from '../context/AuthContext';
+import { useBlockedUsers } from '../hooks/useBlockedUsers';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
+import { withoutBlocked } from '../utils/blockedFilter';
 import { chatDateLabel } from '../utils/chatDate';
 import { computeLayoutFlags } from '../utils/chatMessages';
-import { useChatListScroll, NEAR_LATEST_PX } from '../hooks/useChatListScroll';
+import { useChatListScroll, chatKeyExtractor, CHAT_MAINTAIN_POSITION } from '../hooks/useChatListScroll';
 import ChatDateSeparator from '../components/chat/ChatDateSeparator';
 import ChatComposer from '../components/chat/ChatComposer';
 import NewMessagesPill from '../components/chat/NewMessagesPill';
@@ -107,12 +110,6 @@ const EventMessageBubble = React.memo(function EventMessageBubble({ message, isO
   );
 });
 
-const MAINTAIN_POSITION = { minIndexForVisible: 0, autoscrollToTopThreshold: NEAR_LATEST_PX };
-
-function keyExtractor(m: EventMessageWithSender): string {
-  return m.id;
-}
-
 function sameSenderGroup(a: EventMessageWithSender, b: EventMessageWithSender): boolean {
   return a.user_id === b.user_id;
 }
@@ -130,8 +127,16 @@ export default function EventGroupChatScreen() {
     sending, isReadOnly, sendError, sendText, clearSendError,
   } = useEventGroupChat(eventId, scheduledAt, durationMin);
 
+  const { blockedIds, refetch: refetchBlocked } = useBlockedUsers();
+  // Blocking happens on a profile pushed over this chat; pick it up on return.
+  useFocusRefetch(refetchBlocked);
+
   // Inverted list: index 0 is the newest message and sits at the bottom.
-  const newestFirst = useMemo(() => [...messages].reverse(), [messages]);
+  // Blocked senders are hidden at render time only, so paging stays intact.
+  const newestFirst = useMemo(
+    () => [...withoutBlocked(messages, blockedIds, (m) => m.user_id)].reverse(),
+    [messages, blockedIds],
+  );
   const userId      = user?.id ?? null;
   const isOwnMsg    = useCallback((m: EventMessageWithSender) => m.user_id === userId, [userId]);
   const { listRef, onScroll, showHint, scrollToLatest } = useChatListScroll(newestFirst, isOwnMsg);
@@ -191,13 +196,12 @@ export default function EventGroupChatScreen() {
             ref={listRef}
             inverted
             data={newestFirst}
-            keyExtractor={keyExtractor}
+            keyExtractor={chatKeyExtractor}
             renderItem={renderItem}
             contentContainerStyle={styles.messageList}
             onScroll={onScroll}
             scrollEventThrottle={100}
-            // Keeps the reading position when messages arrive; follows them near the bottom.
-            maintainVisibleContentPosition={MAINTAIN_POSITION}
+            maintainVisibleContentPosition={CHAT_MAINTAIN_POSITION}
             onEndReached={hasMore ? loadOlder : undefined}
             onEndReachedThreshold={0.5}
             ListFooterComponent={loadingOlder

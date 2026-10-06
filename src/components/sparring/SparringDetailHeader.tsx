@@ -15,6 +15,8 @@ interface Props {
   verifiedOnly:  boolean;
   isCreator:     boolean;
   hasStarted:    boolean;
+  /** Organizer changed the sparring after publishing it */
+  edited:        boolean;
   onClose:       () => void;
 }
 
@@ -23,7 +25,7 @@ interface Props {
 // numbers that matter at a glance.
 export default function SparringDetailHeader({
   title, discipline, bannerColor, dateLabel, takingPart, slotsLeft, durationMin,
-  isFeatured, verifiedOnly, isCreator, hasStarted, onClose,
+  isFeatured, verifiedOnly, isCreator, hasStarted, edited, onClose,
 }: Props): React.ReactElement {
   const slotsLabel = hasStarted
     ? 'Vorbei'
@@ -68,7 +70,10 @@ export default function SparringDetailHeader({
       </View>
 
       <Text style={styles.title} numberOfLines={2} accessibilityRole="header">{title}</Text>
-      <Text style={styles.date}>{dateLabel}</Text>
+      <Text style={styles.date}>
+        {dateLabel}
+        {edited && <Text style={styles.edited}> · Bearbeitet</Text>}
+      </Text>
 
       <View style={styles.stats}>
         <Stat icon="people" label={`${takingPart} dabei`} />
@@ -143,6 +148,10 @@ const styles = StyleSheet.create({
     fontWeight:    '700',
     letterSpacing: 1,
     color:         colors.headerTextSecondary,
+  },
+  edited: {
+    fontWeight: '500',
+    color:      colors.headerTextSecondary,
   },
   stats: {
     flexDirection: 'row',

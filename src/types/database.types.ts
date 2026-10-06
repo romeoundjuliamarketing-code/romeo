@@ -28,6 +28,7 @@ export type Database = {
           membership_type: string
           name: string | null
           nationality: string | null
+          country_code: string | null
           nickname: string | null
           onboarding_completed: boolean
           show_fitness_in_group: boolean
@@ -58,6 +59,10 @@ export type Database = {
           phone_verified_at: string | null
           coach_verified_at: string | null
           coach_verified_by: string | null
+          cover_url: string | null
+          cover_focus_x: number
+          cover_focus_y: number
+          home_gym_id: string | null
         }
         Insert: {
           age_years?: number | null
@@ -77,6 +82,7 @@ export type Database = {
           membership_type?: string
           name?: string | null
           nationality?: string | null
+          country_code?: string | null
           nickname?: string | null
           onboarding_completed?: boolean
           show_fitness_in_group?: boolean
@@ -107,6 +113,10 @@ export type Database = {
           phone_verified_at?: string | null
           coach_verified_at?: string | null
           coach_verified_by?: string | null
+          cover_url?: string | null
+          cover_focus_x?: number
+          cover_focus_y?: number
+          home_gym_id?: string | null
         }
         Update: {
           age_years?: number | null
@@ -126,6 +136,7 @@ export type Database = {
           membership_type?: string
           name?: string | null
           nationality?: string | null
+          country_code?: string | null
           nickname?: string | null
           onboarding_completed?: boolean
           show_fitness_in_group?: boolean
@@ -156,6 +167,10 @@ export type Database = {
           phone_verified_at?: string | null
           coach_verified_at?: string | null
           coach_verified_by?: string | null
+          cover_url?: string | null
+          cover_focus_x?: number
+          cover_focus_y?: number
+          home_gym_id?: string | null
         }
         Relationships: [
           {
@@ -352,6 +367,7 @@ export type Database = {
           lng: number | null
           name: string
           owner_user_id: string | null
+          created_by: string | null
         }
         Insert: {
           address?: string | null
@@ -366,6 +382,7 @@ export type Database = {
           lng?: number | null
           name: string
           owner_user_id?: string | null
+          created_by?: string | null
         }
         Update: {
           address?: string | null
@@ -380,6 +397,35 @@ export type Database = {
           lng?: number | null
           name?: string
           owner_user_id?: string | null
+          created_by?: string | null
+        }
+        Relationships: []
+      }
+      gym_correction_requests: {
+        Row: {
+          id: string
+          studio_id: string
+          user_id: string
+          proposed_name: string | null
+          proposed_city: string | null
+          proposed_address: string | null
+          note: string | null
+          status: 'open' | 'applied' | 'rejected'
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          studio_id: string
+          user_id?: string
+          proposed_name?: string | null
+          proposed_city?: string | null
+          proposed_address?: string | null
+          note?: string | null
+          status?: 'open'
+          created_at?: string
+        }
+        Update: {
+          [_ in never]: never
         }
         Relationships: []
       }
@@ -480,6 +526,10 @@ export type Database = {
           is_at_studio: boolean
           verified_only: boolean
           created_at: string
+          edited_at: string | null
+          material_changed_at: string | null
+          gym_id: string | null
+          access_note: string | null
         }
         Insert: {
           id?: string
@@ -499,6 +549,10 @@ export type Database = {
           is_at_studio?: boolean
           verified_only?: boolean
           created_at?: string
+          edited_at?: string | null
+          material_changed_at?: string | null
+          gym_id?: string | null
+          access_note?: string | null
         }
         Update: {
           id?: string
@@ -518,6 +572,10 @@ export type Database = {
           is_at_studio?: boolean
           verified_only?: boolean
           created_at?: string
+          edited_at?: string | null
+          material_changed_at?: string | null
+          gym_id?: string | null
+          access_note?: string | null
         }
         Relationships: [
           {
@@ -837,6 +895,24 @@ export type Database = {
           reason?:          'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
           details?:         string | null
           created_at?:      string
+        }
+        Relationships: []
+      }
+      user_blocks: {
+        Row: {
+          blocker_id: string
+          blocked_id: string
+          created_at: string
+        }
+        Insert: {
+          blocker_id:  string
+          blocked_id:  string
+          created_at?: string
+        }
+        Update: {
+          blocker_id?: string
+          blocked_id?: string
+          created_at?: string
         }
         Relationships: []
       }
@@ -1978,6 +2054,15 @@ export type Database = {
           extra_seats: number
         }[]
       }
+      get_my_store_entitlements: {
+        Args: Record<string, never>
+        Returns: {
+          can_create_sparring: boolean
+          creator_active: boolean
+          cards_active: boolean
+          creation_requires_sub: boolean
+        }[]
+      }
       grant_studio_tier: {
         Args: { p_user_id: string; p_tier: string; p_period_end: string }
         Returns: undefined
@@ -2021,6 +2106,34 @@ export type Database = {
       cancel_sparring_signup: {
         Args: { p_sparring_id: string }
         Returns: 'cancelled' | 'cancelled_late'
+      }
+      update_sparring: {
+        Args: {
+          p_id:            string
+          p_title:         string
+          p_notes:         string | null
+          p_discipline:    string
+          p_address:       string
+          p_lat:           number | null
+          p_lng:           number | null
+          p_scheduled_at:  string
+          p_duration_min:  number
+          p_max_slots:     number
+          p_verified_only: boolean
+        }
+        Returns: {
+          material:       boolean
+          changed_fields: string[]
+          notified:       number
+        }
+      }
+      create_gym: {
+        Args: { p_name: string; p_city: string; p_address?: string | null }
+        Returns: { id: string; name: string; city: string; address: string | null; created: boolean }[]
+      }
+      set_sparring_gym: {
+        Args: { p_id: string; p_gym_id: string | null; p_access_note: string | null }
+        Returns: undefined
       }
       mark_sparring_attendance: {
         Args: { p_sparring_id: string; p_user_id: string; p_present: boolean }
@@ -2141,6 +2254,25 @@ export type Database = {
           unread_count:      number
         }[]
       }
+      get_community_member_count: {
+        Args: Record<string, never>
+        Returns: number
+      }
+      get_upcoming_fight_events: {
+        Args: Record<string, never>
+        Returns: {
+          id:           string
+          promotion:    'UFC' | 'OKTAGON'
+          name:         string
+          event_date:   string
+          prelims_at:   string | null
+          main_card_at: string | null
+          ends_at:      string | null
+          status:       'scheduled' | 'cancelled'
+          source_url:   string | null
+          updated_at:   string
+        }[]
+      }
       get_my_chats: {
         Args: Record<string, never>
         Returns: {
@@ -2153,6 +2285,27 @@ export type Database = {
           last_message_text: string | null
           last_message_at:   string | null
           unread_count:      number
+        }[]
+      }
+      get_my_chats_v2: {
+        Args: Record<string, never>
+        Returns: {
+          kind:              'sparring' | 'event'
+          chat_id:           string
+          title:             string
+          scheduled_at:      string
+          duration_min:      number
+          is_organizer:      boolean
+          last_message_text: string | null
+          last_message_at:   string | null
+          unread_count:      number
+          place_name:        string | null
+          address:           string | null
+          last_sender_name:  string | null
+          last_from_me:      boolean
+          last_is_system:    boolean
+          my_status:         string | null
+          participants:      { id: string; name: string | null; avatar_url: string | null }[]
         }[]
       }
       get_my_verification: {
@@ -2333,6 +2486,7 @@ export type SparringRatingInsert = Database['public']['Tables']['sparring_rating
 export type UserReport = Database['public']['Tables']['user_reports']['Row']
 export type UserReportInsert = Database['public']['Tables']['user_reports']['Insert']
 export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+export type UserBlock = Database['public']['Tables']['user_blocks']['Row']
 export type SparringMessage = Database['public']['Tables']['sparring_messages']['Row']
 export type SparringMessageInsert = Database['public']['Tables']['sparring_messages']['Insert']
 export type SparringGroupMessage        = Database['public']['Tables']['sparring_group_messages']['Row']

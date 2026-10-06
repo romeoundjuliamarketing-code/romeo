@@ -5,14 +5,17 @@ import { colors } from '../../theme/colors';
 import type { LocationPickerMapProps } from './LocationPickerMap.types';
 
 // Apple Maps (PROVIDER_DEFAULT) — no API key required on iOS.
-const FALLBACK_REGION = {
-  latitude: 48.14,
-  longitude: 11.58,
-  latitudeDelta: 0.08,
-  longitudeDelta: 0.08,
+// Without a position: Germany overview instead of a made-up city.
+const OVERVIEW_REGION = {
+  latitude: 51.2,
+  longitude: 10.4,
+  latitudeDelta: 9,
+  longitudeDelta: 9,
 };
+const USER_DELTA = 0.05;
 
 export default function LocationPickerMap({
+  initialCenter,
   centerOn,
   marker,
   onPress,
@@ -26,8 +29,8 @@ export default function LocationPickerMap({
       {
         latitude: centerOn.latitude,
         longitude: centerOn.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitudeDelta: USER_DELTA,
+        longitudeDelta: USER_DELTA,
       },
       600,
     );
@@ -38,7 +41,11 @@ export default function LocationPickerMap({
       ref={mapRef}
       provider={PROVIDER_DEFAULT}
       style={styles.map}
-      initialRegion={FALLBACK_REGION}
+      initialRegion={
+        initialCenter !== null
+          ? { ...initialCenter, latitudeDelta: USER_DELTA, longitudeDelta: USER_DELTA }
+          : OVERVIEW_REGION
+      }
       onPress={(e) => onPress(e.nativeEvent.coordinate.latitude, e.nativeEvent.coordinate.longitude)}
       showsUserLocation={showsUserLocation}
     >

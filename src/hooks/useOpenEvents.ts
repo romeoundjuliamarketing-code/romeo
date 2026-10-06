@@ -26,7 +26,7 @@ export interface EventWithMeta {
 
 type OpenEventsSnapshot = { events: EventWithMeta[] };
 
-export function useOpenEvents(refetchTrigger = 0): {
+export function useOpenEvents(refetchTrigger = 0, enabled = true): {
   events: EventWithMeta[];
   loading: boolean;
   refetch: () => void;
@@ -41,7 +41,7 @@ export function useOpenEvents(refetchTrigger = 0): {
   const refetch = useCallback(() => setLocalTrigger((n) => n + 1), []);
 
   useEffect(() => {
-    if (user === null) return;
+    if (user === null || !enabled) return;
 
     void (async () => {
       const now = new Date().toISOString();
@@ -99,7 +99,7 @@ export function useOpenEvents(refetchTrigger = 0): {
       if (cacheKey) setCached<OpenEventsSnapshot>(cacheKey, { events: result });
       setLoading(false);
     })();
-  }, [user, refetchTrigger, localTrigger]);
+  }, [user, refetchTrigger, localTrigger, enabled]);
 
   return { events, loading, refetch };
 }

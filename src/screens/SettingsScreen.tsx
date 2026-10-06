@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, Switch,
-  TouchableOpacity, Alert, ActivityIndicator, Linking, Modal,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, Alert, ActivityIndicator, Linking, Modal, Platform, Switch,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,16 +10,20 @@ import { useNavigation } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
-import { useProfile } from '../hooks/useProfile';
 import { useEntitlement } from '../hooks/useEntitlement';
-import { useSchedule } from '../hooks/useSchedule';
-import { useNotifications } from '../hooks/useNotifications';
+import { useStoreEntitlements } from '../hooks/useStoreEntitlements';
+import { planLabel } from '../utils/subscriptionPlans';
 import { supabase } from '../lib/supabase';
+import { revokeAppleAuthorization } from '../lib/socialAuth';
+import { requestPasswordReset } from '../lib/passwordReset';
 import { PROXIMITY_RADIUS_KEY } from '../hooks/useProximitySparringNotifications';
 import { useCaptcha } from '../hooks/useCaptcha';
+import { useProfile } from '../hooks/useProfile';
+import { useBlockedUsers } from '../hooks/useBlockedUsers';
+import { useFocusRefetch } from '../hooks/useFocusRefetch';
+import { restorePurchases } from '../lib/restorePurchases';
 import TurnstileWidget from '../components/auth/TurnstileWidget';
 
-const PREWORKOUT_KEY = 'preworkout_enabled';
 const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
 type RadiusOption = typeof RADIUS_OPTIONS[number];
 
@@ -44,57 +48,31 @@ function SettingsRow({
   );
 }
 
-function ToggleRow({
-  icon, label, subtitle, value, onToggle,
-}: {
-  icon: string; label: string; subtitle?: string; value: boolean; onToggle: (v: boolean) => void;
-}): React.ReactElement {
-  return (
-    <View style={styles.row}>
-      <MaterialCommunityIcons name={icon as 'eye'} size={20} color={colors.text} />
-      <View style={styles.rowLabelWrap}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        {subtitle !== undefined && <Text style={styles.rowSubtitle}>{subtitle}</Text>}
-      </View>
-      <Switch
-        value={value}
-        onValueChange={onToggle}
-        trackColor={{ false: colors.border, true: colors.accentBlue }}
-        thumbColor={colors.card}
-      />
-    </View>
-  );
-}
-
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SettingsScreen(): React.ReactElement {
   const navigation = useNavigation();
   const { user, signOut } = useAuth();
-  const { profile, updateProfile } = useProfile();
   const { entitlement } = useEntitlement();
+  const { entitlements: storeEntitlements, refetch: refetchStore } = useStoreEntitlements();
+  const { profile, updateProfile } = useProfile();
+  const { blocked, refetch: refetchBlocked } = useBlockedUsers();
+  useFocusRefetch(refetchBlocked);
+  // Optimistic value while the update is in flight; null = follow the profile.
+  const [recordPublicDraft, setRecordPublicDraft] = useState<boolean | null>(null);
+  const recordPublic = recordPublicDraft ?? profile?.show_fight_record ?? true;
   const [resetting, setResetting]             = useState(false);
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const { captchaKey, resetCaptcha }          = useCaptcha();
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [notifGranted, setNotifGranted]       = useState(false);
-  const [preWorkoutEnabled, setPreWorkoutEnabled] = useState(false);
   const [radiusKm, setRadiusKm] = useState<RadiusOption>(30);
 
   // JS getDay(): 0=Sun … 6=Sat → 0=Mon … 6=Sun
-  const todayDow = (new Date().getDay() + 6) % 7;
-  const { schedule } = useSchedule(todayDow, profile?.studio_id ?? null);
-  const { scheduleTrainingReminders } = useNotifications();
 
   useEffect(() => {
     void Notifications.getPermissionsAsync().then(({ status }) => {
       setNotifGranted(status === 'granted');
-    });
-  }, []);
-
-  useEffect(() => {
-    void AsyncStorage.getItem(PREWORKOUT_KEY).then((v) => {
-      setPreWorkoutEnabled(v === 'true');
     });
   }, []);
 
@@ -120,7 +98,7 @@ export default function SettingsScreen(): React.ReactElement {
   async function handlePasswordReset(captchaToken: string): Promise<void> {
     if (user?.email == null) return;
     setResetting(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { captchaToken, redirectTo: 'sparr://reset-password' });
+    const { error } = await requestPasswordReset(user.email, captchaToken);
     setResetting(false);
     setResetModalVisible(false);
     if (error !== null) {
@@ -142,6 +120,14 @@ export default function SettingsScreen(): React.ReactElement {
           onPress: () => {
             void (async () => {
               setDeletingAccount(true);
+              // Sign in with Apple: revoke the Apple authorization first (App
+              // Store 5.1.1(v)). If that fails, nothing is deleted yet.
+              const { error: revokeError } = await revokeAppleAuthorization();
+              if (revokeError !== null) {
+                setDeletingAccount(false);
+                Alert.alert('Fehler', 'Die Verbindung zu deiner Apple-ID konnte gerade nicht getrennt werden. Bitte versuche es gleich noch einmal.');
+                return;
+              }
               const { error } = await supabase.rpc('delete_my_account');
               if (error !== null) {
                 setDeletingAccount(false);
@@ -164,6 +150,26 @@ export default function SettingsScreen(): React.ReactElement {
     ]);
   }
 
+  async function handleRecordPublicChange(next: boolean): Promise<void> {
+    setRecordPublicDraft(next);
+    const { error } = await updateProfile({ show_fight_record: next });
+    setRecordPublicDraft(null);
+    if (error !== null) Alert.alert('Fehler', 'Die Einstellung konnte nicht gespeichert werden. Bitte versuche es erneut.');
+  }
+
+  async function handleRestorePurchases(): Promise<void> {
+    try {
+      if (await restorePurchases() === 'restored') {
+        await refetchStore();
+        Alert.alert('Käufe wiederhergestellt', 'Dein Zugang ist wieder aktiv.');
+      } else {
+        Alert.alert('Keine Käufe gefunden', 'Für dieses Konto wurde kein aktives Abo gefunden.');
+      }
+    } catch (error: unknown) {
+      Alert.alert('Wiederherstellung fehlgeschlagen', error instanceof Error ? error.message : 'Bitte versuche es erneut.');
+    }
+  }
+
   function handleRadiusPick(): void {
     Alert.alert(
       'Umkreis für Sparring-Benachrichtigungen',
@@ -181,29 +187,11 @@ export default function SettingsScreen(): React.ReactElement {
     );
   }
 
-  async function handlePreWorkoutToggle(value: boolean): Promise<void> {
-    setPreWorkoutEnabled(value);
-    await AsyncStorage.setItem(PREWORKOUT_KEY, value ? 'true' : 'false');
-    await scheduleTrainingReminders(schedule, value);
-  }
-
-  async function togglePrivacy(field: 'show_weight_in_group' | 'show_points_in_group' | 'show_fitness_in_group', value: boolean): Promise<void> {
-    await updateProfile({ [field]: value });
-  }
-
-  const showWeight  = profile?.show_weight_in_group  ?? true;
-  const showPoints  = profile?.show_points_in_group  ?? true;
-  const showFitness = profile?.show_fitness_in_group ?? true;
-  const planLabel = entitlement.hasAccess
-    ? entitlement.tier === 'studio_suite'
-      ? 'Studio Suite'
-      : entitlement.tier === 'studio_visibility'
-        ? 'Studio Sichtbarkeit'
-        : 'Einzel-Abo'
-    : 'Kein aktives Abo';
-  const seatsLabel = entitlement.tier === 'studio_suite'
-    ? `${entitlement.usedSeats}/${entitlement.includedSeats + entitlement.extraSeats}`
-    : undefined;
+  const activePlanLabel = entitlement.tier === 'studio_suite'
+    ? 'Studio Suite'
+    : entitlement.tier === 'studio_visibility'
+      ? 'Studio Sichtbarkeit'
+      : planLabel(storeEntitlements.creatorActive, storeEntitlements.cardsActive || entitlement.hasAccess);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -236,18 +224,6 @@ export default function SettingsScreen(): React.ReactElement {
           />
         </View>
 
-        {/* ── Training ── */}
-        <SectionHeader title="Training" />
-        <View style={styles.card}>
-          <ToggleRow
-            icon="run-fast"
-            label="Vorbereitung vor Training"
-            subtitle="Erinnerungen 4h, 2h, 1h und 30 Min vor jeder Session"
-            value={preWorkoutEnabled}
-            onToggle={(v) => { void handlePreWorkoutToggle(v); }}
-          />
-        </View>
-
         {/* ── Konto ── */}
         <SectionHeader title="Konto" />
         <View style={styles.card}>
@@ -267,28 +243,25 @@ export default function SettingsScreen(): React.ReactElement {
           </TouchableOpacity>
         </View>
 
-        {/* ── Datenschutz ── */}
-        <SectionHeader title="Datenschutz" />
+        {/* ── Privatsphäre ── */}
+        <SectionHeader title="Privatsphäre" />
         <View style={styles.card}>
-          <ToggleRow
-            icon="scale-bathroom"
-            label="Gewichtsfortschritt in Gruppe anzeigen"
-            value={showWeight}
-            onToggle={(v) => { void togglePrivacy('show_weight_in_group', v); }}
-          />
+          <View style={styles.row}>
+            <MaterialCommunityIcons name="trophy-outline" size={20} color={colors.text} />
+            <Text style={[styles.rowLabel, styles.rowLabelFill]}>Kampfrekord öffentlich zeigen</Text>
+            <Switch
+              value={recordPublic}
+              onValueChange={(v) => { void handleRecordPublicChange(v); }}
+              disabled={profile === null || recordPublicDraft !== null}
+              trackColor={{ true: colors.accentBlue, false: colors.border }}
+            />
+          </View>
           <View style={styles.divider} />
-          <ToggleRow
-            icon="star-outline"
-            label="Punkte & Rang in Gruppe anzeigen"
-            value={showPoints}
-            onToggle={(v) => { void togglePrivacy('show_points_in_group', v); }}
-          />
-          <View style={styles.divider} />
-          <ToggleRow
-            icon="chart-bar"
-            label="Fitness-Profil in Gruppe anzeigen"
-            value={showFitness}
-            onToggle={(v) => { void togglePrivacy('show_fitness_in_group', v); }}
+          <SettingsRow
+            icon="account-cancel-outline"
+            label="Blockierte Nutzer"
+            value={blocked.length > 0 ? String(blocked.length) : undefined}
+            onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('BlockedUsers'); }}
           />
         </View>
 
@@ -298,20 +271,27 @@ export default function SettingsScreen(): React.ReactElement {
           <SettingsRow
             icon="card-account-details-outline"
             label="Aktiver Plan"
-            value={planLabel}
-            onPress={() => {}}
+            value={activePlanLabel}
+            onPress={() => { (navigation as unknown as { navigate: (s: string) => void }).navigate('Paywall'); }}
           />
-          {seatsLabel !== undefined && (
-            <>
-              <View style={styles.divider} />
-              <SettingsRow
-                icon="account-multiple-outline"
-                label="Belegte Plätze"
-                value={seatsLabel}
-                onPress={() => {}}
-              />
-            </>
-          )}
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="open-in-new"
+            label="Abo verwalten"
+            onPress={() => {
+              void Linking.openURL(
+                Platform.OS === 'ios'
+                  ? 'https://apps.apple.com/account/subscriptions'
+                  : 'https://play.google.com/store/account/subscriptions',
+              );
+            }}
+          />
+          <View style={styles.divider} />
+          <SettingsRow
+            icon="restore"
+            label="Käufe wiederherstellen"
+            onPress={() => { void handleRestorePurchases(); }}
+          />
         </View>
 
         {/* ── Rechtliches ── */}
@@ -332,13 +312,13 @@ export default function SettingsScreen(): React.ReactElement {
           <SettingsRow
             icon="shield-lock-outline"
             label="Datenschutzerklärung"
-            onPress={() => { void Linking.openURL('https://www.notion.so/Datenschutzerkl-rung-Sparr-34f1f56f1531804ebd59ec7351220d82?source=copy_link'); }}
+            onPress={() => { void Linking.openURL('https://sparrapp.com/datenschutz.html'); }}
           />
           <View style={styles.divider} />
           <SettingsRow
             icon="file-document-outline"
             label="Nutzungsbedingungen"
-            onPress={() => { void Linking.openURL('https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'); }}
+            onPress={() => { void Linking.openURL('https://sparrapp.com/agb.html'); }}
           />
         </View>
 
@@ -480,9 +460,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   rowLabel: { fontSize: 15, fontWeight: '500', color: colors.text },
-  rowLabelWrap: { flex: 1 },
-  rowSubtitle: { fontSize: 12, color: colors.inactive, marginTop: 2 },
   rowLabelDanger: { color: colors.deleteRed },
+  rowLabelFill: { flex: 1 },
   rowValue: { fontSize: 14, color: colors.inactive, fontWeight: '400', marginRight: 4 },
 
   bottomPad: { height: 32 },

@@ -185,13 +185,13 @@ export default function TeamPickerCard({
   const cardContent = (
     <>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>Mein Gym</Text>
+        <Text style={styles.sectionLabel}>Studio-Team</Text>
         {currentStudio !== null && (
           <TouchableOpacity
             style={styles.menuBtn}
             onPress={() => setMenuOpen((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel="Gym verwalten"
+            accessibilityLabel="Team verwalten"
             accessibilityState={{ expanded: menuOpen }}
           >
             <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMuted} />
@@ -230,7 +230,7 @@ export default function TeamPickerCard({
                 accessibilityRole="button"
               >
                 <Ionicons name="swap-horizontal" size={18} color={colors.accentBlue} />
-                <Text style={styles.menuItemText}>Gym wechseln</Text>
+                <Text style={styles.menuItemText}>Team wechseln</Text>
               </TouchableOpacity>
               {onLeave !== undefined && (
                 <TouchableOpacity
@@ -269,7 +269,7 @@ export default function TeamPickerCard({
       ) : (
         <TouchableOpacity style={styles.joinBtn} onPress={() => setModalVisible(true)} accessibilityRole="button">
           <Ionicons name="add-circle-outline" size={20} color={colors.accentBlue} />
-          <Text style={styles.joinBtnText}>Gym beitreten</Text>
+          <Text style={styles.joinBtnText}>Einem Studio-Team beitreten</Text>
         </TouchableOpacity>
       )}
     </>
