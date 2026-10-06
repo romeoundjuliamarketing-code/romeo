@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import Animated, {
   Extrapolation, interpolate, runOnJS, useAnimatedReaction, useAnimatedScrollHandler, useAnimatedStyle,
@@ -50,6 +51,7 @@ export default function GymTopBar({ title, scrollY, solidFrom, titleFrom, onBack
   onBack:    () => void;
   onMenu:    () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   // 0 over the cover, 1 once the bar is solid; shared by both buttons.
@@ -65,7 +67,7 @@ export default function GymTopBar({ title, scrollY, solidFrom, titleFrom, onBack
       {/* Opaque once solid: content never shows through behind the buttons. */}
       <Animated.View style={[styles.backdrop, backdrop]} />
       <View style={[styles.row, { marginTop: insets.top }]} pointerEvents="box-none">
-        <BarButton icon="chevron-back" label="Zurück" solid={solid} onPress={onBack} />
+        <BarButton icon="chevron-back" label={t('common.back')} solid={solid} onPress={onBack} />
         <Animated.Text
           style={[styles.title, titleStyle]}
           numberOfLines={1}
@@ -75,7 +77,7 @@ export default function GymTopBar({ title, scrollY, solidFrom, titleFrom, onBack
         >
           {title}
         </Animated.Text>
-        <BarButton icon="ellipsis-horizontal" label="Weitere Aktionen" solid={solid} onPress={onMenu} />
+        <BarButton icon="ellipsis-horizontal" label={t('gym.topBar.moreActions')} solid={solid} onPress={onMenu} />
       </View>
     </View>
   );

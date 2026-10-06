@@ -1,4 +1,6 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { View, Text, Image, Alert, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { colors } from '../../theme/colors';
@@ -12,7 +14,7 @@ import { TextAction } from '../common/TextAction';
 async function pickImage(aspect: [number, number]): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
-    Alert.alert('Zugriff erforderlich', 'Bitte erlaube den Zugriff auf deine Fotos in den Einstellungen.');
+    Alert.alert(i18n.t('gym.imageFields.permTitle'), i18n.t('gym.imageFields.permBody'));
     return null;
   }
   const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', allowsEditing: true, aspect, quality: 0.7 });
@@ -28,10 +30,11 @@ export default function GymImageFields({ name, coverUri, logoUri, onCover, onLog
   onCover:  (uri: string) => void;
   onLogo:   (uri: string) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.wrap}>
       <View style={styles.field}>
-        <Text style={styles.label}>Cover</Text>
+        <Text style={styles.label}>{t('gym.imageFields.cover')}</Text>
         <View style={styles.cover}>
           {coverUri !== null ? (
             <Image source={{ uri: coverUri }} style={StyleSheet.absoluteFill} resizeMode="cover" accessibilityIgnoresInvertColors />
@@ -39,9 +42,9 @@ export default function GymImageFields({ name, coverUri, logoUri, onCover, onLog
             <RingRopesBackdrop />
           )}
         </View>
-        <Text style={styles.hint}>Am besten ein echtes Foto aus dem Training, kein Logo.</Text>
+        <Text style={styles.hint}>{t('gym.imageFields.coverHint')}</Text>
         <TextAction
-          label={coverUri !== null ? 'Cover ändern' : 'Cover auswählen'}
+          label={coverUri !== null ? t('gym.imageFields.changeCover') : t('gym.imageFields.chooseCover')}
           icon="image-outline"
           onPress={() => { void pickImage([16, 9]).then((uri) => { if (uri !== null) onCover(uri); }); }}
         />
@@ -56,9 +59,9 @@ export default function GymImageFields({ name, coverUri, logoUri, onCover, onLog
           )}
         </View>
         <View style={styles.flex}>
-          <Text style={styles.label}>Logo</Text>
+          <Text style={styles.label}>{t('gym.imageFields.logo')}</Text>
           <TextAction
-            label={logoUri !== null ? 'Logo ändern' : 'Logo auswählen'}
+            label={logoUri !== null ? t('gym.imageFields.changeLogo') : t('gym.imageFields.chooseLogo')}
             icon="camera-outline"
             onPress={() => { void pickImage([1, 1]).then((uri) => { if (uri !== null) onLogo(uri); }); }}
           />

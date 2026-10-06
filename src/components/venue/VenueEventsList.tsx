@@ -1,4 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
+import { useLanguage } from '../../i18n/language';
+import { localeFor } from '../../utils/language';
+import type { AppLanguage } from '../../utils/language';
+import { formatDate } from '../../utils/formatDate';
 import {
   View,
   Text,
@@ -14,26 +20,25 @@ interface Props {
   onPressEvent: (e: EventWithMeta) => void;
 }
 
-function formatDateTime(isoString: string): string {
+function formatDateTime(isoString: string, language: AppLanguage): string {
   const date = new Date(isoString);
-  const dateStr = date.toLocaleDateString('de-DE', {
+  const dateStr = new Intl.DateTimeFormat(localeFor(language), {
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
-  });
-  const timeStr = date.toLocaleTimeString('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `${dateStr}, ${timeStr} Uhr`;
+  }).format(date);
+  const timeStr = formatDate(date, 'time', language);
+  return i18n.t('venue.events.dateTime', { date: dateStr, time: timeStr });
 }
 
 export default function VenueEventsList({ events, onPressEvent }: Props): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   if (events.length === 0) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Keine kommenden Events</Text>
+        <Text style={styles.emptyText}>{t('venue.events.empty')}</Text>
       </View>
     );
   }
@@ -52,13 +57,13 @@ export default function VenueEventsList({ events, onPressEvent }: Props): React.
             {event.fight_card !== null && (
               <Text style={styles.fightCard} numberOfLines={1}>{event.fight_card}</Text>
             )}
-            <Text style={styles.dateTime}>{formatDateTime(event.scheduled_at)}</Text>
+            <Text style={styles.dateTime}>{formatDateTime(event.scheduled_at, language)}</Text>
           </View>
           <View style={styles.rowMeta}>
             {/* Venue events are public viewings -> show a label, no attendance count. */}
             <View style={styles.slotsRow}>
               <Ionicons name="people-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.slotsText}>Public Viewing</Text>
+              <Text style={styles.slotsText}>{t('venue.events.publicViewing')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
           </View>

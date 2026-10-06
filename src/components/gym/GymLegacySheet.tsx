@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, ScrollView, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import SheetShell from '../common/SheetShell';
@@ -12,11 +13,12 @@ export default function GymLegacySheet({ visible, studioId, onClose }: {
   studioId: string;
   onClose:  () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   return (
-    <SheetShell visible={visible} title="Bestehende Vorgänge" onClose={onClose}>
+    <SheetShell visible={visible} title={t('gym.legacy.title')} onClose={onClose}>
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.hint}>
-          Neue Probetrainings und Mitgliedschaften gibt es in Sparr nicht mehr. Deine bestehenden Vorgänge mit diesem Gym findest du hier.
+          {t('gym.legacy.hint')}
         </Text>
         {visible && <MyRequestsCard studioId={studioId} />}
       </ScrollView>

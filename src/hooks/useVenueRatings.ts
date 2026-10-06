@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
 
 interface RatingSummary {
@@ -92,7 +93,7 @@ export function useVenueRatings(
       stars:   number,
       comment: string,
     ): Promise<{ error: string | null }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('venue.errors.notSignedIn') };
 
       // Upsert on (user_id, venue_id) so re-rating updates the existing row
       const { error } = await supabase.from('venue_ratings').upsert(

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, Image, TouchableOpacity, ActivityIndicator, ScrollView, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { getInitials } from '../../utils/initials';
@@ -29,19 +30,20 @@ export default function GymFightersPreview({ fighters, status, retry, onOpen }: 
   retry:    () => void;
   onOpen:   (userId: string) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   if (status === 'loading' && fighters.length === 0) return <ActivityIndicator color={colors.accentBlue} />;
   if (status === 'error' && fighters.length === 0) {
     return (
       <View style={styles.stateRow}>
-        <Text style={[styles.muted, styles.flex]}>Die Kämpfer konnten nicht geladen werden.</Text>
+        <Text style={[styles.muted, styles.flex]}>{t('gym.fightersPreview.loadError')}</Text>
         <TouchableOpacity style={styles.retry} onPress={retry} accessibilityRole="button">
-          <Text style={styles.retryText}>Erneut versuchen</Text>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
   if (fighters.length === 0) {
-    return <Text style={styles.muted}>Noch niemand hat dieses Gym als Hauptgym angegeben.</Text>;
+    return <Text style={styles.muted}>{t('gym.fightersPreview.empty')}</Text>;
   }
 
   return (
@@ -58,7 +60,7 @@ export default function GymFightersPreview({ fighters, status, retry, onOpen }: 
           onPress={() => onOpen(f.id)}
           activeOpacity={0.6}
           accessibilityRole="button"
-          accessibilityLabel={`Profil von ${f.name ?? 'Kämpfer'} öffnen`}
+          accessibilityLabel={t('gym.fightersPreview.profileOf', { name: f.name ?? t('gym.fightersPreview.fighterFallback') })}
         >
           <Face uri={f.avatar_url} name={f.name} />
           <Text style={styles.name} numberOfLines={2} maxFontSizeMultiplier={1.3}>{firstName(f.name)}</Text>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -43,6 +44,7 @@ interface Props {
 export default function GymPickerSheet({
   visible, title, currentGymId, onClose, onSelect, removeLabel, onRemove,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   // Fixed share of the screen; flexShrink lets the keyboard squeeze it.
   const sheetHeight = Math.round(useWindowDimensions().height * 0.88);
@@ -142,20 +144,20 @@ export default function GymPickerSheet({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={back} statusBarTranslucent>
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={busy ? undefined : onClose} accessibilityLabel="Schließen" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={busy ? undefined : onClose} accessibilityLabel={t('gym.picker.close')} />
         {/* Top inset: with the keyboard up the sheet shrinks instead of sliding under the status bar. */}
         <KeyboardAvoidingView behavior="padding" style={[styles.kav, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
           <View style={[styles.sheet, { height: sheetHeight, paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.header}>
               {step !== 'search' ? (
-                <TouchableOpacity style={styles.iconBtn} onPress={back} accessibilityRole="button" accessibilityLabel="Zurück">
+                <TouchableOpacity style={styles.iconBtn} onPress={back} accessibilityRole="button" accessibilityLabel={t('common.back')}>
                   <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
               ) : <View style={styles.iconBtn} />}
               <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>
-                {step === 'search' ? title : step === 'add' ? 'Gym hinzufügen' : 'Meintest du eines davon?'}
+                {step === 'search' ? title : step === 'add' ? t('gym.picker.addTitle') : t('gym.picker.similarTitle')}
               </Text>
-              <TouchableOpacity style={styles.iconBtn} onPress={onClose} disabled={busy} accessibilityRole="button" accessibilityLabel="Schließen">
+              <TouchableOpacity style={styles.iconBtn} onPress={onClose} disabled={busy} accessibilityRole="button" accessibilityLabel={t('gym.picker.close')}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
@@ -168,15 +170,15 @@ export default function GymPickerSheet({
                     style={styles.searchInput}
                     value={query}
                     onChangeText={setQuery}
-                    placeholder="Name oder Stadt"
+                    placeholder={t('gym.picker.searchPlaceholder')}
                     placeholderTextColor={colors.textMuted}
                     autoFocus
                     autoCorrect={false}
                     returnKeyType="search"
-                    accessibilityLabel="Gym suchen"
+                    accessibilityLabel={t('gym.picker.searchLabel')}
                   />
                   {query.length > 0 && (
-                    <TouchableOpacity onPress={() => setQuery('')} hitSlop={12} accessibilityLabel="Suche leeren">
+                    <TouchableOpacity onPress={() => setQuery('')} hitSlop={12} accessibilityLabel={t('gym.picker.clearSearch')}>
                       <Ionicons name="close-circle" size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
@@ -185,19 +187,19 @@ export default function GymPickerSheet({
                 {currentGymId !== null && onRemove !== undefined && !searchActive && (
                   <TouchableOpacity style={styles.removeRow} onPress={() => { void remove(); }} disabled={busy} accessibilityRole="button">
                     <Ionicons name="remove-circle-outline" size={20} color={colors.deleteRed} />
-                    <Text style={styles.removeText}>{removeLabel ?? 'Gym entfernen'}</Text>
+                    <Text style={styles.removeText}>{removeLabel ?? t('gym.picker.remove')}</Text>
                   </TouchableOpacity>
                 )}
 
                 {!searchActive ? (
-                  <Text style={styles.hint}>Suche dein Gym über den Namen oder die Stadt.</Text>
+                  <Text style={styles.hint}>{t('gym.picker.searchHint')}</Text>
                 ) : status === 'loading' && results.length === 0 ? (
                   <ActivityIndicator style={styles.loader} color={colors.accentBlue} />
                 ) : status === 'error' ? (
                   <View style={styles.stateBox}>
-                    <Text style={styles.hint}>Die Suche hat nicht geklappt. Prüfe deine Verbindung.</Text>
+                    <Text style={styles.hint}>{t('gym.picker.searchFailed')}</Text>
                     <TouchableOpacity style={styles.textBtn} onPress={retry} accessibilityRole="button">
-                      <Text style={styles.textBtnLabel}>Erneut versuchen</Text>
+                      <Text style={styles.textBtnLabel}>{t('common.retry')}</Text>
                     </TouchableOpacity>
                   </View>
                 ) : (
@@ -208,7 +210,7 @@ export default function GymPickerSheet({
                     keyboardDismissMode="on-drag"
                     style={styles.list}
                     ListEmptyComponent={status === 'ready'
-                      ? <Text style={styles.hint}>Kein passendes Gym gefunden.</Text>
+                      ? <Text style={styles.hint}>{t('gym.picker.noMatch')}</Text>
                       : null}
                     renderItem={({ item }) => (
                       <GymRow gym={item} selected={item.id === currentGymId} disabled={busy} onPress={() => { void choose(item); }} />
@@ -217,8 +219,8 @@ export default function GymPickerSheet({
                       <TouchableOpacity style={styles.addRow} onPress={startAdd} accessibilityRole="button">
                         <Ionicons name="add-circle-outline" size={22} color={colors.accentBlueText} />
                         <View style={styles.flex}>
-                          <Text style={styles.addTitle}>Gym hinzufügen</Text>
-                          <Text style={styles.addSub}>Dein Gym ist noch nicht dabei? Leg es mit Name und Stadt an.</Text>
+                          <Text style={styles.addTitle}>{t('gym.picker.addTitle')}</Text>
+                          <Text style={styles.addSub}>{t('gym.picker.addSub')}</Text>
                         </View>
                       </TouchableOpacity>
                     )}
@@ -229,20 +231,20 @@ export default function GymPickerSheet({
 
             {step === 'add' && (
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
-                <Field label="Name des Gyms" value={name} onChange={setName} max={GYM_LIMITS.name} error={errors.name} autoFocus />
-                <Field label="Stadt" value={city} onChange={setCity} max={GYM_LIMITS.city} error={errors.city} />
-                <Field label="Adresse (optional)" value={address} onChange={setAddress} max={GYM_LIMITS.address} error={errors.address} />
+                <Field label={t('gym.picker.fieldName')} value={name} onChange={setName} max={GYM_LIMITS.name} error={errors.name} autoFocus />
+                <Field label={t('gym.picker.fieldCity')} value={city} onChange={setCity} max={GYM_LIMITS.city} error={errors.city} />
+                <Field label={t('gym.picker.fieldAddress')} value={address} onChange={setAddress} max={GYM_LIMITS.address} error={errors.address} />
                 <Text style={styles.note}>
-                  Der Eintrag ist für alle sichtbar und wird mit anderen Kämpfern geteilt. Er bedeutet keine Mitgliedschaft und keine Partnerschaft mit dem Gym.
+                  {t('gym.picker.sharedNote')}
                 </Text>
                 {errors.form !== undefined && <Text style={styles.error}>{errors.form}</Text>}
-                <PrimaryButton icon="checkmark" label="Weiter" loading={busy} onPress={() => { void checkAndContinue(); }} />
+                <PrimaryButton icon="checkmark" label={t('common.next')} loading={busy} onPress={() => { void checkAndContinue(); }} />
               </ScrollView>
             )}
 
             {step === 'similar' && (
               <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.form}>
-                <Text style={styles.hint}>Diese Gyms gibt es schon. Wähle eins aus, wenn es deins ist.</Text>
+                <Text style={styles.hint}>{t('gym.picker.similarHint')}</Text>
                 {similar.map((g) => (
                   <GymRow key={g.id} gym={g} selected={g.id === currentGymId} disabled={busy} onPress={() => { void choose(g); }} />
                 ))}
@@ -250,7 +252,7 @@ export default function GymPickerSheet({
                 <TouchableOpacity style={styles.addRow} onPress={() => { void saveNew(); }} disabled={busy} accessibilityRole="button">
                   {busy ? <ActivityIndicator color={colors.accentBlue} /> : <Ionicons name="add-circle-outline" size={22} color={colors.accentBlueText} />}
                   <View style={styles.flex}>
-                    <Text style={styles.addTitle}>Nein, „{name.trim()}“ neu anlegen</Text>
+                    <Text style={styles.addTitle}>{t('gym.picker.createNew', { name: name.trim() })}</Text>
                     <Text style={styles.addSub}>{city.trim()}</Text>
                   </View>
                 </TouchableOpacity>

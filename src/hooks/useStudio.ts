@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
@@ -58,14 +59,14 @@ export function useStudio(refetchTrigger = 0): {
   }, [user, refetchTrigger, cacheKey]);
 
   const requestJoin = useCallback(async (studioId: string): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht angemeldet.' };
+    if (user === null) return { error: i18n.t('team.errors.notSignedIn') };
     const { error } = await supabase.rpc('request_studio_join', { p_studio_id: studioId });
     if (error !== null) return { error: error.message };
     return { error: null };
   }, [user]);
 
   const leaveStudio = useCallback(async (): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht angemeldet.' };
+    if (user === null) return { error: i18n.t('team.errors.notSignedIn') };
     const { error } = await supabase.rpc('leave_studio');
     if (error !== null) return { error: error.message };
     setCurrentStudio(null);
@@ -74,7 +75,7 @@ export function useStudio(refetchTrigger = 0): {
   }, [user, cacheKey]);
 
   const removeMember = useCallback(async (userId: string): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht angemeldet.' };
+    if (user === null) return { error: i18n.t('team.errors.notSignedIn') };
     const { error } = await supabase.rpc('remove_studio_member', { p_user_id: userId });
     if (error !== null) return { error: error.message };
     return { error: null };

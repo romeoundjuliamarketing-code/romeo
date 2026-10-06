@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
+import i18n from '../i18n';
 import type { Gym } from './useGyms';
 import type { ProfileUpdate } from '../types/database.types';
 
@@ -23,7 +24,7 @@ export function useHomeGymChoice({ currentHomeGymId, currentHomeGymName, updateP
     const { error } = await updateProfile({ home_gym_id: gymId });
     setBusy(false);
     if (error !== null) {
-      Alert.alert('Nicht gespeichert', 'Dein Hauptgym konnte nicht gespeichert werden. Bitte versuche es erneut.');
+      Alert.alert(i18n.t('gym.homeChoice.saveFailedTitle'), i18n.t('gym.homeChoice.saveFailedBody'));
       return false;
     }
     onChanged();
@@ -33,7 +34,7 @@ export function useHomeGymChoice({ currentHomeGymId, currentHomeGymName, updateP
   function confirm(title: string, message: string, label: string, destructive: boolean): Promise<boolean> {
     return new Promise((resolve) => {
       Alert.alert(title, message, [
-        { text: 'Abbrechen', style: 'cancel', onPress: () => resolve(false) },
+        { text: i18n.t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
         { text: label, style: destructive ? 'destructive' : 'default', onPress: () => resolve(true) },
       ], { cancelable: true, onDismiss: () => resolve(false) });
     });
@@ -43,9 +44,9 @@ export function useHomeGymChoice({ currentHomeGymId, currentHomeGymName, updateP
     if (gym.id === currentHomeGymId) return true;
     if (currentHomeGymId !== null) {
       const ok = await confirm(
-        'Hauptgym wechseln?',
-        `Bisher steht ${currentHomeGymName ?? 'ein anderes Gym'} als dein Hauptgym im Profil. Stattdessen ${gym.name} anzeigen?`,
-        'Wechseln',
+        i18n.t('gym.homeChoice.switchTitle'),
+        i18n.t('gym.homeChoice.switchBody', { current: currentHomeGymName ?? i18n.t('gym.homeChoice.otherGym'), next: gym.name }),
+        i18n.t('gym.homeChoice.switchConfirm'),
         false,
       );
       if (!ok) return false;
@@ -56,9 +57,9 @@ export function useHomeGymChoice({ currentHomeGymId, currentHomeGymName, updateP
   async function remove(): Promise<boolean> {
     if (currentHomeGymId === null) return true;
     const ok = await confirm(
-      'Hauptgym entfernen?',
-      'Das Gym wird nicht mehr in deinem Kämpferprofil angezeigt.',
-      'Entfernen',
+      i18n.t('gym.homeChoice.removeTitle'),
+      i18n.t('gym.homeChoice.removeBody'),
+      i18n.t('common.remove'),
       true,
     );
     return ok ? save(null) : false;

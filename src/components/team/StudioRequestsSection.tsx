@@ -1,4 +1,7 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { formatDate } from '../../utils/formatDate';
 import {
   View,
   Text,
@@ -18,6 +21,8 @@ interface Props {
 }
 
 export default function StudioRequestsSection({ studioId }: Props): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const {
     trialBookings,
     dropInBookings,
@@ -35,18 +40,18 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
 
   async function handleRespondJoin(id: string, approve: boolean): Promise<void> {
     const { error } = await respondJoin(id, approve);
-    if (error !== null) Alert.alert('Fehler', error);
+    if (error !== null) Alert.alert(t('common.error'), error);
   }
 
   async function handleRespondTrial(id: string, confirm: boolean): Promise<void> {
     const { error } = await respondTrial(id, confirm);
-    if (error !== null) Alert.alert('Fehler', error);
+    if (error !== null) Alert.alert(t('common.error'), error);
   }
 
   async function handleRespondMembership(id: string, confirm: boolean): Promise<void> {
     const { error } = await respondMembership(id, confirm);
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     refetch();
@@ -55,7 +60,7 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
   async function handleConfirmEnd(id: string): Promise<void> {
     const { error } = await confirmEnd(id);
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     refetch();
@@ -64,7 +69,7 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
   if (loading) {
     return (
       <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Anfragen</Text>
+        <Text style={styles.sectionLabel}>{t('team.requests.title')}</Text>
         <ActivityIndicator color={colors.accentBlue} style={styles.loader} />
       </View>
     );
@@ -73,20 +78,20 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
   if (totalCount === 0) {
     return (
       <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Anfragen</Text>
-        <Text style={styles.emptyText}>Keine offenen Anfragen.</Text>
+        <Text style={styles.sectionLabel}>{t('team.requests.title')}</Text>
+        <Text style={styles.emptyText}>{t('team.requests.empty')}</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.sectionLabel}>Anfragen</Text>
+      <Text style={styles.sectionLabel}>{t('team.requests.title')}</Text>
 
       {/* Join requests (Beitrittsanfragen) */}
       {joinRequests.length > 0 && (
         <>
-          <Text style={styles.subLabel}>Beitrittsanfragen</Text>
+          <Text style={styles.subLabel}>{t('team.requests.joinRequests')}</Text>
           {joinRequests.map((req, idx) => (
             <View
               key={req.id}
@@ -94,10 +99,10 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
             >
               <View style={styles.requestInfo}>
                 <Text style={styles.userName} numberOfLines={1}>
-                  {req.user_name ?? 'Unbekannt'}
+                  {req.user_name ?? t('team.requests.unknown')}
                 </Text>
                 <Text style={styles.requestMeta}>
-                  Möchte dem Team beitreten
+                  {t('team.requests.wantsToJoin')}
                 </Text>
               </View>
               <View style={styles.actions}>
@@ -129,10 +134,10 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
         >
           <View style={styles.requestInfo}>
             <Text style={styles.userName} numberOfLines={1}>
-              {booking.user_name ?? 'Unbekannt'}
+              {booking.user_name ?? t('team.requests.unknown')}
             </Text>
             <Text style={styles.requestMeta}>
-              Probetraining · {booking.requested_date.split('-').reverse().join('.')}
+              {t('team.requests.trial', { date: formatDate(`${booking.requested_date}T12:00:00`, 'date', language) })}
             </Text>
             {booking.note !== null && booking.note.length > 0 && (
               <Text style={styles.noteText} numberOfLines={2}>
@@ -162,7 +167,7 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
       {/* Drop-in booking requests */}
       {dropInBookings.length > 0 && (
         <>
-          <Text style={styles.subLabel}>Drop-in-Buchungen</Text>
+          <Text style={styles.subLabel}>{t('team.requests.dropInBookings')}</Text>
           {dropInBookings.map((booking, idx) => (
             <View
               key={booking.id}
@@ -170,10 +175,10 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
             >
               <View style={styles.requestInfo}>
                 <Text style={styles.userName} numberOfLines={1}>
-                  {booking.user_name ?? 'Unbekannt'}
+                  {booking.user_name ?? t('team.requests.unknown')}
                 </Text>
                 <Text style={styles.requestMeta}>
-                  Drop-in · {booking.requested_date.split('-').reverse().join('.')}
+                  {t('team.requests.dropIn', { date: formatDate(`${booking.requested_date}T12:00:00`, 'date', language) })}
                 </Text>
               </View>
               <View style={styles.actions}>
@@ -200,7 +205,7 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
       {/* Membership requests (pending) */}
       {membershipRequests.length > 0 && (
         <>
-          <Text style={styles.subLabel}>Mitgliedschaftsanfragen</Text>
+          <Text style={styles.subLabel}>{t('team.requests.membershipRequests')}</Text>
           {membershipRequests.map((contract, idx) => (
             <View
               key={contract.id}
@@ -208,7 +213,7 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
             >
               <View style={styles.requestInfo}>
                 <Text style={styles.userName} numberOfLines={1}>
-                  {contract.user_name ?? 'Unbekannt'}
+                  {contract.user_name ?? t('team.requests.unknown')}
                 </Text>
                 <Text style={styles.requestMeta}>
                   {contract.plan_name_snapshot}
@@ -240,7 +245,7 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
       {/* Cancellation requests */}
       {cancellationRequests.length > 0 && (
         <>
-          <Text style={styles.subLabel}>Kündigungen</Text>
+          <Text style={styles.subLabel}>{t('team.requests.cancellations')}</Text>
           {cancellationRequests.map((contract, idx) => (
             <View
               key={contract.id}
@@ -248,12 +253,12 @@ export default function StudioRequestsSection({ studioId }: Props): React.ReactE
             >
               <View style={styles.requestInfo}>
                 <Text style={styles.userName} numberOfLines={1}>
-                  {contract.user_name ?? 'Unbekannt'}
+                  {contract.user_name ?? t('team.requests.unknown')}
                 </Text>
                 <Text style={styles.requestMeta}>
                   {contract.plan_name_snapshot}
                   {'  ·  '}
-                  Kündigung angefordert
+                  {t('team.requests.cancellationRequested')}
                 </Text>
               </View>
               {/* Single confirm-end button */}

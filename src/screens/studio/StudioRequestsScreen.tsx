@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,7 @@ import { colors } from '../../theme/colors';
 type Props = NativeStackScreenProps<RootStackParamList, 'StudioRequests'>;
 
 export default function StudioRequestsScreen({ route, navigation }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const { studioId } = route.params;
 
   return (
@@ -19,7 +21,7 @@ export default function StudioRequestsScreen({ route, navigation }: Props): Reac
         <TouchableOpacity style={styles.backBtn} onPress={() => { navigation.goBack(); }} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Anfragen</Text>
+        <Text style={styles.headerTitle}>{t('team.requests.title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 

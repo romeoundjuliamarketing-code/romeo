@@ -1,6 +1,7 @@
 // Pure helpers for the gym search and "Gym hinzufügen". A gym is a row of the
 // studios table; the server-side duplicate check (create_gym / gym_norm) uses
 // the same normalisation as normalizeGymText, so the client can warn early.
+import i18n from '../i18n';
 
 export interface GymLike {
   id:   string;
@@ -86,19 +87,19 @@ export function validateNewGym(input: { name: string; city: string; address: str
   const errors: { name?: string; city?: string; address?: string } = {};
   const name = input.name.trim();
   const city = input.city.trim();
-  if (name.length < 2) errors.name = 'Bitte gib den Namen des Gyms an.';
-  else if (name.length > GYM_LIMITS.name) errors.name = `Höchstens ${GYM_LIMITS.name} Zeichen.`;
-  if (city.length < 2) errors.city = 'Bitte gib die Stadt an.';
-  else if (city.length > GYM_LIMITS.city) errors.city = `Höchstens ${GYM_LIMITS.city} Zeichen.`;
-  if (input.address.trim().length > GYM_LIMITS.address) errors.address = `Höchstens ${GYM_LIMITS.address} Zeichen.`;
+  if (name.length < 2) errors.name = i18n.t('gym.validation.nameRequired');
+  else if (name.length > GYM_LIMITS.name) errors.name = i18n.t('gym.validation.maxChars', { max: GYM_LIMITS.name });
+  if (city.length < 2) errors.city = i18n.t('gym.validation.cityRequired');
+  else if (city.length > GYM_LIMITS.city) errors.city = i18n.t('gym.validation.maxChars', { max: GYM_LIMITS.city });
+  if (input.address.trim().length > GYM_LIMITS.address) errors.address = i18n.t('gym.validation.maxChars', { max: GYM_LIMITS.address });
   return errors;
 }
 
 // Server error codes of create_gym → German UI copy.
 export function gymErrorMessage(message: string): string {
-  if (message.includes('GYM_RATE_LIMIT')) return 'Du hast heute schon mehrere Gyms angelegt. Bitte versuche es morgen wieder.';
-  if (message.includes('GYM_NAME_INVALID')) return 'Der Name muss 2 bis 80 Zeichen haben.';
-  if (message.includes('GYM_CITY_INVALID')) return 'Die Stadt muss 2 bis 60 Zeichen haben.';
-  if (message.includes('GYM_ADDRESS_INVALID')) return 'Die Adresse ist zu lang.';
-  return 'Das Gym konnte nicht gespeichert werden. Bitte versuche es erneut.';
+  if (message.includes('GYM_RATE_LIMIT')) return i18n.t('gym.validation.rateLimit');
+  if (message.includes('GYM_NAME_INVALID')) return i18n.t('gym.validation.nameInvalid');
+  if (message.includes('GYM_CITY_INVALID')) return i18n.t('gym.validation.cityInvalid');
+  if (message.includes('GYM_ADDRESS_INVALID')) return i18n.t('gym.validation.addressInvalid');
+  return i18n.t('gym.validation.saveFailed');
 }

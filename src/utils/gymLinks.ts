@@ -1,5 +1,6 @@
 // Small helpers for the practical part of the gym page: website input and
 // the "Route öffnen" link into the platform's maps app.
+import i18n from '../i18n';
 
 export const WEBSITE_MAX = 200;
 
@@ -10,11 +11,11 @@ export function normalizeWebsite(input: string): { url: string | null; error: st
   const raw = input.trim();
   if (raw.length === 0) return { url: null, error: null };
   const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  if (withScheme.length > WEBSITE_MAX) return { url: null, error: `Höchstens ${WEBSITE_MAX} Zeichen.` };
-  if (/\s/.test(withScheme)) return { url: null, error: 'Die Adresse darf keine Leerzeichen enthalten.' };
+  if (withScheme.length > WEBSITE_MAX) return { url: null, error: i18n.t('gym.validation.maxChars', { max: WEBSITE_MAX }) };
+  if (/\s/.test(withScheme)) return { url: null, error: i18n.t('gym.validation.websiteSpaces') };
   const host = withScheme.replace(/^https?:\/\//i, '').split(/[/?#]/)[0] ?? '';
   if (!/^[^.]+(\.[^.]+)+$/.test(host) || /[^a-z0-9.\-:äöüß]/i.test(host)) {
-    return { url: null, error: 'Bitte gib eine gültige Website an, z. B. boxclub.de.' };
+    return { url: null, error: i18n.t('gym.validation.websiteInvalid') };
   }
   return { url: withScheme, error: null };
 }

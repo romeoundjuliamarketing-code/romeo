@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -28,6 +29,9 @@ import { useVenueEvents } from '../hooks/useVenueEvents';
 import { useVenueRatings } from '../hooks/useVenueRatings';
 import { useVenueSignupStats } from '../hooks/useVenueSignupStats';
 import { geocodeAddress } from '../utils/geocoding';
+import { useLanguage } from '../i18n/language';
+import { localeFor } from '../utils/language';
+import type { AppLanguage } from '../utils/language';
 import VenueHero from '../components/venue/VenueHero';
 import VenuePhotoGallery from '../components/venue/VenuePhotoGallery';
 import VenueInfoSection from '../components/venue/VenueInfoSection';
@@ -43,27 +47,25 @@ type Props = NativeStackScreenProps<RootStackParamList, 'VenueDetail'>;
 
 const MAX_DESCRIPTION = 300;
 
-// Compact German date for the attribution list, e.g. "14. Juni 2026".
-function formatStatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('de-DE', {
+// Compact localised date for the attribution list, e.g. "14. Juni 2026".
+function formatStatDate(iso: string, language: AppLanguage): string {
+  return new Intl.DateTimeFormat(localeFor(language), {
     day:   'numeric',
     month: 'long',
     year:  'numeric',
-  });
+  }).format(new Date(iso));
 }
 
 // Day keys and labels must match VenueInfoSection exactly (DAY_ORDER / DAY_LABELS there).
-const EDIT_DAY_ORDER: { key: string; label: string }[] = [
-  { key: 'mon', label: 'Mo' },
-  { key: 'tue', label: 'Di' },
-  { key: 'wed', label: 'Mi' },
-  { key: 'thu', label: 'Do' },
-  { key: 'fri', label: 'Fr' },
-  { key: 'sat', label: 'Sa' },
-  { key: 'sun', label: 'So' },
-];
+const EDIT_DAY_KEYS: string[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const EDIT_DAY_LABELS: Record<AppLanguage, Record<string, string>> = {
+  de: { mon: 'Mo', tue: 'Di', wed: 'Mi', thu: 'Do', fri: 'Fr', sat: 'Sa', sun: 'So' },
+  en: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
+};
 
 export default function VenueDetailScreen({ route, navigation }: Props): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const { venueId } = route.params;
   const { user } = useAuth();
 
@@ -155,7 +157,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
   async function pickImage(aspect: [number, number]): Promise<string | null> {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Zugriff erforderlich', 'Bitte Foto-Zugriff in den Einstellungen erlauben.');
+      Alert.alert(t('venue.detail.permTitle'), t('venue.detail.permBody'));
       return null;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -185,7 +187,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
     // der ms-Timestamp den int4-Bereich sprengen, daher hier max(sort_order)+1.
     const { url, error } = await uploadImage(uri, 'venues', `${venueId}/photo-${Date.now()}`);
     if (error !== null || url === null) {
-      Alert.alert('Foto-Upload fehlgeschlagen', error ?? 'Unbekannter Fehler');
+      Alert.alert(t('venue.detail.photoUploadFailed'), error ?? t('venue.detail.unknownError'));
       return;
     }
     const nextSortOrder = photos.reduce((max, p) => Math.max(max, p.sort_order), -1) + 1;
@@ -193,21 +195,21 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
       .from('venue_photos')
       .insert({ venue_id: venueId, url, sort_order: nextSortOrder });
     if (dbError !== null) {
-      Alert.alert('Fehler beim Speichern', dbError.message);
+      Alert.alert(t('venue.detail.saveError'), dbError.message);
       return;
     }
     refetchPhotos();
   }
 
   async function handleRemovePhoto(id: string): Promise<void> {
-    Alert.alert('Foto entfernen', 'Dieses Foto wirklich entfernen?', [
-      { text: 'Abbrechen', style: 'cancel' },
+    Alert.alert(t('venue.detail.removePhotoTitle'), t('venue.detail.removePhotoBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Entfernen',
+        text: t('common.remove'),
         style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('venue_photos').delete().eq('id', id);
-          if (error !== null) Alert.alert('Fehler', error.message);
+          if (error !== null) Alert.alert(t('common.error'), error.message);
           else refetchPhotos();
         },
       },
@@ -222,7 +224,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
     const coords = await geocodeAddress(query);
     setGeocoding(false);
     if (coords === null) {
-      setGeocodeLabel('Keine Ergebnisse gefunden.');
+      setGeocodeLabel(t('venue.detail.noResults'));
     } else {
       setDraftLat(coords.lat);
       setDraftLng(coords.lng);
@@ -256,7 +258,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
       if (draftBannerUri !== null) {
         const { url, error } = await uploadImage(draftBannerUri, 'venues', `${venueId}/banner`);
         if (error !== null) {
-          Alert.alert('Banner-Upload fehlgeschlagen', error);
+          Alert.alert(t('venue.detail.bannerUploadFailed'), error);
           return;
         }
         updates.banner_url = url;
@@ -265,7 +267,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
       if (draftAvatarUri !== null) {
         const { url, error } = await uploadImage(draftAvatarUri, 'venues', `${venueId}/avatar`);
         if (error !== null) {
-          Alert.alert('Avatar-Upload fehlgeschlagen', error);
+          Alert.alert(t('venue.detail.avatarUploadFailed'), error);
           return;
         }
         updates.avatar_url = url;
@@ -277,7 +279,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
         .eq('id', venueId);
 
       if (error !== null) {
-        Alert.alert('Fehler beim Speichern', error.message);
+        Alert.alert(t('venue.detail.saveError'), error.message);
         return;
       }
 
@@ -326,9 +328,9 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
         {/* Edit-mode header with save / cancel */}
         <View style={styles.editHeader}>
           <TouchableOpacity onPress={cancelEdit} style={styles.editHeaderBtn}>
-            <Text style={styles.editCancelText}>Abbrechen</Text>
+            <Text style={styles.editCancelText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
-          <Text style={styles.editHeaderTitle}>Profil bearbeiten</Text>
+          <Text style={styles.editHeaderTitle}>{t('venue.ownerBar.editProfile')}</Text>
           <TouchableOpacity
             onPress={() => { void handleSave(); }}
             disabled={saving}
@@ -336,7 +338,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
           >
             {saving
               ? <ActivityIndicator size="small" color={colors.accentBlue} />
-              : <Text style={styles.editSaveText}>Speichern</Text>
+              : <Text style={styles.editSaveText}>{t('common.save')}</Text>
             }
           </TouchableOpacity>
         </View>
@@ -360,7 +362,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
                 <View style={styles.editBannerOverlay} />
                 <View style={styles.editBannerHint}>
                   <Ionicons name="image-outline" size={22} color={colors.card} />
-                  <Text style={styles.editBannerHintText}>Banner ändern</Text>
+                  <Text style={styles.editBannerHintText}>{t('venue.detail.changeBanner')}</Text>
                 </View>
               </ImageBackground>
             </TouchableOpacity>
@@ -390,12 +392,12 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
             <View style={styles.editContent}>
               {/* Name */}
               <View style={styles.editSection}>
-                <Text style={styles.editSectionLabel}>Name</Text>
+                <Text style={styles.editSectionLabel}>{t('venue.detail.name')}</Text>
                 <TextInput
                   style={styles.editTextInput}
                   value={draftName}
                   onChangeText={setDraftName}
-                  placeholder="Name des Venues"
+                  placeholder={t('venue.detail.namePlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   returnKeyType="done"
                 />
@@ -403,12 +405,12 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
 
               {/* Venue type */}
               <View style={styles.editSection}>
-                <Text style={styles.editSectionLabel}>Typ</Text>
+                <Text style={styles.editSectionLabel}>{t('venue.info.type')}</Text>
                 <TextInput
                   style={styles.editTextInput}
                   value={draftVenueType}
                   onChangeText={setDraftVenueType}
-                  placeholder="z. B. Halle, Gym, Outdoor"
+                  placeholder={t('venue.detail.typePlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   returnKeyType="done"
                 />
@@ -416,12 +418,12 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
 
               {/* Capacity */}
               <View style={styles.editSection}>
-                <Text style={styles.editSectionLabel}>Kapazität (Personen)</Text>
+                <Text style={styles.editSectionLabel}>{t('venue.detail.capacityPeople')}</Text>
                 <TextInput
                   style={styles.editTextInput}
                   value={draftCapacity}
                   onChangeText={setDraftCapacity}
-                  placeholder="z. B. 200"
+                  placeholder={t('venue.detail.capacityPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   keyboardType="number-pad"
                   returnKeyType="done"
@@ -431,7 +433,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
               {/* Description */}
               <View style={styles.editSection}>
                 <View style={styles.editSectionLabelRow}>
-                  <Text style={styles.editSectionLabel}>Beschreibung</Text>
+                  <Text style={styles.editSectionLabel}>{t('venue.info.description')}</Text>
                   <Text style={styles.editCharCount}>
                     {draftDescription.length}/{MAX_DESCRIPTION}
                   </Text>
@@ -439,8 +441,8 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
                 <TextInput
                   style={styles.editDescriptionInput}
                   value={draftDescription}
-                  onChangeText={(t) => setDraftDescription(t.slice(0, MAX_DESCRIPTION))}
-                  placeholder="Beschreibe dein Venue..."
+                  onChangeText={(text) => setDraftDescription(text.slice(0, MAX_DESCRIPTION))}
+                  placeholder={t('venue.detail.descriptionPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   multiline
                   numberOfLines={4}
@@ -450,14 +452,14 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
 
               {/* Opening hours — 7-day structured editor (same keys/order as VenueInfoSection) */}
               <View style={styles.editSection}>
-                <Text style={styles.editSectionLabel}>Öffnungszeiten</Text>
-                {EDIT_DAY_ORDER.map(({ key, label }) => (
+                <Text style={styles.editSectionLabel}>{t('venue.info.openingHours')}</Text>
+                {EDIT_DAY_KEYS.map((key) => (
                   <View key={key} style={styles.editHoursRow}>
-                    <Text style={styles.editHoursDayLabel}>{label}</Text>
+                    <Text style={styles.editHoursDayLabel}>{EDIT_DAY_LABELS[language][key]}</Text>
                     <TextInput
                       style={styles.editHoursInput}
                       value={draftHours[key] ?? ''}
-                      onChangeText={(t) => setDraftHours((prev) => ({ ...prev, [key]: t }))}
+                      onChangeText={(text) => setDraftHours((prev) => ({ ...prev, [key]: text }))}
                       placeholder="17:00-23:00"
                       placeholderTextColor={colors.textSecondary}
                       returnKeyType="done"
@@ -483,18 +485,18 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
 
               {/* Address / geocoding */}
               <View style={styles.editSection}>
-                <Text style={styles.editSectionLabel}>Standort</Text>
+                <Text style={styles.editSectionLabel}>{t('venue.detail.location')}</Text>
                 <View style={styles.editAddressRow}>
                   <TextInput
                     style={styles.editAddressInput}
                     value={draftAddress}
-                    onChangeText={(t) => {
-                      setDraftAddress(t);
+                    onChangeText={(text) => {
+                      setDraftAddress(text);
                       setGeocodeLabel(null);
                       setDraftLat(null);
                       setDraftLng(null);
                     }}
-                    placeholder="Straße, Hausnummer, Stadt"
+                    placeholder={t('venue.detail.addressPlaceholder')}
                     placeholderTextColor={colors.textSecondary}
                     returnKeyType="search"
                     onSubmitEditing={() => { void handleGeocode(); }}
@@ -516,7 +518,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
                     styles.editGeocodeLabel,
                     draftLat !== null ? styles.editGeocodeLabelOk : styles.editGeocodeLabelErr,
                   ]}>
-                    {draftLat !== null ? 'Gefunden: ' : ''}{geocodeLabel}
+                    {draftLat !== null ? t('venue.detail.found', { label: geocodeLabel }) : geocodeLabel}
                   </Text>
                 )}
               </View>
@@ -557,26 +559,26 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
         {/* B2B attribution — only the owner/admin sees how many people came via Sparr */}
         {canEdit && (
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Über Sparr erreicht</Text>
+            <Text style={styles.sectionLabel}>{t('venue.detail.reached')}</Text>
             <View style={styles.statsHeadlineRow}>
               <Ionicons name="people" size={20} color={colors.accentBlue} />
               <Text style={styles.statsHeadlineNumber}>{totalSignups}</Text>
               <Text style={styles.statsHeadlineLabel}>
-                {totalSignups === 1 ? 'Anmeldung über Sparr' : 'Anmeldungen über Sparr'}
+                {t('venue.detail.signups', { count: totalSignups })}
               </Text>
             </View>
 
             {statsLoading && signupStats.length === 0 ? (
               <ActivityIndicator color={colors.accentBlue} style={styles.statsLoader} />
             ) : signupStats.length === 0 ? (
-              <Text style={styles.statsEmpty}>Noch keine Anmeldungen über Sparr</Text>
+              <Text style={styles.statsEmpty}>{t('venue.detail.noSignups')}</Text>
             ) : (
               <View style={styles.statsList}>
                 {signupStats.map((stat) => (
                   <View key={stat.eventId} style={styles.statsRow}>
                     <View style={styles.statsRowText}>
                       <Text style={styles.statsRowTitle} numberOfLines={1}>{stat.title}</Text>
-                      <Text style={styles.statsRowDate}>{formatStatDate(stat.scheduledAt)}</Text>
+                      <Text style={styles.statsRowDate}>{formatStatDate(stat.scheduledAt, language)}</Text>
                     </View>
                     <Text style={styles.statsRowCount}>{stat.signupCount}</Text>
                   </View>
@@ -588,7 +590,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
 
         {/* Ratings summary */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Bewertungen</Text>
+          <Text style={styles.sectionLabel}>{t('venue.detail.ratings')}</Text>
           <View style={styles.ratingSummaryRow}>
             <Ionicons name="star" size={18} color={colors.accentBlue} />
             <Text style={styles.ratingAvg}>
@@ -596,8 +598,8 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
             </Text>
             <Text style={styles.ratingCount}>
               {ratingCount === 0
-                ? 'Noch keine Bewertungen'
-                : `${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'}`}
+                ? t('venue.detail.noRatings')
+                : t('venue.detail.ratingCount', { count: ratingCount })}
             </Text>
           </View>
           {!canEdit && (
@@ -607,7 +609,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
               activeOpacity={0.85}
             >
               <Ionicons name="star-outline" size={18} color={colors.accentBlue} />
-              <Text style={styles.ratingActionText}>Venue bewerten</Text>
+              <Text style={styles.ratingActionText}>{t('venue.rating.heading')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -617,7 +619,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
 
         {/* Photo gallery */}
         <View style={styles.gallerySection}>
-          <Text style={styles.sectionLabelPad}>Fotos</Text>
+          <Text style={styles.sectionLabelPad}>{t('venue.detail.photos')}</Text>
           <VenuePhotoGallery
             photos={photos}
             editable={canEdit}
@@ -628,7 +630,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
 
         {/* Events */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Kommende Events</Text>
+          <Text style={styles.sectionLabel}>{t('venue.detail.upcomingEvents')}</Text>
           <VenueEventsList
             events={events}
             onPressEvent={(e) => setSelectedEvent(e)}

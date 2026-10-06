@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import React, { useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ const ROW_HEIGHT = 72;
 // All fighters who name this gym as their main gym — virtualised and paged
 // (20 per page) as the list scrolls. Not an official member list.
 export default function GymFightersScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const { gymId, gymName } = useRoute<Route>().params;
   const { fighters, status, hasMore, loadingMore, loadMore, retry } = useGymFighters(gymId);
@@ -30,7 +32,7 @@ export default function GymFightersScreen(): React.ReactElement {
       onPress={() => navigation.push('PublicProfile', { userId: item.id })}
       activeOpacity={0.6}
       accessibilityRole="button"
-      accessibilityLabel={`Profil von ${item.name ?? 'Kämpfer'} öffnen`}
+      accessibilityLabel={t('gym.fightersPreview.profileOf', { name: item.name ?? t('gym.fightersPreview.fighterFallback') })}
     >
       <ProfilePhoto uri={item.avatar_url} name={item.name} size={48} />
       <View style={styles.flex}>
@@ -41,16 +43,16 @@ export default function GymFightersScreen(): React.ReactElement {
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
     </TouchableOpacity>
-  ), [navigation]);
+  ), [navigation, t]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.toolbar}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Zurück">
+        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.flex}>
-          <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>Hier trainieren</Text>
+          <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>{t('gym.fighters.title')}</Text>
           <Text style={styles.muted} numberOfLines={1}>{gymName}</Text>
         </View>
       </View>
@@ -58,9 +60,9 @@ export default function GymFightersScreen(): React.ReactElement {
       {fighters.length === 0 ? (
         <View style={styles.state}>
           {status === 'loading' ? <ActivityIndicator color={colors.accentBlue} /> : status === 'error' ? (
-            <RetryNotice message="Die Kämpfer konnten nicht geladen werden." onRetry={retry} />
+            <RetryNotice message={t('gym.fightersPreview.loadError')} onRetry={retry} />
           ) : (
-            <Text style={styles.muted}>Noch niemand hat dieses Gym als Hauptgym angegeben.</Text>
+            <Text style={styles.muted}>{t('gym.fightersPreview.empty')}</Text>
           )}
         </View>
       ) : (
@@ -69,7 +71,7 @@ export default function GymFightersScreen(): React.ReactElement {
           keyExtractor={(f) => f.id}
           renderItem={renderItem}
           ItemSeparatorComponent={Separator}
-          ListHeaderComponent={<Text style={[styles.muted, styles.header]}>Kämpfer, die dieses Gym in ihrem Profil als Hauptgym angeben.</Text>}
+          ListHeaderComponent={<Text style={[styles.muted, styles.header]}>{t('gym.fighters.header')}</Text>}
           ListFooterComponent={loadingMore ? <ActivityIndicator style={styles.footer} color={colors.accentBlue} /> : null}
           onEndReached={() => { if (hasMore) loadMore(); }}
           onEndReachedThreshold={0.5}

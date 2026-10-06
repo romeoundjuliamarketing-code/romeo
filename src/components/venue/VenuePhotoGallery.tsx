@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -26,13 +27,14 @@ export default function VenuePhotoGallery({
   onAdd,
   onRemovePhoto,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const isEmpty = photos.length === 0;
 
   // Empty, non-editable state
   if (isEmpty && !editable) {
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyText}>Noch keine Fotos vorhanden.</Text>
+        <Text style={styles.emptyText}>{t('venue.photos.empty')}</Text>
       </View>
     );
   }
@@ -48,7 +50,7 @@ export default function VenuePhotoGallery({
       {editable && (
         <TouchableOpacity style={styles.addTile} onPress={onAdd} activeOpacity={0.8}>
           <Ionicons name="add" size={32} color={colors.textSecondary} />
-          <Text style={styles.addLabel}>Foto{'\n'}hinzufügen</Text>
+          <Text style={styles.addLabel}>{t('venue.photos.add')}</Text>
         </TouchableOpacity>
       )}
 

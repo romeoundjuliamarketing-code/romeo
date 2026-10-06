@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Alert, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -30,6 +31,7 @@ const DESCRIPTION_MAX = 300;
 // "Gym bearbeiten" for the operator: only the facts of the reduced gym page.
 // No schedule, prices, roles or members — those are gone from the gym page.
 export default function GymEditScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const { gymId } = useRoute<Route>().params;
   const { user } = useAuth();
@@ -54,11 +56,11 @@ export default function GymEditScreen(): React.ReactElement {
   useEffect(() => navigation.addListener('beforeRemove', (e) => {
     if (!dirty.current) return;
     e.preventDefault();
-    Alert.alert('Änderungen verwerfen?', 'Deine Änderungen sind noch nicht gespeichert.', [
-      { text: 'Weiter bearbeiten', style: 'cancel' },
-      { text: 'Verwerfen', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+    Alert.alert(t('gym.edit.discardTitle'), t('gym.edit.discardBody'), [
+      { text: t('gym.edit.keepEditing'), style: 'cancel' },
+      { text: t('gym.edit.discard'), style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
     ]);
-  }), [navigation]);
+  }), [navigation, t]);
 
   function change(patch: Partial<NonNullable<typeof draft>>): void {
     dirty.current = true;
@@ -90,32 +92,32 @@ export default function GymEditScreen(): React.ReactElement {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <View style={styles.toolbar}>
-        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Zurück">
+        <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title} accessibilityRole="header">Gym bearbeiten</Text>
+        <Text style={styles.title} accessibilityRole="header">{t('gym.menu.edit')}</Text>
       </View>
 
       {gym === null || draft === null ? (
         <View style={styles.state}>
           {status === 'error'
-            ? <RetryNotice message="Das Gym konnte nicht geladen werden." onRetry={refetch} />
+            ? <RetryNotice message={t('gym.pageState.loadError')} onRetry={refetch} />
             : <ActivityIndicator color={colors.accentBlue} />}
         </View>
       ) : !isOwner ? (
         <View style={styles.state}>
-          <Text style={styles.muted}>Nur die Betreiber dieses Gyms können es bearbeiten. Du kannst auf der Gym-Seite eine Korrektur vorschlagen.</Text>
+          <Text style={styles.muted}>{t('gym.edit.ownersOnly')}</Text>
         </View>
       ) : (
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-            <LabeledInput label="Name" value={draft.name} onChange={(v) => change({ name: v })} max={GYM_LIMITS.name} error={errors.name} />
-            <LabeledInput label="Stadt" value={draft.city} onChange={(v) => change({ city: v })} max={GYM_LIMITS.city} error={errors.city} />
-            <LabeledInput label="Adresse (optional)" value={draft.address} onChange={(v) => change({ address: v })} max={GYM_LIMITS.address} error={errors.address} placeholder="Straße und Hausnummer" />
+            <LabeledInput label={t('gym.correction.name')} value={draft.name} onChange={(v) => change({ name: v })} max={GYM_LIMITS.name} error={errors.name} />
+            <LabeledInput label={t('gym.correction.city')} value={draft.city} onChange={(v) => change({ city: v })} max={GYM_LIMITS.city} error={errors.city} />
+            <LabeledInput label={t('gym.picker.fieldAddress')} value={draft.address} onChange={(v) => change({ address: v })} max={GYM_LIMITS.address} error={errors.address} placeholder={t('gym.edit.addressPlaceholder')} />
             <DisciplineSelector selected={draft.disciplines} onChange={(d) => change({ disciplines: d })} />
-            <LabeledInput label="Kurze Beschreibung (optional)" value={draft.description} onChange={(v) => change({ description: v })} max={DESCRIPTION_MAX} error={errors.description} multiline />
+            <LabeledInput label={t('gym.edit.description')} value={draft.description} onChange={(v) => change({ description: v })} max={DESCRIPTION_MAX} error={errors.description} multiline />
             <LabeledInput
-              label="Website (optional)" value={draft.website} onChange={(v) => change({ website: v })} max={WEBSITE_MAX}
+              label={t('gym.edit.website')} value={draft.website} onChange={(v) => change({ website: v })} max={WEBSITE_MAX}
               error={errors.website} keyboardType="url" autoCapitalize="none" placeholder="boxclub.de"
             />
             <GymImageFields
@@ -126,7 +128,7 @@ export default function GymEditScreen(): React.ReactElement {
               onLogo={(uri) => change({ logoUri: uri })}
             />
             {errors.form !== undefined && <Text style={styles.error}>{errors.form}</Text>}
-            <PrimaryButton icon="checkmark" label="Speichern" loading={saving} onPress={() => { void submit(); }} />
+            <PrimaryButton icon="checkmark" label={t('common.save')} loading={saving} onPress={() => { void submit(); }} />
           </ScrollView>
         </KeyboardAvoidingView>
       )}

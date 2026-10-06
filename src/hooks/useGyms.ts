@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/queryCache';
+import i18n from '../i18n';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { gymErrorMessage, gymSearchTokens, rankSimilarGyms, significantGymWords } from '../utils/gymSearch';
 
@@ -198,7 +199,7 @@ export async function suggestGymCorrection(input: {
     proposed_address: input.address,
     note:             input.note,
   });
-  return { error: error !== null ? 'Der Vorschlag konnte nicht gesendet werden. Bitte versuche es erneut.' : null };
+  return { error: error !== null ? i18n.t('gym.correction.sendFailed') : null };
 }
 
 // ─── Fighters who name this gym ───────────────────────────────────────────────

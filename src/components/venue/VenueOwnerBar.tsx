@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function VenueOwnerBar({ onEditProfile, onCreateEvent }: Props): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       {/* Edit venue profile */}
@@ -23,7 +25,7 @@ export default function VenueOwnerBar({ onEditProfile, onCreateEvent }: Props): 
         onPress={onEditProfile}
       >
         <Ionicons name="create-outline" size={16} color={colors.textPrimary} />
-        <Text style={styles.chipLabel}>Profil bearbeiten</Text>
+        <Text style={styles.chipLabel}>{t('venue.ownerBar.editProfile')}</Text>
       </TouchableOpacity>
 
       {/* Create event placeholder — Task 10 will wire the real sheet */}
@@ -33,7 +35,7 @@ export default function VenueOwnerBar({ onEditProfile, onCreateEvent }: Props): 
         onPress={onCreateEvent}
       >
         <Ionicons name="calendar-outline" size={16} color={colors.textPrimary} />
-        <Text style={styles.chipLabel}>Event anlegen</Text>
+        <Text style={styles.chipLabel}>{t('venue.ownerBar.createEvent')}</Text>
       </TouchableOpacity>
     </View>
   );

@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { View, Text, Pressable, TouchableOpacity, BackHandler, StyleSheet } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,14 +25,14 @@ export function gymMenuItems(f: {
   onSwitchHome: () => void; onRemoveHome: () => void; onLegacy: () => void;
 }): GymMenuItem[] {
   const items: GymMenuItem[] = [];
-  if (f.isOwner) items.push({ key: 'edit', icon: 'create-outline', label: 'Gym bearbeiten', onPress: f.onEdit });
-  if (f.canHandleRequests) items.push({ key: 'requests', icon: 'mail-outline', label: 'Offene Anfragen', onPress: f.onRequests });
-  if (!f.isOwner) items.push({ key: 'correction', icon: 'flag-outline', label: 'Korrektur vorschlagen', onPress: f.onCorrection });
+  if (f.isOwner) items.push({ key: 'edit', icon: 'create-outline', label: i18n.t('gym.menu.edit'), onPress: f.onEdit });
+  if (f.canHandleRequests) items.push({ key: 'requests', icon: 'mail-outline', label: i18n.t('gym.menu.requests'), onPress: f.onRequests });
+  if (!f.isOwner) items.push({ key: 'correction', icon: 'flag-outline', label: i18n.t('gym.menu.correction'), onPress: f.onCorrection });
   if (f.isHome) {
-    items.push({ key: 'switch', icon: 'swap-horizontal', label: 'Hauptgym wechseln', onPress: f.onSwitchHome });
-    items.push({ key: 'remove', icon: 'remove-circle-outline', label: 'Als Hauptgym entfernen', onPress: f.onRemoveHome, destructive: true });
+    items.push({ key: 'switch', icon: 'swap-horizontal', label: i18n.t('gym.menu.switchHome'), onPress: f.onSwitchHome });
+    items.push({ key: 'remove', icon: 'remove-circle-outline', label: i18n.t('gym.menu.removeHome'), onPress: f.onRemoveHome, destructive: true });
   }
-  if (f.hasLegacy) items.push({ key: 'legacy', icon: 'document-text-outline', label: 'Bestehende Vorgänge', onPress: f.onLegacy });
+  if (f.hasLegacy) items.push({ key: 'legacy', icon: 'document-text-outline', label: i18n.t('gym.menu.legacy'), onPress: f.onLegacy });
   return items;
 }
 
@@ -42,6 +44,7 @@ export default function GymMenu({ visible, items, onClose }: {
   items:   GymMenuItem[];
   onClose: () => void;
 }): React.ReactElement | null {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -56,7 +59,7 @@ export default function GymMenu({ visible, items, onClose }: {
   if (!visible) return null;
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Menü schließen" />
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel={t('gym.menu.close')} />
       <Animated.View
         entering={FadeIn.duration(120)}
         exiting={FadeOut.duration(100)}

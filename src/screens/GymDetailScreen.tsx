@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, StyleSheet } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +39,7 @@ const PREVIEW_FIGHTERS = 8;
 // switch and running legacy matters sit in the menu. One top bar (GymTopBar)
 // turns opaque with the gym name once the head has scrolled away.
 export default function GymDetailScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const { gymId } = useRoute<Route>().params;
   const insets = useSafeAreaInsets();
@@ -137,11 +139,11 @@ export default function GymDetailScreen(): React.ReactElement {
 
       <GymPickerSheet
         visible={pickerVisible}
-        title="Hauptgym ändern"
+        title={t('gym.detail.changeHome')}
         currentGymId={homeGymId}
         onClose={() => setPickerVisible(false)}
         onSelect={home.choose}
-        removeLabel="Als Hauptgym entfernen"
+        removeLabel={t('gym.menu.removeHome')}
         onRemove={home.remove}
       />
       {!isOwner && <GymCorrectionSheet gym={gym} visible={correctionVisible} onClose={() => setCorrectionVisible(false)} />}

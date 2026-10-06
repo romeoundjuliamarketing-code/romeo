@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -33,6 +34,7 @@ export default function GymHero({ gym, isHome, onNameBottom }: {
   /** Bottom edge of the gym name within the hero (for the top bar's title). */
   onNameBottom: (y: number) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [coverFailed, setCoverFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -99,7 +101,7 @@ export default function GymHero({ gym, isHome, onNameBottom }: {
           {isHome && (
             <View style={styles.homeLabel}>
               <Ionicons name="checkmark-circle" size={16} color={colors.accentBlueText} />
-              <Text style={styles.homeText} maxFontSizeMultiplier={1.4}>Dein Hauptgym</Text>
+              <Text style={styles.homeText} maxFontSizeMultiplier={1.4}>{t('gym.hero.homeGym')}</Text>
             </View>
           )}
         </View>

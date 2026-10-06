@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,18 +13,19 @@ export default function GymPageState({ status, onBack, onRetry }: {
   onBack:  () => void;
   onRetry: () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.toolbar}>
-        <TouchableOpacity style={styles.iconBtn} onPress={onBack} accessibilityRole="button" accessibilityLabel="Zurück">
+        <TouchableOpacity style={styles.iconBtn} onPress={onBack} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
       </View>
       <View style={styles.center}>
         {status === 'loading' ? <ActivityIndicator color={colors.accentBlue} /> : status === 'error' ? (
-          <RetryNotice message="Das Gym konnte nicht geladen werden." onRetry={onRetry} />
+          <RetryNotice message={t('gym.pageState.loadError')} onRetry={onRetry} />
         ) : (
-          <Text style={styles.muted}>Dieses Gym gibt es nicht mehr.</Text>
+          <Text style={styles.muted}>{t('gym.pageState.gone')}</Text>
         )}
       </View>
     </SafeAreaView>

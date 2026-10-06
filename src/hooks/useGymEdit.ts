@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 import { uploadImage } from '../lib/uploadImage';
 import { cacheGym, toGym } from './useGyms';
 import type { Gym } from './useGyms';
@@ -44,7 +45,7 @@ export function useGymEdit(gym: Gym | null): {
   const [saving, setSaving] = useState(false);
 
   async function save(draft: GymDraft): Promise<{ error: string | null }> {
-    if (gym === null) return { error: 'Das Gym ist nicht geladen.' };
+    if (gym === null) return { error: i18n.t('gym.edit.errors.notLoaded') };
     setSaving(true);
     try {
       const address = draft.address.trim();
@@ -67,19 +68,19 @@ export function useGymEdit(gym: Gym | null): {
 
       if (draft.coverUri !== null) {
         const { url, error } = await uploadImage(draft.coverUri, 'studio-assets', `${gym.id}/banner`);
-        if (error !== null) return { error: 'Das Cover konnte nicht hochgeladen werden.' };
+        if (error !== null) return { error: i18n.t('gym.edit.errors.coverUpload') };
         updates.banner_url = url;
       }
       if (draft.logoUri !== null) {
         const { url, error } = await uploadImage(draft.logoUri, 'studio-assets', `${gym.id}/avatar`);
-        if (error !== null) return { error: 'Das Logo konnte nicht hochgeladen werden.' };
+        if (error !== null) return { error: i18n.t('gym.edit.errors.logoUpload') };
         updates.avatar_url = url;
       }
 
       const { data, error } = await supabase.from('studios').update(updates).eq('id', gym.id).select('*');
-      if (error !== null) return { error: 'Die Änderungen konnten nicht gespeichert werden. Bitte versuche es erneut.' };
+      if (error !== null) return { error: i18n.t('gym.edit.errors.saveFailed') };
       const row = (data ?? [])[0];
-      if (row === undefined) return { error: 'Du kannst dieses Gym nicht bearbeiten.' };
+      if (row === undefined) return { error: i18n.t('gym.edit.errors.notAllowed') };
       cacheGym(toGym(row as Parameters<typeof toGym>[0]));
       return { error: null };
     } finally {

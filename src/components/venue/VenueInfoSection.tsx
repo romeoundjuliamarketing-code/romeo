@@ -1,4 +1,7 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import type { AppLanguage } from '../../utils/language';
 import {
   View,
   Text,
@@ -16,14 +19,9 @@ interface Props {
 
 // Day key order Mo–So
 const DAY_ORDER: string[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
-const DAY_LABELS: Record<string, string> = {
-  mon: 'Mo',
-  tue: 'Di',
-  wed: 'Mi',
-  thu: 'Do',
-  fri: 'Fr',
-  sat: 'Sa',
-  sun: 'So',
+const DAY_LABELS: Record<AppLanguage, Record<string, string>> = {
+  de: { mon: 'Mo', tue: 'Di', wed: 'Mi', thu: 'Do', fri: 'Fr', sat: 'Sa', sun: 'So' },
+  en: { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' },
 };
 
 function openAddress(address: string): void {
@@ -35,6 +33,8 @@ function openInstagram(url: string): void {
 }
 
 export default function VenueInfoSection({ venue }: Props): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const hasDescription = venue.description !== null && venue.description.trim().length > 0;
   const hasAddress = venue.address !== null && venue.address.trim().length > 0;
   const hasCapacity = venue.capacity !== null;
@@ -47,7 +47,7 @@ export default function VenueInfoSection({ venue }: Props): React.ReactElement {
       {/* Description */}
       {hasDescription && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Beschreibung</Text>
+          <Text style={styles.sectionLabel}>{t('venue.info.description')}</Text>
           <Text style={styles.bodyText}>{venue.description}</Text>
         </View>
       )}
@@ -55,7 +55,7 @@ export default function VenueInfoSection({ venue }: Props): React.ReactElement {
       {/* Venue type */}
       {venue.venue_type !== null && venue.venue_type !== undefined && venue.venue_type.length > 0 && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Typ</Text>
+          <Text style={styles.sectionLabel}>{t('venue.info.type')}</Text>
           <Text style={styles.bodyText}>{venue.venue_type}</Text>
         </View>
       )}
@@ -63,7 +63,7 @@ export default function VenueInfoSection({ venue }: Props): React.ReactElement {
       {/* Address — tappable */}
       {hasAddress && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Adresse</Text>
+          <Text style={styles.sectionLabel}>{t('venue.info.address')}</Text>
           <TouchableOpacity
             onPress={() => openAddress(venue.address as string)}
             activeOpacity={0.7}
@@ -79,20 +79,20 @@ export default function VenueInfoSection({ venue }: Props): React.ReactElement {
       {/* Capacity */}
       {hasCapacity && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Kapazität</Text>
-          <Text style={styles.bodyText}>{venue.capacity} Personen</Text>
+          <Text style={styles.sectionLabel}>{t('venue.info.capacity')}</Text>
+          <Text style={styles.bodyText}>{t('venue.info.people', { count: venue.capacity ?? 0 })}</Text>
         </View>
       )}
 
       {/* Opening hours */}
       {hasOpeningHours && (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Öffnungszeiten</Text>
+          <Text style={styles.sectionLabel}>{t('venue.info.openingHours')}</Text>
           {(() => {
             const hours = venue.opening_hours as Record<string, string>;
             return DAY_ORDER.filter((key) => hours[key] !== undefined).map((key) => (
               <View key={key} style={styles.hoursRow}>
-                <Text style={styles.dayLabel}>{DAY_LABELS[key]}</Text>
+                <Text style={styles.dayLabel}>{DAY_LABELS[language][key]}</Text>
                 <Text style={styles.bodyText}>{hours[key]}</Text>
               </View>
             ));

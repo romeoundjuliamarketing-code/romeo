@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { View, Text, TouchableOpacity, Linking, Platform, Alert, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -12,7 +14,7 @@ const LONG_DESCRIPTION = 200;
 
 function openUrl(url: string): void {
   Linking.openURL(url).catch(() => {
-    Alert.alert('Konnte nicht geöffnet werden', 'Bitte versuche es später erneut.');
+    Alert.alert(i18n.t('gym.infoSection.openFailedTitle'), i18n.t('gym.infoSection.openFailedBody'));
   });
 }
 
@@ -21,6 +23,7 @@ function openUrl(url: string): void {
 // block disappears when nothing is known. No embedded map — the route opens in
 // the platform's maps app.
 export default function GymInfoSection({ gym }: { gym: Gym }): React.ReactElement | null {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const description = gym.description?.trim() ?? '';
   const address = gym.address?.trim() ?? '';
@@ -32,7 +35,7 @@ export default function GymInfoSection({ gym }: { gym: Gym }): React.ReactElemen
 
   return (
     <View style={styles.block}>
-      <BlockTitle>Über das Gym</BlockTitle>
+      <BlockTitle>{t('gym.infoSection.about')}</BlockTitle>
       {description.length > 0 && (
         <View style={styles.descriptionWrap}>
           <Text style={styles.description} numberOfLines={collapsible && !expanded ? COLLAPSED_LINES : undefined}>
@@ -40,7 +43,7 @@ export default function GymInfoSection({ gym }: { gym: Gym }): React.ReactElemen
           </Text>
           {collapsible && (
             <TouchableOpacity style={styles.link} onPress={() => setExpanded((v) => !v)} accessibilityRole="button">
-              <Text style={styles.linkText}>{expanded ? 'Weniger anzeigen' : 'Mehr anzeigen'}</Text>
+              <Text style={styles.linkText}>{expanded ? t('gym.infoSection.showLess') : t('gym.infoSection.showMore')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -52,14 +55,14 @@ export default function GymInfoSection({ gym }: { gym: Gym }): React.ReactElemen
             {address.length > 0 && <Text style={styles.fact}>{address}</Text>}
             {route !== null && (
               <TouchableOpacity style={styles.link} onPress={() => openUrl(route)} accessibilityRole="link">
-                <Text style={styles.linkText}>Route öffnen</Text>
+                <Text style={styles.linkText}>{t('gym.infoSection.openRoute')}</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
       )}
       {website.length > 0 && (
-        <TouchableOpacity style={styles.factRow} onPress={() => openUrl(website)} accessibilityRole="link" accessibilityLabel={`Website öffnen: ${websiteLabel(website)}`}>
+        <TouchableOpacity style={styles.factRow} onPress={() => openUrl(website)} accessibilityRole="link" accessibilityLabel={t('gym.infoSection.openWebsite', { site: websiteLabel(website) })}>
           <Ionicons name="globe-outline" size={20} color={colors.accentBlue} />
           <Text style={[styles.fact, styles.flex, styles.websiteText]} numberOfLines={1}>{websiteLabel(website)}</Text>
           <Ionicons name="open-outline" size={18} color={colors.textMuted} />

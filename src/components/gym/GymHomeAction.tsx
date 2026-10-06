@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { PrimaryButton } from '../profil/ProfileParts';
@@ -11,10 +12,11 @@ export default function GymHomeAction({ busy, onSet }: {
   busy:  boolean;
   onSet: () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.wrap}>
-      <PrimaryButton icon="add" label="Hier trainiere ich" onPress={onSet} loading={busy} />
-      <Text style={styles.hint}>Zeigt das Gym in deinem Kämpferprofil. Keine Mitgliedschaft oder Anmeldung.</Text>
+      <PrimaryButton icon="add" label={t('gym.homeAction.label')} onPress={onSet} loading={busy} />
+      <Text style={styles.hint}>{t('gym.homeAction.hint')}</Text>
     </View>
   );
 }

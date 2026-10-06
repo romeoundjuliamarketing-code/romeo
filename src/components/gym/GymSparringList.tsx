@@ -1,16 +1,25 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
+import { useLanguage } from '../../i18n/language';
+import { localeFor } from '../../utils/language';
+import type { AppLanguage } from '../../utils/language';
+import { formatDate } from '../../utils/formatDate';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import type { GymSparring, LoadStatus } from '../../hooks/useGyms';
 import { PrimaryButton } from '../profil/ProfileParts';
 
-const MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+const MONTHS: Record<AppLanguage, string[]> = {
+  de: ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+};
 
 function slotsLabel(free: number | null): string | null {
   if (free === null) return null;
-  if (free === 0) return 'Ausgebucht';
-  return free === 1 ? '1 Platz frei' : `${free} Plätze frei`;
+  if (free === 0) return i18n.t('gym.sparringList.full');
+  return i18n.t('gym.sparringList.slotsFree', { count: free });
 }
 
 // Upcoming sparrings at a gym. The organizer is always named: a meeting in a
@@ -23,13 +32,15 @@ export default function GymSparringList({ sparrings, status, retry, onOpen, onOp
   onOpenOrganizer: (userId: string) => void;
   onPlan:          () => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   if (status === 'loading' && sparrings.length === 0) return <ActivityIndicator color={colors.accentBlue} />;
   if (status === 'error' && sparrings.length === 0) {
     return (
       <View style={styles.state}>
-        <Text style={styles.muted}>Die Sparrings konnten nicht geladen werden.</Text>
+        <Text style={styles.muted}>{t('gym.sparringList.loadError')}</Text>
         <TouchableOpacity style={styles.retry} onPress={retry} accessibilityRole="button">
-          <Text style={styles.retryText}>Erneut versuchen</Text>
+          <Text style={styles.retryText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -38,8 +49,8 @@ export default function GymSparringList({ sparrings, status, retry, onOpen, onOp
   if (sparrings.length === 0) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyText}>Noch kein gemeinsames Sparring geplant.</Text>
-        <PrimaryButton icon="add" label="Sparring planen" onPress={onPlan} />
+        <Text style={styles.emptyText}>{t('gym.sparringList.empty')}</Text>
+        <PrimaryButton icon="add" label={t('gym.sparringList.plan')} onPress={onPlan} />
       </View>
     );
   }
@@ -48,9 +59,9 @@ export default function GymSparringList({ sparrings, status, retry, onOpen, onOp
     <View>
       {sparrings.map((s, i) => {
         const d = new Date(s.scheduled_at);
-        const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-        const weekday = d.toLocaleDateString('de-DE', { weekday: 'short' });
-        const organizer = s.organizer?.name ?? 'einem Kämpfer';
+        const time = formatDate(d, 'time', language);
+        const weekday = new Intl.DateTimeFormat(localeFor(language), { weekday: 'short' }).format(d);
+        const organizer = s.organizer?.name ?? t('gym.sparringList.organizerFallback');
         const slots = slotsLabel(s.free_slots);
         return (
           <View key={s.id} style={[styles.row, i > 0 && styles.rowBorder]}>
@@ -59,25 +70,27 @@ export default function GymSparringList({ sparrings, status, retry, onOpen, onOp
               onPress={() => onOpen(s.id)}
               activeOpacity={0.6}
               accessibilityRole="button"
-              accessibilityLabel={`${s.title}, ${d.toLocaleDateString('de-DE')} um ${time}. Auf der Karte öffnen`}
+              accessibilityLabel={t('gym.sparringList.openOnMap', { title: s.title, date: formatDate(d, 'date', language), time })}
             >
               <View style={styles.date}>
                 <Text style={styles.day}>{d.getDate()}</Text>
-                <Text style={styles.month}>{MONTHS[d.getMonth()]}</Text>
+                <Text style={styles.month}>{MONTHS[language][d.getMonth()]}</Text>
               </View>
               <View style={styles.flex}>
                 <Text style={styles.title} numberOfLines={2}>{s.title}</Text>
-                <Text style={styles.muted}>{weekday}, {time} Uhr – {s.discipline}</Text>
+                <Text style={styles.muted}>{t('gym.sparringList.when', { weekday, time, discipline: s.discipline })}</Text>
                 {slots !== null && (
                   <Text style={[styles.slots, s.free_slots === 0 && styles.slotsFull]}>{slots}</Text>
                 )}
                 {s.access_note !== null && s.access_note.length > 0 && (
-                  <Text style={styles.note}>Zugang: {s.access_note}</Text>
+                  <Text style={styles.note}>{t('gym.sparringList.access', { note: s.access_note })}</Text>
                 )}
               </View>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => onOpenOrganizer(s.created_by)} hitSlop={8} accessibilityRole="link" style={styles.organizer}>
-              <Text style={styles.muted}>Organisiert von <Text style={styles.organizerName}>{organizer}</Text></Text>
+              <Text style={styles.muted}>
+                <Trans i18nKey="gym.sparringList.organizedBy" values={{ name: organizer }} components={{ strong: <Text style={styles.organizerName} /> }} />
+              </Text>
             </TouchableOpacity>
           </View>
         );

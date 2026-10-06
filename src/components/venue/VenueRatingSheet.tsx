@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -31,6 +32,7 @@ export default function VenueRatingSheet({
   onClose,
   onSubmitted,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const { existingRating, submitRating } = useVenueRatings(venueId);
 
   const [stars,   setStars]   = useState(0);
@@ -50,7 +52,7 @@ export default function VenueRatingSheet({
 
   async function handleSubmit(): Promise<void> {
     if (stars < 1) {
-      Alert.alert('Bewertung', 'Bitte vergib mindestens einen Stern.');
+      Alert.alert(t('venue.rating.alertTitle'), t('venue.rating.minStar'));
       return;
     }
 
@@ -59,7 +61,7 @@ export default function VenueRatingSheet({
     setLoading(false);
 
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
 
@@ -74,7 +76,7 @@ export default function VenueRatingSheet({
         <View style={styles.handle} />
 
         <View style={styles.headerRow}>
-          <Text style={styles.heading}>Venue bewerten</Text>
+          <Text style={styles.heading}>{t('venue.rating.heading')}</Text>
           <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="close" size={24} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -83,7 +85,7 @@ export default function VenueRatingSheet({
         <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Text style={styles.venueName}>{venueName}</Text>
 
-          <Text style={styles.label}>Deine Bewertung</Text>
+          <Text style={styles.label}>{t('venue.rating.yourRating')}</Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((n) => (
               <TouchableOpacity
@@ -101,12 +103,12 @@ export default function VenueRatingSheet({
             ))}
           </View>
 
-          <Text style={styles.label}>Kommentar (optional)</Text>
+          <Text style={styles.label}>{t('venue.rating.comment')}</Text>
           <TextInput
             style={styles.commentInput}
             value={comment}
-            onChangeText={(t) => setComment(t.slice(0, MAX_COMMENT))}
-            placeholder="Wie war die Atmosphäre, das Venue, das Event?"
+            onChangeText={(text) => setComment(text.slice(0, MAX_COMMENT))}
+            placeholder={t('venue.rating.placeholder')}
             placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={3}
@@ -123,7 +125,7 @@ export default function VenueRatingSheet({
               <ActivityIndicator color={colors.card} />
             ) : (
               <Text style={styles.confirmBtnText}>
-                {existingRating !== null ? 'Bewertung aktualisieren' : 'Bewertung senden'}
+                {existingRating !== null ? t('venue.rating.update') : t('venue.rating.submit')}
               </Text>
             )}
           </TouchableOpacity>
