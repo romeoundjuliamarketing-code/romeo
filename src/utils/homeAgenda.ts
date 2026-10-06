@@ -9,6 +9,7 @@
 
 import { hasStarted, isInConfirmWindow } from './sparringCommitment';
 import { SPARRING_CONFIRM_DEADLINE_HOURS } from '../data/sparringConfig';
+import i18n from '../i18n';
 
 export type HomeSparringRole = 'organizer' | 'pending' | 'confirmed';
 
@@ -60,8 +61,18 @@ export function confirmDeadline(scheduledAt: string, now: Date): Date | null {
 
 // ─── Labels ───────────────────────────────────────────────────────────────────
 
-const WEEKDAYS = ['So.', 'Mo.', 'Di.', 'Mi.', 'Do.', 'Fr.', 'Sa.'];
-const MONTHS   = ['Jan.', 'Feb.', 'März', 'Apr.', 'Mai', 'Juni', 'Juli', 'Aug.', 'Sept.', 'Okt.', 'Nov.', 'Dez.'];
+const WEEKDAY_KEYS = [
+  'home.agenda.weekdays.sun', 'home.agenda.weekdays.mon', 'home.agenda.weekdays.tue', 'home.agenda.weekdays.wed',
+  'home.agenda.weekdays.thu', 'home.agenda.weekdays.fri', 'home.agenda.weekdays.sat',
+] as const;
+const MONTH_KEYS = [
+  'home.agenda.months.jan', 'home.agenda.months.feb', 'home.agenda.months.mar', 'home.agenda.months.apr',
+  'home.agenda.months.may', 'home.agenda.months.jun', 'home.agenda.months.jul', 'home.agenda.months.aug',
+  'home.agenda.months.sep', 'home.agenda.months.oct', 'home.agenda.months.nov', 'home.agenda.months.dec',
+] as const;
+
+const weekdayName = (date: Date): string => i18n.t(WEEKDAY_KEYS[date.getDay()]);
+const monthName = (date: Date): string => i18n.t(MONTH_KEYS[date.getMonth()]);
 
 function calendarDaysBetween(from: Date, to: Date): number {
   const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
@@ -76,10 +87,10 @@ export function timeLabel(date: Date): string {
 /** "Heute" · "Morgen" · "Fr., 2. Okt." · "Fr., 25. Mai 2029" (year only when not the current one). */
 export function appointmentDayLabel(date: Date, now: Date): string {
   const days = calendarDaysBetween(now, date);
-  if (days === 0) return 'Heute';
-  if (days === 1) return 'Morgen';
+  if (days === 0) return i18n.t('home.agenda.today');
+  if (days === 1) return i18n.t('home.agenda.tomorrow');
   const year = date.getFullYear() !== now.getFullYear() ? ` ${date.getFullYear()}` : '';
-  return `${WEEKDAYS[date.getDay()]}, ${date.getDate()}. ${MONTHS[date.getMonth()]}${year}`;
+  return i18n.t('home.agenda.dayLabel', { weekday: weekdayName(date), day: date.getDate(), month: monthName(date), year });
 }
 
 // Default titles are "<Disziplin> – Sparring" (CreateSparringSheet). The
@@ -110,9 +121,9 @@ export interface DateBlockParts {
 // Calendar block on Home: weekday small, day number large, month below.
 export function dateBlockParts(date: Date, now: Date): DateBlockParts {
   return {
-    weekday: WEEKDAYS[date.getDay()],
+    weekday: weekdayName(date),
     day:     String(date.getDate()),
-    month:   MONTHS[date.getMonth()],
+    month:   monthName(date),
     year:    date.getFullYear() !== now.getFullYear() ? String(date.getFullYear()) : null,
   };
 }
@@ -135,9 +146,9 @@ export function participantsPreview(
   const shown  = [...me, ...others].slice(0, max);
   let label: string | null = null;
   if (me.length > 0) {
-    label = others.length > 0 ? `Du + ${others.length} weitere` : null;
+    label = others.length > 0 ? i18n.t('home.agenda.youPlusOthers', { count: others.length }) : null;
   } else if (others.length > 0) {
-    label = `${others.length} ${others.length === 1 ? 'Zusage' : 'Zusagen'}`;
+    label = i18n.t('home.agenda.confirmations', { count: others.length });
   }
   return { shown: label === null && me.length > 0 ? [] : shown, label };
 }

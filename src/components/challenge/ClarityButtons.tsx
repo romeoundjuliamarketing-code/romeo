@@ -4,6 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ClarityValue } from '../../data/sparringChallenges';
 import { CLARITY_LEVELS } from './clarityLevels';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   selected:      ClarityValue | null;
@@ -22,6 +23,7 @@ export default function ClarityButtons({
   inactiveColor,
   showLabels = false,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.row}>
       {CLARITY_LEVELS.map((level) => (
@@ -32,7 +34,7 @@ export default function ClarityButtons({
           activeOpacity={0.7}
           disabled={selected !== null}
           accessibilityRole="button"
-          accessibilityLabel={level.label}
+          accessibilityLabel={t(level.labelKey)}
           accessibilityState={{ selected: selected === level.value }}
         >
           <MaterialCommunityIcons
@@ -40,7 +42,7 @@ export default function ClarityButtons({
             size={iconSize}
             color={selected === level.value ? colors.accentBlue : inactiveColor}
           />
-          {showLabels ? <Text style={styles.label}>{level.label}</Text> : null}
+          {showLabels ? <Text style={styles.label}>{t(level.labelKey)}</Text> : null}
         </TouchableOpacity>
       ))}
     </View>

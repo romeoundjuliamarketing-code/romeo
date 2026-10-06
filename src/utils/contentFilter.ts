@@ -1,4 +1,5 @@
 // Regelbasierter Wortfilter — pure logic, no React, no network.
+import i18n from '../i18n';
 // Word list is injected (loaded via useBannedWords) so this stays testable.
 
 export type FilterCategory =
@@ -63,15 +64,15 @@ export function checkText(
   return { ok: true };
 }
 
-const MESSAGES: Record<FilterCategory, string> = {
-  profanity: 'Dein Text enthält unzulässige Wörter. Bitte formuliere ihn freundlicher.',
-  hate: 'Dein Text enthält diskriminierende oder hasserfüllte Sprache.',
-  violence: 'Dein Text enthält Gewaltandrohungen.',
-  sexual: 'Dein Text enthält anstössige oder sexuelle Inhalte.',
-  spam: 'Dein Text enthält unerlaubte Werbung oder Links.',
-  contact: 'Bitte teile keine Kontaktdaten in diesem Feld.',
-};
+const MESSAGE_KEYS = {
+  profanity: 'home.filter.profanity',
+  hate: 'home.filter.hate',
+  violence: 'home.filter.violence',
+  sexual: 'home.filter.sexual',
+  spam: 'home.filter.spam',
+  contact: 'home.filter.contact',
+} as const satisfies Record<FilterCategory, string>;
 
 export function filterErrorMessage(category: FilterCategory): string {
-  return MESSAGES[category];
+  return i18n.t(MESSAGE_KEYS[category]);
 }

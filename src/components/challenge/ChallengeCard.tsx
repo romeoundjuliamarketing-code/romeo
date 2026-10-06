@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { areaLabel, challengePosition } from '../../data/sparringChallenges';
+import { challengePosition } from '../../data/sparringChallenges';
+import { useTranslation } from 'react-i18next';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import SparrLogo from '../common/SparrLogo';
@@ -49,25 +50,26 @@ export default function ChallengeCard({
   elevated = true,
   fitContent = false,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const compact = size.width < COMPACT_WIDTH;
   const level   = DIFFICULTY_LEVEL[challenge.difficulty];
   const meta    = challenge.focus.length > 0
-    ? `${areaLabel(challenge.area)} · ${challenge.focus}`
-    : areaLabel(challenge.area);
+    ? `${t(`challenge.areas.${challenge.area}`)} · ${challenge.focus}`
+    : t(`challenge.areas.${challenge.area}`);
 
   const brief = (
     <>
       <View
         style={styles.levelRow}
         accessible
-        accessibilityLabel={`Schwierigkeit ${challenge.difficulty}`}
+        accessibilityLabel={t('challenge.card.difficulty', { level: t(`challenge.difficulty.${challenge.difficulty}`) })}
       >
         <View style={styles.levelBars}>
           {[1, 2, 3].map((step) => (
             <View key={step} style={[styles.levelBar, step <= level && styles.levelBarOn]} />
           ))}
         </View>
-        <Text style={styles.levelText}>{challenge.difficulty}</Text>
+        <Text style={styles.levelText}>{t(`challenge.difficulty.${challenge.difficulty}`)}</Text>
       </View>
 
       <Text style={[styles.title, compact && styles.titleCompact]}>{challenge.title}</Text>
@@ -99,7 +101,7 @@ export default function ChallengeCard({
         size={16}
         color={done ? colors.headerTextPrimary : colors.accentBlue}
       />
-      <Text style={[styles.doneLabel, done && styles.doneLabelActive]}>Geschafft</Text>
+      <Text style={[styles.doneLabel, done && styles.doneLabelActive]}>{t('challenge.card.done')}</Text>
     </TouchableOpacity>
   ) : null;
 

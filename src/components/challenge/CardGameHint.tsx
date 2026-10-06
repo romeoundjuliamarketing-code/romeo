@@ -4,8 +4,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 export default function CardGameHint(): React.ReactElement | null {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [visible, setVisible] = useState(false);
 
@@ -28,8 +30,8 @@ export default function CardGameHint(): React.ReactElement | null {
 
   return (
     <View style={styles.hint}>
-      <Text style={styles.text}>Probier die Übung aus. Du musst sie nicht sofort beherrschen. Bereite Chancen vor, statt Treffer zu erzwingen.</Text>
-      <TouchableOpacity style={styles.close} onPress={dismiss} accessibilityRole="button" accessibilityLabel="Hinweis schließen">
+      <Text style={styles.text}>{t('challenge.hint.text')}</Text>
+      <TouchableOpacity style={styles.close} onPress={dismiss} accessibilityRole="button" accessibilityLabel={t('challenge.hint.close')}>
         <Ionicons name="close" size={20} color={colors.card} />
       </TouchableOpacity>
     </View>

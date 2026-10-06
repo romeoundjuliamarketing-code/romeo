@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 // Bottom sheet frame: dark overlay behind the whole sheet (clean corners),
 // tap outside / close button / Android back, keyboard-aware, header with an
@@ -26,22 +27,23 @@ export default function SheetShell({ visible, title, onClose, onBack, busy = fal
   height?:   number;
   children:  React.ReactNode;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const back = onBack ?? onClose;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={busy ? () => {} : back} statusBarTranslucent>
       <View style={styles.overlay}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={busy ? undefined : onClose} accessibilityLabel="Schließen" />
+        <Pressable style={StyleSheet.absoluteFill} onPress={busy ? undefined : onClose} accessibilityLabel={t('common.close')} />
         <KeyboardAvoidingView behavior="padding" style={styles.kav} pointerEvents="box-none">
           <View style={[styles.sheet, height !== undefined ? { height } : styles.sheetFit, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <View style={styles.header}>
               {onBack !== undefined ? (
-                <TouchableOpacity style={styles.iconBtn} onPress={onBack} disabled={busy} accessibilityRole="button" accessibilityLabel="Zurück">
+                <TouchableOpacity style={styles.iconBtn} onPress={onBack} disabled={busy} accessibilityRole="button" accessibilityLabel={t('common.back')}>
                   <Ionicons name="chevron-back" size={24} color={colors.text} />
                 </TouchableOpacity>
               ) : <View style={styles.iconBtn} />}
               <Text style={styles.title} accessibilityRole="header" numberOfLines={1}>{title}</Text>
-              <TouchableOpacity style={styles.iconBtn} onPress={onClose} disabled={busy} accessibilityRole="button" accessibilityLabel="Schließen">
+              <TouchableOpacity style={styles.iconBtn} onPress={onClose} disabled={busy} accessibilityRole="button" accessibilityLabel={t('common.close')}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>

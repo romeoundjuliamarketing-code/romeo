@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { getRelevantFitnessGroups } from '../data/disciplines';
 import { getCached, setCached } from '../lib/queryCache';
+import i18n from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,18 +28,18 @@ export interface FitnessRating {
 
 // ─── Mappings ─────────────────────────────────────────────────────────────────
 
-const GROUP_LABELS: Record<FitnessGroup, string> = {
-  schlagkraft:  'Schlagkraft',
-  trittkraft:   'Trittkraft',
-  ausdauer:     'Ausdauer',
-  schulter:     'Schulter & Kraft',
-  nackenhals:   'Nacken und Hals',
-  griffkraft:   'Griffkraft',
-  beinarbeit:   'Beinarbeit',
-  koordination: 'Koordination',
-  mobilitaet:   'Mobilität',
-  partnertraining: 'Partnertraining',
-};
+const GROUP_LABELS = {
+  schlagkraft:  'home.fitness.schlagkraft',
+  trittkraft:   'home.fitness.trittkraft',
+  ausdauer:     'home.fitness.ausdauer',
+  schulter:     'home.fitness.schulter',
+  nackenhals:   'home.fitness.nackenhals',
+  griffkraft:   'home.fitness.griffkraft',
+  beinarbeit:   'home.fitness.beinarbeit',
+  koordination: 'home.fitness.koordination',
+  mobilitaet:   'home.fitness.mobilitaet',
+  partnertraining: 'home.fitness.partnertraining',
+} as const;
 
 // Maps training_type values stored in workout_logs to a fitness group.
 const TRAINING_TYPE_TO_GROUP: Record<string, FitnessGroup> = {
@@ -144,7 +145,7 @@ export function useFitnessRatings(refetchTrigger = 0, disciplines: string[] = []
 
         const result: FitnessRating[] = relevantGroups.map((group) => ({
           group,
-          label: GROUP_LABELS[group],
+          label: i18n.t(GROUP_LABELS[group]),
           score: max === 0 ? 0 : Math.round((counts[group] / max) * 100),
           count: counts[group],
         }));

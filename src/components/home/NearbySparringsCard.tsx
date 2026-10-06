@@ -6,6 +6,10 @@ import { fonts } from '../../theme/typography';
 import type { NearbySparring, NearbyStatus } from '../../hooks/useNearbySparrings';
 import type { SearchLocationStatus } from '../../hooks/useSearchLocation';
 import { appointmentDayLabel, timeLabel, homeSparringTitle, shortAddress } from '../../utils/homeAgenda';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
+import { useLanguage } from '../../i18n/language';
+import type { AppLanguage } from '../../utils/language';
 
 interface Props {
   radiusKm:       number;
@@ -31,13 +35,15 @@ interface Props {
 const MAX_ROWS = 3;
 
 function eyebrowLabel(radiusKm: number, locationLabel: string | null): string {
-  const base = `SPARRING · ${radiusKm} KM`;
+  const base = i18n.t('home.nearby.eyebrow', { radius: radiusKm });
   if (locationLabel === null || locationLabel === 'Dein Standort') return base;
   return `${base} · ${locationLabel.toUpperCase()}`;
 }
 
-function distanceLabel(km: number): string {
-  return km < 1 ? 'unter 1 km' : `${km.toFixed(km < 10 ? 1 : 0).replace('.', ',')} km`;
+function distanceLabel(km: number, language: AppLanguage): string {
+  if (km < 1) return i18n.t('home.nearby.underOneKm');
+  const value = km.toFixed(km < 10 ? 1 : 0);
+  return `${language === 'en' ? value : value.replace('.', ',')} km`;
 }
 
 // Sparrings nearby on Home as one dark "ring corner": a wide #0A0A0A panel with
@@ -50,6 +56,7 @@ export default function NearbySparringsCard({
   radiusKm, locationLabel, locationStatus, status, sparrings, now,
   onOpen, onOpenSparring, onPickLocation, onRetry, onWiden, onCreate, hasCommitment,
 }: Props) {
+  const { t } = useTranslation();
   const { width, fontScale } = useWindowDimensions();
   const loading = locationStatus === 'loading' || status === 'loading' || status === 'idle';
   const empty   = locationStatus !== 'none' && status !== 'error' && !loading && sparrings.length === 0;
@@ -61,33 +68,33 @@ export default function NearbySparringsCard({
   if (locationStatus === 'none') {
     body = (
       <>
-        <Text style={styles.body}>Wähle einen Ort, um Sparrings im Umkreis von {radiusKm} km zu sehen.</Text>
-        <TextLink label="Standort wählen" onPress={onPickLocation} />
+        <Text style={styles.body}>{t('home.nearby.pickPrompt', { radius: radiusKm })}</Text>
+        <TextLink label={t('home.nearby.pickLocation')} onPress={onPickLocation} />
       </>
     );
   } else if (status === 'error') {
     body = (
       <>
-        <Text style={styles.body}>Sparrings konnten gerade nicht geladen werden.</Text>
-        <TextLink label="Erneut versuchen" onPress={onRetry} />
+        <Text style={styles.body}>{t('home.nearby.loadError')}</Text>
+        <TextLink label={t('common.retry')} onPress={onRetry} />
       </>
     );
   } else if (loading) {
     body = (
       <Text style={styles.body} accessibilityLiveRegion="polite">
-        Suche Sparrings im Umkreis von {radiusKm} km …
+        {t('home.nearby.searching', { radius: radiusKm })}
       </Text>
     );
   } else if (empty) {
     body = (
       <>
         <Text style={styles.headline} accessibilityRole="header">
-          {hasCommitment ? 'Sonst noch nichts in deiner Nähe.' : 'Hier fehlt noch deine Runde.'}
+          {hasCommitment ? t('home.nearby.emptyHeadlineCommitted') : t('home.nearby.emptyHeadline')}
         </Text>
         <Text style={styles.body}>
           {hasCommitment
-            ? 'Kein weiteres Sparring in deiner Nähe. Biete selbst eins an.'
-            : 'Noch kein Sparring in deiner Nähe. Erstelle den ersten Termin.'}
+            ? t('home.nearby.emptyBodyCommitted')
+            : t('home.nearby.emptyBody')}
         </Text>
         <Pressable
           style={({ pressed }) => [styles.primary, pressed && styles.primaryPressed]}
@@ -95,9 +102,9 @@ export default function NearbySparringsCard({
           accessibilityRole="button"
         >
           <Ionicons name="add" size={18} color={colors.dark} />
-          <Text style={styles.primaryText}>Sparring anbieten</Text>
+          <Text style={styles.primaryText}>{t('home.nearby.offer')}</Text>
         </Pressable>
-        <TextLink label="Umkreis erweitern" onPress={onWiden} />
+        <TextLink label={t('home.nearby.widen')} onPress={onWiden} />
       </>
     );
   } else {
@@ -109,7 +116,7 @@ export default function NearbySparringsCard({
           ))}
         </View>
         <TextLink
-          label={sparrings.length > MAX_ROWS ? `Alle ${sparrings.length} anzeigen` : 'Auf der Karte ansehen'}
+          label={sparrings.length > MAX_ROWS ? t('home.nearby.showAll', { count: sparrings.length }) : t('home.nearby.viewOnMap')}
           onPress={onOpen}
         />
       </>
@@ -146,14 +153,16 @@ export default function NearbySparringsCard({
 }
 
 function NearbyRow({ sparring, now, first, onPress }: { sparring: NearbySparring; now: Date; first: boolean; onPress: () => void }) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const startsAt = new Date(sparring.scheduled_at);
   const place    = sparring.studio_city.trim().length > 0 ? sparring.studio_city : shortAddress(sparring.address);
   const title    = homeSparringTitle(sparring.title, place);
-  const when     = `${appointmentDayLabel(startsAt, now)} · ${timeLabel(startsAt)} Uhr`;
-  const where    = [sparring.studio_name.trim().length > 0 ? sparring.studio_name : null, title.isPlace ? null : place, distanceLabel(sparring.distance_km)]
+  const when     = `${appointmentDayLabel(startsAt, now)} · ${t('home.next.clock', { time: timeLabel(startsAt) })}`;
+  const where    = [sparring.studio_name.trim().length > 0 ? sparring.studio_name : null, title.isPlace ? null : place, distanceLabel(sparring.distance_km, language)]
     .filter((part): part is string => part !== null && part.length > 0)
     .join(' · ');
-  const slots    = sparring.max_slots > 0 ? `${sparring.signup_count} von ${sparring.max_slots} dabei` : null;
+  const slots    = sparring.max_slots > 0 ? t('home.nearby.attending', { count: sparring.signup_count, max: sparring.max_slots }) : null;
 
   return (
     <TouchableOpacity

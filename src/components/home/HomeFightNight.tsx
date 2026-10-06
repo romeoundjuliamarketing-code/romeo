@@ -5,6 +5,7 @@ import { colors } from '../../theme/colors';
 import { availablePromotions, fightEventWhen, pickNextFightEvent } from '../../utils/fightEvents';
 import type { FightEvent, FightPromotion } from '../../utils/fightEvents';
 import type { FightEventsStatus } from '../../hooks/useFightEvents';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   events: FightEvent[];
@@ -18,6 +19,7 @@ interface Props {
 // fight_events data) and the entry to the event map with local watch parties.
 // Always shown; without reliable data it says so instead of guessing a date.
 export default function HomeFightNight({ events, status, now, onWatch }: Props) {
+  const { t } = useTranslation();
   const [promotion, setPromotion] = useState<FightPromotion>('UFC');
   const available = status === 'ready' ? availablePromotions(events, now) : [];
   // The toggle only offers promotions that actually have a next event; UFC is the default.
@@ -31,7 +33,7 @@ export default function HomeFightNight({ events, status, now, onWatch }: Props) 
       <View style={styles.headRow}>
         <View style={styles.eyebrowRow}>
           <Ionicons name="tv-outline" size={16} color={colors.accentBlue} />
-          <Text style={styles.eyebrow}>GEMEINSAM KÄMPFE SCHAUEN</Text>
+          <Text style={styles.eyebrow}>{t('home.fight.eyebrow')}</Text>
         </View>
         {showToggle && (
           <View style={styles.toggle} accessibilityRole="tablist">
@@ -51,30 +53,30 @@ export default function HomeFightNight({ events, status, now, onWatch }: Props) 
       </View>
 
       {status === 'loading' ? (
-        <Text style={styles.muted}>Nächster {active}-Termin wird geladen …</Text>
+        <Text style={styles.muted}>{t('home.fight.loading', { promotion: active })}</Text>
       ) : next === null || when === null ? (
-        <Text style={styles.unavailable}>Nächster {active}-Termin derzeit nicht verfügbar</Text>
+        <Text style={styles.unavailable}>{t('home.fight.unavailable', { promotion: active })}</Text>
       ) : (
         <>
           <Text style={styles.name} numberOfLines={2}>{next.name}</Text>
           <Text style={styles.when}>
             {when.running
-              ? 'Läuft gerade'
-              : [when.segment, when.day, when.time ?? 'Uhrzeit folgt'].filter((p) => p !== null).join(' · ')}
+              ? t('home.fight.running')
+              : [when.segment, when.day, when.time ?? t('home.fight.timeTbd')].filter((p) => p !== null).join(' · ')}
           </Text>
         </>
       )}
 
-      <Text style={styles.body}>Finde Leute und Orte zum gemeinsamen Schauen.</Text>
+      <Text style={styles.body}>{t('home.fight.body')}</Text>
 
       <TouchableOpacity
         style={styles.button}
         onPress={() => onWatch(active, next)}
         activeOpacity={0.85}
         accessibilityRole="button"
-        accessibilityLabel={`${active} gucken: Treffen zum gemeinsamen Schauen finden`}
+        accessibilityLabel={t('home.fight.watchLabel', { promotion: active })}
       >
-        <Text style={styles.buttonText}>{active} gucken</Text>
+        <Text style={styles.buttonText}>{t('home.fight.watch', { promotion: active })}</Text>
         <Ionicons name="arrow-forward" size={18} color={colors.card} />
       </TouchableOpacity>
     </View>

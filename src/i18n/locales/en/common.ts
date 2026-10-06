@@ -13,6 +13,8 @@ const common: LocaleShape<typeof de> = {
   done: 'Done',
   later: 'Later',
   retry: 'Try again',
+  close: 'Close',
+  verified: 'Verified',
   logout: 'Log out',
 };
 

@@ -6,8 +6,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 import { useEntitlement } from '../../hooks/useEntitlement';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 export default function CardGameGate({ children }: { children: React.ReactNode }): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { entitlement, loading, error, refetch } = useEntitlement();
   const firstFocus = useRef(true);
@@ -28,19 +30,19 @@ export default function CardGameGate({ children }: { children: React.ReactNode }
     return <SafeAreaView style={styles.safe}><View style={styles.center}><ActivityIndicator color={colors.accentBlue} /></View></SafeAreaView>;
   }
   if (error) {
-    return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.body}>Dein Zugang konnte gerade nicht geprüft werden.</Text><TouchableOpacity style={styles.button} onPress={() => { void refetch(); }} accessibilityRole="button"><Text style={styles.buttonText}>Erneut versuchen</Text></TouchableOpacity></View></SafeAreaView>;
+    return <SafeAreaView style={styles.safe}><View style={styles.center}><Text style={styles.body}>{t('challenge.gate.checkFailed')}</Text><TouchableOpacity style={styles.button} onPress={() => { void refetch(); }} accessibilityRole="button"><Text style={styles.buttonText}>{t('common.retry')}</Text></TouchableOpacity></View></SafeAreaView>;
   }
   if (entitlement.hasAccess) return <>{children}</>;
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.center}>
-        <Text style={styles.title}>Kartenspiel freischalten</Text>
-        <Text style={styles.body}>Die Karten für Kickboxen / K1 sind im Sparr Abo enthalten.</Text>
+        <Text style={styles.title}>{t('challenge.gate.title')}</Text>
+        <Text style={styles.body}>{t('challenge.gate.body')}</Text>
         <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Paywall', { focus: 'cards' })} accessibilityRole="button">
-          <Text style={styles.buttonText}>Abo-Angebote ansehen</Text>
+          <Text style={styles.buttonText}>{t('challenge.gate.offers')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityRole="button">
-          <Text style={styles.backText}>Zurück zu Karten</Text>
+          <Text style={styles.backText}>{t('challenge.gate.backToCards')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

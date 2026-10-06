@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking } from 'react-native';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 
 /** Parse a key=value&key=value fragment — handles = signs inside values. */
 function parseParams(fragment: string): Record<string, string> {
@@ -39,13 +40,13 @@ export function usePasswordRecovery(): {
     if (queryString !== undefined) {
       const queryParams = parseParams(queryString);
       if (queryParams.error_description !== undefined) {
-        Alert.alert('Link ungültig', 'Der Link ist abgelaufen oder ungültig. Bitte fordere einen neuen an.');
+        Alert.alert(i18n.t('home.hooks.linkInvalidTitle'), i18n.t('home.hooks.linkInvalidBody'));
         return;
       }
       if (queryParams.code !== undefined) {
         const { error } = await supabase.auth.exchangeCodeForSession(queryParams.code);
         if (error !== null) {
-          Alert.alert('Link ungültig', 'Der Link ist abgelaufen oder ungültig. Bitte fordere einen neuen an.');
+          Alert.alert(i18n.t('home.hooks.linkInvalidTitle'), i18n.t('home.hooks.linkInvalidBody'));
           return;
         }
         setRecoveryActive(true);
@@ -57,7 +58,7 @@ export function usePasswordRecovery(): {
     if (fragmentString !== undefined) {
       const fragmentParams = parseParams(fragmentString);
       if (fragmentParams.error_description !== undefined) {
-        Alert.alert('Link ungültig', 'Der Link ist abgelaufen oder ungültig. Bitte fordere einen neuen an.');
+        Alert.alert(i18n.t('home.hooks.linkInvalidTitle'), i18n.t('home.hooks.linkInvalidBody'));
         return;
       }
       const { access_token, refresh_token, type } = fragmentParams;
@@ -65,7 +66,7 @@ export function usePasswordRecovery(): {
       if (access_token === undefined || refresh_token === undefined) return;
       const { error } = await supabase.auth.setSession({ access_token, refresh_token });
       if (error !== null) {
-        Alert.alert('Link ungültig', 'Der Link ist abgelaufen oder ungültig. Bitte fordere einen neuen an.');
+        Alert.alert(i18n.t('home.hooks.linkInvalidTitle'), i18n.t('home.hooks.linkInvalidBody'));
         return;
       }
       setRecoveryActive(true);

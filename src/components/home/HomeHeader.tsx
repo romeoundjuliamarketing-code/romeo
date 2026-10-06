@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { formatCount } from '../../utils/challengePreview';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
 
 interface Props {
   name:                    string | null;
@@ -20,6 +22,8 @@ interface Props {
 // header's edges — only this background layer is clipped, it takes no layout
 // room or touches. Replaces the tall HeroSection (kept in the repo).
 export default function HomeHeader({ name, unreadNotificationCount, onNotificationsPress, communityCount }: Props) {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const { width } = useWindowDimensions();
   const firstName = name?.trim().split(' ')[0] ?? '';
   const hasName   = firstName.length > 0;
@@ -48,11 +52,11 @@ export default function HomeHeader({ name, unreadNotificationCount, onNotificati
           style={styles.greetingCol}
           accessible
           accessibilityRole="header"
-          accessibilityLabel={hasName ? `Moin, ${firstName}.` : 'Moin.'}
+          accessibilityLabel={hasName ? t('home.header.greetingNamed', { name: firstName }) : t('home.header.greeting')}
         >
-          {hasName && <Text style={styles.hello}>Moin,</Text>}
+          {hasName && <Text style={styles.hello}>{t('home.header.hello')}</Text>}
           <Text style={[styles.name, narrow && styles.nameNarrow]} numberOfLines={2}>
-            {hasName ? `${firstName}.` : 'Moin.'}
+            {hasName ? `${firstName}.` : t('home.header.greeting')}
           </Text>
         </View>
 
@@ -63,8 +67,8 @@ export default function HomeHeader({ name, unreadNotificationCount, onNotificati
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
           accessibilityLabel={unreadNotificationCount > 0
-            ? `Benachrichtigungen, ${unreadNotificationCount} ungelesen`
-            : 'Benachrichtigungen'}
+            ? t('home.header.notificationsUnread', { count: unreadNotificationCount })
+            : t('home.header.notifications')}
         >
           <Ionicons name="notifications-outline" size={24} color={colors.text} />
           {unreadNotificationCount > 0 && (
@@ -80,7 +84,7 @@ export default function HomeHeader({ name, unreadNotificationCount, onNotificati
         <View style={styles.communityRow}>
           <Ionicons name="people-outline" size={14} color={colors.textMuted} />
           <Text style={styles.communityText}>
-            Sparr-Community · {formatCount(communityCount)} registrierte Mitglieder
+            {t('home.header.community', { members: language === 'en' ? formatCount(communityCount).replace(/\./g, ',') : formatCount(communityCount) })}
           </Text>
         </View>
       )}

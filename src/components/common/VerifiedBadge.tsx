@@ -3,6 +3,7 @@ import { StyleSheet, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { VerificationTier } from '../../utils/verificationTier';
+import { useTranslation } from 'react-i18next';
 
 interface VerifiedBadgeProps {
   tier: VerificationTier;
@@ -12,11 +13,12 @@ interface VerifiedBadgeProps {
 
 // Shows a checkmark for the 'verified' tier. Renders nothing otherwise.
 export default function VerifiedBadge({ tier, showLabel = false, size = 16 }: VerifiedBadgeProps) {
+  const { t } = useTranslation();
   if (tier !== 'verified') return null;
   return (
     <View style={styles.row}>
       <Ionicons name="checkmark-circle" size={size} color={colors.accentBlue} />
-      {showLabel && <Text style={styles.label}>Verifiziert</Text>}
+      {showLabel && <Text style={styles.label}>{t('common.verified')}</Text>}
     </View>
   );
 }

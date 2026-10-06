@@ -5,6 +5,7 @@ import type { ChallengeArea } from '../../data/sparringChallenges';
 import { SafeAreaProvider, SafeAreaView, initialWindowMetrics } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
 import ChallengeHeader from './ChallengeHeader';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   current:  ChallengeArea;
@@ -15,9 +16,10 @@ interface Props {
 // The actual picker markup, shared between the inline (first choice) and the
 // modal (re-open via the header button) presentation.
 function AreaPickerContent({ current, onSelect }: Omit<Props, 'onClose'>): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.content}>
-      <Text style={styles.title}>Für welche Disziplin willst du Karten?</Text>
+      <Text style={styles.title}>{t('challenge.areaPicker.title')}</Text>
 
       <View style={styles.list}>
         {availableChallengeAreas().map((entry) => {
@@ -32,7 +34,7 @@ function AreaPickerContent({ current, onSelect }: Omit<Props, 'onClose'>): React
               accessibilityState={{ selected: active }}
             >
               <Text style={styles.rowLabel}>
-                {entry.label}
+                {t(`challenge.areas.${entry.key}`)}
               </Text>
             </TouchableOpacity>
           );

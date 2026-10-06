@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/queryCache';
+import i18n from '../i18n';
 
 interface RatingSummary {
   averageStars: number | null;
@@ -99,7 +100,7 @@ export function useSparringRatings(
       stars:       number,
       comment:     string,
     ): Promise<{ error: string | null }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('home.hooks.notLoggedIn') };
 
       const { error } = await supabase.from('sparring_ratings').insert({
         rater_id:      user.id,

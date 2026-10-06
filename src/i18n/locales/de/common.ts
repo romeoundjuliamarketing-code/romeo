@@ -10,6 +10,8 @@ const common = {
   done: 'Fertig',
   later: 'Später',
   retry: 'Erneut versuchen',
+  close: 'Schließen',
+  verified: 'Verifiziert',
   logout: 'Abmelden',
 } as const;
 

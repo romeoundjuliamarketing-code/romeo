@@ -4,11 +4,7 @@ import type { ClarityValue, SparringChallenge } from '../../data/sparringChallen
 import { colors } from '../../theme/colors';
 import { useClarityChoice } from './clarityLevels';
 import ClarityButtons from './ClarityButtons';
-
-const HEADING_LABEL = 'Kurz gefragt';
-const THANKS_LABEL  = 'Danke';
-const SKIP_LABEL    = 'Überspringen';
-const SKIP_ALL_LABEL = 'Alle überspringen';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   challenge:  SparringChallenge;
@@ -29,6 +25,7 @@ export default function ChallengeRatingOverlay({
   progress,
   onSkipAll,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const { selected, choose } = useClarityChoice(onRate);
 
   return (
@@ -41,11 +38,11 @@ export default function ChallengeRatingOverlay({
     >
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
-          <Text style={styles.heading}>{progress ?? HEADING_LABEL}</Text>
+          <Text style={styles.heading}>{progress ?? t('challenge.rating.heading')}</Text>
           <Text style={styles.question} numberOfLines={3}>
             {selected === null
-              ? `Wie verständlich war „${challenge.title}“?`
-              : THANKS_LABEL}
+              ? t('challenge.rating.question', { title: challenge.title })
+              : t('challenge.rating.thanks')}
           </Text>
 
           <View style={styles.buttons}>
@@ -65,7 +62,7 @@ export default function ChallengeRatingOverlay({
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <Text style={styles.skipLabel}>{SKIP_LABEL}</Text>
+              <Text style={styles.skipLabel}>{t('challenge.rating.skip')}</Text>
             </TouchableOpacity>
           ) : null}
 
@@ -76,7 +73,7 @@ export default function ChallengeRatingOverlay({
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <Text style={styles.skipAllLabel}>{SKIP_ALL_LABEL}</Text>
+              <Text style={styles.skipAllLabel}>{t('challenge.rating.skipAll')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>

@@ -4,6 +4,7 @@
 // values. Validation ranges are unchanged from the previous form.
 import type { Profile, ProfileUpdate } from '../types/database.types';
 import type { Stance } from './stance';
+import i18n from '../i18n';
 
 export interface ProfileDraft {
   name:          string;
@@ -92,18 +93,18 @@ function parseInt10(v: string, min: number, max: number, message: string): { val
 function parseWeight(v: string): { value: number | null; error?: string } {
   const t = v.trim().replace(',', '.');
   if (t.length === 0) return { value: null };
-  if (!/^\d+(\.\d+)?$/.test(t)) return { value: null, error: 'Bitte ein Gewicht wie 72,5 eingeben.' };
+  if (!/^\d+(\.\d+)?$/.test(t)) return { value: null, error: i18n.t('home.profileDraft.weightFormat') };
   const n = parseFloat(t);
-  return n <= 0 || n >= 500 ? { value: null, error: 'Bitte ein realistisches Gewicht eingeben.' } : { value: n };
+  return n <= 0 || n >= 500 ? { value: null, error: i18n.t('home.profileDraft.weightRealistic') } : { value: n };
 }
 
 // Full update for a draft, or per-field errors. Height/arm span 100–250 cm and
 // age 14–99 as before; weight see parseWeight.
 export function draftToUpdate(d: ProfileDraft): { update: ProfileUpdate; errors: DraftErrors } {
   const errors: DraftErrors = {};
-  const height = parseInt10(d.heightCm, 100, 250, 'Körpergröße zwischen 100 und 250 cm.');
-  const armSpan = parseInt10(d.armSpanCm, 100, 250, 'Spannweite zwischen 100 und 250 cm.');
-  const age = parseInt10(d.ageYears, 16, 99, 'Alter zwischen 16 und 99 Jahren.');
+  const height = parseInt10(d.heightCm, 100, 250, i18n.t('home.profileDraft.height'));
+  const armSpan = parseInt10(d.armSpanCm, 100, 250, i18n.t('home.profileDraft.armSpan'));
+  const age = parseInt10(d.ageYears, 16, 99, i18n.t('home.profileDraft.age'));
   const weight = parseWeight(d.weightKg);
   if (height.error) errors.heightCm = height.error;
   if (armSpan.error) errors.armSpanCm = armSpan.error;

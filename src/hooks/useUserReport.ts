@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { ReportReason } from '../types/database.types';
+import i18n from '../i18n';
 
 interface UseUserReportResult {
   submitReport: (
@@ -22,7 +23,7 @@ export function useUserReport(): UseUserReportResult {
       reason:         ReportReason,
       details?:       string,
     ): Promise<{ error: string | null }> => {
-      if (user === null) return { error: 'Nicht eingeloggt' };
+      if (user === null) return { error: i18n.t('home.hooks.notLoggedIn') };
 
       // Insert into user_reports
       const { error: insertError } = await supabase.from('user_reports').insert({

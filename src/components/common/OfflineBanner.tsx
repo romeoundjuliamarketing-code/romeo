@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Animated, AppState, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 import {
   checkConnectivity,
   getNetworkOffline,
@@ -9,6 +10,7 @@ import {
 } from '../../lib/networkStatus';
 
 export default function OfflineBanner() {
+  const { t } = useTranslation();
   const [isOffline, setIsOffline] = useState(getNetworkOffline());
   const slideAnim = useRef(new Animated.Value(getNetworkOffline() ? 1 : 0)).current;
   const insets = useSafeAreaInsets();
@@ -51,7 +53,7 @@ export default function OfflineBanner() {
         { paddingTop: insets.top + 8, transform: [{ translateY }] },
       ]}
     >
-      <Text style={styles.text}>Keine Internetverbindung</Text>
+      <Text style={styles.text}>{t('home.offline')}</Text>
     </Animated.View>
   );
 }

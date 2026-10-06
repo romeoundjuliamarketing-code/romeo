@@ -20,6 +20,7 @@ import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 import SparrLogo from '../common/SparrLogo';
 import ChallengeCard from './ChallengeCard';
 import ChallengeCardBack from './ChallengeCardBack';
@@ -60,6 +61,7 @@ interface FlipCardProps {
 // front. At rest neither face carries a transform, so text stays sharp (see
 // docs/ui-performance.md, "Ruhezustand ist scharf").
 const FlipCard = memo(function FlipCard({ card, width, reduceMotion }: FlipCardProps): React.ReactElement {
+  const { t } = useTranslation();
   const [showBack, setShowBack] = useState(false);
   const [height, setHeight]     = useState<number | null>(null);
   // 0 = front, 180 = back
@@ -101,9 +103,9 @@ const FlipCard = memo(function FlipCard({ card, width, reduceMotion }: FlipCardP
       onPressOut={() => { press.value = reduceMotion ? 1 : withTiming(1, { duration: PRESS_MS }); }}
       accessibilityRole="button"
       accessibilityLabel={showBack
-        ? 'Beispielübung, Rückseite'
-        : `Beispielübung: ${card.title}. ${card.instruction}`}
-      accessibilityHint={showBack ? 'Tippen, um die Übung zu zeigen' : 'Tippen, um die Karte umzudrehen'}
+        ? t('challenge.showcase.backLabel')
+        : t('challenge.showcase.frontLabel', { title: card.title, instruction: card.instruction })}
+      accessibilityHint={showBack ? t('challenge.showcase.hintShow') : t('challenge.showcase.hintFlip')}
     >
       <Animated.View style={pressStyle}>
         <Animated.View style={frontStyle} onLayout={onFrontLayout}>
@@ -133,6 +135,7 @@ interface Props {
 // is a real, released example. Tap turns it over, a horizontal swipe (or the arrow
 // buttons) moves between the examples. Nothing here starts a game or changes progress.
 export default function CardsShowcase({ cards }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const [pageWidth, setPageWidth] = useState(0);
@@ -192,7 +195,7 @@ export default function CardsShowcase({ cards }: Props): React.ReactElement {
             <SparrLogo size={260} opacity={0.07} />
           </View>
           <View style={styles.badge}>
-            <Text style={styles.badgeText}>BEISPIELÜBUNG</Text>
+            <Text style={styles.badgeText}>{t('challenge.showcase.badge')}</Text>
           </View>
         </View>
 
@@ -227,12 +230,12 @@ export default function CardsShowcase({ cards }: Props): React.ReactElement {
               onPress={() => goTo(index - 1)}
               disabled={index === 0}
               accessibilityRole="button"
-              accessibilityLabel="Vorherige Beispielübung"
+              accessibilityLabel={t('challenge.showcase.prev')}
               accessibilityState={{ disabled: index === 0 }}
             >
               <Ionicons name="chevron-back" size={20} color={index === 0 ? colors.hairline : colors.text} />
             </TouchableOpacity>
-            <Text style={styles.counter} accessibilityLabel={`Beispiel ${index + 1} von ${cards.length}`}>
+            <Text style={styles.counter} accessibilityLabel={t('challenge.showcase.counter', { index: index + 1, total: cards.length })}>
               {index + 1} / {cards.length}
             </Text>
             <TouchableOpacity
@@ -240,7 +243,7 @@ export default function CardsShowcase({ cards }: Props): React.ReactElement {
               onPress={() => goTo(index + 1)}
               disabled={index === cards.length - 1}
               accessibilityRole="button"
-              accessibilityLabel="Nächste Beispielübung"
+              accessibilityLabel={t('challenge.showcase.next')}
               accessibilityState={{ disabled: index === cards.length - 1 }}
             >
               <Ionicons
@@ -252,7 +255,7 @@ export default function CardsShowcase({ cards }: Props): React.ReactElement {
           </View>
         ) : null}
         <Text style={styles.hint}>
-          {multiple ? 'Tippen zum Umdrehen · Wischen für weitere Beispiele' : 'Tippen zum Umdrehen'}
+          {multiple ? t('challenge.showcase.hintMultiple') : t('challenge.showcase.hintSingle')}
         </Text>
       </View>
     </View>

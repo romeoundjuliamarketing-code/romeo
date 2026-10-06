@@ -6,7 +6,7 @@ import type { ClarityValue } from '../../data/sparringChallenges';
 interface ClarityLevel {
   value: ClarityValue;
   icon:  ComponentProps<typeof MaterialCommunityIcons>['name'];
-  label: string;
+  labelKey: 'challenge.clarity.unclear' | 'challenge.clarity.soso' | 'challenge.clarity.clear';
 }
 
 // How long the confirmation is shown before the parent is told about the choice.
@@ -16,9 +16,9 @@ export const THANKS_DURATION_MS = 1500;
 // row and the rating overlay. Swapping these icons for penguin illustrations later
 // only touches this array.
 export const CLARITY_LEVELS: ClarityLevel[] = [
-  { value: 1, icon: 'emoticon-confused-outline', label: 'Unklar' },
-  { value: 2, icon: 'emoticon-neutral-outline',  label: 'Geht so' },
-  { value: 3, icon: 'emoticon-happy-outline',    label: 'Klar' },
+  { value: 1, icon: 'emoticon-confused-outline', labelKey: 'challenge.clarity.unclear' },
+  { value: 2, icon: 'emoticon-neutral-outline',  labelKey: 'challenge.clarity.soso' },
+  { value: 3, icon: 'emoticon-happy-outline',    labelKey: 'challenge.clarity.clear' },
 ];
 
 // Shared choice mechanics: a level can be picked once, the confirmation is shown

@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import type { LayoutChangeEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { areaLabel } from '../data/sparringChallenges';
 import { availableChallengeAreas, playableChallengesForArea } from '../utils/challengeAvailability';
 import type { SparringChallenge } from '../data/sparringChallenges';
 import { useProfile } from '../hooks/useProfile';
@@ -25,6 +25,7 @@ const DECK_VERTICAL_RESERVE = 16 * 2 + 8;
 import { colors } from '../theme/colors';
 
 export default function SparringChallengeScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation();
   const { profile } = useProfile();
   const [browserVisible, setBrowserVisible] = useState(false);
@@ -80,17 +81,17 @@ export default function SparringChallengeScreen(): React.ReactElement {
   const hasCard   = current !== null;
 
   const status = deckEmpty
-    ? 'Noch keine Karten in diesem Bereich'
+    ? t('challenge.noCards')
     : remaining === 0
-      ? 'Deck durchgespielt'
+      ? t('challenge.deckFinished')
       : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <ChallengeHeader
-        title="Sparrings-Challenge"
+        title={t('challenge.screen.title')}
         icon="chevron-back"
-        iconLabel="Zurück"
+        iconLabel={t('common.back')}
         onPress={() => navigation.goBack()}
         right={loading || !areaChosen || availableChallengeAreas().length < 2 ? undefined : (
           <TouchableOpacity
@@ -98,9 +99,9 @@ export default function SparringChallengeScreen(): React.ReactElement {
             onPress={() => setPickerVisible(true)}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Disziplin ändern"
+            accessibilityLabel={t('challenge.screen.changeDiscipline')}
           >
-            <Text style={styles.areaButtonLabel} numberOfLines={1}>{areaLabel(area)}</Text>
+            <Text style={styles.areaButtonLabel} numberOfLines={1}>{t(`challenge.areas.${area}`)}</Text>
             <Ionicons name="chevron-down" size={16} color={colors.headerTextPrimary} />
           </TouchableOpacity>
         )}
@@ -116,7 +117,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
         <ChallengeAreaPicker current={area} onSelect={setArea} />
       ) : (
         <View style={styles.body}>
-          <Text style={styles.missionLabel}>DEINE MISSION</Text>
+          <Text style={styles.missionLabel}>{t('challenge.screen.mission')}</Text>
 
           <View style={styles.deckArea} onLayout={onDeckLayout}>
             <ChallengeDeck
@@ -137,7 +138,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
               disabled={deckEmpty || drawing}
               accessibilityRole="button"
             >
-              <Text style={styles.primaryLabel}>{hasCard ? 'Neue Karte' : 'Karte ziehen'}</Text>
+              <Text style={styles.primaryLabel}>{hasCard ? t('challenge.screen.newCard') : t('challenge.screen.drawCard')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -146,7 +147,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
               activeOpacity={0.7}
               accessibilityRole="button"
             >
-              <Text style={styles.linkLabel}>Alle Karten ansehen</Text>
+              <Text style={styles.linkLabel}>{t('challenge.screen.browseAll')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -156,7 +157,7 @@ export default function SparringChallengeScreen(): React.ReactElement {
         <ChallengeBrowser
           visible
           cards={areaCards}
-          areaTitle={areaLabel(area)}
+          areaTitle={t(`challenge.areas.${area}`)}
           onClose={() => setBrowserVisible(false)}
         />
       ) : null}

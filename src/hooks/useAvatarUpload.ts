@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import i18n from '../i18n';
 
 // Photo picking with the existing square crop, immediate local preview,
 // upload state and error handling (moved from the former AvatarPicker).
@@ -14,8 +15,8 @@ export function useAvatarUpload(onUpload: (localUri: string) => Promise<{ error:
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         Alert.alert(
-          'Zugriff erforderlich',
-          'Bitte erlaube den Zugriff auf deine Fotos in den Einstellungen, um dein Profilbild zu ändern.',
+          i18n.t('home.hooks.photoAccessTitle'),
+          i18n.t('home.hooks.photoAccessBody'),
         );
         return;
       }
@@ -34,7 +35,7 @@ export function useAvatarUpload(onUpload: (localUri: string) => Promise<{ error:
       setUploading(false);
       if (error !== null) {
         setLocalUri(null);
-        Alert.alert('Upload fehlgeschlagen', error);
+        Alert.alert(i18n.t('home.hooks.uploadFailed'), error);
       }
     } catch (e) {
       setUploading(false);

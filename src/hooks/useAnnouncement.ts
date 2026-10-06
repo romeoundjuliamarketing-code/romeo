@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
@@ -100,7 +101,7 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
 
   const postAnnouncement = useCallback(async (message: string, expiresAt: string | null): Promise<{ error: string | null }> => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('home.hooks.notLoggedIn') };
 
     const { data: profile } = await supabase
       .from('profiles')
@@ -108,8 +109,8 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
       .eq('id', user.id)
       .single();
 
-    if (profile === null || profile.studio_id === null) return { error: 'Kein Team beigetreten' };
-    if (!profile.is_coach) return { error: 'Nur Trainer können Ankündigungen posten' };
+    if (profile === null || profile.studio_id === null) return { error: i18n.t('home.hooks.noTeam') };
+    if (!profile.is_coach) return { error: i18n.t('home.hooks.coachOnly') };
 
     const { error } = await supabase.from('team_announcements').insert({
       studio_id:  profile.studio_id,

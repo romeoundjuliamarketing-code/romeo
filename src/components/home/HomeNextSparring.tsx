@@ -9,6 +9,8 @@ import {
 } from '../../utils/homeAgenda';
 import type { HomeSparring, SparringCardState } from '../../utils/homeAgenda';
 import { initialsOf } from '../../utils/sparringDetail';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 interface Props {
   sparring:      HomeSparring;
@@ -24,18 +26,18 @@ interface Props {
   onAll:         () => void;
 }
 
-const STATUS: Record<SparringCardState, { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }> = {
-  host:      { icon: 'person-outline',       text: 'Du organisierst' },
-  confirm:   { icon: 'alert-circle-outline', text: 'Bestätigung offen' },
-  in:        { icon: 'checkmark',            text: 'Zugesagt' },
-  confirmed: { icon: 'checkmark-done',       text: 'Bestätigt' },
-};
+const STATUS = {
+  host:      { icon: 'person-outline',       textKey: 'home.next.statusHost' },
+  confirm:   { icon: 'alert-circle-outline', textKey: 'home.next.statusConfirm' },
+  in:        { icon: 'checkmark',            textKey: 'home.next.statusIn' },
+  confirmed: { icon: 'checkmark-done',       textKey: 'home.next.statusConfirmed' },
+} as const satisfies Record<SparringCardState, { icon: React.ComponentProps<typeof Ionicons>['name']; textKey: string }>;
 
 // "bis heute, 12:30 Uhr" / "bis Fr., 2. Okt., 12:30 Uhr"
 function deadlineText(deadline: Date, now: Date): string {
   const day = appointmentDayLabel(deadline, now);
-  const dayLower = day === 'Heute' || day === 'Morgen' ? day.toLowerCase() : day;
-  return `Bitte bis ${dayLower}, ${timeLabel(deadline)} Uhr bestätigen.`;
+  const dayLower = day === i18n.t('home.agenda.today') || day === i18n.t('home.agenda.tomorrow') ? day.toLowerCase() : day;
+  return i18n.t('home.next.deadline', { day: dayLower, time: timeLabel(deadline) });
 }
 
 // Home's next sparring as an appointment panel on a white surface (set apart
@@ -46,14 +48,15 @@ export default function HomeNextSparring({
   sparring, now, currentUserId, upcomingCount, chatUnread, confirming, confirmError,
   onConfirm, onDetails, onChat, onAll,
 }: Props) {
+  const { t } = useTranslation();
   const { width, fontScale } = useWindowDimensions();
   const startsAt = new Date(sparring.scheduledAt);
   const state    = sparringCardState(sparring, now);
   const status   = STATUS[state];
   const title    = homeSparringTitle(sparring.title, sparring.locationLabel);
   const block    = dateBlockParts(startsAt, now);
-  const time     = `${timeLabel(startsAt)} Uhr`;
-  const isToday  = appointmentDayLabel(startsAt, now) === 'Heute';
+  const time     = t('home.next.clock', { time: timeLabel(startsAt) });
+  const isToday  = appointmentDayLabel(startsAt, now) === t('home.agenda.today');
   // Little room: fewer decorative avatars first, the count text always stays.
   const maxAvatars = fontScale > 1.6 ? 0 : width < 360 || fontScale > 1.3 ? 2 : 3;
   const people   = participantsPreview(sparring.participants, currentUserId, maxAvatars);
@@ -67,8 +70,8 @@ export default function HomeNextSparring({
 
   const a11yLabel = [
     title.text,
-    isToday ? `Heute, ${time}` : `${appointmentDayLabel(startsAt, now)}, ${time}`,
-    where, title.isPlace ? null : sparring.locationLabel, status.text, people.label,
+    isToday ? `${t('home.agenda.today')}, ${time}` : `${appointmentDayLabel(startsAt, now)}, ${time}`,
+    where, title.isPlace ? null : sparring.locationLabel, t(status.textKey), people.label,
   ].filter((part): part is string => part !== null && part.length > 0).join(', ');
 
   const avatarStack = people.shown.length === 0 ? null : (
@@ -86,7 +89,7 @@ export default function HomeNextSparring({
   return (
     <View style={styles.root}>
       <View style={styles.headerRow}>
-        <Text style={styles.heading} accessibilityRole="header">DEIN NÄCHSTES SPARRING</Text>
+        <Text style={styles.heading} accessibilityRole="header">{t('home.next.heading')}</Text>
         {upcomingCount > 1 && (
           <TouchableOpacity
             style={styles.allLink}
@@ -94,9 +97,9 @@ export default function HomeNextSparring({
             activeOpacity={0.6}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
-            accessibilityLabel={`Alle Termine, ${upcomingCount}`}
+            accessibilityLabel={t('home.next.allLabel', { count: upcomingCount })}
           >
-            <Text style={styles.allLinkText}>Alle Termine</Text>
+            <Text style={styles.allLinkText}>{t('home.next.all')}</Text>
             <Ionicons name="chevron-forward" size={14} color={colors.accentBlueText} />
           </TouchableOpacity>
         )}
@@ -126,13 +129,13 @@ export default function HomeNextSparring({
             activeOpacity={0.7}
             accessibilityRole="button"
             accessibilityLabel={a11yLabel}
-            accessibilityHint="Öffnet den Termin"
+            accessibilityHint={t('home.next.openHint')}
           >
-            <Text style={styles.time}>{isToday ? `Heute · ${time}` : time}</Text>
+            <Text style={styles.time}>{isToday ? `${t('home.agenda.today')} · ${time}` : time}</Text>
             <Text style={styles.title} numberOfLines={2}>{title.text}</Text>
             <Text style={styles.meta}>
               {where !== null && `${where} · `}
-              <Text style={alert ? styles.statusAlert : styles.status}>{status.text} </Text>
+              <Text style={alert ? styles.statusAlert : styles.status}>{t(status.textKey)} </Text>
               <Ionicons name={status.icon} size={14} color={alert ? colors.accentBlueText : colors.text} />
             </Text>
           </TouchableOpacity>
@@ -155,7 +158,7 @@ export default function HomeNextSparring({
               onPress={onChat}
               activeOpacity={0.6}
               accessibilityRole="button"
-              accessibilityLabel={chatUnread > 0 ? `Gruppenchat öffnen, ${chatUnread} ungelesen` : 'Gruppenchat öffnen'}
+              accessibilityLabel={chatUnread > 0 ? t('home.next.chatUnread', { count: chatUnread }) : t('home.next.chat')}
             >
               <View style={styles.chatCircle}>
                 <Ionicons name="chatbubbles-outline" size={18} color={colors.text} />
@@ -173,7 +176,7 @@ export default function HomeNextSparring({
       {alert && (
         <View style={styles.confirmArea}>
           <Text style={styles.hint}>
-            {deadline !== null ? deadlineText(deadline, now) : 'Bitte bestätige deine Teilnahme.'}
+            {deadline !== null ? deadlineText(deadline, now) : t('home.next.confirmPrompt')}
           </Text>
           <TouchableOpacity
             style={[styles.confirm, confirming && styles.confirmBusy]}
@@ -185,7 +188,7 @@ export default function HomeNextSparring({
           >
             {confirming
               ? <ActivityIndicator color={colors.dark} />
-              : <Text style={styles.confirmText}>Teilnahme bestätigen</Text>}
+              : <Text style={styles.confirmText}>{t('home.next.confirm')}</Text>}
           </TouchableOpacity>
         </View>
       )}
@@ -196,9 +199,9 @@ export default function HomeNextSparring({
         onPress={onDetails}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel="Zum Sparring, öffnet den Termin"
+        accessibilityLabel={t('home.next.detailsLabel')}
       >
-        <Text style={styles.detailsLinkText}>Zum Sparring</Text>
+        <Text style={styles.detailsLinkText}>{t('home.next.details')}</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.accentBlueText} />
       </TouchableOpacity>
     </View>
@@ -207,9 +210,10 @@ export default function HomeNextSparring({
 
 // Loading stand-in in the same open layout, so the page does not reorder.
 export function HomeNextSparringPlaceholder() {
+  const { t } = useTranslation();
   return (
-    <View style={[styles.root, styles.placeholderRoot]} accessibilityLabel="Dein nächstes Sparring wird geladen">
-      <Text style={styles.heading}>DEIN NÄCHSTES SPARRING</Text>
+    <View style={[styles.root, styles.placeholderRoot]} accessibilityLabel={t('home.next.loading')}>
+      <Text style={styles.heading}>{t('home.next.heading')}</Text>
       <View style={styles.entry}>
         <View style={styles.placeholderDate} />
         <View style={styles.info}>

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -37,10 +38,11 @@ export function TextAction({ label, onPress, icon, trailingIcon, loading = false
 
 // Error message with a retry action — for lists that failed to load.
 export function RetryNotice({ message, onRetry }: { message: string; onRetry: () => void }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View>
       <Text style={styles.message}>{message}</Text>
-      <TextAction label="Erneut versuchen" onPress={onRetry} />
+      <TextAction label={t('common.retry')} onPress={onRetry} />
     </View>
   );
 }

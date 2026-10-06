@@ -7,6 +7,7 @@ import { pickFeaturedSparring, msUntilNextMidnight } from '../utils/homeAgenda';
 import { hasStarted } from '../utils/sparringCommitment';
 import type { HomeSparring } from '../utils/homeAgenda';
 import type { MyUpcomingStatus } from './useMyUpcomingSparrings';
+import i18n from '../i18n';
 
 // "Now" for Home's day labels: refreshed when the app returns to the
 // foreground and at local midnight, so "Heute"/"Morgen" never go stale. No
@@ -99,7 +100,7 @@ export function useHomeSparring(userId: string | null, now: Date, refetchTrigger
         // Same message the detail sheet shows (the RPC raises readable German text).
         setConfirmError(error.trim().length > 0
           ? error
-          : 'Die Bestätigung hat nicht geklappt. Bitte versuche es erneut oder öffne den Termin.');
+          : i18n.t('home.hooks.confirmFailed'));
         refetch();
         return;
       }

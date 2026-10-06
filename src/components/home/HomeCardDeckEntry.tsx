@@ -10,6 +10,7 @@ import ChallengeCard from '../challenge/ChallengeCard';
 import ChallengeCardBack from '../challenge/ChallengeCardBack';
 import { CARD_ASPECT, CARD_RADIUS } from '../challenge/cardLayout';
 import type { SparringChallenge } from '../../data/sparringChallenges';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   /** The fixed free K-1 example card; null → the card back is shown. */
@@ -58,6 +59,7 @@ function backCardStyle(progress: SharedValue<number>, pose: typeof FAR) {
 // or started here. The stack fans out once on first show (transform/opacity
 // only, skipped with reduced motion).
 export default function HomeCardDeckEntry({ preview, onDraw }: Props) {
+  const { t } = useTranslation();
   const { width, height, fontScale } = useWindowDimensions();
   const inner      = Math.min(width, HOME_MAX_WIDTH) - 2 * PAGE_GUTTER;
   const cardWidth  = Math.round(Math.max(MIN_FRONT_WIDTH, Math.min(
@@ -104,19 +106,19 @@ export default function HomeCardDeckEntry({ preview, onDraw }: Props) {
   }));
 
   const a11yLabel = preview !== null
-    ? `Kartenspiel öffnen. Beispielkarte Kickboxen K1: ${preview.title}`
-    : 'Kartenspiel öffnen';
+    ? t('home.cards.openWithPreview', { title: preview.title })
+    : t('home.cards.open');
 
   return (
     <View style={styles.root}>
-      <Text style={styles.heading} accessibilityRole="header">Sparring Cards</Text>
+      <Text style={styles.heading} accessibilityRole="header">{t('home.cards.heading')}</Text>
 
       <Pressable
         onPress={onDraw}
         style={({ pressed }) => [styles.stage, stage, pressed && styles.stagePressed]}
         accessibilityRole="button"
         accessibilityLabel={a11yLabel}
-        accessibilityHint="Öffnet das Kartenspiel"
+        accessibilityHint={t('home.cards.openHint')}
       >
         <View style={[styles.oval, oval]} pointerEvents="none" />
         <View style={styles.cards} pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
@@ -134,16 +136,16 @@ export default function HomeCardDeckEntry({ preview, onDraw }: Props) {
 
       <View style={styles.sportTag}>
         <Ionicons name="layers-outline" size={14} color={colors.accentBlueText} />
-        <Text style={styles.sportText}>Kickboxen / K1</Text>
+        <Text style={styles.sportText}>{t('home.cards.discipline')}</Text>
       </View>
 
       <Pressable
         onPress={onDraw}
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityHint="Öffnet das Kartenspiel"
+        accessibilityHint={t('home.cards.openHint')}
       >
-        <Text style={styles.buttonText}>Zum Kartenspiel</Text>
+        <Text style={styles.buttonText}>{t('home.cards.button')}</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.card} />
       </Pressable>
     </View>

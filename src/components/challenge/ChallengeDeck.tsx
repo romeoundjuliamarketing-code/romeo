@@ -14,6 +14,7 @@ import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
 import ChallengeCardBack from './ChallengeCardBack';
+import { useTranslation } from 'react-i18next';
 import { CARD_RADIUS, cardShadow } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
@@ -47,6 +48,7 @@ export default function ChallengeDeck({
   onPress,
   disabled = false,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const [displayCard, setDisplayCard] = useState<SparringChallenge | null>(card);
 
   const translateX = useSharedValue(0);
@@ -210,8 +212,8 @@ export default function ChallengeDeck({
         // The card is one tap target — the brief inside must not swallow the tap.
         pointerEvents="box-only"
         accessibilityRole="button"
-        accessibilityLabel="Neue Karte ziehen"
-        accessibilityHint="Tippe auf die Karte, um eine neue Mission zu ziehen"
+        accessibilityLabel={t('challenge.deck.drawLabel')}
+        accessibilityHint={t('challenge.deck.drawHint')}
       >
         {/* Cards still in the deck — filled surfaces only, never any content */}
         <Animated.View style={[styles.layer, styles.stackFar, layerSize, farStyle]} pointerEvents="none" />

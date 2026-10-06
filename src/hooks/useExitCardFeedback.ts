@@ -4,6 +4,7 @@ import type { NavigationAction } from '@react-navigation/native';
 import type { ClarityValue, SparringChallenge } from '../data/sparringChallenges';
 import { useChallengeRating } from './useChallengeRating';
 import { recordMissionSession } from './useWeeklyMissionPath';
+import i18n from '../i18n';
 
 export interface ExitFeedbackQuestion {
   card:      SparringChallenge;
@@ -63,7 +64,7 @@ export function useExitCardFeedback(current: SparringChallenge | null): ExitFeed
   const card = played[index];
   return {
     card,
-    progress: `Karte ${index + 1} von ${played.length}`,
+    progress: i18n.t('challenge.rating.progress', { index: index + 1, total: played.length }),
     rate: (clarity) => {
       submit(card.id, clarity);
       next();

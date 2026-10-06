@@ -19,6 +19,7 @@ import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
 import ChallengeHeader from './ChallengeHeader';
+import { useTranslation } from 'react-i18next';
 import { useCardSize } from './cardLayout';
 import type { CardSize } from './cardLayout';
 
@@ -78,6 +79,7 @@ export default function ChallengeBrowser({
   areaTitle,
   onClose,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const { width: pageWidth } = useWindowDimensions();
   const cardSize = useCardSize(0.58);
   const scrollX = useSharedValue(0);
@@ -101,13 +103,13 @@ export default function ChallengeBrowser({
           <ChallengeHeader
             title={areaTitle}
             icon="close"
-            iconLabel="Schliessen"
+            iconLabel={t('challenge.browser.close')}
             onPress={onClose}
           />
 
           {cards.length === 0 ? (
             <View style={styles.empty}>
-              <Text style={styles.emptyText}>Noch keine Karten in diesem Bereich</Text>
+              <Text style={styles.emptyText}>{t('challenge.noCards')}</Text>
             </View>
           ) : (
             <Animated.ScrollView
