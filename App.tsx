@@ -7,8 +7,11 @@ import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sentry from '@sentry/react-native';
+import './src/i18n';
 import RootNavigator from './src/navigation/RootNavigator';
 import { AuthProvider } from './src/context/AuthContext';
+import LanguageSync from './src/components/common/LanguageSync';
+import { useLanguageBootstrap } from './src/i18n/language';
 import { colors } from './src/theme/colors';
 import { configureRevenueCat } from './src/lib/revenuecat';
 import type { RootStackParamList } from './src/navigation/types';
@@ -55,7 +58,9 @@ function App() {
     BarlowCondensed_800ExtraBold: require('./assets/fonts/BarlowCondensed-ExtraBold.ttf'),
   });
 
-  if (!fontsLoaded) {
+  const languageReady = useLanguageBootstrap();
+
+  if (!fontsLoaded || !languageReady) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={colors.accent} />
@@ -67,6 +72,7 @@ function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
+          <LanguageSync />
           <NavigationContainer theme={NAV_THEME} linking={linking}>
             {/* No backgroundColor: edge-to-edge (SDK 55) draws under the bar;
                 the prop only triggers the deprecated Window.setStatusBarColor. */}
