@@ -55,6 +55,12 @@ describe('decideProfileSync', () => {
   it('treats an invalid profile value like none', () => {
     expect(decideProfileSync('xx', 'de')).toEqual({ apply: null, upload: 'de' });
   });
+  it('keeps an unsynced local choice and retries the upload', () => {
+    expect(decideProfileSync('de', 'en', true)).toEqual({ apply: null, upload: 'en' });
+  });
+  it('confirms a pending choice even when the server matches (clears the flag)', () => {
+    expect(decideProfileSync('en', 'en', true)).toEqual({ apply: null, upload: 'en' });
+  });
 });
 
 describe('localeFor', () => {

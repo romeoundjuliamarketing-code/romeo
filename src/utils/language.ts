@@ -22,10 +22,14 @@ export function resolveStartupLanguage(
 
 // After login: the profile wins when set (cross-device choice); when unset the
 // current app language is uploaded so server-side push texts match the UI.
+// A pending local choice (upload not yet confirmed, e.g. offline) always wins
+// and is uploaded again instead of being overwritten by the stale profile.
 export function decideProfileSync(
   profileLanguage: unknown,
   current: AppLanguage,
+  pending = false,
 ): { apply: AppLanguage | null; upload: AppLanguage | null } {
+  if (pending) return { apply: null, upload: current };
   const fromProfile = parseLanguage(profileLanguage);
   if (fromProfile === null) return { apply: null, upload: current };
   if (fromProfile !== current) return { apply: fromProfile, upload: null };

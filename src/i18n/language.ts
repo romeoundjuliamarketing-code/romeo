@@ -10,6 +10,8 @@ import {
 
 // Device-level choice; survives sign-out like the welcome-intro flag.
 const STORAGE_KEY = 'sparr.language.v1';
+// Set while a manual choice has not been confirmed by the server yet.
+const PENDING_KEY = 'sparr.languagePending.v1';
 
 let bootstrapped = false;
 let bootstrapPromise: Promise<void> | null = null;
@@ -47,18 +49,55 @@ async function applyLocally(next: AppLanguage): Promise<void> {
   }
 }
 
-async function uploadLanguage(userId: string, next: AppLanguage): Promise<void> {
-  const { error } = await supabase.from('profiles').update({ language: next }).eq('id', userId);
-  if (error) console.warn('[i18n] could not save language to profile', error.message);
+async function setPending(pending: boolean): Promise<void> {
+  try {
+    if (pending) await AsyncStorage.setItem(PENDING_KEY, '1');
+    else await AsyncStorage.removeItem(PENDING_KEY);
+  } catch (e) {
+    console.warn('[i18n] could not persist pending flag', e);
+  }
+}
+
+async function readPending(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(PENDING_KEY)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+// Uploads run strictly in order so rapid taps end with the last choice on the
+// server. The pending flag is cleared only when the uploaded value is still the
+// active one; a failed upload leaves it set and the next sync retries.
+let uploadQueue: Promise<void> = Promise.resolve();
+
+function enqueueUpload(userId: string, next: AppLanguage): Promise<void> {
+  uploadQueue = uploadQueue.then(async () => {
+    const { error } = await supabase.from('profiles').update({ language: next }).eq('id', userId);
+    if (error) {
+      console.warn('[i18n] could not save language to profile', error.message);
+      return;
+    }
+    if (i18n.language === next) await setPending(false);
+  }).catch((e: unknown) => {
+    // Keep the chain alive; the pending flag stays set for the next sync.
+    console.warn('[i18n] language upload failed', e);
+  });
+  return uploadQueue;
 }
 
 export async function syncLanguageWithProfile(userId: string): Promise<void> {
+  const startLanguage = i18n.language;
+  const pending = await readPending();
   const { data, error } = await supabase.from('profiles').select('language').eq('id', userId).maybeSingle();
   if (error || !data) return;
+  // The user changed the language while the profile was loading: their choice
+  // is newer than the fetched value and already queued for upload.
+  if (i18n.language !== startLanguage) return;
   const current = parseLanguage(i18n.language) ?? 'de';
-  const { apply, upload } = decideProfileSync(data.language, current);
+  const { apply, upload } = decideProfileSync(data.language, current, pending);
   if (apply) await applyLocally(apply);
-  if (upload) await uploadLanguage(userId, upload);
+  if (upload) await enqueueUpload(userId, upload);
 }
 
 export function useLanguage(): { language: AppLanguage; setLanguage: (next: AppLanguage) => Promise<void> } {
@@ -66,9 +105,10 @@ export function useLanguage(): { language: AppLanguage; setLanguage: (next: AppL
   const language = parseLanguage(instance.language) ?? 'de';
   const setLanguage = useCallback(async (next: AppLanguage): Promise<void> => {
     await applyLocally(next);
+    await setPending(true);
     const { data } = await supabase.auth.getSession();
     const userId = data.session?.user.id;
-    if (userId) await uploadLanguage(userId, next);
+    if (userId) await enqueueUpload(userId, next);
   }, []);
   return { language, setLanguage };
 }
