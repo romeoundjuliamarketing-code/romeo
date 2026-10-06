@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, Modal, TouchableOpacity,
   KeyboardAvoidingView, Platform, TextInput, Alert,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
 type ResultType = 'win' | 'loss' | 'draw';
@@ -22,18 +23,18 @@ type AddFightSheetProps = {
   }) => Promise<{ error: string | null }>;
 };
 
-const RESULTS: { key: ResultType; label: string }[] = [
-  { key: 'win',  label: 'Sieg'          },
-  { key: 'loss', label: 'Niederlage'    },
-  { key: 'draw', label: 'Unentschieden' },
-];
+const RESULTS = [
+  { key: 'win',  labelKey: 'profile.addFight.win'  },
+  { key: 'loss', labelKey: 'profile.addFight.loss' },
+  { key: 'draw', labelKey: 'profile.addFight.draw' },
+] as const;
 
-const METHODS: { key: MethodType; label: string }[] = [
-  { key: 'ko',         label: 'KO'          },
-  { key: 'tko',        label: 'TKO'         },
-  { key: 'submission', label: 'Submission'  },
-  { key: 'decision',   label: 'Entscheidung' },
-];
+const METHODS = [
+  { key: 'ko',         labelKey: 'profile.addFight.ko'         },
+  { key: 'tko',        labelKey: 'profile.addFight.tko'        },
+  { key: 'submission', labelKey: 'profile.addFight.submission' },
+  { key: 'decision',   labelKey: 'profile.addFight.decision'   },
+] as const;
 
 function parseDateInput(input: string): string | null {
   const match = input.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
@@ -47,6 +48,7 @@ function parseDateInput(input: string): string | null {
 }
 
 export default function AddFightSheet({ visible, onClose, onSaved, addFight }: AddFightSheetProps): React.ReactElement {
+  const { t } = useTranslation();
   const [result,   setResult]   = useState<ResultType>('win');
   const [method,   setMethod]   = useState<MethodType | null>(null);
   const [opponent, setOpponent] = useState('');
@@ -64,7 +66,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
     setSaving(true);
     const fightDate = dateStr.trim().length > 0 ? parseDateInput(dateStr) : null;
     if (dateStr.trim().length > 0 && fightDate === null) {
-      Alert.alert('Ungültiges Datum', 'Bitte im Format TT.MM.JJJJ eingeben.');
+      Alert.alert(t('profile.addFight.errorDateTitle'), t('profile.addFight.errorDateText'));
       setSaving(false);
       return;
     }
@@ -77,7 +79,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
       is_amateur:    isAmateur,
     });
     setSaving(false);
-    if (res.error !== null) { Alert.alert('Fehler', res.error); return; }
+    if (res.error !== null) { Alert.alert(t('common.error'), res.error); return; }
     handleClose();
     onSaved();
   }
@@ -90,11 +92,11 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
       >
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={handleClose} />
         <View style={styles.sheet}>
-          <Text style={styles.title}>Kampf eintragen</Text>
+          <Text style={styles.title}>{t('profile.addFight.title')}</Text>
 
-          <Text style={styles.fieldLabel}>Ergebnis</Text>
+          <Text style={styles.fieldLabel}>{t('profile.addFight.result')}</Text>
           <View style={styles.chipRow}>
-            {RESULTS.map(({ key, label }) => (
+            {RESULTS.map(({ key, labelKey }) => (
               <TouchableOpacity
                 key={key}
                 style={[styles.chip, result === key && styles.chipActive]}
@@ -102,15 +104,15 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
                 activeOpacity={0.7}
               >
                 <Text style={[styles.chipText, result === key && styles.chipTextActive]}>
-                  {label}
+                  {t(labelKey)}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text style={styles.fieldLabel}>Methode (optional)</Text>
+          <Text style={styles.fieldLabel}>{t('profile.addFight.method')}</Text>
           <View style={styles.methodRow}>
-            {METHODS.map(({ key, label }) => (
+            {METHODS.map(({ key, labelKey }) => (
               <TouchableOpacity
                 key={key}
                 style={[styles.methodChip, method === key && styles.chipActive]}
@@ -118,7 +120,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
                 activeOpacity={0.7}
               >
                 <Text style={[styles.chipText, method === key && styles.chipTextActive]}>
-                  {label}
+                  {t(labelKey)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -126,7 +128,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
 
           <TextInput
             style={styles.input}
-            placeholder="Gegner (optional)"
+            placeholder={t('profile.addFight.opponent')}
             placeholderTextColor={colors.inactive}
             value={opponent}
             onChangeText={setOpponent}
@@ -134,7 +136,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
           />
           <TextInput
             style={styles.input}
-            placeholder="Organisation (optional, z. B. WAKO)"
+            placeholder={t('profile.addFight.organization')}
             placeholderTextColor={colors.inactive}
             value={org}
             onChangeText={setOrg}
@@ -142,7 +144,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
           />
           <TextInput
             style={styles.input}
-            placeholder="Datum (optional, TT.MM.JJJJ)"
+            placeholder={t('profile.addFight.date')}
             placeholderTextColor={colors.inactive}
             value={dateStr}
             onChangeText={setDateStr}
@@ -151,21 +153,21 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
             onSubmitEditing={() => { void handleSave(); }}
           />
 
-          <Text style={styles.fieldLabel}>Typ</Text>
+          <Text style={styles.fieldLabel}>{t('profile.addFight.type')}</Text>
           <View style={styles.chipRow}>
             <TouchableOpacity
               style={[styles.chip, !isAmateur && styles.chipActive]}
               onPress={() => setIsAmateur(false)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.chipText, !isAmateur && styles.chipTextActive]}>Profi</Text>
+              <Text style={[styles.chipText, !isAmateur && styles.chipTextActive]}>{t('profile.fights.pro')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.chip, isAmateur && styles.chipActive]}
               onPress={() => setIsAmateur(true)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.chipText, isAmateur && styles.chipTextActive]}>Amateur</Text>
+              <Text style={[styles.chipText, isAmateur && styles.chipTextActive]}>{t('profile.fights.amateur')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -175,7 +177,7 @@ export default function AddFightSheet({ visible, onClose, onSaved, addFight }: A
             disabled={saving}
             activeOpacity={0.8}
           >
-            <Text style={styles.saveBtnLabel}>{saving ? 'Speichern...' : 'Eintragen'}</Text>
+            <Text style={styles.saveBtnLabel}>{saving ? t('profile.addFight.saving') : t('profile.addFight.submit')}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,13 +48,14 @@ export default function ProfileHeader({
   toolbar:        ToolbarAction[];
   actions:        React.ReactNode;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width, height: screenHeight } = useWindowDimensions();
   const [coverFailed, setCoverFailed] = useState(false);
   const coverHeight = coverHeightFor(screenHeight) + insets.top;
   const hasCover = coverUrl !== null && coverUrl.length > 0 && !coverFailed;
 
-  const displayName = data.name !== null && data.name.trim().length > 0 ? data.name.trim() : 'Kämpfer';
+  const displayName = data.name !== null && data.name.trim().length > 0 ? data.name.trim() : t('profile.card.fighterFallback');
   const nickname = data.nickname !== null && data.nickname.trim().length > 0 ? data.nickname.trim() : null;
   const town = hometown !== null && hometown.trim().length > 0 ? hometown.trim() : null;
   const country = countryByCode(countryCode);
@@ -80,7 +82,7 @@ export default function ProfileHeader({
 
         <View style={[styles.toolbar, { top: insets.top }]}>
           {onBack !== undefined ? (
-            <TouchableOpacity style={styles.chip} onPress={onBack} accessibilityRole="button" accessibilityLabel="Zurück">
+            <TouchableOpacity style={styles.chip} onPress={onBack} accessibilityRole="button" accessibilityLabel={t('common.back')}>
               <Ionicons name="chevron-back" size={22} color={colors.headerTextPrimary} />
             </TouchableOpacity>
           ) : <View />}
@@ -116,12 +118,12 @@ export default function ProfileHeader({
             minimumFontScale={0.55}
             maxFontSizeMultiplier={1.2}
             accessibilityRole="header"
-            accessibilityLabel={data.isVerified ? `${displayName}, verifiziert` : displayName}
+            accessibilityLabel={data.isVerified ? t('profile.header.verifiedName', { name: displayName }) : displayName}
           >
             {displayName}
           </Text>
           {country !== null && (
-            <View style={styles.flag} accessible accessibilityLabel={`Flagge: ${country.name}`}>
+            <View style={styles.flag} accessible accessibilityLabel={t('profile.header.flag', { country: country.name })}>
               <CountryFlag code={country.code} width={40} tilted />
             </View>
           )}
@@ -166,7 +168,7 @@ export default function ProfileHeader({
             <DisciplineBadges disciplines={data.disciplines} />
             {isProfessional && (
               <View style={styles.proBadge}>
-                <Text style={styles.proText}>Profi</Text>
+                <Text style={styles.proText}>{t('profile.fights.pro')}</Text>
               </View>
             )}
           </View>

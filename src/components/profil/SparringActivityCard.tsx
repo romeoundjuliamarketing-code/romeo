@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
@@ -10,6 +11,8 @@ import { formatReliability } from '../../utils/sparringReliability';
 import { historyStatus } from '../../utils/sparringHistory';
 import type { HistoryTone } from '../../utils/sparringHistory';
 import { BlockTitle } from './ProfileFacts';
+import { useLanguage } from '../../i18n/language';
+import { localeFor } from '../../utils/language';
 
 interface Props {
   userId:          string | null;
@@ -28,6 +31,7 @@ const THIN_HISTORY = 3;
 // The list of individual meetings (dates and places) is shown on the own
 // profile only — foreign profiles show the counts as before.
 export default function SparringActivityCard({ userId, isOwn, refetchTrigger = 0, onOpenSparring }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const { attended, committed } = useSparringReliability(userId, refetchTrigger);
   const upcoming = useUpcomingSparringCount(userId, refetchTrigger);
   const { label, hasHistory } = formatReliability({ attended, committed });
@@ -36,21 +40,21 @@ export default function SparringActivityCard({ userId, isOwn, refetchTrigger = 0
 
   return (
     <View style={styles.container}>
-      <BlockTitle>Sparring-Aktivität</BlockTitle>
+      <BlockTitle>{t('profile.activity.title')}</BlockTitle>
 
       {empty && !isOwn ? (
-        <Text style={styles.muted}>Noch keine Sparrings über die App.</Text>
+        <Text style={styles.muted}>{t('profile.activity.none')}</Text>
       ) : !empty ? (
         <>
           <View style={styles.numbers}>
-            <Stat value={upcoming} label="geplant" accent />
-            <Stat value={attended} label="besucht" />
-            {missed > 0 && <Stat value={missed} label="nicht wahrgenommen" />}
+            <Stat value={upcoming} label={t('profile.activity.planned')} accent />
+            <Stat value={attended} label={t('profile.activity.attended')} />
+            {missed > 0 && <Stat value={missed} label={t('profile.activity.missed')} />}
           </View>
           <Text style={styles.reliability}>
             {hasHistory
-              ? `${label}.${committed < THIN_HISTORY ? ' Noch wenige Treffen erfasst.' : ''}`
-              : 'Geplante Treffen zählen erst nach dem Termin.'}
+              ? `${label}.${committed < THIN_HISTORY ? t('profile.activity.fewMeetings') : ''}`
+              : t('profile.activity.plannedNote')}
           </Text>
         </>
       ) : null}
@@ -79,22 +83,23 @@ const TONE_STYLE: Record<HistoryTone, 'toneUpcoming' | 'toneDone' | 'toneMissed'
 function OwnHistory({ userId, refetchTrigger, onOpen, emptyHint }: {
   userId: string | null; refetchTrigger: number; onOpen?: (id: string) => void; emptyHint: boolean;
 }): React.ReactElement | null {
+  const { t } = useTranslation();
   const { entries, status, hasMore, showMore, retry } = useSparringHistory(userId, refetchTrigger);
 
   if (status === 'loading' && entries.length === 0) return <ActivityIndicator color={colors.accentBlue} />;
   if (status === 'error' && entries.length === 0) {
     return (
       <View>
-        <Text style={styles.muted}>Deine Treffen konnten nicht geladen werden.</Text>
+        <Text style={styles.muted}>{t('profile.activity.loadError')}</Text>
         <TouchableOpacity style={styles.more} onPress={retry} accessibilityRole="button">
-          <Text style={styles.moreText}>Erneut versuchen</Text>
+          <Text style={styles.moreText}>{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
     );
   }
   if (entries.length === 0) {
     return emptyHint
-      ? <Text style={styles.muted}>Noch keine Treffen. Sag auf der Karte bei einem Sparring zu – hier erscheinen dann deine Termine.</Text>
+      ? <Text style={styles.muted}>{t('profile.activity.emptyHint')}</Text>
       : null;
   }
   return (
@@ -102,7 +107,7 @@ function OwnHistory({ userId, refetchTrigger, onOpen, emptyHint }: {
       {entries.map((e, i) => <HistoryRow key={`${e.role}:${e.sparringId}`} entry={e} first={i === 0} onOpen={onOpen} />)}
       {hasMore && (
         <TouchableOpacity style={styles.more} onPress={showMore} accessibilityRole="button">
-          <Text style={styles.moreText}>Ältere Treffen anzeigen</Text>
+          <Text style={styles.moreText}>{t('profile.activity.older')}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -110,9 +115,10 @@ function OwnHistory({ userId, refetchTrigger, onOpen, emptyHint }: {
 }
 
 function HistoryRow({ entry, first, onOpen }: { entry: HistoryEntry; first: boolean; onOpen?: (id: string) => void }): React.ReactElement {
+  const { language } = useLanguage();
   const st = historyStatus(entry);
   const d = new Date(entry.scheduledAt);
-  const date = d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
+  const date = d.toLocaleDateString(localeFor(language), { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
   return (
     <TouchableOpacity
       style={[styles.row, !first && styles.rowBorder]}

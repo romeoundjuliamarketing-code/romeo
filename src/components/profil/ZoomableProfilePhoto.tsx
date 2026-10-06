@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { colors } from '../../theme/colors';
@@ -16,6 +17,7 @@ export default function ZoomableProfilePhoto({ uri, name, size }: {
   name: string | null;
   size: number;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const [zoomed, setZoomed] = useState(false);
   const hasPhoto = uri !== null && uri.length > 0;
@@ -28,9 +30,9 @@ export default function ZoomableProfilePhoto({ uri, name, size }: {
         delayLongPress={300}
         disabled={!hasPhoto}
         accessibilityRole={hasPhoto ? 'imagebutton' : 'image'}
-        accessibilityLabel="Profilbild"
-        accessibilityHint={hasPhoto ? 'Gedrückt halten zum Vergrößern' : undefined}
-        accessibilityActions={hasPhoto ? [{ name: 'longpress', label: 'Profilbild vergrößern' }] : undefined}
+        accessibilityLabel={t('profile.photo.label')}
+        accessibilityHint={hasPhoto ? t('profile.photo.hint') : undefined}
+        accessibilityActions={hasPhoto ? [{ name: 'longpress', label: t('profile.photo.enlarge') }] : undefined}
         onAccessibilityAction={(e) => { if (e.nativeEvent.actionName === 'longpress') setZoomed(true); }}
       >
         <ProfilePhoto uri={uri} name={name} size={size} />
@@ -47,7 +49,7 @@ export default function ZoomableProfilePhoto({ uri, name, size }: {
           style={styles.backdrop}
           onPress={() => setZoomed(false)}
           accessibilityRole="button"
-          accessibilityLabel="Vergrößertes Profilbild schließen"
+          accessibilityLabel={t('profile.photo.closeEnlarged')}
         >
           {zoomed && (
             // ZoomIn ends exactly at scale 1, so the photo rests sharp.

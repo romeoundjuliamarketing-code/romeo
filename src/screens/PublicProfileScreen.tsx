@@ -18,6 +18,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
 import type { FightRecord, ReportReason } from '../types/database.types';
@@ -50,19 +51,19 @@ import type { Stance }        from '../utils/stance';
 
 // ── constants ──────────────────────────────────────────────────────────────────
 
-const STAR_LABELS: Record<number, string> = {
-  1: 'Nicht empfehlenswert',
-  2: 'War okay',
-  3: 'Guter Sparringspartner',
-  4: 'Sehr empfehlenswert',
-  5: 'Immer wieder gerne',
-};
+const STAR_LABEL_KEYS = {
+  1: 'profile.public.star1',
+  2: 'profile.public.star2',
+  3: 'profile.public.star3',
+  4: 'profile.public.star4',
+  5: 'profile.public.star5',
+} as const;
 
-const REPORT_OPTIONS: { value: ReportReason; label: string }[] = [
-  { value: 'unsportliches_verhalten', label: 'Unsportliches Verhalten'  },
-  { value: 'gefaehrliches_verhalten', label: 'Gefährliches Verhalten'   },
-  { value: 'beleidigung',             label: 'Beleidigung / Harassment' },
-];
+const REPORT_OPTIONS = [
+  { value: 'unsportliches_verhalten', labelKey: 'profile.public.reportUnsporting'  },
+  { value: 'gefaehrliches_verhalten', labelKey: 'profile.public.reportDangerous'   },
+  { value: 'beleidigung',             labelKey: 'profile.public.reportHarassment' },
+] as const satisfies readonly { value: ReportReason; labelKey: string }[];
 
 // ── types ──────────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ type NavProp    = NativeStackNavigationProp<RootStackParamList, 'PublicProfile'>
 type RoutePropT = RouteProp<RootStackParamList, 'PublicProfile'>;
 
 export default function PublicProfileScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<NavProp>();
   const { params }  = useRoute<RoutePropT>();
   const { userId, sparringId, sparringScheduledAt } = params;
@@ -257,10 +259,10 @@ export default function PublicProfileScreen(): React.ReactElement {
     setRatingSubmitting(true);
     const { error } = await submitRating(sparringId ?? '', userId, selectedStars, ratingComment.trim());
     setRatingSubmitting(false);
-    if (error !== null) { Alert.alert('Fehler', error); return; }
+    if (error !== null) { Alert.alert(t('common.error'), error); return; }
     setRatingModalVisible(false);
     setRatingTrigger((n) => n + 1);
-  }, [selectedStars, ratingComment, submitRating, sparringId, userId]);
+  }, [selectedStars, ratingComment, submitRating, sparringId, userId, t]);
 
   const handleSubmitReport = useCallback(async () => {
     if (selectedReason === null) return;
@@ -272,9 +274,9 @@ export default function PublicProfileScreen(): React.ReactElement {
       reportDetails.trim().length > 0 ? reportDetails.trim() : undefined,
     );
     setReportSubmitting(false);
-    if (error !== null) { Alert.alert('Fehler', error); return; }
+    if (error !== null) { Alert.alert(t('common.error'), error); return; }
     setReportConfirmed(true);
-  }, [selectedReason, reportDetails, submitReport, userId, sparringId]);
+  }, [selectedReason, reportDetails, submitReport, userId, sparringId, t]);
 
   // ── derived values ────────────────────────────────────────────────────────────
 
@@ -328,21 +330,21 @@ export default function PublicProfileScreen(): React.ReactElement {
   const openGym = (gymId: string) => navigation.push('GymDetail', { gymId });
 
   const handleBlockToggle = (): void => {
-    const displayName = profile?.name ?? 'Diese Person';
+    const displayName = profile?.name ?? t('profile.public.thisPerson');
     const onError = ({ error }: { error: string | null }): void => {
-      if (error !== null) Alert.alert('Fehler', 'Das hat nicht geklappt. Bitte versuche es erneut.');
+      if (error !== null) Alert.alert(t('common.error'), t('profile.public.genericError'));
     };
     if (isBlocked) {
       void unblock(userId).then(onError);
       return;
     }
     Alert.alert(
-      `${displayName} blockieren?`,
-      'Du siehst keine Chat-Nachrichten mehr von dieser Person. Sie wird nicht benachrichtigt. Du kannst das in den Einstellungen jederzeit aufheben.',
+      t('profile.public.blockTitle', { name: displayName }),
+      t('profile.public.blockText'),
       [
-        { text: 'Abbrechen', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Blockieren',
+          text: t('profile.public.block'),
           style: 'destructive',
           onPress: () => {
             void block({ id: userId, name: profile?.name ?? null, avatarUrl: profile?.avatar_url ?? null }).then(onError);
@@ -371,15 +373,15 @@ export default function PublicProfileScreen(): React.ReactElement {
           onPressGym={homeGym !== null ? () => openGym(homeGym.id) : undefined}
           onBack={() => navigation.goBack()}
           toolbar={[
-            { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
+            { icon: 'qr-code-outline', label: t('profile.public.qrLabel'), onPress: () => setQrSheetVisible(true) },
             {
               icon: 'flag-outline',
-              label: 'Profil melden',
+              label: t('profile.public.report'),
               onPress: () => { setReportModalVisible(true); setReportConfirmed(false); },
             },
             ...(currentUserId !== null && currentUserId !== userId ? [{
               icon: isBlocked ? 'lock-open-outline' as const : 'ban-outline' as const,
-              label: isBlocked ? 'Blockierung aufheben' : 'Blockieren',
+              label: isBlocked ? t('profile.public.unblock') : t('profile.public.block'),
               onPress: handleBlockToggle,
             }] : []),
           ]}
@@ -389,16 +391,16 @@ export default function PublicProfileScreen(): React.ReactElement {
               {canVouch && !vouched && (
                 <PrimaryButton
                   icon="shield-checkmark-outline"
-                  label="Als Mitglied bestätigen"
+                  label={t('profile.public.vouch')}
                   loading={vouching}
                   onPress={() => { void handleVouch(); }}
                 />
               )}
               {canRateNow && (
-                <PrimaryButton icon="star-outline" label="Jetzt bewerten" onPress={() => setRatingModalVisible(true)} />
+                <PrimaryButton icon="star-outline" label={t('profile.public.rateNow')} onPress={() => setRatingModalVisible(true)} />
               )}
               <View style={styles.shareRow}>
-                <SecondaryButton icon="share-social-outline" label="Teilen" onPress={() => setShareVisible(true)} />
+                <SecondaryButton icon="share-social-outline" label={t('profile.public.share')} onPress={() => setShareVisible(true)} />
               </View>
             </View>
           )}
@@ -406,7 +408,7 @@ export default function PublicProfileScreen(): React.ReactElement {
 
         <View style={styles.page}>
           {isBlocked && (
-            <Text style={styles.blockedHint}>Du hast diese Person blockiert. Ihre Chat-Nachrichten siehst du nicht.</Text>
+            <Text style={styles.blockedHint}>{t('profile.public.blockedHint')}</Text>
           )}
           {/* Empty parts of a foreign profile are simply left out */}
           <View style={styles.group}>
@@ -427,8 +429,8 @@ export default function PublicProfileScreen(): React.ReactElement {
             />
           ) : (
             <View style={styles.group}>
-              <BlockTitle>Kampfrekord</BlockTitle>
-              <Text style={styles.emptyRecordText}>Die Kämpfe werden in diesem Profil nicht öffentlich gezeigt.</Text>
+              <BlockTitle>{t('profile.fights.title')}</BlockTitle>
+              <Text style={styles.emptyRecordText}>{t('profile.public.recordHidden')}</Text>
             </View>
           )}
 
@@ -437,7 +439,7 @@ export default function PublicProfileScreen(): React.ReactElement {
           {/* Star average — hidden behind SHOW_SPARRING_STARS in favour of the reliability quote */}
           {SHOW_SPARRING_STARS && (
             <>
-              <ProfileSection title="Bewertungen">
+              <ProfileSection title={t('profile.public.ratings')}>
                 <View style={styles.starsRow}>
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Ionicons
@@ -450,15 +452,15 @@ export default function PublicProfileScreen(): React.ReactElement {
                 </View>
                 <Text style={styles.existingRatingComment}>
                   {ratingCount === 0
-                    ? 'Noch keine Bewertungen'
-                    : `${ratingCount} ${ratingCount === 1 ? 'Bewertung' : 'Bewertungen'}`}
+                    ? t('profile.public.noRatings')
+                    : t('profile.public.ratingCount', { count: ratingCount })}
                 </Text>
               </ProfileSection>
             </>
           )}
 
           {SHOW_SPARRING_STARS && existingRating !== null && (
-            <ProfileSection title="Deine Bewertung">
+            <ProfileSection title={t('profile.public.yourRating')}>
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map((s) => (
                   <Ionicons
@@ -518,8 +520,8 @@ export default function PublicProfileScreen(): React.ReactElement {
             />
             <View style={styles.modalSheet}>
               <View style={styles.modalHandle} />
-              <Text style={styles.modalTitle}>Bewertung abgeben</Text>
-              <Text style={styles.ratingSubtext}>Bewerte das Verhalten – nicht den Skill</Text>
+              <Text style={styles.modalTitle}>{t('profile.public.rateTitle')}</Text>
+              <Text style={styles.ratingSubtext}>{t('profile.public.rateSubtitle')}</Text>
 
               <View style={styles.starsRow}>
                 {[1, 2, 3, 4, 5].map((s) => (
@@ -538,12 +540,12 @@ export default function PublicProfileScreen(): React.ReactElement {
               </View>
 
               {selectedStars > 0 && (
-                <Text style={styles.starLabel}>{STAR_LABELS[selectedStars]}</Text>
+                <Text style={styles.starLabel}>{t(STAR_LABEL_KEYS[selectedStars as 1 | 2 | 3 | 4 | 5])}</Text>
               )}
 
               <TextInput
                 style={styles.commentInput}
-                placeholder="Kurzer Kommentar..."
+                placeholder={t('profile.public.commentPlaceholder')}
                 placeholderTextColor={colors.textSecondary}
                 value={ratingComment}
                 onChangeText={setRatingComment}
@@ -562,7 +564,7 @@ export default function PublicProfileScreen(): React.ReactElement {
               >
                 {ratingSubmitting
                   ? <ActivityIndicator color={colors.card} />
-                  : <Text style={styles.submitBtnText}>Speichern</Text>
+                  : <Text style={styles.submitBtnText}>{t('common.save')}</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -592,11 +594,11 @@ export default function PublicProfileScreen(): React.ReactElement {
             {reportConfirmed ? (
               <View style={styles.reportConfirmedBox}>
                 <Ionicons name="checkmark-circle" size={40} color={colors.difficultyGreen} />
-                <Text style={styles.reportConfirmedText}>Meldung wurde übermittelt</Text>
+                <Text style={styles.reportConfirmedText}>{t('profile.public.reportConfirmed')}</Text>
               </View>
             ) : (
               <>
-                <Text style={styles.modalTitle}>Nutzer melden</Text>
+                <Text style={styles.modalTitle}>{t('profile.public.reportTitle')}</Text>
 
                 {REPORT_OPTIONS.map((opt) => (
                   <TouchableOpacity
@@ -612,7 +614,7 @@ export default function PublicProfileScreen(): React.ReactElement {
                       styles.reportOptionText,
                       selectedReason === opt.value && styles.reportOptionTextSelected,
                     ]}>
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </Text>
                     {selectedReason === opt.value && (
                       <Ionicons name="checkmark" size={16} color={colors.accentBlue} />
@@ -622,7 +624,7 @@ export default function PublicProfileScreen(): React.ReactElement {
 
                 <TextInput
                   style={styles.commentInput}
-                  placeholder="Details (optional)..."
+                  placeholder={t('profile.public.detailsPlaceholder')}
                   placeholderTextColor={colors.textSecondary}
                   value={reportDetails}
                   onChangeText={setReportDetails}
@@ -639,7 +641,7 @@ export default function PublicProfileScreen(): React.ReactElement {
                 >
                   {reportSubmitting
                     ? <ActivityIndicator color={colors.card} />
-                    : <Text style={styles.submitBtnText}>Absenden</Text>
+                    : <Text style={styles.submitBtnText}>{t('profile.public.submit')}</Text>
                   }
                 </TouchableOpacity>
               </>

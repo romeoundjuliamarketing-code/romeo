@@ -12,6 +12,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 import { colors } from '../../theme/colors';
 import { getInitials } from '../../utils/initials';
 import type { Studio } from '../../hooks/useStudio';
@@ -33,7 +35,7 @@ interface Props {
 function confirmAsync(title: string, message: string, confirmLabel: string): Promise<boolean> {
   return new Promise((resolve) => {
     Alert.alert(title, message, [
-      { text: 'Abbrechen', style: 'cancel', onPress: () => resolve(false) },
+      { text: i18n.t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
       { text: confirmLabel, style: 'destructive', onPress: () => resolve(true) },
     ]);
   });
@@ -51,6 +53,7 @@ export default function TeamPickerCard({
   pendingStudioName,
   onCancelRequest,
 }: Props) {
+  const { t } = useTranslation();
   const [modalVisible, setModalVisible] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Studio[]>([]);
@@ -109,26 +112,26 @@ export default function TeamPickerCard({
     if (currentStudio !== null) {
       if (onLeave === undefined) return;
       const confirmed = await confirmAsync(
-        'Team wechseln',
-        `Du verlässt ${currentStudio.name} und sendest eine Beitrittsanfrage an ${studio.name}. Ein Trainer muss den Beitritt noch bestätigen.`,
-        'Wechseln',
+        t('profile.team.switchTitle'),
+        t('profile.team.switchText', { current: currentStudio.name, next: studio.name }),
+        t('profile.team.switchAction'),
       );
       if (!confirmed) return;
       setSaving(true);
       const leaveResult = await onLeave();
       if (leaveResult.error !== null) {
         setSaving(false);
-        Alert.alert('Fehler', leaveResult.error);
+        Alert.alert(t('common.error'), leaveResult.error);
         return;
       }
       const joinResult = await onRequestJoin(studio.id);
       setSaving(false);
       if (joinResult.error !== null) {
-        Alert.alert('Fehler', joinResult.error);
+        Alert.alert(t('common.error'), joinResult.error);
         return;
       }
       closeModal();
-      Alert.alert('Anfrage gesendet', 'Ein Trainer muss deinen Beitritt noch bestätigen.');
+      Alert.alert(t('profile.team.requestSentTitle'), t('profile.team.requestSentText'));
       return;
     }
 
@@ -136,26 +139,26 @@ export default function TeamPickerCard({
     const result = await onRequestJoin(studio.id);
     setSaving(false);
     if (result.error !== null) {
-      Alert.alert('Fehler', result.error);
+      Alert.alert(t('common.error'), result.error);
       return;
     }
     closeModal();
-    Alert.alert('Anfrage gesendet', 'Ein Trainer muss deinen Beitritt noch bestätigen.');
+    Alert.alert(t('profile.team.requestSentTitle'), t('profile.team.requestSentText'));
   }
 
   async function handleLeave(): Promise<void> {
     if (onLeave === undefined || currentStudio === null) return;
     const confirmed = await confirmAsync(
-      'Team verlassen',
-      `Möchtest du ${currentStudio.name} wirklich verlassen?`,
-      'Verlassen',
+      t('profile.team.leaveTitle'),
+      t('profile.team.leaveText', { name: currentStudio.name }),
+      t('profile.team.leaveAction'),
     );
     if (!confirmed) return;
     setSaving(true);
     const result = await onLeave();
     setSaving(false);
     if (result.error !== null) {
-      Alert.alert('Fehler', result.error);
+      Alert.alert(t('common.error'), result.error);
     }
   }
 
@@ -185,13 +188,13 @@ export default function TeamPickerCard({
   const cardContent = (
     <>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionLabel}>Studio-Team</Text>
+        <Text style={styles.sectionLabel}>{t('profile.team.label')}</Text>
         {currentStudio !== null && (
           <TouchableOpacity
             style={styles.menuBtn}
             onPress={() => setMenuOpen((v) => !v)}
             accessibilityRole="button"
-            accessibilityLabel="Team verwalten"
+            accessibilityLabel={t('profile.team.manage')}
             accessibilityState={{ expanded: menuOpen }}
           >
             <Ionicons name="ellipsis-horizontal" size={20} color={colors.textMuted} />
@@ -230,7 +233,7 @@ export default function TeamPickerCard({
                 accessibilityRole="button"
               >
                 <Ionicons name="swap-horizontal" size={18} color={colors.accentBlue} />
-                <Text style={styles.menuItemText}>Team wechseln</Text>
+                <Text style={styles.menuItemText}>{t('profile.team.switchTitle')}</Text>
               </TouchableOpacity>
               {onLeave !== undefined && (
                 <TouchableOpacity
@@ -240,7 +243,7 @@ export default function TeamPickerCard({
                   accessibilityRole="button"
                 >
                   <Ionicons name="exit-outline" size={18} color={colors.deleteRed} />
-                  <Text style={styles.leaveBtnText}>Team verlassen</Text>
+                  <Text style={styles.leaveBtnText}>{t('profile.team.leaveTitle')}</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -251,7 +254,7 @@ export default function TeamPickerCard({
           <View style={styles.pendingBannerContent}>
             <Ionicons name="time-outline" size={16} color={colors.accentBlue} />
             <Text style={styles.pendingBannerText} numberOfLines={2}>
-              Anfrage an {pendingStudioName} gesendet – wartet auf Bestätigung
+              {t('profile.team.pending', { name: pendingStudioName })}
             </Text>
           </View>
           {onCancelRequest !== undefined && (
@@ -260,16 +263,16 @@ export default function TeamPickerCard({
               onPress={() => { void onCancelRequest(); }}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Beitrittsanfrage abbrechen"
+              accessibilityLabel={t('profile.team.cancelRequest')}
             >
-              <Text style={styles.cancelRequestBtnText}>Abbrechen</Text>
+              <Text style={styles.cancelRequestBtnText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           )}
         </View>
       ) : (
         <TouchableOpacity style={styles.joinBtn} onPress={() => setModalVisible(true)} accessibilityRole="button">
           <Ionicons name="add-circle-outline" size={20} color={colors.accentBlue} />
-          <Text style={styles.joinBtnText}>Einem Studio-Team beitreten</Text>
+          <Text style={styles.joinBtnText}>{t('profile.team.join')}</Text>
         </TouchableOpacity>
       )}
     </>
@@ -292,7 +295,7 @@ export default function TeamPickerCard({
         <SafeAreaView style={styles.modalSafe}>
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Studio suchen</Text>
+            <Text style={styles.modalTitle}>{t('profile.team.searchTitle')}</Text>
             <TouchableOpacity onPress={closeModal} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={colors.text} />
             </TouchableOpacity>
@@ -303,7 +306,7 @@ export default function TeamPickerCard({
             <Ionicons name="search-outline" size={18} color={colors.inactive} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Name oder Stadt..."
+              placeholder={t('profile.team.searchPlaceholder')}
               placeholderTextColor={colors.inactive}
               value={query}
               onChangeText={handleQueryChange}
@@ -346,16 +349,16 @@ export default function TeamPickerCard({
                 );
               }}
               ListEmptyComponent={
-                <Text style={styles.emptyText}>Kein Studio gefunden.</Text>
+                <Text style={styles.emptyText}>{t('profile.team.empty')}</Text>
               }
               ListFooterComponent={
                 <>
                   {createMode ? (
                     <View style={styles.createForm}>
-                      <Text style={styles.createTitle}>Neues Studio erstellen</Text>
+                      <Text style={styles.createTitle}>{t('profile.team.createTitle')}</Text>
                       <TextInput
                         style={styles.createInput}
-                        placeholder="Name des Studios"
+                        placeholder={t('profile.team.createName')}
                         placeholderTextColor={colors.inactive}
                         value={newName}
                         onChangeText={setNewName}
@@ -363,7 +366,7 @@ export default function TeamPickerCard({
                       />
                       <TextInput
                         style={styles.createInput}
-                        placeholder="Stadt"
+                        placeholder={t('profile.team.createCity')}
                         placeholderTextColor={colors.inactive}
                         value={newCity}
                         onChangeText={setNewCity}
@@ -376,7 +379,7 @@ export default function TeamPickerCard({
                           onPress={() => setCreateMode(false)}
                           activeOpacity={0.7}
                         >
-                          <Text style={styles.createCancelLabel}>Abbrechen</Text>
+                          <Text style={styles.createCancelLabel}>{t('common.cancel')}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={[styles.createConfirmBtn, (newName.trim().length === 0 || newCity.trim().length === 0) && styles.createConfirmBtnDisabled]}
@@ -386,7 +389,7 @@ export default function TeamPickerCard({
                         >
                           {creating
                             ? <ActivityIndicator size="small" color={colors.headerTextPrimary} />
-                            : <Text style={styles.createConfirmLabel}>Erstellen</Text>}
+                            : <Text style={styles.createConfirmLabel}>{t('profile.team.create')}</Text>}
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -398,23 +401,23 @@ export default function TeamPickerCard({
                     >
                       <Ionicons name="add-circle-outline" size={18} color={colors.accentBlue} />
                       <Text style={styles.createHintLabel}>
-                        Studio nicht gefunden? Neu erstellen
+                        {t('profile.team.createHint')}
                       </Text>
                     </TouchableOpacity>
                   )}
 
                   {onRedeemCode !== undefined && (
                     <View style={styles.inviteSection}>
-                      <Text style={styles.inviteSectionTitle}>Einladungscode eingeben</Text>
+                      <Text style={styles.inviteSectionTitle}>{t('profile.team.inviteTitle')}</Text>
                       <View style={styles.inviteRow}>
                         <TextInput
                           style={styles.inviteInput}
-                          placeholder="z.B. AB3X7Y"
+                          placeholder={t('profile.team.invitePlaceholder')}
                           placeholderTextColor={colors.inactive}
                           autoCapitalize="characters"
                           maxLength={6}
                           value={inviteCode}
-                          onChangeText={(t) => { setInviteCode(t.toUpperCase()); setRedeemError(null); }}
+                          onChangeText={(text) => { setInviteCode(text.toUpperCase()); setRedeemError(null); }}
                           returnKeyType="done"
                           onSubmitEditing={() => { void handleRedeemCode(); }}
                         />
@@ -426,7 +429,7 @@ export default function TeamPickerCard({
                         >
                           {redeemLoading
                             ? <ActivityIndicator size="small" color={colors.headerTextPrimary} />
-                            : <Text style={styles.redeemBtnLabel}>Beitreten</Text>}
+                            : <Text style={styles.redeemBtnLabel}>{t('profile.team.redeem')}</Text>}
                         </TouchableOpacity>
                       </View>
                       {redeemError !== null && <Text style={styles.redeemErrorText}>{redeemError}</Text>}

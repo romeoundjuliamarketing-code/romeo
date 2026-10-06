@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import QRCode from 'react-native-qrcode-svg';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { CARD_FRAMES, CARD_FRAME_IDS, cardFrame } from '../../data/cardFrames';
 import type { CardFrameId } from '../../data/cardFrames';
@@ -35,6 +36,7 @@ const STORY_PHOTO_H = 128;
 export default function ProfileShareSheet({
   visible, onClose, data, profileCode, isOwn, onSelectFrame,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const [frameId, setFrameId] = useState<CardFrameId>(cardFrame(data.frame).id);
   const [savingFrame, setSavingFrame] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -64,7 +66,7 @@ export default function ProfileShareSheet({
     setSavingFrame(false);
     if (error !== null) {
       setFrameId(previous);
-      Alert.alert('Fehler', 'Der Kartenrahmen konnte nicht gespeichert werden.');
+      Alert.alert(t('common.error'), t('profile.share.frameSaveError'));
     }
   }
 
@@ -76,7 +78,7 @@ export default function ProfileShareSheet({
       // Native share sheet: "Bild sichern" / Instagram / messengers, as installed.
       await RNShare.open({ url: uri, type: 'image/png', failOnCancel: false });
     } catch {
-      Alert.alert('Teilen nicht möglich', 'Das Bild konnte nicht erstellt werden. Bitte versuche es erneut.');
+      Alert.alert(t('profile.share.imageErrorTitle'), t('profile.share.imageErrorMessage'));
     } finally {
       setExporting(false);
     }
@@ -84,9 +86,9 @@ export default function ProfileShareSheet({
 
   async function handleShareId(): Promise<void> {
     if (profileCode === null) return;
-    const name = data.name?.trim() || 'Kämpfer';
+    const name = data.name?.trim() || t('profile.card.fighterFallback');
     await Share.share({
-      message: `${name} auf Sparr – Profil-ID: ${profileCode}. In der Sparr-App unter „Kämpfer suchen“ eingeben oder den QR-Code scannen.`,
+      message: t('profile.share.message', { name, code: profileCode }),
     });
   }
 
@@ -94,13 +96,13 @@ export default function ProfileShareSheet({
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <View style={styles.safe}>
         <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <Text style={styles.title} accessibilityRole="header">Profil teilen</Text>
+          <Text style={styles.title} accessibilityRole="header">{t('profile.share.title')}</Text>
           <TouchableOpacity
             style={styles.closeBtn}
             onPress={onClose}
             hitSlop={8}
             accessibilityRole="button"
-            accessibilityLabel="Schließen"
+            accessibilityLabel={t('profile.close')}
           >
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
@@ -116,7 +118,7 @@ export default function ProfileShareSheet({
 
             {isOwn && onSelectFrame !== undefined && (
               <View style={styles.block}>
-                <Text style={styles.blockTitle}>Karte gestalten</Text>
+                <Text style={styles.blockTitle}>{t('profile.share.designCard')}</Text>
                 <View style={styles.frames}>
                   {CARD_FRAME_IDS.map((id) => {
                     const f = CARD_FRAMES[id];
@@ -127,7 +129,7 @@ export default function ProfileShareSheet({
                         style={styles.frameOption}
                         onPress={() => { void handleSelectFrame(id); }}
                         accessibilityRole="button"
-                        accessibilityLabel={`Rahmen ${f.label}`}
+                        accessibilityLabel={t('profile.share.frameLabel', { label: f.label })}
                         accessibilityState={{ selected }}
                       >
                         <View style={[styles.swatch, { backgroundColor: f.cardBg, borderColor: f.border, borderWidth: f.borderWidth }]}>
@@ -145,22 +147,20 @@ export default function ProfileShareSheet({
             <View style={styles.block}>
               <PrimaryButton
                 icon="image-outline"
-                label="Story-Bild teilen"
+                label={t('profile.share.storyButton')}
                 loading={exporting}
                 onPress={() => { void handleShareImage(); }}
               />
               <Text style={styles.note}>
-                Hochformat 9:16 mit der Vorderseite der Karte und einem QR-Code. Speichern oder in eine Story posten
-                geht über das Teilen-Menü deines Handys.
+                {t('profile.share.storyNote')}
               </Text>
             </View>
 
             {profileCode !== null && (
               <View style={styles.block}>
-                <SecondaryButton icon="share-social-outline" label="Profil-ID teilen" onPress={() => { void handleShareId(); }} />
+                <SecondaryButton icon="share-social-outline" label={t('profile.share.idButton')} onPress={() => { void handleShareId(); }} />
                 <Text style={styles.note}>
-                  Profil-ID {profileCode}. Einen Web-Link für Profile gibt es noch nicht – die ID und der QR-Code
-                  funktionieren in der Sparr-App unter „Kämpfer suchen“.
+                  {t('profile.share.idNote', { code: profileCode })}
                 </Text>
               </View>
             )}
@@ -184,7 +184,7 @@ export default function ProfileShareSheet({
                       <SparrLogo size={18} />
                       <Text style={styles.storyBrandText}>Sparr</Text>
                     </View>
-                    <Text style={styles.storyHint}>In der Sparr-App unter „Kämpfer suchen“ scannen</Text>
+                    <Text style={styles.storyHint}>{t('profile.share.storyHint')}</Text>
                   </View>
                 </View>
               )}

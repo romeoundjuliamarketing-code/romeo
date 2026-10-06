@@ -8,17 +8,20 @@ import {
   StyleSheet,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { useMyStudioRequests } from '../../hooks/useMyStudioRequests';
 import { useMembershipActions } from '../../hooks/useMembershipActions';
 import { formatPrice, billingIntervalLabel } from '../../utils/formatPrice';
+import { formatDate } from '../../utils/formatDate';
+import { useLanguage } from '../../i18n/language';
 
-const TRIAL_STATUS_LABELS: Record<string, string> = {
-  pending:   'Ausstehend',
-  confirmed: 'Bestätigt',
-  declined:  'Abgelehnt',
-  cancelled: 'Abgebrochen',
-};
+const TRIAL_STATUS_KEYS = {
+  pending:   'profile.requests.trialStatus.pending',
+  confirmed: 'profile.requests.trialStatus.confirmed',
+  declined:  'profile.requests.trialStatus.declined',
+  cancelled: 'profile.requests.trialStatus.cancelled',
+} as const;
 
 const TRIAL_STATUS_COLORS: Record<string, string> = {
   pending:   colors.accentBlue,
@@ -27,13 +30,20 @@ const TRIAL_STATUS_COLORS: Record<string, string> = {
   cancelled: colors.textSecondary,
 };
 
-const CONTRACT_STATUS_LABELS: Record<string, string> = {
-  pending:                'Ausstehend',
-  active:                 'Aktiv',
-  cancellation_requested: 'Kündigung läuft',
-  ended:                  'Beendet',
-  declined:               'Abgelehnt',
-};
+const CONTRACT_STATUS_KEYS = {
+  pending:                'profile.requests.contractStatus.pending',
+  active:                 'profile.requests.contractStatus.active',
+  cancellation_requested: 'profile.requests.contractStatus.cancellation_requested',
+  ended:                  'profile.requests.contractStatus.ended',
+  declined:               'profile.requests.contractStatus.declined',
+} as const;
+
+// Local date parts, so a date-only string never shifts across a time zone.
+function formatRequestedDate(iso: string, language: 'de' | 'en'): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return formatDate(new Date(y, m - 1, d), 'date', language);
+}
 
 const CONTRACT_STATUS_COLORS: Record<string, string> = {
   pending:                colors.accentBlue,
@@ -60,6 +70,8 @@ export function isRunningContract(c: { status: string }): boolean {
 }
 
 export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const all = useMyStudioRequests(refetchTrigger);
   const { loading, refetch, cancelTrial } = all;
   const trialBookings = studioId === undefined
@@ -70,24 +82,29 @@ export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props):
     : all.contracts.filter((c) => c.studio_id === studioId && isRunningContract(c));
   const { requestCancellation } = useMembershipActions();
 
+  function statusLabel<K extends string>(keys: Record<string, K>, status: string): string {
+    const key = keys[status];
+    return key !== undefined ? t(key as never) : status;
+  }
+
   async function handleCancelTrial(id: string): Promise<void> {
     const { error } = await cancelTrial(id);
-    if (error !== null) Alert.alert('Fehler', error);
+    if (error !== null) Alert.alert(t('common.error'), error);
   }
 
   async function handleCancelMembership(contractId: string): Promise<void> {
     Alert.alert(
-      'Mitgliedschaft kündigen',
-      'Möchtest du deine Mitgliedschaft wirklich kündigen? Das Studio wird informiert.',
+      t('profile.requests.cancelTitle'),
+      t('profile.requests.cancelMessage'),
       [
-        { text: 'Abbrechen', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Kündigen',
+          text: t('profile.requests.cancelAction'),
           style: 'destructive',
           onPress: async () => {
             const { error } = await requestCancellation(contractId);
             if (error !== null) {
-              Alert.alert('Fehler', error);
+              Alert.alert(t('common.error'), error);
               return;
             }
             refetch();
@@ -100,7 +117,7 @@ export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props):
   if (loading) {
     return (
       <View style={styles.card}>
-        <Text style={styles.sectionLabel}>Meine Anfragen</Text>
+        <Text style={styles.sectionLabel}>{t('profile.requests.title')}</Text>
         <ActivityIndicator color={colors.accentBlue} style={styles.loader} />
       </View>
     );
@@ -113,7 +130,7 @@ export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props):
       {/* Trial bookings section */}
       {trialBookings.length > 0 && (
         <>
-          <Text style={styles.sectionLabel}>Meine Anfragen</Text>
+          <Text style={styles.sectionLabel}>{t('profile.requests.title')}</Text>
           {trialBookings.map((booking, idx) => {
             const statusColor = TRIAL_STATUS_COLORS[booking.status] ?? colors.textSecondary;
             return (
@@ -121,10 +138,10 @@ export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props):
                 <View style={styles.info}>
                   <Text style={styles.studioName} numberOfLines={1}>{booking.studio_name}</Text>
                   <Text style={styles.meta}>
-                    Probetraining · {booking.requested_date.split('-').reverse().join('.')}
+                    {t('profile.requests.trial')} · {formatRequestedDate(booking.requested_date, language)}
                   </Text>
                   <Text style={[styles.statusText, { color: statusColor }]}>
-                    {TRIAL_STATUS_LABELS[booking.status] ?? booking.status}
+                    {statusLabel(TRIAL_STATUS_KEYS, booking.status)}
                   </Text>
                 </View>
                 {booking.status === 'pending' && (
@@ -146,7 +163,7 @@ export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props):
       {contracts.length > 0 && (
         <>
           <Text style={[styles.sectionLabel, trialBookings.length > 0 && styles.sectionLabelMarginTop]}>
-            Meine Mitgliedschaften
+            {t('profile.requests.memberships')}
           </Text>
           {contracts.map((contract, idx) => {
             const statusColor = CONTRACT_STATUS_COLORS[contract.status] ?? colors.textSecondary;
@@ -160,7 +177,7 @@ export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props):
                     {formatPrice(contract.price_cents_snapshot)}/{billingIntervalLabel(contract.billing_interval_snapshot === 'yearly' ? 'yearly' : 'monthly')}
                   </Text>
                   <Text style={[styles.statusText, { color: statusColor }]}>
-                    {CONTRACT_STATUS_LABELS[contract.status] ?? contract.status}
+                    {statusLabel(CONTRACT_STATUS_KEYS, contract.status)}
                   </Text>
                 </View>
                 {contract.status === 'active' && (
@@ -169,7 +186,7 @@ export default function MyRequestsCard({ refetchTrigger = 0, studioId }: Props):
                     onPress={() => { void handleCancelMembership(contract.id); }}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Text style={styles.cancelMembershipLabel}>Kündigen</Text>
+                    <Text style={styles.cancelMembershipLabel}>{t('profile.requests.cancelAction')}</Text>
                   </TouchableOpacity>
                 )}
               </View>

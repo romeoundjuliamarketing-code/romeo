@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, View, Text, TouchableOpacity, Share, StyleSheet } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,10 +17,11 @@ interface Props {
 // QR code + share sheet of an athlete profile (own and foreign). Others scan
 // the code or search for the profile ID.
 export default function ProfileQrShareSheet({ visible, onClose, name, profileCode, isOwn }: Props): React.ReactElement {
+  const { t } = useTranslation();
   async function handleShare(): Promise<void> {
     if (profileCode === null) return;
     await Share.share({
-      message: `Kämpferprofil: ${name ?? 'Unbekannt'} — Code: ${profileCode}`,
+      message: t('profile.qr.message', { name: name ?? t('profile.qr.unknown'), code: profileCode }),
     });
   }
 
@@ -28,16 +30,16 @@ export default function ProfileQrShareSheet({ visible, onClose, name, profileCod
       <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose}>
         <View style={styles.sheet}>
           <View style={styles.handle} />
-          <Text style={styles.title}>Profil teilen</Text>
+          <Text style={styles.title}>{t('profile.share.title')}</Text>
           <Text style={styles.hint}>
             {isOwn
-              ? 'Andere scannen den Code oder suchen nach deiner Profil-ID.'
-              : 'Scannen oder nach der Profil-ID suchen, um dieses Profil zu öffnen.'}
+              ? t('profile.qr.hintOwn')
+              : t('profile.qr.hintOther')}
           </Text>
           {profileCode !== null && (
             <QRCode value={profileCode} size={200} color={colors.brandInk} backgroundColor={colors.card} />
           )}
-          <Text style={styles.idLabel}>{isOwn ? 'Deine Profil-ID' : 'Profil-ID'}</Text>
+          <Text style={styles.idLabel}>{isOwn ? t('profile.qr.idOwn') : t('profile.qr.id')}</Text>
           <Text style={styles.code}>{profileCode ?? ''}</Text>
           <TouchableOpacity
             style={styles.shareBtn}
@@ -46,7 +48,7 @@ export default function ProfileQrShareSheet({ visible, onClose, name, profileCod
             accessibilityRole="button"
           >
             <Ionicons name="share-outline" size={18} color={colors.card} />
-            <Text style={styles.shareBtnText}>Teilen</Text>
+            <Text style={styles.shareBtnText}>{t('profile.qr.share')}</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>

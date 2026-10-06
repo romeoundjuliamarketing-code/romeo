@@ -4,6 +4,7 @@ import { decode as base64Decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
 import type { Profile, ProfileUpdate } from '../types/database.types';
 
@@ -56,7 +57,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
 
   // Resolves with the error so callers can tell the user whether it worked.
   async function updateProfile(updates: ProfileUpdate): Promise<{ error: string | null }> {
-    if (user === null) return { error: 'Nicht eingeloggt.' };
+    if (user === null) return { error: i18n.t('profile.errors.notLoggedInDot') };
 
     const { data, error: err } = await supabase
       .from('profiles')
@@ -77,7 +78,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
   }
 
   async function uploadAvatar(localUri: string): Promise<{ error: string | null }> {
-    if (user === null) return { error: 'Nicht angemeldet.' };
+    if (user === null) return { error: i18n.t('profile.errors.notSignedIn') };
 
     try {
       // Read file as base64 — fetch(localUri).blob() returns empty in React Native
@@ -120,7 +121,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
       if (cacheKey) setCached<ProfileSnapshot>(cacheKey, { profile: data });
       return { error: null };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Unbekannter Fehler beim Hochladen.';
+      const msg = e instanceof Error ? e.message : i18n.t('profile.errors.uploadUnknown');
       setError(msg);
       return { error: msg };
     }
@@ -129,7 +130,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
   // Optional cover photo: same bucket and upload path as the avatar
   // (<uid>/cover.<ext>), framing stored as a focus point.
   async function uploadCover(localUri: string, focus: { x: number; y: number }): Promise<{ error: string | null }> {
-    if (user === null) return { error: 'Nicht angemeldet.' };
+    if (user === null) return { error: i18n.t('profile.errors.notSignedIn') };
     try {
       const base64 = await FileSystem.readAsStringAsync(localUri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -149,12 +150,12 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
         cover_focus_y: focus.y,
       });
     } catch (e) {
-      return { error: e instanceof Error ? e.message : 'Unbekannter Fehler beim Hochladen.' };
+      return { error: e instanceof Error ? e.message : i18n.t('profile.errors.uploadUnknown') };
     }
   }
 
   async function removeCover(): Promise<{ error: string | null }> {
-    if (user === null) return { error: 'Nicht angemeldet.' };
+    if (user === null) return { error: i18n.t('profile.errors.notSignedIn') };
     const result = await updateProfile({ cover_url: null, cover_focus_x: 0.5, cover_focus_y: 0.5 });
     if (result.error === null) {
       // Best effort: the profile no longer points at the file either way.

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
@@ -15,12 +16,13 @@ export function DisciplineSelector({ selected, onChange }: {
   selected: string[];
   onChange: (next: string[]) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const remaining = ALL_DISCIPLINES.filter((d) => !selected.includes(d));
 
   return (
     <View style={styles.group}>
-      <Text style={styles.label}>Disziplinen</Text>
+      <Text style={styles.label}>{t('profile.edit.disciplines')}</Text>
       <View style={styles.badges}>
         {selected.map((d) => (
           <View key={d} style={styles.selectedBadge}>
@@ -30,13 +32,13 @@ export function DisciplineSelector({ selected, onChange }: {
               style={styles.remove}
               onPress={() => onChange(selected.filter((x) => x !== d))}
               accessibilityRole="button"
-              accessibilityLabel={`${d} entfernen`}
+              accessibilityLabel={t('profile.edit.removeDiscipline', { name: d })}
             >
               <Ionicons name="close" size={16} color={colors.card} />
             </TouchableOpacity>
           </View>
         ))}
-        {selected.length === 0 && <Text style={styles.hint}>Noch keine Sportart gewählt.</Text>}
+        {selected.length === 0 && <Text style={styles.hint}>{t('profile.edit.noDiscipline')}</Text>}
       </View>
 
       {remaining.length > 0 && (
@@ -48,7 +50,7 @@ export function DisciplineSelector({ selected, onChange }: {
                 style={styles.option}
                 onPress={() => { onChange([...selected, d]); if (remaining.length === 1) setAdding(false); }}
                 accessibilityRole="button"
-                accessibilityLabel={`${d} hinzufügen`}
+                accessibilityLabel={t('profile.edit.addDiscipline', { name: d })}
               >
                 <MaterialCommunityIcons name={disciplineIcon(d)} size={16} color={colors.accentBlue} />
                 <Text style={styles.optionText}>{d}</Text>
@@ -56,13 +58,13 @@ export function DisciplineSelector({ selected, onChange }: {
               </TouchableOpacity>
             ))}
             <TouchableOpacity style={styles.doneBtn} onPress={() => setAdding(false)} accessibilityRole="button">
-              <Text style={styles.doneText}>Fertig</Text>
+              <Text style={styles.doneText}>{t('profile.edit.done')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity style={styles.addBtn} onPress={() => setAdding(true)} accessibilityRole="button">
             <Ionicons name="add-circle-outline" size={20} color={colors.accentBlue} />
-            <Text style={styles.addText}>Sportart hinzufügen</Text>
+            <Text style={styles.addText}>{t('profile.edit.addSport')}</Text>
           </TouchableOpacity>
         )
       )}
@@ -73,21 +75,22 @@ export function DisciplineSelector({ selected, onChange }: {
 // ─── Stance ──────────────────────────────────────────────────────────────────
 
 // Which foot leads — the standard meaning of each stance.
-const STANCE_HINT: Record<Stance, string> = {
-  orthodox: 'Linker Fuß vorn',
-  southpaw: 'Rechter Fuß vorn',
-  switch:   'Wechselnd',
-};
+const STANCE_HINT_KEY = {
+  orthodox: 'profile.edit.stanceOrthodox',
+  southpaw: 'profile.edit.stanceSouthpaw',
+  switch:   'profile.edit.stanceSwitch',
+} as const satisfies Record<Stance, string>;
 
 export function StanceSelector({ value, onChange }: {
   value:    Stance | null;
   onChange: (next: Stance | null) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   return (
     <View style={styles.group}>
       <View style={styles.labelRow}>
-        <Text style={styles.label}>Auslage</Text>
-        <Text style={styles.optional}>optional</Text>
+        <Text style={styles.label}>{t('profile.edit.stance')}</Text>
+        <Text style={styles.optional}>{t('profile.edit.optional')}</Text>
       </View>
       <View style={styles.tiles}>
         {STANCES.map((s) => {
@@ -99,13 +102,13 @@ export function StanceSelector({ value, onChange }: {
               onPress={() => onChange(selected ? null : s)}
               accessibilityRole="radio"
               accessibilityState={{ selected }}
-              accessibilityLabel={`${stanceLabel(s)}, ${STANCE_HINT[s]}`}
+              accessibilityLabel={`${stanceLabel(s)}, ${t(STANCE_HINT_KEY[s])}`}
             >
               <View style={styles.tileHead}>
                 <Text style={[styles.tileTitle, selected && styles.tileTitleActive]}>{stanceLabel(s)}</Text>
                 {selected && <Ionicons name="checkmark-circle" size={18} color={colors.accentBlue} />}
               </View>
-              <Text style={[styles.tileHint, selected && styles.tileHintActive]}>{STANCE_HINT[s]}</Text>
+              <Text style={[styles.tileHint, selected && styles.tileHintActive]}>{t(STANCE_HINT_KEY[s])}</Text>
             </TouchableOpacity>
           );
         })}

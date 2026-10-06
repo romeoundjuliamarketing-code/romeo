@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
 import { useProfile } from '../hooks/useProfile';
@@ -50,6 +51,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // updates never overwrite what the user is typing. Only changed columns are
 // written; leaving with unsaved changes asks first.
 export default function EditProfileScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<Nav>();
   const insets = useSafeAreaInsets();
   const { profile, uploadAvatar, updateProfile, uploadCover, removeCover } = useProfile();
@@ -74,7 +76,7 @@ export default function EditProfileScreen(): React.ReactElement {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Zugriff erforderlich', 'Bitte erlaube den Zugriff auf deine Fotos in den Einstellungen, um ein Titelbild zu wählen.');
+        Alert.alert(t('profile.editScreen.permissionTitle'), t('profile.editScreen.permissionText'));
         return;
       }
       // No system crop: the framing is chosen in the cover editor, in the
@@ -83,7 +85,7 @@ export default function EditProfileScreen(): React.ReactElement {
       if (result.canceled || result.assets.length === 0) return;
       setCoverEditor({ uri: result.assets[0].uri, focus: { x: 0.5, y: 0.5 }, isNew: true });
     } catch (e) {
-      Alert.alert('Fehler', e instanceof Error ? e.message : 'Unbekannter Fehler.');
+      Alert.alert(t('common.error'), e instanceof Error ? e.message : t('profile.editScreen.unknownError'));
     }
   }
 
@@ -95,21 +97,21 @@ export default function EditProfileScreen(): React.ReactElement {
       : await updateProfile({ cover_focus_x: focus.x, cover_focus_y: focus.y });
     setCoverSaving(false);
     if (error !== null) {
-      Alert.alert('Titelbild nicht gespeichert', 'Bitte versuche es erneut.');
+      Alert.alert(t('profile.editScreen.coverSaveErrorTitle'), t('profile.editScreen.tryAgain'));
       return;
     }
     setCoverEditor(null);
   }
 
   function confirmRemoveCover(): void {
-    Alert.alert('Titelbild entfernen?', 'Dein Profil zeigt dann wieder die Sparr-Grafik.', [
-      { text: 'Abbrechen', style: 'cancel' },
+    Alert.alert(t('profile.editScreen.removeCoverTitle'), t('profile.editScreen.removeCoverText'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Entfernen',
+        text: t('common.remove'),
         style: 'destructive',
         onPress: () => {
           void removeCover().then(({ error }) => {
-            if (error !== null) Alert.alert('Nicht entfernt', 'Bitte versuche es erneut.');
+            if (error !== null) Alert.alert(t('profile.editScreen.notRemoved'), t('profile.editScreen.tryAgain'));
           });
         },
       },
@@ -119,7 +121,7 @@ export default function EditProfileScreen(): React.ReactElement {
   async function selectHomeGym(gym: Gym): Promise<boolean> {
     const { error } = await updateProfile({ home_gym_id: gym.id });
     if (error !== null) {
-      Alert.alert('Nicht gespeichert', 'Dein Gym konnte nicht gespeichert werden. Bitte versuche es erneut.');
+      Alert.alert(t('profile.editScreen.notSaved'), t('profile.editScreen.gymSaveError'));
       return false;
     }
     return true;
@@ -128,7 +130,7 @@ export default function EditProfileScreen(): React.ReactElement {
   async function clearHomeGym(): Promise<boolean> {
     const { error } = await updateProfile({ home_gym_id: null });
     if (error !== null) {
-      Alert.alert('Nicht gespeichert', 'Bitte versuche es erneut.');
+      Alert.alert(t('profile.editScreen.notSaved'), t('profile.editScreen.tryAgain'));
       return false;
     }
     return true;
@@ -170,14 +172,14 @@ export default function EditProfileScreen(): React.ReactElement {
     if (!dirtyRef.current) return;
     e.preventDefault();
     Alert.alert(
-      'Änderungen verwerfen?',
-      'Du hast Änderungen, die noch nicht gespeichert sind.',
+      t('profile.editScreen.discardTitle'),
+      t('profile.editScreen.discardText'),
       [
-        { text: 'Weiter bearbeiten', style: 'cancel' },
-        { text: 'Verwerfen', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
+        { text: t('profile.editScreen.keepEditing'), style: 'cancel' },
+        { text: t('profile.editScreen.discard'), style: 'destructive', onPress: () => navigation.dispatch(e.data.action) },
       ],
     );
-  }), [navigation]);
+  }), [navigation, t]);
 
   async function handleSave(): Promise<void> {
     if (draft === null || profile === null || saving || !dirty) return;
@@ -186,7 +188,7 @@ export default function EditProfileScreen(): React.ReactElement {
     if (!bioVerdict.ok) nextErrors.bio = filterErrorMessage(bioVerdict.category);
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
-      Alert.alert('Bitte prüfen', 'Einige Angaben sind noch nicht korrekt. Die Hinweise stehen direkt am Feld.');
+      Alert.alert(t('profile.editScreen.checkTitle'), t('profile.editScreen.checkText'));
       return;
     }
     const cleaned: ProfileDraft = { ...draft, instagram: normalizeInstagramHandle(draft.instagram) };
@@ -201,7 +203,7 @@ export default function EditProfileScreen(): React.ReactElement {
     setSaving(false);
     if (error !== null) {
       // Keep every input; the user can simply try again.
-      Alert.alert('Speichern fehlgeschlagen', 'Deine Eingaben bleiben erhalten. Bitte versuche es erneut.');
+      Alert.alert(t('profile.editScreen.saveFailedTitle'), t('profile.editScreen.saveFailedText'));
       return;
     }
     setDraft(cleaned);
@@ -220,10 +222,10 @@ export default function EditProfileScreen(): React.ReactElement {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel="Zurück">
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} accessibilityRole="button" accessibilityLabel={t('common.back')}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.topTitle} accessibilityRole="header">Profil bearbeiten</Text>
+        <Text style={styles.topTitle} accessibilityRole="header">{t('profile.editScreen.title')}</Text>
       </View>
 
       {/* Edge-to-edge (SDK 55): padding on both platforms keeps the focused
@@ -248,33 +250,33 @@ export default function EditProfileScreen(): React.ReactElement {
                 )}
               </View>
               <View style={styles.introText}>
-                <Text style={styles.introTitle}>Dein Auftritt</Text>
+                <Text style={styles.introTitle}>{t('profile.editScreen.yourPresence')}</Text>
                 <SecondaryButton
                   icon="camera-outline"
-                  label={avatar.uploading ? 'Wird hochgeladen …' : 'Foto ändern'}
+                  label={avatar.uploading ? t('profile.editScreen.uploading') : t('profile.editScreen.changePhoto')}
                   onPress={() => { void avatar.pick(); }}
                 />
-                <Text style={styles.introHint}>So sehen dich andere auf Sparr.</Text>
+                <Text style={styles.introHint}>{t('profile.editScreen.seenBy')}</Text>
               </View>
             </View>
 
             {/* ── Titelbild (optional) ── */}
-            <Section title="Titelbild">
+            <Section title={t('profile.editScreen.coverSection')}>
               <Text style={styles.introHint}>
                 {profile?.cover_url != null
-                  ? 'Ein Trainingsfoto oben in deinem Profil.'
-                  : 'Optional: ein Trainingsfoto oben in deinem Profil. Ohne Foto zeigt dein Profil die Sparr-Grafik.'}
+                  ? t('profile.editScreen.coverHintSet')
+                  : t('profile.editScreen.coverHintEmpty')}
               </Text>
               <View style={styles.buttonRow}>
                 <SecondaryButton
                   icon="image-outline"
-                  label={profile?.cover_url != null ? 'Neues Foto' : 'Foto wählen'}
+                  label={profile?.cover_url != null ? t('profile.editScreen.newPhoto') : t('profile.editScreen.choosePhoto')}
                   onPress={() => { void pickCover(); }}
                 />
                 {profile?.cover_url != null && (
                   <SecondaryButton
                     icon="move-outline"
-                    label="Ausschnitt"
+                    label={t('profile.editScreen.framing')}
                     onPress={() => setCoverEditor({
                       uri: profile.cover_url as string,
                       focus: { x: profile.cover_focus_x, y: profile.cover_focus_y },
@@ -283,86 +285,86 @@ export default function EditProfileScreen(): React.ReactElement {
                   />
                 )}
                 {profile?.cover_url != null && (
-                  <SecondaryButton icon="trash-outline" label="Entfernen" onPress={confirmRemoveCover} />
+                  <SecondaryButton icon="trash-outline" label={t('common.remove')} onPress={confirmRemoveCover} />
                 )}
               </View>
             </Section>
 
             {/* ── Hier trainiere ich (optional, self-declaration) ── */}
-            <Section title="Hier trainiere ich">
+            <Section title={t('profile.editScreen.trainHere')}>
               {homeGym !== null ? (
                 <View style={styles.gymRow}>
                   <View style={styles.flex}>
                     <Text style={styles.gymName}>{homeGym.name}</Text>
                     <Text style={styles.introHint}>{homeGym.city}</Text>
                   </View>
-                  <SecondaryButton icon="swap-horizontal" label="Ändern" onPress={() => setGymPickerVisible(true)} />
+                  <SecondaryButton icon="swap-horizontal" label={t('profile.editScreen.change')} onPress={() => setGymPickerVisible(true)} />
                 </View>
               ) : (
-                <SecondaryButton icon="add" label="Gym auswählen" onPress={() => setGymPickerVisible(true)} />
+                <SecondaryButton icon="add" label={t('profile.editScreen.chooseGym')} onPress={() => setGymPickerVisible(true)} />
               )}
               <Text style={styles.introHint}>
-                Freiwillig. Andere sehen dein Gym in deinem Profil; es ist keine bestätigte Mitgliedschaft.
+                {t('profile.editScreen.gymHint')}
               </Text>
             </Section>
 
             {/* ── Das bist du ── */}
-            <Section title="Das bist du">
-              <EditField field="name" label="Name" value={draft.name} onChange={onField}
-                placeholder="z. B. Romeo Georgiadis" maxLength={TEXT_LIMITS.name} autoCapitalize="words" />
-              <EditField field="nickname" label="Kampfname" optional value={draft.nickname} onChange={onField}
-                placeholder="z. B. The Hammer" maxLength={TEXT_LIMITS.nickname} autoCapitalize="words" />
-              <EditField field="bio" label="Über mich" optional value={draft.bio} onChange={onField} multiline
-                placeholder="Kampfstil, Erfahrung, Ziele …" maxLength={TEXT_LIMITS.bio} error={errors.bio} />
+            <Section title={t('profile.editScreen.aboutYou')}>
+              <EditField field="name" label={t('profile.editScreen.name')} value={draft.name} onChange={onField}
+                placeholder={t('profile.editScreen.namePlaceholder')} maxLength={TEXT_LIMITS.name} autoCapitalize="words" />
+              <EditField field="nickname" label={t('profile.editScreen.nickname')} optional value={draft.nickname} onChange={onField}
+                placeholder={t('profile.editScreen.nicknamePlaceholder')} maxLength={TEXT_LIMITS.nickname} autoCapitalize="words" />
+              <EditField field="bio" label={t('profile.editScreen.bio')} optional value={draft.bio} onChange={onField} multiline
+                placeholder={t('profile.editScreen.bioPlaceholder')} maxLength={TEXT_LIMITS.bio} error={errors.bio} />
             </Section>
 
             {/* ── Dein Kampfsport ── */}
-            <Section title="Dein Kampfsport">
+            <Section title={t('profile.editScreen.sport')}>
               <DisciplineSelector selected={draft.disciplines} onChange={setDisciplines} />
               <StanceSelector value={draft.stance} onChange={setStance} />
-              <EditField field="favoriteMove" label="Lieblingsmove" optional value={draft.favoriteMove} onChange={onField}
-                placeholder="z. B. Linker Haken zum Körper" maxLength={TEXT_LIMITS.favoriteMove} />
+              <EditField field="favoriteMove" label={t('profile.editScreen.favoriteMove')} optional value={draft.favoriteMove} onChange={onField}
+                placeholder={t('profile.editScreen.favoriteMovePlaceholder')} maxLength={TEXT_LIMITS.favoriteMove} />
             </Section>
 
             {/* ── Deine Eckdaten ── */}
-            <Section title="Deine Eckdaten">
+            <Section title={t('profile.editScreen.stats')}>
               <View style={styles.pair}>
                 <View style={styles.pairItem}>
-                  <EditField field="heightCm" label="Körpergröße" optional value={draft.heightCm} onChange={onField}
+                  <EditField field="heightCm" label={t('profile.editScreen.heightLabel')} optional value={draft.heightCm} onChange={onField}
                     placeholder="182" suffix="cm" keyboardType="number-pad" maxLength={3} error={errors.heightCm} />
                 </View>
                 <View style={styles.pairItem}>
-                  <EditField field="armSpanCm" label="Spannweite" optional value={draft.armSpanCm} onChange={onField}
+                  <EditField field="armSpanCm" label={t('profile.editScreen.armSpan')} optional value={draft.armSpanCm} onChange={onField}
                     placeholder="185" suffix="cm" keyboardType="number-pad" maxLength={3} error={errors.armSpanCm} />
                 </View>
               </View>
               <View style={styles.pair}>
                 <View style={styles.pairItem}>
-                  <EditField field="weightKg" label="Kampfgewicht" optional value={draft.weightKg} onChange={onField}
-                    placeholder="72,5" suffix="kg" keyboardType="decimal-pad" maxLength={6} error={errors.weightKg} />
+                  <EditField field="weightKg" label={t('profile.editScreen.fightWeight')} optional value={draft.weightKg} onChange={onField}
+                    placeholder={t('profile.editScreen.weightPlaceholder')} suffix="kg" keyboardType="decimal-pad" maxLength={6} error={errors.weightKg} />
                 </View>
               </View>
               <View style={styles.pair}>
                 <View style={styles.pairItem}>
-                  <EditField field="ageYears" label="Alter" optional value={draft.ageYears} onChange={onField}
-                    placeholder="27" suffix="Jahre" keyboardType="number-pad" maxLength={2} error={errors.ageYears} />
+                  <EditField field="ageYears" label={t('profile.editScreen.age')} optional value={draft.ageYears} onChange={onField}
+                    placeholder="27" suffix={t('profile.editScreen.ageSuffix')} keyboardType="number-pad" maxLength={2} error={errors.ageYears} />
                 </View>
               </View>
               <CountryField code={draft.countryCode} onPress={() => setCountryPickerVisible(true)} />
-              <EditField field="hometown" label="Heimatstadt" optional value={draft.hometown} onChange={onField}
-                placeholder="z. B. München" maxLength={TEXT_LIMITS.hometown} autoCapitalize="words" />
+              <EditField field="hometown" label={t('profile.editScreen.hometown')} optional value={draft.hometown} onChange={onField}
+                placeholder={t('profile.editScreen.hometownPlaceholder')} maxLength={TEXT_LIMITS.hometown} autoCapitalize="words" />
             </Section>
 
             {/* ── Mehr von dir ── */}
-            <Section title="Mehr von dir">
-              <EditField field="motto" label="Motto" optional value={draft.motto} onChange={onField}
-                placeholder="z. B. Hart trainieren, fair sparren" maxLength={TEXT_LIMITS.motto} />
+            <Section title={t('profile.editScreen.more')}>
+              <EditField field="motto" label={t('profile.editScreen.motto')} optional value={draft.motto} onChange={onField}
+                placeholder={t('profile.editScreen.mottoPlaceholder')} maxLength={TEXT_LIMITS.motto} />
               <EditField field="instagram" label="Instagram" optional value={draft.instagram} onChange={onField}
-                prefix="@" placeholder="dein.profil" maxLength={TEXT_LIMITS.instagram} autoCapitalize="none" />
+                prefix="@" placeholder={t('profile.editScreen.instagramPlaceholder')} maxLength={TEXT_LIMITS.instagram} autoCapitalize="none" />
             </Section>
 
             <Text style={styles.cardHint}>
-              Den Rahmen deiner teilbaren Kämpferkarte gestaltest du im Profil unter „Profil teilen“.
+              {t('profile.editScreen.cardHint')}
             </Text>
           </View>
         </ScrollView>
@@ -377,11 +379,11 @@ export default function EditProfileScreen(): React.ReactElement {
         />
         <GymPickerSheet
           visible={gymPickerVisible}
-          title="Wo trainierst du?"
+          title={t('profile.editScreen.gymPickerTitle')}
           currentGymId={profile?.home_gym_id ?? null}
           onClose={() => setGymPickerVisible(false)}
           onSelect={selectHomeGym}
-          removeLabel="Gym aus dem Profil entfernen"
+          removeLabel={t('profile.editScreen.gymRemove')}
           onRemove={clearHomeGym}
         />
         <CountryPickerSheet
@@ -396,12 +398,12 @@ export default function EditProfileScreen(): React.ReactElement {
           {justSaved && !dirty && (
             <View style={styles.savedRow} accessibilityLiveRegion="polite">
               <Ionicons name="checkmark-circle" size={18} color={colors.accentBlue} />
-              <Text style={styles.savedText}>Gespeichert</Text>
+              <Text style={styles.savedText}>{t('profile.editScreen.saved')}</Text>
             </View>
           )}
           <PrimaryButton
             icon="checkmark"
-            label="Änderungen speichern"
+            label={t('profile.editScreen.saveChanges')}
             loading={saving}
             disabled={!dirty}
             onPress={() => { void handleSave(); }}
@@ -414,27 +416,28 @@ export default function EditProfileScreen(): React.ReactElement {
 
 // Flag under the profile name; opens the country picker.
 function CountryField({ code, onPress }: { code: string; onPress: () => void }): React.ReactElement {
+  const { t } = useTranslation();
   const country = countryByCode(code);
   return (
     <View style={styles.fieldGroup}>
       <View style={styles.fieldLabelRow}>
-        <Text style={styles.fieldLabel}>Flagge</Text>
-        <Text style={styles.fieldOptional}>optional</Text>
+        <Text style={styles.fieldLabel}>{t('profile.editScreen.flag')}</Text>
+        <Text style={styles.fieldOptional}>{t('profile.edit.optional')}</Text>
       </View>
       <TouchableOpacity
         style={styles.pickerBox}
         onPress={onPress}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={country !== null ? `Flagge, ${country.name}, ändern` : 'Flagge wählen, optional'}
+        accessibilityLabel={country !== null ? t('profile.editScreen.flagChangeA11y', { country: country.name }) : t('profile.editScreen.flagChooseA11y')}
       >
         {country !== null && <CountryFlag code={country.code} width={28} />}
         <Text style={[styles.pickerText, country === null && styles.pickerPlaceholder]} numberOfLines={1}>
-          {country !== null ? country.name : 'Land wählen'}
+          {country !== null ? country.name : t('profile.editScreen.chooseCountry')}
         </Text>
         <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
       </TouchableOpacity>
-      <Text style={styles.introHint}>Erscheint unter deinem Namen im Profil.</Text>
+      <Text style={styles.introHint}>{t('profile.editScreen.flagHint')}</Text>
     </View>
   );
 }

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Linking,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
@@ -27,9 +28,10 @@ export default function QRScannerModal({
   visible,
   onClose,
   onScanned,
-  headerTitle = 'QR-Code scannen',
-  hintText = 'QR-Code des Kämpfers scannen',
+  headerTitle,
+  hintText,
 }: QRScannerModalProps): React.ReactElement {
+  const { t } = useTranslation();
   const [permission, requestPermission] = useCameraPermissions();
   // Prevent multiple scanned callbacks from a single QR detection burst
   const scannedRef = useRef<boolean>(false);
@@ -71,34 +73,33 @@ export default function QRScannerModal({
           <TouchableOpacity style={styles.closeBtn} onPress={onClose} activeOpacity={0.8}>
             <Ionicons name="close" size={24} color={colors.card} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{headerTitle}</Text>
+          <Text style={styles.headerTitle}>{headerTitle ?? t('profile.scanner.title')}</Text>
           <View style={styles.headerSpacer} />
         </View>
 
         {/* ── Camera or fallback ── */}
         {isLoading && (
           <View style={styles.centerContent}>
-            <Text style={styles.infoText}>Kamera wird vorbereitet...</Text>
+            <Text style={styles.infoText}>{t('profile.scanner.preparing')}</Text>
           </View>
         )}
 
         {canAskAgain && (
           <View style={styles.centerContent}>
             <Ionicons name="camera-outline" size={48} color={colors.textSecondary} />
-            <Text style={styles.infoText}>Kamerazugriff erforderlich</Text>
+            <Text style={styles.infoText}>{t('profile.scanner.needAccess')}</Text>
             <Text style={styles.infoSubText}>
-              Um den QR-Code eines Kämpferprofils zu scannen, benötigt Sparr Zugriff auf
-              die Kamera.
+              {t('profile.scanner.needAccessText')}
             </Text>
             <TouchableOpacity
               style={styles.permissionBtn}
               onPress={() => { void requestPermission(); }}
               activeOpacity={0.8}
             >
-              <Text style={styles.permissionBtnText}>Kamerazugriff erlauben</Text>
+              <Text style={styles.permissionBtnText}>{t('profile.scanner.allow')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.closeTextBtn} onPress={onClose} activeOpacity={0.8}>
-              <Text style={styles.closeTextBtnLabel}>Schliessen</Text>
+              <Text style={styles.closeTextBtnLabel}>{t('profile.scanner.close')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -106,19 +107,19 @@ export default function QRScannerModal({
         {isDenied && (
           <View style={styles.centerContent}>
             <Ionicons name="ban-outline" size={48} color={colors.textSecondary} />
-            <Text style={styles.infoText}>Kamerazugriff verweigert</Text>
+            <Text style={styles.infoText}>{t('profile.scanner.denied')}</Text>
             <Text style={styles.infoSubText}>
-              Bitte erlaube den Kamerazugriff für Sparr in den Einstellungen deines Geräts.
+              {t('profile.scanner.deniedText')}
             </Text>
             <TouchableOpacity
               style={styles.permissionBtn}
               onPress={handleOpenSettings}
               activeOpacity={0.8}
             >
-              <Text style={styles.permissionBtnText}>Einstellungen öffnen</Text>
+              <Text style={styles.permissionBtnText}>{t('profile.scanner.openSettings')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.closeTextBtn} onPress={onClose} activeOpacity={0.8}>
-              <Text style={styles.closeTextBtnLabel}>Schliessen</Text>
+              <Text style={styles.closeTextBtnLabel}>{t('profile.scanner.close')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -141,7 +142,7 @@ export default function QRScannerModal({
                   <View style={[styles.corner, styles.cornerBR]} />
                 </View>
                 <Text style={styles.scanHint}>
-                  {hintText}
+                  {hintText ?? t('profile.scanner.hint')}
                 </Text>
               </View>
             </View>

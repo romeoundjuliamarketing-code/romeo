@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
 
 export interface BlockedUser {
@@ -72,7 +73,7 @@ export function useBlockedUsers(refetchTrigger = 0): UseBlockedUsersResult {
   const block = useCallback(async (
     target: { id: string; name: string | null; avatarUrl: string | null },
   ): Promise<{ error: string | null }> => {
-    if (userId === null) return { error: 'Nicht eingeloggt' };
+    if (userId === null) return { error: i18n.t('profile.errors.notLoggedIn') };
     const before = blocked;
     if (!before.some((b) => b.id === target.id)) {
       commit([{ ...target, blockedAt: new Date().toISOString() }, ...before]);
@@ -85,7 +86,7 @@ export function useBlockedUsers(refetchTrigger = 0): UseBlockedUsersResult {
   }, [userId, blocked, commit]);
 
   const unblock = useCallback(async (id: string): Promise<{ error: string | null }> => {
-    if (userId === null) return { error: 'Nicht eingeloggt' };
+    if (userId === null) return { error: i18n.t('profile.errors.notLoggedIn') };
     const before = blocked;
     commit(before.filter((b) => b.id !== id));
     const { error } = await supabase

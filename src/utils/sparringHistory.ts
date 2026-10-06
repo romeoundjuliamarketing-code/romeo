@@ -2,6 +2,8 @@
 // from sparring_signups as the server set them — attendance is never derived
 // from a mere commitment: a past slot without a recorded result stays "offen".
 
+import i18n from '../i18n';
+
 export type HistoryRole = 'participant' | 'organizer';
 
 export interface HistoryEntryInput {
@@ -28,15 +30,15 @@ export function isHistoryVisible(e: HistoryEntryInput): boolean {
 export function historyStatus(e: HistoryEntryInput, now: Date = new Date()): HistoryStatus {
   const past = new Date(e.scheduledAt).getTime() <= now.getTime();
   if (e.role === 'organizer') {
-    return past ? { label: 'Organisiert', tone: 'neutral' } : { label: 'Du organisierst', tone: 'upcoming' };
+    return past ? { label: i18n.t('profile.history.organized'), tone: 'neutral' } : { label: i18n.t('profile.history.organizing'), tone: 'upcoming' };
   }
   switch (e.status) {
-    case 'attended':       return { label: 'Teilgenommen', tone: 'done' };
-    case 'no_show':        return { label: 'Nicht erschienen', tone: 'missed' };
-    case 'cancelled_late': return { label: 'Kurzfristig abgesagt', tone: 'missed' };
-    case 'waitlisted':     return past ? { label: 'Warteliste', tone: 'neutral' } : { label: 'Warteliste', tone: 'upcoming' };
-    case 'confirmed':      return past ? { label: 'Teilnahme offen', tone: 'neutral' } : { label: 'Bestätigt', tone: 'upcoming' };
-    case 'pending':        return past ? { label: 'Teilnahme offen', tone: 'neutral' } : { label: 'Zugesagt', tone: 'upcoming' };
-    default:               return { label: 'Unbekannt', tone: 'neutral' };
+    case 'attended':       return { label: i18n.t('profile.history.attended'), tone: 'done' };
+    case 'no_show':        return { label: i18n.t('profile.history.noShow'), tone: 'missed' };
+    case 'cancelled_late': return { label: i18n.t('profile.history.cancelledLate'), tone: 'missed' };
+    case 'waitlisted':     return past ? { label: i18n.t('profile.history.waitlisted'), tone: 'neutral' } : { label: i18n.t('profile.history.waitlisted'), tone: 'upcoming' };
+    case 'confirmed':      return past ? { label: i18n.t('profile.history.pendingOutcome'), tone: 'neutral' } : { label: i18n.t('profile.history.confirmed'), tone: 'upcoming' };
+    case 'pending':        return past ? { label: i18n.t('profile.history.pendingOutcome'), tone: 'neutral' } : { label: i18n.t('profile.history.committed'), tone: 'upcoming' };
+    default:               return { label: i18n.t('profile.history.unknown'), tone: 'neutral' };
   }
 }

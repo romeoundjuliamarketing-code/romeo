@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
@@ -24,9 +25,10 @@ export function BodyStats({ stats }: { stats: BodyStat[] }): React.ReactElement 
 // Personal description as plain reading text — no heading. On the own profile
 // an empty bio becomes a quiet prompt; foreign profiles render nothing.
 export function ProfileBio({ bio, onAdd }: { bio: string; onAdd?: () => void }): React.ReactElement | null {
+  const { t } = useTranslation();
   if (bio.length > 0) return <Text style={styles.bio}>{bio}</Text>;
   if (onAdd === undefined) return null;
-  return <QuietAdd label="Ein paar Worte über dich ergänzen" onPress={onAdd} />;
+  return <QuietAdd label={t('profile.facts.addBio')} onPress={onAdd} />;
 }
 
 // Training as typography: "ca. 5×" big, "Training pro Woche" beside it, the
@@ -35,8 +37,9 @@ export function TrainingStatement({ headline, onAdd }: {
   headline: TrainingHeadline | null;
   onAdd?:   () => void;
 }): React.ReactElement | null {
+  const { t } = useTranslation();
   if (headline === null) {
-    return onAdd !== undefined ? <QuietAdd label="Trainingspensum und Erfahrung ergänzen" onPress={onAdd} /> : null;
+    return onAdd !== undefined ? <QuietAdd label={t('profile.facts.addTraining')} onPress={onAdd} /> : null;
   }
   return (
     <View style={styles.training}>
@@ -44,11 +47,11 @@ export function TrainingStatement({ headline, onAdd }: {
         <View
           style={styles.timesRow}
           accessible
-          accessibilityLabel={`Circa ${headline.times.replace('×', ' mal')} Training pro Woche`}
+          accessibilityLabel={t('profile.facts.timesA11y', { n: headline.times.replace('×', '').trim() })}
         >
-          <Text style={styles.approx}>ca.</Text>
+          <Text style={styles.approx}>{t('profile.facts.approx')}</Text>
           <Text style={styles.times} maxFontSizeMultiplier={1.2}>{headline.times}</Text>
-          <Text style={styles.timesLabel}>Training{'\n'}pro Woche</Text>
+          <Text style={styles.timesLabel}>{t('profile.facts.timesLabel')}</Text>
         </View>
       )}
       {headline.experience !== null && <Text style={styles.experience}>{headline.experience}</Text>}

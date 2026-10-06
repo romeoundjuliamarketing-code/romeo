@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 import type { KeyboardTypeOptions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -31,6 +32,7 @@ function EditField({
   field, label, value, onChange, placeholder, optional = false, maxLength, suffix, prefix,
   multiline = false, keyboardType, autoCapitalize, error,
 }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
   const hasError = error !== undefined && error.length > 0;
   const showCounter = maxLength !== undefined && (focused || value.length > maxLength * 0.8);
@@ -39,14 +41,14 @@ function EditField({
     <View style={styles.group}>
       <View style={styles.labelRow}>
         <Text style={styles.label}>{label}</Text>
-        {optional && <Text style={styles.optional}>optional</Text>}
+        {optional && <Text style={styles.optional}>{t('profile.edit.optional')}</Text>}
       </View>
       <View style={[styles.box, multiline && styles.boxMultiline, focused && styles.boxFocused, hasError && styles.boxError]}>
         {prefix !== undefined && <Text style={styles.affix}>{prefix}</Text>}
         <TextInput
           style={[styles.input, multiline && styles.inputMultiline]}
           value={value}
-          onChangeText={(t) => onChange(field, maxLength !== undefined ? t.slice(0, maxLength) : t)}
+          onChangeText={(text) => onChange(field, maxLength !== undefined ? text.slice(0, maxLength) : text)}
           placeholder={placeholder}
           placeholderTextColor={colors.textSecondary}
           maxLength={maxLength}
@@ -55,7 +57,7 @@ function EditField({
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
           autoCorrect={autoCapitalize !== 'none'}
-          accessibilityLabel={optional ? `${label}, optional` : label}
+          accessibilityLabel={optional ? t('profile.edit.optionalA11y', { label }) : label}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
         />

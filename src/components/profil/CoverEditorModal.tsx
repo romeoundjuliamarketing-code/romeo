@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, Image, Modal, StyleSheet, TouchableOpacity, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
@@ -24,6 +25,7 @@ export default function CoverEditorModal({ uri, initialFocus, visible, saving, o
   onCancel:     () => void;
   onSave:       (focus: Focus) => void;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const frameW = Math.min(screenW - 32, 600);
@@ -89,22 +91,22 @@ export default function CoverEditorModal({ uri, initialFocus, visible, saving, o
     <Modal visible={visible} animationType="slide" onRequestClose={saving ? () => {} : onCancel} statusBarTranslucent>
       <GestureHandlerRootView style={[styles.root, { paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }]}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.iconBtn} onPress={onCancel} disabled={saving} accessibilityRole="button" accessibilityLabel="Abbrechen">
+          <TouchableOpacity style={styles.iconBtn} onPress={onCancel} disabled={saving} accessibilityRole="button" accessibilityLabel={t('common.cancel')}>
             <Ionicons name="close" size={24} color={colors.headerTextPrimary} />
           </TouchableOpacity>
-          <Text style={styles.title} accessibilityRole="header">Ausschnitt wählen</Text>
+          <Text style={styles.title} accessibilityRole="header">{t('profile.cover.title')}</Text>
           <View style={styles.iconBtn} />
         </View>
 
         <View style={styles.body}>
           <View style={[styles.frame, { width: frame.width, height: frame.height }]}>
             {failed ? (
-              <Text style={styles.message}>Das Bild konnte nicht geladen werden.</Text>
+              <Text style={styles.message}>{t('profile.cover.loadError')}</Text>
             ) : layout === null || uri === null ? (
               <ActivityIndicator color={colors.headerTextPrimary} />
             ) : (
               <GestureDetector gesture={pan}>
-                <Animated.View style={StyleSheet.absoluteFill} accessibilityLabel="Titelbild verschieben">
+                <Animated.View style={StyleSheet.absoluteFill} accessibilityLabel={t('profile.cover.moveLabel')}>
                   <Animated.Image
                     source={{ uri }}
                     style={[styles.image, { width: layout.width, height: layout.height }, imageStyle]}
@@ -127,15 +129,15 @@ export default function CoverEditorModal({ uri, initialFocus, visible, saving, o
           </View>
           <Text style={styles.message}>
             {movable
-              ? 'Zieh das Bild, bis der Ausschnitt passt. Unten stehen später dein Name und dein Profilbild.'
-              : 'Das Bild passt genau in den Rahmen. Unten stehen später dein Name und dein Profilbild.'}
+              ? t('profile.cover.hintMovable')
+              : t('profile.cover.hintFixed')}
           </Text>
         </View>
 
         <View style={styles.footer}>
           <PrimaryButton
             icon="checkmark"
-            label="Titelbild übernehmen"
+            label={t('profile.cover.apply')}
             loading={saving}
             disabled={layout === null || failed}
             onPress={() => onSave(focus)}

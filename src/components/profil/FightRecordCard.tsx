@@ -1,9 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import type { FightRecord } from '../../hooks/useFightRecord';
+import { formatDate as formatDateByLanguage } from '../../utils/formatDate';
+import { useLanguage } from '../../i18n/language';
+import type { AppLanguage } from '../../utils/language';
 
 type FightRecordCardProps = {
   fights:     FightRecord[];
@@ -34,14 +38,17 @@ const METHOD_LABEL: Record<string, string> = {
 
 const PREVIEW_COUNT = 3;
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, language: AppLanguage): string {
   if (iso === null) return '';
-  const parts = iso.split('-');
-  if (parts.length !== 3) return '';
-  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  const parts = iso.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((p) => !p)) return '';
+  // Local date parts, so a date-only string never shifts across a time zone.
+  return formatDateByLanguage(new Date(parts[0], parts[1] - 1, parts[2]), 'date', language);
 }
 
 export default function FightRecordCard({ fights, loading, onAdd, onDelete, readOnly, ownerName, compact = false }: FightRecordCardProps): React.ReactElement {
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const hasAmateur = fights.some((f) => f.is_amateur === true);
   const hasPro     = fights.some((f) => f.is_amateur !== true);
   const showTabs   = hasAmateur && hasPro;
@@ -68,31 +75,37 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
   function handleDelete(id: string): void {
     if (!canDeleteRows || onDelete === undefined) return;
     Alert.alert(
-      'Kampf löschen',
-      'Diesen Eintrag wirklich löschen?',
+      t('profile.fights.deleteTitle'),
+      t('profile.fights.deleteMessage'),
       [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Löschen', style: 'destructive', onPress: () => { void onDelete(id); } },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.delete'), style: 'destructive', onPress: () => { void onDelete(id); } },
       ],
     );
   }
+
+  const metaParts: (string | null)[] = [
+    kos > 0 ? t('profile.fights.metaKo', { count: kos }) : null,
+    showTabs ? null : (hasAmateur ? t('profile.fights.amateur') : t('profile.fights.pro')),
+    t('profile.fights.metaSelf'),
+  ];
 
   const showFullEmptyState = !loading && fights.length === 0;
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title} accessibilityRole="header">Kampfrekord</Text>
+        <Text style={styles.title} accessibilityRole="header">{t('profile.fights.title')}</Text>
         {canAdd && (
           <TouchableOpacity
             onPress={onAdd}
             activeOpacity={0.6}
             style={styles.headerAddBtn}
             accessibilityRole="button"
-            accessibilityLabel="Kampf ergänzen"
+            accessibilityLabel={t('profile.fights.add')}
           >
             <MaterialCommunityIcons name="plus" size={18} color={colors.accentBlueText} />
-            <Text style={styles.headerAddBtnText}>Kampf ergänzen</Text>
+            <Text style={styles.headerAddBtnText}>{t('profile.fights.add')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -103,7 +116,7 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
         </View>
       ) : showFullEmptyState ? (
         <Text style={styles.emptyText}>
-          {isOwn ? 'Noch keine Wettkämpfe eingetragen.' : `${ownerName ?? 'Dieser Kämpfer'} hat noch keine Wettkämpfe eingetragen.`}
+          {isOwn ? t('profile.fights.emptyOwn') : t('profile.fights.emptyOther', { name: ownerName ?? t('profile.fights.fighterFallback') })}
         </Text>
       ) : (
         <>
@@ -117,10 +130,10 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
                   activeOpacity={0.7}
                   accessibilityRole="button"
                   accessibilityState={{ selected: activeTab === tab }}
-                  accessibilityLabel={tab === 'pro' ? 'Profi-Kämpfe anzeigen' : 'Amateur-Kämpfe anzeigen'}
+                  accessibilityLabel={tab === 'pro' ? t('profile.fights.showPro') : t('profile.fights.showAmateur')}
                 >
                   <Text style={[styles.segmentText, activeTab === tab && styles.segmentTextActive]}>
-                    {tab === 'pro' ? 'Profi' : 'Amateur'}
+                    {tab === 'pro' ? t('profile.fights.pro') : t('profile.fights.amateur')}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -131,25 +144,23 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
           <View
             style={styles.scoreboard}
             accessible
-            accessibilityLabel={`${wins} Siege, ${losses} Niederlagen, ${draws} Unentschieden${kos > 0 ? `, davon ${kos} durch KO oder TKO` : ''}`}
+            accessibilityLabel={kos > 0
+              ? t('profile.fights.scoreA11yKo', { wins, losses, draws, kos })
+              : t('profile.fights.scoreA11y', { wins, losses, draws })}
           >
-            <Score value={wins} label="Siege" accent />
+            <Score value={wins} label={t('profile.fights.wins')} accent />
             <Text style={styles.scoreDash} importantForAccessibility="no">–</Text>
-            <Score value={losses} label="Niederlagen" />
+            <Score value={losses} label={t('profile.fights.losses')} />
             <Text style={styles.scoreDash} importantForAccessibility="no">–</Text>
-            <Score value={draws} label="Unentschieden" />
+            <Score value={draws} label={t('profile.fights.draws')} />
           </View>
           <Text style={styles.scoreMeta}>
-            {[
-              kos > 0 ? `${kos} durch KO/TKO` : null,
-              showTabs ? null : (hasAmateur ? 'Amateur' : 'Profi'),
-              'selbst eingetragen',
-            ].filter((v): v is string => v !== null).join(', ').replace(/^./, (c) => c.toUpperCase())}
+            {metaParts.filter((v): v is string => v !== null).join(', ').replace(/^./, (c) => c.toUpperCase())}
           </Text>
 
           {displayedFights.map((fight, index) => {
             const cfg = RESULT_CONFIG[fight.result];
-            const dateLabel = formatDate(fight.fight_date);
+            const dateLabel = formatDate(fight.fight_date, language);
             const meta = [fight.organization, dateLabel].filter((v): v is string => typeof v === 'string' && v.length > 0).join(' · ');
             return (
               <View key={fight.id} style={[styles.fightRow, index > 0 && styles.fightRowBorder]}>
@@ -159,7 +170,7 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
                 <View style={styles.fightInfo}>
                   <View style={styles.fightInfoTop}>
                     <Text style={styles.opponentName} numberOfLines={1} ellipsizeMode="tail">
-                      {fight.opponent_name !== null ? fight.opponent_name : 'Unbekannter Gegner'}
+                      {fight.opponent_name !== null ? fight.opponent_name : t('profile.fights.unknownOpponent')}
                     </Text>
                     {fight.method !== null && fight.method !== undefined && (
                       <View style={styles.methodChip}>
@@ -177,7 +188,7 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
                     activeOpacity={0.7}
                     style={styles.deleteBtn}
                     accessibilityRole="button"
-                    accessibilityLabel="Kampf löschen"
+                    accessibilityLabel={t('profile.fights.deleteLabel')}
                   >
                     <MaterialCommunityIcons name="trash-can-outline" size={18} color={colors.textMuted} />
                   </TouchableOpacity>
@@ -192,10 +203,10 @@ export default function FightRecordCard({ fights, loading, onAdd, onDelete, read
               activeOpacity={0.7}
               style={styles.toggleBtn}
               accessibilityRole="button"
-              accessibilityLabel={expanded ? 'Weniger anzeigen' : `Alle Kämpfe ansehen (${visibleFights.length})`}
+              accessibilityLabel={expanded ? t('profile.fights.showLess') : t('profile.fights.showAll', { count: visibleFights.length })}
             >
               <Text style={styles.toggleBtnText}>
-                {expanded ? 'Weniger anzeigen' : `Alle Kämpfe ansehen (${visibleFights.length})`}
+                {expanded ? t('profile.fights.showLess') : t('profile.fights.showAll', { count: visibleFights.length })}
               </Text>
               <MaterialCommunityIcons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={colors.accentBlue} />
             </TouchableOpacity>

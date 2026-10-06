@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import type { Gym } from '../../hooks/useGyms';
@@ -17,18 +18,19 @@ export default function HomeGymBlock({ gym, onOpen, onAdd }: {
   onOpen: (gymId: string) => void;
   onAdd?: () => void;
 }): React.ReactElement | null {
+  const { t } = useTranslation();
   if (gym === null) {
-    return onAdd !== undefined ? <QuietAdd label="Gym hinzufügen" onPress={onAdd} /> : null;
+    return onAdd !== undefined ? <QuietAdd label={t('profile.homeGym.add')} onPress={onAdd} /> : null;
   }
   return (
     <PressScale
       onPress={() => onOpen(gym.id)}
       style={styles.press}
-      accessibilityLabel={`Hier trainiere ich: ${gym.name}${gym.city.length > 0 ? `, ${gym.city}` : ''}. Gym-Seite öffnen`}
+      accessibilityLabel={t('profile.homeGym.a11y', { name: gym.name, city: gym.city.length > 0 ? `, ${gym.city}` : '' })}
     >
       <GymBanner name={gym.name} bannerUrl={gym.banner_url} logoUrl={gym.avatar_url} height={128}>
         <View style={[styles.content, { paddingRight: gymBannerReserve(gym.banner_url) }]}>
-          <Text style={styles.label}>Hier trainiere ich</Text>
+          <Text style={styles.label}>{t('profile.homeGym.label')}</Text>
           <View style={styles.nameRow}>
             <View style={styles.flex}>
               <Text style={styles.name} numberOfLines={2} maxFontSizeMultiplier={1.3}>{gym.name}</Text>

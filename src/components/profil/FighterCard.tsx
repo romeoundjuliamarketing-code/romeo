@@ -10,6 +10,7 @@ import Animated, {
   useReducedMotion,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { cardFrame } from '../../data/cardFrames';
 import type { CardFrame, CardFrameId } from '../../data/cardFrames';
@@ -121,14 +122,15 @@ export function CardFront({ data, frame, photoHeight = 240 }: {
   /** Lower in the 9:16 story export so the whole card fits without scaling. */
   photoHeight?: number;
 }): React.ReactElement {
+  const { t } = useTranslation();
   const [photoFailed, setPhotoFailed] = useState(false);
   const hasPhoto = data.avatarUrl !== null && data.avatarUrl.length > 0 && !photoFailed;
-  const displayName = data.name !== null && data.name.trim().length > 0 ? data.name.trim() : 'Kämpfer';
+  const displayName = data.name !== null && data.name.trim().length > 0 ? data.name.trim() : t('profile.card.fighterFallback');
   const stanceText = stanceLabel(data.stance);
   const numbers: FactRow[] = [];
-  if (data.weightKg !== null) numbers.push({ label: 'Gewicht', value: `${data.weightKg} kg` });
-  if (data.heightCm !== null) numbers.push({ label: 'Größe', value: `${data.heightCm} cm` });
-  if (stanceText !== null) numbers.push({ label: 'Auslage', value: stanceText });
+  if (data.weightKg !== null) numbers.push({ label: t('profile.card.weight'), value: `${data.weightKg} kg` });
+  if (data.heightCm !== null) numbers.push({ label: t('profile.card.height'), value: `${data.heightCm} cm` });
+  if (stanceText !== null) numbers.push({ label: t('profile.card.stance'), value: stanceText });
   const place = [data.gymName, data.location].filter((v): v is string => v !== null && v.trim().length > 0);
   const onDarkCard = frame.cardBg === colors.dark;
 
@@ -152,9 +154,9 @@ export function CardFront({ data, frame, photoHeight = 240 }: {
           <SparrLogo size={20} />
         </View>
         {data.isVerified && (
-          <View style={styles.verifiedChip} accessible accessibilityLabel="Verifiziert">
+          <View style={styles.verifiedChip} accessible accessibilityLabel={t('profile.card.verified')}>
             <Ionicons name="checkmark-circle" size={16} color={colors.accentBlue} />
-            <Text style={styles.verifiedText}>Verifiziert</Text>
+            <Text style={styles.verifiedText}>{t('profile.card.verified')}</Text>
           </View>
         )}
       </View>
@@ -204,6 +206,7 @@ export function CardFront({ data, frame, photoHeight = 240 }: {
 }
 
 function CardBack({ data, frame, isOwn }: { data: FighterCardData; frame: CardFrame; isOwn: boolean }) {
+  const { t } = useTranslation();
   const motto = data.motto?.trim() ?? '';
   const move = data.favoriteMove?.trim() ?? '';
   const focus = data.trainingFocus?.trim() ?? '';
@@ -213,17 +216,17 @@ function CardBack({ data, frame, isOwn }: { data: FighterCardData; frame: CardFr
     <View style={styles.back}>
       <View style={styles.backHeader}>
         <SparrLogo size={24} />
-        <Text style={[styles.backTitle, { color: frame.text }]}>Kämpferkarte</Text>
+        <Text style={[styles.backTitle, { color: frame.text }]}>{t('profile.card.backTitle')}</Text>
       </View>
 
       {motto.length > 0 && (
         <View style={[styles.mottoBox, { borderLeftColor: frame.accent }]}>
-          <Text style={[styles.backLabel, { color: frame.subtle }]}>Motto</Text>
+          <Text style={[styles.backLabel, { color: frame.subtle }]}>{t('profile.card.motto')}</Text>
           <Text style={[styles.motto, { color: frame.text }]}>„{motto}“</Text>
         </View>
       )}
-      {move.length > 0 && <BackRow label="Lieblingsmove" value={move} frame={frame} />}
-      {focus.length > 0 && <BackRow label="Aktueller Fokus" value={focus} frame={frame} />}
+      {move.length > 0 && <BackRow label={t('profile.card.favoriteMove')} value={move} frame={frame} />}
+      {focus.length > 0 && <BackRow label={t('profile.card.currentFocus')} value={focus} frame={frame} />}
 
       {data.backFacts.length > 0 && (
         <View style={[styles.facts, { borderTopColor: frame.line }]}>
@@ -239,8 +242,8 @@ function CardBack({ data, frame, isOwn }: { data: FighterCardData; frame: CardFr
       {nothing && (
         <Text style={[styles.backEmpty, { color: frame.subtle }]}>
           {isOwn
-            ? 'Motto und Lieblingsmove kannst du unter „Profil bearbeiten“ ergänzen.'
-            : 'Keine weiteren Angaben.'}
+            ? t('profile.card.emptyOwn')
+            : t('profile.card.emptyOther')}
         </Text>
       )}
     </View>

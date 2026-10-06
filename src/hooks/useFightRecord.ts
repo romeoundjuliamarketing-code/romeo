@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
 import type { FightRecord, FightRecordInsert } from '../types/database.types';
 
@@ -56,14 +57,14 @@ export function useFightRecord(refetchTrigger = 0): UseFightRecordResult {
   }, [user, refetchTrigger, cacheKey]);
 
   const addFight = useCallback(async (data: FightInsert): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('profile.errors.notLoggedIn') };
     // Return the inserted row so we can patch local state without a full refetch.
     const { data: inserted, error } = await supabase
       .from('fight_records')
       .insert({ ...data, user_id: user.id })
       .select('*')
       .single();
-    if (error !== null || inserted === null) return { error: error?.message ?? 'Speichern fehlgeschlagen' };
+    if (error !== null || inserted === null) return { error: error?.message ?? i18n.t('profile.errors.saveFailed') };
     setFights((prev) => {
       const next = [...prev, inserted].sort(compareFights);
       if (cacheKey) setCached<FightRecordSnapshot>(cacheKey, { fights: next });
@@ -73,7 +74,7 @@ export function useFightRecord(refetchTrigger = 0): UseFightRecordResult {
   }, [user, cacheKey]);
 
   const deleteFight = useCallback(async (id: string): Promise<{ error: string | null }> => {
-    if (user === null) return { error: 'Nicht eingeloggt' };
+    if (user === null) return { error: i18n.t('profile.errors.notLoggedIn') };
     // Optimistically remove; restore on failure.
     let removed: FightRecord[] = [];
     setFights((prev) => {
