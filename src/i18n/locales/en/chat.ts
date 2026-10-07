@@ -18,6 +18,10 @@ const chat: LocaleShape<typeof de> = {
     archiveA11yUnread: 'Past meetups, {{count}}, {{unread}} unread',
     unreadCount: '{{count}} unread',
   },
+  system: {
+    joined: '{{name}} signed up',
+    cancelled: '{{name}} cancelled',
+  },
   unknownSender: 'Unknown',
   composerPlaceholder: 'Message...',
   photoPermission: {

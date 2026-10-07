@@ -10,6 +10,8 @@
 import { hasStarted, isInConfirmWindow } from './sparringCommitment';
 import { SPARRING_CONFIRM_DEADLINE_HOURS } from '../data/sparringConfig';
 import i18n from '../i18n';
+import { parseLanguage } from './language';
+import { sparringDisplayTitle } from './sparringDisplayTitle';
 
 export type HomeSparringRole = 'organizer' | 'pending' | 'confirmed';
 
@@ -96,8 +98,7 @@ export function appointmentDayLabel(date: Date, now: Date): string {
 // Default titles are "<Disziplin> – Sparring" (CreateSparringSheet). The
 // catch-all discipline reads better as plain "Sparring"; own titles stay.
 export function displaySparringTitle(title: string): string {
-  const trimmed = title.trim();
-  return trimmed === 'Sonstiges – Sparring' ? 'Sparring' : trimmed;
+  return sparringDisplayTitle(title, parseLanguage(i18n.language) ?? 'de');
 }
 
 // A bare "Sparring" says little on Home — the section label already names the

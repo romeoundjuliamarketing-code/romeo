@@ -15,6 +15,10 @@ const chat = {
     archiveA11yUnread: 'Vergangene Treffen, {{count}}, {{unread}} ungelesen',
     unreadCount: '{{count}} ungelesen',
   },
+  system: {
+    joined: '{{name}} hat sich angemeldet',
+    cancelled: '{{name}} hat abgesagt',
+  },
   unknownSender: 'Unbekannt',
   composerPlaceholder: 'Nachricht...',
   photoPermission: {
