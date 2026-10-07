@@ -56,6 +56,7 @@ const challenge: LocaleShape<typeof de> = {
     clear: 'Clear',
   },
   areaPicker: {
+    header: 'Discipline',
     title: 'Which discipline do you want cards for?',
   },
   areas: {
@@ -97,6 +98,26 @@ const challenge: LocaleShape<typeof de> = {
     newCard: 'New card',
     drawCard: 'Draw card',
     browseAll: 'View all cards',
+  },
+  intro: {
+    pricePerMonth: '{{price}} / month',
+    kicker: 'SPARR CARDS',
+    title: 'One card.\nA new focus.',
+    lead: 'Draw a card and put the drill into practice while sparring. Your partner doesn’t need to know your card.',
+    benefit1Title: 'Try new attacks',
+    benefit1Body: 'Bring variety into your sparring and expand your repertoire.',
+    benefit2Title: 'Spot opportunities',
+    benefit2Body: 'Practise finding the right moment for your task.',
+    benefit3Title: 'Execute instructions in the fight',
+    benefit3Body: 'Train to keep a specific focus under pressure – much like a call from your corner.',
+    note: 'For kickboxing / K1 · Controlled and by the rules you agreed on.',
+    skip: 'Skip',
+    checkingAccess: 'Checking access',
+    checkingAccessEllipsis: 'Checking access …',
+    accessFailed: 'Your access could not be checked right now.',
+    retry: 'Try again',
+    backToGame: 'Back to the game',
+    letsGo: 'Let’s go',
   },
 };
 

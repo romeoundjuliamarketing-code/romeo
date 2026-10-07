@@ -7,6 +7,7 @@ import { initialsFromTitle, lastMessageTimeLabel, sparringDateLabel } from '../.
 import type { SparringChatEntry } from '../../hooks/useSparringChatList';
 import { useLanguage } from '../../i18n/language';
 import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   item:     SparringChatEntry;
@@ -16,6 +17,7 @@ interface Props {
 
 export default function SparringChatListItem({ item, onPress, past = false }: Props) {
   const { language }  = useLanguage();
+  const { t }         = useTranslation();
   const hasUnread     = item.unreadCount > 0;
   const initials      = initialsFromTitle(item.sparringTitle);
   const timeLabel     = lastMessageTimeLabel(item.lastMessageAt);
@@ -66,7 +68,7 @@ export default function SparringChatListItem({ item, onPress, past = false }: Pr
             </Text>
           ) : (
             <Text style={styles.previewEmpty} numberOfLines={1}>
-              Noch keine Nachrichten
+              {t('chat.legacyList.noMessages')}
             </Text>
           )}
           <UnreadBadge count={item.unreadCount} />

@@ -75,6 +75,9 @@ const chat: LocaleShape<typeof de> = {
     emptySparring: 'Sort out the last details for training here.',
     emptyEvent: 'Sort out the last details for your meetup here.',
   },
+  legacyList: {
+    noMessages: 'No messages yet',
+  },
 };
 
 export default chat;

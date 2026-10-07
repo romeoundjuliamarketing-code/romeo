@@ -47,6 +47,7 @@ function AreaPickerContent({ current, onSelect }: Omit<Props, 'onClose'>): React
 // Discipline picker: renders inline for the mandatory first choice, or as a
 // dismissible modal when reopened later from the header button.
 export default function ChallengeAreaPicker({ current, onSelect, onClose }: Props): React.ReactElement {
+  const { t } = useTranslation();
   if (onClose === undefined) {
     return <AreaPickerContent current={current} onSelect={onSelect} />;
   }
@@ -66,9 +67,9 @@ export default function ChallengeAreaPicker({ current, onSelect, onClose }: Prop
       <SafeAreaProvider initialMetrics={initialWindowMetrics}>
         <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
           <ChallengeHeader
-            title="Disziplin"
+            title={t('challenge.areaPicker.header')}
             icon="close"
-            iconLabel="Schliessen"
+            iconLabel={t('common.close')}
             onPress={onClose}
           />
           <AreaPickerContent current={current} onSelect={onSelect} />

@@ -123,6 +123,11 @@ const home = {
     viewOnMap: 'Auf der Karte ansehen',
     attending: '{{count}} von {{max}} dabei',
   },
+  screen: {
+    loadFailed: 'Deine Termine konnten nicht geladen werden. Erneut versuchen',
+    announcementPushTitle: 'Ankündigung vom Trainer',
+    unknownError: 'Unbekannter Fehler.',
+  },
 } as const;
 
 export default home;

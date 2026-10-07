@@ -76,6 +76,13 @@ const common = {
     invalidCode: 'Ungültiger oder abgelaufener Code',
     contractNotFound: 'Vertrag nicht gefunden.',
   },
+  tabs: {
+    home: 'Start',
+    cards: 'Spiel',
+    discover: 'Entdecken',
+    profile: 'Profil',
+    newNotifications: '{{label}}, neue Benachrichtigungen',
+  },
 } as const;
 
 export default common;

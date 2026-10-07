@@ -45,10 +45,12 @@ import { supabase } from '../lib/supabase';
 import QRScannerModal from '../components/profil/QRScannerModal';
 import ProfileQrShareSheet from '../components/profil/ProfileQrShareSheet';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
+import { useTranslation } from 'react-i18next';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ProfilScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [focusTrigger, setFocusTrigger] = useState(0);
   useFocusRefetch(() => setFocusTrigger((n) => n + 1));
@@ -114,7 +116,7 @@ export default function ProfilScreen(): React.ReactElement {
     if (pendingJoinRequest === null) return;
     const { error } = await cancelJoinRequest(pendingJoinRequest.id);
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     setFocusTrigger((n) => n + 1);
@@ -133,7 +135,7 @@ export default function ProfilScreen(): React.ReactElement {
       .single();
     setSearching(false);
     if (error !== null || data === null) {
-      setSearchError('Kein Kämpfer mit diesem Code gefunden.');
+      setSearchError(t('profile.screen.noFighterForCode'));
       return;
     }
     setSearchCode('');
@@ -167,7 +169,7 @@ export default function ProfilScreen(): React.ReactElement {
   async function handleSelectHomeGym(gym: Gym): Promise<boolean> {
     const { error } = await updateProfile({ home_gym_id: gym.id });
     if (error !== null) {
-      Alert.alert('Nicht gespeichert', 'Dein Gym konnte nicht gespeichert werden. Bitte versuche es erneut.');
+      Alert.alert(t('profile.screen.notSavedTitle'), t('profile.screen.gymNotSaved'));
       return false;
     }
     return true;
@@ -193,20 +195,20 @@ export default function ProfilScreen(): React.ReactElement {
           toolbar={[
             {
               icon: 'search',
-              label: 'Kämpfer suchen',
+              label: t('profile.screen.searchFighter'),
               onPress: () => {
                 setSearchCode('');
                 setSearchError(null);
                 setSearchModalVisible(true);
               },
             },
-            { icon: 'qr-code-outline', label: 'QR-Code und Profil-ID', onPress: () => setQrSheetVisible(true) },
-            { icon: 'settings-outline', label: 'Einstellungen', onPress: () => navigation.navigate('Settings') },
+            { icon: 'qr-code-outline', label: t('profile.screen.qrAndId'), onPress: () => setQrSheetVisible(true) },
+            { icon: 'settings-outline', label: t('profile.screen.settings'), onPress: () => navigation.navigate('Settings') },
           ]}
           actions={(
             <View style={styles.headerActions}>
-              <SecondaryButton icon="create-outline" label="Bearbeiten" onPress={openEdit} />
-              <SecondaryButton icon="share-social-outline" label="Teilen" onPress={() => setShareVisible(true)} />
+              <SecondaryButton icon="create-outline" label={t('profile.screen.edit')} onPress={openEdit} />
+              <SecondaryButton icon="share-social-outline" label={t('profile.screen.share')} onPress={() => setShareVisible(true)} />
             </View>
           )}
         />
@@ -242,8 +244,8 @@ export default function ProfilScreen(): React.ReactElement {
               <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Verification')} accessibilityRole="button">
                 <Ionicons name="shield-checkmark-outline" size={22} color={colors.accentBlue} />
                 <View style={styles.flex}>
-                  <Text style={styles.linkTitle}>Verifizierung</Text>
-                  <Text style={styles.linkSub}>{tier === 'basic' ? 'Fast geschafft – ein Nachweis fehlt' : 'Nicht verifiziert'}</Text>
+                  <Text style={styles.linkTitle}>{t('profile.screen.verification')}</Text>
+                  <Text style={styles.linkSub}>{tier === 'basic' ? t('profile.screen.verificationAlmost') : t('profile.screen.notVerified')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
               </TouchableOpacity>
@@ -252,7 +254,7 @@ export default function ProfilScreen(): React.ReactElement {
               <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('VenueDetail', { venueId })} accessibilityRole="button">
                 <Ionicons name="business-outline" size={22} color={colors.accentBlue} />
                 <View style={styles.flex}>
-                  <Text style={styles.linkTitle}>Meine Location</Text>
+                  <Text style={styles.linkTitle}>{t('profile.screen.myLocation')}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
               </TouchableOpacity>
@@ -269,7 +271,7 @@ export default function ProfilScreen(): React.ReactElement {
               onCreate={async (name, city) => {
                 const created = await createStudio(name, city);
                 if (created === null) {
-                  Alert.alert('Fehler', 'Studio konnte nicht erstellt werden.');
+                  Alert.alert(t('common.error'), t('profile.screen.studioCreateFailed'));
                 }
                 return created;
               }}
@@ -287,7 +289,7 @@ export default function ProfilScreen(): React.ReactElement {
 
       <GymPickerSheet
         visible={gymPickerVisible}
-        title="Wo trainierst du?"
+        title={t('profile.editScreen.gymPickerTitle')}
         currentGymId={profile?.home_gym_id ?? null}
         onClose={() => setGymPickerVisible(false)}
         onSelect={handleSelectHomeGym}
@@ -337,14 +339,14 @@ export default function ProfilScreen(): React.ReactElement {
           />
           <View style={styles.searchSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Kämpfer suchen</Text>
-            <Text style={styles.searchSubtitle}>Profil-Code eingeben</Text>
+            <Text style={styles.modalTitle}>{t('profile.screen.searchFighter')}</Text>
+            <Text style={styles.searchSubtitle}>{t('profile.screen.enterProfileCode')}</Text>
             <View style={styles.codeSearchRow}>
               <TextInput
                 style={styles.codeInput}
                 value={searchCode}
-                onChangeText={(t) => { setSearchCode(t.toUpperCase()); setSearchError(null); }}
-                placeholder="Code eingeben..."
+                onChangeText={(text) => { setSearchCode(text.toUpperCase()); setSearchError(null); }}
+                placeholder={t('profile.screen.codePlaceholder')}
                 placeholderTextColor={colors.brandMuted}
                 autoCapitalize="characters"
                 maxLength={12}
@@ -370,7 +372,7 @@ export default function ProfilScreen(): React.ReactElement {
               activeOpacity={0.8}
             >
               <Ionicons name="qr-code-outline" size={18} color={colors.brandPrimary} />
-              <Text style={styles.qrScanBtnText}>QR scannen</Text>
+              <Text style={styles.qrScanBtnText}>{t('profile.screen.scanQr')}</Text>
             </TouchableOpacity>
             {searchError !== null && (
               <Text style={styles.codeSearchError}>{searchError}</Text>
@@ -378,7 +380,7 @@ export default function ProfilScreen(): React.ReactElement {
             {/* Own profile code for sharing */}
             {profile?.profile_code !== undefined && profile.profile_code.length > 0 && (
               <View style={styles.ownCodeRow}>
-                <Text style={styles.ownCodeLabel}>Mein Code</Text>
+                <Text style={styles.ownCodeLabel}>{t('profile.screen.myCode')}</Text>
                 <Text style={styles.ownCodeValue}>{profile.profile_code}</Text>
               </View>
             )}

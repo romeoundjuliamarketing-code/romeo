@@ -336,6 +336,25 @@ const profile: LocaleShape<typeof de> = {
     invitePlaceholder: 'e.g. AB3X7Y',
     redeem: 'Join',
   },
+  screen: {
+    searchFighter: 'Find fighters',
+    noFighterForCode: 'No fighter found with this code.',
+    notSavedTitle: 'Not saved',
+    gymNotSaved: 'Your gym could not be saved. Please try again.',
+    qrAndId: 'QR code and profile ID',
+    settings: 'Settings',
+    edit: 'Edit',
+    share: 'Share',
+    verification: 'Verification',
+    verificationAlmost: 'Almost there – one proof is missing',
+    notVerified: 'Not verified',
+    myLocation: 'My location',
+    studioCreateFailed: 'The studio could not be created.',
+    enterProfileCode: 'Enter profile code',
+    codePlaceholder: 'Enter code...',
+    scanQr: 'Scan QR',
+    myCode: 'My code',
+  },
 };
 
 export default profile;

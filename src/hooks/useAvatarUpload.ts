@@ -40,7 +40,7 @@ export function useAvatarUpload(onUpload: (localUri: string) => Promise<{ error:
     } catch (e) {
       setUploading(false);
       setLocalUri(null);
-      Alert.alert('Fehler', e instanceof Error ? e.message : 'Unbekannter Fehler.');
+      Alert.alert(i18n.t('common.error'), e instanceof Error ? e.message : i18n.t('home.screen.unknownError'));
     }
   }
 

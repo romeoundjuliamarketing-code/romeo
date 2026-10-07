@@ -31,7 +31,7 @@ async function sendAnnouncementPush(studioId: string, message: string): Promise<
   const body = JSON.stringify(
     tokens.map((to) => ({
       to,
-      title: 'Ankündigung vom Trainer',
+      title: i18n.t('home.screen.announcementPushTitle'),
       body: message,
       sound: 'default',
     })),

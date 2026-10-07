@@ -333,6 +333,25 @@ const profile = {
     invitePlaceholder: 'z.B. AB3X7Y',
     redeem: 'Beitreten',
   },
+  screen: {
+    searchFighter: 'Kämpfer suchen',
+    noFighterForCode: 'Kein Kämpfer mit diesem Code gefunden.',
+    notSavedTitle: 'Nicht gespeichert',
+    gymNotSaved: 'Dein Gym konnte nicht gespeichert werden. Bitte versuche es erneut.',
+    qrAndId: 'QR-Code und Profil-ID',
+    settings: 'Einstellungen',
+    edit: 'Bearbeiten',
+    share: 'Teilen',
+    verification: 'Verifizierung',
+    verificationAlmost: 'Fast geschafft – ein Nachweis fehlt',
+    notVerified: 'Nicht verifiziert',
+    myLocation: 'Meine Location',
+    studioCreateFailed: 'Studio konnte nicht erstellt werden.',
+    enterProfileCode: 'Profil-Code eingeben',
+    codePlaceholder: 'Code eingeben...',
+    scanQr: 'QR scannen',
+    myCode: 'Mein Code',
+  },
 } as const;
 
 export default profile;

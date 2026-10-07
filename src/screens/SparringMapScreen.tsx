@@ -58,6 +58,9 @@ import type { NearbySparring } from '../hooks/useNearbySparrings';
 import { watchPartyMatches } from '../utils/fightEvents';
 import { SHOW_EVENTS } from '../data/sparringConfig';
 import type { FightPromotion } from '../utils/fightEvents';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../i18n/language';
+import { sparringDisplayTitle } from '../utils/sparringDisplayTitle';
 
 // Last chosen sparring view (map/list). Without a stored choice the list opens.
 const VIEW_KEY = 'sparring_view_v1';
@@ -71,6 +74,8 @@ interface NavProp {
 type Props = { navigation: NavProp };
 
 export default function SparringMapScreen({ navigation: _navigation }: Props) {
+  const { t }      = useTranslation();
+  const { language } = useLanguage();
   const insets     = useSafeAreaInsets();
   // Floating tab bar lies over the map; bottom controls sit above it.
   const bottomSafe = Math.max(insets.bottom, useTabBarOverlap());
@@ -350,10 +355,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   }, [route.params?.watchEntryAt]);
 
   function handleLocationPress(): void {
-    Alert.alert('Suchort', 'Von wo aus sollen Sparrings gesucht werden?', [
-      { text: 'Ort auf der Karte wählen', onPress: () => setLocationPickerVisible(true) },
-      { text: 'Aktuellen Standort verwenden', onPress: () => { void switchToDevice(); } },
-      { text: 'Abbrechen', style: 'cancel' },
+    Alert.alert(t('map.screen.locationTitle'), t('map.screen.locationMessage'), [
+      { text: t('map.screen.locationOnMap'), onPress: () => setLocationPickerVisible(true) },
+      { text: t('map.screen.locationDevice'), onPress: () => { void switchToDevice(); } },
+      { text: t('common.cancel'), style: 'cancel' },
     ]);
   }
 
@@ -363,11 +368,11 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   function requireVerified(): boolean {
     if (tier === 'verified') return true;
     Alert.alert(
-      'Verifizierung erforderlich',
-      'Um an Sparrings teilzunehmen oder eigene zu erstellen, musst du dein Profil verifizieren.',
+      t('map.screen.verifyTitle'),
+      t('map.screen.verifyMessage'),
       [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Jetzt verifizieren', onPress: () => navigation.navigate('Verification') },
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('map.screen.verifyNow'), onPress: () => navigation.navigate('Verification') },
       ],
     );
     return false;
@@ -415,7 +420,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       if (fetched !== null) {
         setSelected(fetched);
       } else {
-        Alert.alert('Nicht gefunden', 'Dieses Sparring existiert nicht mehr.');
+        Alert.alert(t('map.screen.notFoundTitle'), t('map.screen.notFoundMessage'));
       }
     })();
   }, [route.params?.focusSparringId, sparrings, navigation, user]);
@@ -473,7 +478,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     setActionLoading(false);
     setConsentVisible(false);
     if (error !== null) {
-      Alert.alert('Hinweis', error);
+      Alert.alert(t('map.screen.noticeTitle'), error);
       return;
     }
     // Keep the detail sheet open: the refetch below updates `selected`
@@ -495,7 +500,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     const { error, status } = await cancelSignup(selected.id);
     setActionLoading(false);
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     // Keep the sheet open (the sync effect refreshes it) and show the result
@@ -512,7 +517,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     const { error } = await confirmSparring(selected.id);
     setActionLoading(false);
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     refetchSparrings();
@@ -522,19 +527,19 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   function handleDeactivateSparring(): void {
     if (selected === null) return;
     Alert.alert(
-      'Sparring absagen',
-      `"${selected.title}" wirklich absagen? Diese Aktion kann nicht rückgängig gemacht werden.`,
+      t('map.screen.cancelSparringTitle'),
+      t('map.screen.cancelMessage', { title: sparringDisplayTitle(selected.title, language) }),
       [
-        { text: 'Abbrechen', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Absagen',
+          text: t('map.screen.cancelConfirm'),
           style: 'destructive',
           onPress: async () => {
             setActionLoading(true);
             const { error } = await deactivateSparring(selected.id);
             setActionLoading(false);
             if (error !== null) {
-              Alert.alert('Fehler', error);
+              Alert.alert(t('common.error'), error);
               return;
             }
             refetchSparrings();
@@ -560,8 +565,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   function confirmAsync(title: string, message: string): Promise<boolean> {
     return new Promise((resolve) => {
       Alert.alert(title, message, [
-        { text: 'Abbrechen', style: 'cancel', onPress: () => resolve(false) },
-        { text: 'Speichern', onPress: () => resolve(true) },
+        { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(false) },
+        { text: t('map.screen.save'), onPress: () => resolve(true) },
       ], { cancelable: true, onDismiss: () => resolve(false) });
     });
   }
@@ -597,7 +602,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       if (input.gym === undefined) return true;
       const { error: gymError } = await setSparringGym(editTarget.id, input.gym.gymId, input.gym.accessNote);
       if (gymError !== null) {
-        Alert.alert('Speichern nicht möglich', gymError);
+        Alert.alert(t('map.screen.saveFailed'), gymError);
         return false;
       }
       refetchSparrings();
@@ -609,14 +614,14 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
     if (isMaterialEdit(changed)) {
       const affected = await countEditAffected(editTarget.id);
-      if (affected > 0 && !(await confirmAsync('Änderungen speichern?', editNotifyMessage(affected)))) {
+      if (affected > 0 && !(await confirmAsync(t('map.screen.saveChangesTitle'), editNotifyMessage(affected)))) {
         return false;
       }
     }
 
     const { error } = await updateSparring(editTarget.id, input);
     if (error !== null) {
-      Alert.alert('Speichern nicht möglich', error);
+      Alert.alert(t('map.screen.saveFailed'), error);
       return false;
     }
     refetchSparrings();
@@ -637,7 +642,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       : signUpEvent(selectedEvent.id));
     setActionLoading(false);
     if (error !== null) {
-      Alert.alert('Fehler', error);
+      Alert.alert(t('common.error'), error);
       return;
     }
     refetchEvents();
@@ -648,19 +653,19 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (selectedEvent === null) return;
     const ev = selectedEvent;
     Alert.alert(
-      'Event absagen',
-      `"${ev.title}" wirklich absagen? Diese Aktion kann nicht rückgängig gemacht werden.`,
+      t('map.screen.cancelEventTitle'),
+      t('map.screen.cancelMessage', { title: ev.title }),
       [
-        { text: 'Abbrechen', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Absagen',
+          text: t('map.screen.cancelConfirm'),
           style: 'destructive',
           onPress: async () => {
             setActionLoading(true);
             const { error } = await deactivateEvent(ev.id);
             setActionLoading(false);
             if (error !== null) {
-              Alert.alert('Fehler', error);
+              Alert.alert(t('common.error'), error);
               return;
             }
             refetchEvents();
@@ -679,9 +684,9 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const searchNotice = showList
     ? null
     : nearbyStatus === 'error'
-    ? { text: 'Sparrings konnten gerade nicht geladen werden.', actionLabel: 'Erneut versuchen', onAction: refetchNearby }
+    ? { text: t('map.screen.loadFailed'), actionLabel: t('map.screen.retry'), onAction: refetchNearby }
     : locationStatus === 'none'
-      ? { text: 'Kein Suchort gewählt.', actionLabel: 'Standort wählen', onAction: () => setLocationPickerVisible(true) }
+      ? { text: t('map.screen.noLocation'), actionLabel: t('map.screen.chooseLocation'), onAction: () => setLocationPickerVisible(true) }
       : null;
   // For sparrings the time filter is only shown with hits or while loading;
   // "no hits" is the map's empty card, errors are the search bar's notice.
@@ -763,7 +768,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
               onPress={() => setWatchFilter(null)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel={`Filter ${watchFilter.name ?? watchFilter.promotion} entfernen`}
+              accessibilityLabel={t('map.screen.removeFilter', { name: watchFilter.name ?? watchFilter.promotion })}
             >
               <Text style={styles.watchChipText} numberOfLines={1}>{watchFilter.name ?? watchFilter.promotion}</Text>
               <Ionicons name="close" size={16} color={colors.text} />
@@ -787,7 +792,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
               value={timeFilter}
               onChange={setTimeFilter}
               tabCounts={activeTabCounts}
-              emptyLabel={mapMode === 'sparrings' ? 'Sparrings werden geladen' : 'Keine anstehenden Events'}
+              emptyLabel={mapMode === 'sparrings' ? t('map.screen.loadingSparrings') : t('map.screen.noEvents')}
             />
           )}
         </SparringMapHeader>
@@ -802,25 +807,27 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         {showSparringCards && preview !== null && (
           <SparringMapPreview
             sparring={preview}
-            caption={tappedPreview === null ? 'Am nächsten' : null}
+            caption={tappedPreview === null ? t('map.screen.nearest') : null}
             onOpenDetails={() => setSelected(preview)}
             onClose={closePreview}
           />
         )}
         {showEmptyCard && (
           <SparringMapEmptyCard
-            text={radiusKm === null ? 'Keine kommenden Sparrings gefunden.' : `Keine Sparrings im Umkreis von ${radiusKm} km.`}
+            text={radiusKm === null ? t('map.screen.noUpcoming') : t('map.screen.noneInRadius', { km: radiusKm })}
             onWiden={widen}
             onClose={() => setEmptyClosedFor(searchKey)}
           />
         )}
         {mapMode === 'events' && watchFilter !== null && watchedEvents.length === 0 && !watchEmptyClosed && (
           <SparringMapEmptyCard
-            text={`Noch kein Treffen zum Schauen für ${watchFilter.name ?? `${watchFilter.promotion}-Kämpfe`}.`}
+            text={watchFilter.name !== null
+              ? t('map.screen.noWatchEventNamed', { name: watchFilter.name })
+              : t('map.screen.noWatchEventPromotion', { promotion: watchFilter.promotion })}
             onWiden={null}
             onClose={() => setWatchEmptyClosed(true)}
             action={{
-              label: 'Treffen zum Schauen anbieten',
+              label: t('map.screen.offerWatchEvent'),
               onPress: () => { if (requireVerified()) setCreateEventVisible(true); },
             }}
           />
@@ -828,7 +835,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         <MapBottomControls
           onChat={() => navigation.navigate('SparringChatList')}
           totalUnread={totalUnread}
-          primaryLabel={mapMode === 'sparrings' ? 'Sparring erstellen' : 'Event erstellen'}
+          primaryLabel={mapMode === 'sparrings' ? t('map.screen.createSparring') : t('map.screen.createEvent')}
           onPrimary={() => {
             if (!requireVerified()) return;
             if (mapMode === 'sparrings') {
@@ -922,17 +929,17 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             setCreateSheetVisible(false);
             void refetchStoreEntitlements();
             if (subscriptionRejection(storeEntitlements.creatorActive) === 'activating') {
-              Alert.alert('Abo wird aktiviert', 'Dein Ersteller-Abo wird gerade aktiviert. Bitte versuche es in einem Moment erneut.');
+              Alert.alert(t('map.screen.subscriptionActivatingTitle'), t('map.screen.subscriptionActivatingMessage'));
               return false;
             }
-            Alert.alert('Ersteller-Abo nötig', 'Zum Erstellen eines Sparrings brauchst du das Ersteller-Abo.', [
-              { text: 'Abbrechen', style: 'cancel' },
-              { text: 'Abos ansehen', onPress: () => navigation.navigate('Paywall', { focus: 'creator' }) },
+            Alert.alert(t('map.screen.creatorRequiredTitle'), t('map.screen.creatorRequiredMessage'), [
+              { text: t('common.cancel'), style: 'cancel' },
+              { text: t('map.screen.viewSubscriptions'), onPress: () => navigation.navigate('Paywall', { focus: 'creator' }) },
             ]);
             return false;
           }
           if (error !== null) {
-            Alert.alert('Sparring nicht veröffentlicht', `${error}\n\nDeine Angaben sind noch da. Versuche es erneut.`);
+            Alert.alert(t('map.screen.notPublishedTitle'), t('map.screen.notPublishedMessage', { error }));
             return false;
           }
           refetchSparrings();
@@ -958,7 +965,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onCreate={async (params) => {
           const { error, eventId } = await createEvent(params);
           if (error !== null) {
-            Alert.alert('Fehler', error);
+            Alert.alert(t('common.error'), error);
             return;
           }
           refetchEvents();

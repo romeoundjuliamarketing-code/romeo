@@ -72,6 +72,9 @@ const chat = {
     emptySparring: 'Klärt hier die letzten Details fürs Training.',
     emptyEvent: 'Klärt hier die letzten Details für euer Treffen.',
   },
+  legacyList: {
+    noMessages: 'Noch keine Nachrichten',
+  },
 } as const;
 
 export default chat;

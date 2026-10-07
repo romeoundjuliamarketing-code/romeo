@@ -79,6 +79,13 @@ const common: LocaleShape<typeof de> = {
     invalidCode: 'Invalid or expired code',
     contractNotFound: 'Contract not found.',
   },
+  tabs: {
+    home: 'Home',
+    cards: 'Game',
+    discover: 'Discover',
+    profile: 'Profile',
+    newNotifications: '{{label}}, new notifications',
+  },
 };
 
 export default common;

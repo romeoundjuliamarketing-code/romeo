@@ -32,6 +32,7 @@ import type { FightEvent, FightPromotion } from '../utils/fightEvents';
 import type { HomeSparring } from '../utils/homeAgenda';
 import { SHOW_EVENTS } from '../data/sparringConfig';
 import type { RootStackParamList } from '../navigation/types';
+import { useTranslation } from 'react-i18next';
 
 // Home on one continuous warm background (also behind the status bar): compact
 // header; with an upcoming commitment the appointment leads, then the card
@@ -42,6 +43,7 @@ import type { RootStackParamList } from '../navigation/types';
 // paused cards (water, stretch, points): backup/vor-aufraeumen-2026-10-04.
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const [focusTrigger,    setFocusTrigger]    = useState(0);
@@ -168,7 +170,7 @@ export default function HomeScreen() {
 
               {home.status === 'error' && (
                 <TouchableOpacity style={styles.loadError} onPress={home.retry} accessibilityRole="button">
-                  <Text style={styles.loadErrorText}>Deine Termine konnten nicht geladen werden. Erneut versuchen</Text>
+                  <Text style={styles.loadErrorText}>{t('home.screen.loadFailed')}</Text>
                 </TouchableOpacity>
               )}
 

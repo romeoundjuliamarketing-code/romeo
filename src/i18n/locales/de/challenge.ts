@@ -53,6 +53,7 @@ const challenge = {
     clear: 'Klar',
   },
   areaPicker: {
+    header: 'Disziplin',
     title: 'Für welche Disziplin willst du Karten?',
   },
   areas: {
@@ -94,6 +95,26 @@ const challenge = {
     newCard: 'Neue Karte',
     drawCard: 'Karte ziehen',
     browseAll: 'Alle Karten ansehen',
+  },
+  intro: {
+    pricePerMonth: '{{price}} / Monat',
+    kicker: 'SPARR CARDS',
+    title: 'Eine Karte.\nEin neuer Fokus.',
+    lead: 'Zieh eine Karte und setze die Übung im Sparring um. Dein Partner muss deine Karte nicht kennen.',
+    benefit1Title: 'Neue Angriffe ausprobieren',
+    benefit1Body: 'Bring Abwechslung in dein Sparring und erweitere dein Repertoire.',
+    benefit2Title: 'Chancen erkennen',
+    benefit2Body: 'Übe, die passende Situation für deine Aufgabe zu finden.',
+    benefit3Title: 'Vorgaben im Kampf umsetzen',
+    benefit3Body: 'Trainiere, einen konkreten Fokus unter Druck zu behalten – ähnlich wie bei einer Ansage aus deiner Ecke.',
+    note: 'Für Kickboxen / K1 · Kontrolliert und nach euren vereinbarten Regeln.',
+    skip: 'Überspringen',
+    checkingAccess: 'Zugang wird geprüft',
+    checkingAccessEllipsis: 'Zugang wird geprüft …',
+    accessFailed: 'Dein Zugang konnte gerade nicht geprüft werden.',
+    retry: 'Erneut versuchen',
+    backToGame: 'Zurück zum Spiel',
+    letsGo: 'Los geht’s',
   },
 } as const;
 

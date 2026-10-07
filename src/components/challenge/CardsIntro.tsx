@@ -8,25 +8,14 @@ import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
 import { useStepEntrance } from './useStepEntrance';
 import { TabBarSpacer } from '../navigation/SparrTabBar';
+import { useTranslation } from 'react-i18next';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
-const BENEFITS: { icon: IconName; title: string; body: string }[] = [
-  {
-    icon: 'layers-outline',
-    title: 'Neue Angriffe ausprobieren',
-    body: 'Bring Abwechslung in dein Sparring und erweitere dein Repertoire.',
-  },
-  {
-    icon: 'eye-outline',
-    title: 'Chancen erkennen',
-    body: 'Übe, die passende Situation für deine Aufgabe zu finden.',
-  },
-  {
-    icon: 'navigate-outline',
-    title: 'Vorgaben im Kampf umsetzen',
-    body: 'Trainiere, einen konkreten Fokus unter Druck zu behalten – ähnlich wie bei einer Ansage aus deiner Ecke.',
-  },
+const BENEFITS: { icon: IconName; key: 'benefit1' | 'benefit2' | 'benefit3' }[] = [
+  { icon: 'layers-outline',   key: 'benefit1' },
+  { icon: 'eye-outline',      key: 'benefit2' },
+  { icon: 'navigate-outline', key: 'benefit3' },
 ];
 
 // Wide enough for the regular card type scale (ChallengeCard goes compact below 280).
@@ -44,6 +33,7 @@ interface Props {
 // benefits and one action. Scrolls as a whole, so nothing is cut off on small screens
 // or with large system text, and the buttons never sit on top of content.
 export default function CardsIntro({ card, primaryLabel, onPrimary, onSkip }: Props): React.ReactElement {
+  const { t } = useTranslation();
   const { width } = useWindowDimensions();
   const { cardStyle } = useStepEntrance();
   const cardWidth = Math.round(Math.min(width - 96, MAX_CARD_WIDTH));
@@ -52,8 +42,8 @@ export default function CardsIntro({ card, primaryLabel, onPrimary, onSkip }: Pr
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.inner, cardStyle]}>
-          <Text style={styles.kicker}>SPARR CARDS</Text>
-          <Text style={styles.title} accessibilityRole="header">{'Eine Karte.\nEin neuer Fokus.'}</Text>
+          <Text style={styles.kicker}>{t('challenge.intro.kicker')}</Text>
+          <Text style={styles.title} accessibilityRole="header">{t('challenge.intro.title')}</Text>
 
           {card !== null ? (
             <View style={styles.motif}>
@@ -68,23 +58,21 @@ export default function CardsIntro({ card, primaryLabel, onPrimary, onSkip }: Pr
             </View>
           ) : null}
 
-          <Text style={styles.lead}>
-            Zieh eine Karte und setze die Übung im Sparring um. Dein Partner muss deine Karte nicht kennen.
-          </Text>
+          <Text style={styles.lead}>{t('challenge.intro.lead')}</Text>
 
           <View style={styles.benefits}>
             {BENEFITS.map((benefit) => (
-              <View key={benefit.title} style={styles.benefitRow}>
+              <View key={benefit.key} style={styles.benefitRow}>
                 <Ionicons name={benefit.icon} size={24} color={colors.accentBlueText} />
                 <View style={styles.benefitCopy}>
-                  <Text style={styles.benefitTitle}>{benefit.title}</Text>
-                  <Text style={styles.benefitBody}>{benefit.body}</Text>
+                  <Text style={styles.benefitTitle}>{t(`challenge.intro.${benefit.key}Title`)}</Text>
+                  <Text style={styles.benefitBody}>{t(`challenge.intro.${benefit.key}Body`)}</Text>
                 </View>
               </View>
             ))}
           </View>
 
-          <Text style={styles.note}>Für Kickboxen / K1 · Kontrolliert und nach euren vereinbarten Regeln.</Text>
+          <Text style={styles.note}>{t('challenge.intro.note')}</Text>
 
           <View style={styles.actions}>
             <TouchableOpacity style={styles.primaryButton} onPress={onPrimary} activeOpacity={0.85} accessibilityRole="button">
@@ -92,7 +80,7 @@ export default function CardsIntro({ card, primaryLabel, onPrimary, onSkip }: Pr
             </TouchableOpacity>
             {onSkip !== undefined ? (
               <TouchableOpacity style={styles.skipButton} onPress={onSkip} activeOpacity={0.7} accessibilityRole="button">
-                <Text style={styles.skipText}>Überspringen</Text>
+                <Text style={styles.skipText}>{t('challenge.intro.skip')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>

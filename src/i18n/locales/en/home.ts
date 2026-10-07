@@ -126,6 +126,11 @@ const home: LocaleShape<typeof de> = {
     viewOnMap: 'View on map',
     attending: '{{count}} of {{max}} going',
   },
+  screen: {
+    loadFailed: 'Your appointments could not be loaded. Try again',
+    announcementPushTitle: 'Announcement from your coach',
+    unknownError: 'Unknown error.',
+  },
 };
 
 export default home;

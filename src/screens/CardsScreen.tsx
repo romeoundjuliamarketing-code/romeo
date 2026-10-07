@@ -14,8 +14,11 @@ import CardsShowcase from '../components/challenge/CardsShowcase';
 import CardsIntro from '../components/challenge/CardsIntro';
 import { useCardsIntroSeen } from '../hooks/useCardsIntroSeen';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 
 export default function CardsScreen(): React.ReactElement {
+  const { t } = useTranslation();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { entitlement, loading, error, refetch } = useEntitlement();
   const firstFocus = useRef(true);
@@ -58,7 +61,7 @@ export default function CardsScreen(): React.ReactElement {
         const offerings = await Purchases.getOfferings();
         const source = offerings.current ?? Object.values(offerings.all)[0];
         const cardsPkg = source?.availablePackages.find((pkg) => planForProduct(pkg.product.identifier) === 'cards');
-        if (active) setPrice(cardsPkg !== undefined ? `${cardsPkg.product.priceString} / Monat` : null);
+        if (active) setPrice(cardsPkg !== undefined ? i18n.t('challenge.intro.pricePerMonth', { price: cardsPkg.product.priceString }) : null);
       } catch {
         if (active) setPrice(null);
       } finally {
@@ -72,9 +75,9 @@ export default function CardsScreen(): React.ReactElement {
   if (loading || checking || introSeen === null) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.loading} accessibilityLabel="Zugang wird geprüft">
+        <View style={styles.loading} accessibilityLabel={t('challenge.intro.checkingAccess')}>
           <ActivityIndicator color={colors.accentBlue} />
-          <Text style={styles.loadingText}>Zugang wird geprüft …</Text>
+          <Text style={styles.loadingText}>{t('challenge.intro.checkingAccessEllipsis')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -84,9 +87,9 @@ export default function CardsScreen(): React.ReactElement {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.loading}>
-          <Text style={styles.loadingText}>Dein Zugang konnte gerade nicht geprüft werden.</Text>
+          <Text style={styles.loadingText}>{t('challenge.intro.accessFailed')}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={() => { void refetch(); }} accessibilityRole="button">
-            <Text style={styles.retryText}>Erneut versuchen</Text>
+            <Text style={styles.retryText}>{t('challenge.intro.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -116,9 +119,9 @@ export default function CardsScreen(): React.ReactElement {
         // scroll position it was opened from.
         <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
           {introReopened ? (
-            <CardsIntro card={exampleCard} primaryLabel="Zurück zum Spiel" onPrimary={() => setIntroReopened(false)} />
+            <CardsIntro card={exampleCard} primaryLabel={t('challenge.intro.backToGame')} onPrimary={() => setIntroReopened(false)} />
           ) : (
-            <CardsIntro card={exampleCard} primaryLabel="Los geht’s" onPrimary={markSeen} onSkip={markSeen} />
+            <CardsIntro card={exampleCard} primaryLabel={t('challenge.intro.letsGo')} onPrimary={markSeen} onSkip={markSeen} />
           )}
         </View>
       ) : null}

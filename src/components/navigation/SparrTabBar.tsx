@@ -9,6 +9,7 @@ import {
 } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { colors } from '../../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -76,6 +77,8 @@ export default function SparrTabBar({
 function TabItem({ cfg, focused, hasBadge, onPress, onLongPress }: {
   cfg: TabItemConfig; focused: boolean; hasBadge: boolean; onPress: () => void; onLongPress: () => void;
 }): React.ReactElement {
+  // Subscribing to the language re-renders the item, so the label getters follow it.
+  const { t } = useTranslation();
   const scale = useRef(new Animated.Value(1)).current;
   const reducedMotion = useReducedMotion();
 
@@ -86,7 +89,7 @@ function TabItem({ cfg, focused, hasBadge, onPress, onLongPress }: {
     Animated.timing(scale, { toValue: to, duration, useNativeDriver: true }).start();
   };
 
-  const a11yLabel = hasBadge ? `${cfg.label}, neue Benachrichtigungen` : cfg.label;
+  const a11yLabel = hasBadge ? t('common.tabs.newNotifications', { label: cfg.label }) : cfg.label;
 
   return (
     <Pressable
