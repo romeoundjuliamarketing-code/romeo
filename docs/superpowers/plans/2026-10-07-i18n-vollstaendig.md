@@ -30,7 +30,7 @@
 2. Englischer Nutzer meldet sich mit altem Account an, dessen `profiles.language = 'de'` → Wahl vom Login-Screen muss gewinnen (Pending-Flag); manueller Test in Task 13, Unit-Test der Entscheidung existiert (`decideProfileSync`), zusätzlicher Test in Task 11.
 3. Studio-Team mit gemischten Sprachen → jeder Staff bekommt eigene Sprache; SQL-Prüfung in Task 2.
 4. Benutzerdefinierter Sparringtitel, der zufällig auf „ – Sparring" endet, aber keine bekannte Disziplin hat („Hamburg – Sparring") → bleibt unverändert; Tests in Task 4 (Client) und Task 1 (SQL).
-5. EN-Text wird durch NULL-Konkatenation NULL (z. B. fehlender Name) → Fallback-Werte je Sprache, nie leerer Push; `notify_user_i18n` fällt auf DE zurück; SQL-Prüfung in Task 1.
+5. EN-Text wird durch NULL-Konkatenation NULL (z. B. fehlender Name) → Fallback-Werte je Sprache, nie leerer Push; `notify_user_i18n` nimmt dann Titel+Body komplett auf DE; SQL-Prüfung in Task 1.
 
 ---
 
@@ -79,12 +79,14 @@ CREATE OR REPLACE FUNCTION public.notify_user_i18n(
   p_title_de text, p_body_de text, p_title_en text, p_body_en text, p_data jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  v_en boolean := notification_lang(p_user_id) = 'en';
+  -- Both English parts must exist, otherwise German for both (never mixed).
+  v_en boolean := notification_lang(p_user_id) = 'en'
+                  AND NULLIF(p_title_en, '') IS NOT NULL AND NULLIF(p_body_en, '') IS NOT NULL;
 BEGIN
   PERFORM notify_user(
     p_user_id, p_type,
-    CASE WHEN v_en AND NULLIF(p_title_en, '') IS NOT NULL THEN p_title_en ELSE p_title_de END,
-    CASE WHEN v_en AND NULLIF(p_body_en, '') IS NOT NULL THEN p_body_en ELSE p_body_de END,
+    CASE WHEN v_en THEN p_title_en ELSE p_title_de END,
+    CASE WHEN v_en THEN p_body_en ELSE p_body_de END,
     p_data);
 END;
 $$;
@@ -130,12 +132,13 @@ CREATE OR REPLACE FUNCTION public.push_i18n(
   p_user_id uuid, p_title_de text, p_body_de text, p_title_en text, p_body_en text, p_data jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  v_en boolean := notification_lang(p_user_id) = 'en';
+  v_en boolean := notification_lang(p_user_id) = 'en'
+                  AND NULLIF(p_title_en, '') IS NOT NULL AND NULLIF(p_body_en, '') IS NOT NULL;
 BEGIN
   PERFORM send_push_notification(
     p_user_id,
-    CASE WHEN v_en AND NULLIF(p_title_en, '') IS NOT NULL THEN p_title_en ELSE p_title_de END,
-    CASE WHEN v_en AND NULLIF(p_body_en, '') IS NOT NULL THEN p_body_en ELSE p_body_de END,
+    CASE WHEN v_en THEN p_title_en ELSE p_title_de END,
+    CASE WHEN v_en THEN p_body_en ELSE p_body_de END,
     p_data);
 END;
 $$;
@@ -201,7 +204,7 @@ select sparring_title_for('Boxen – Sparring','en') a,      -- Boxing – Sparr
        notif_time('2026-10-07 16:00+00','en',true) g,      -- 07/10 at 18:00
        notification_lang('00000000-0000-0000-0000-000000000000') h; -- de
 ```
-Erwartet: Werte wie kommentiert. NULL-Fallback: in `begin; ... rollback;` `select notify_user_i18n('<en-profil-id>','x','DE-T','DE-B','EN-T',NULL,'{}');` → neue Zeile hat Titel `EN-T`, Body `DE-B` (nie leer). Prüfen, dass `has_function_privilege('authenticated','public.notify_user_i18n(uuid,text,text,text,text,text,jsonb)','execute')` = false.
+Erwartet: Werte wie kommentiert. NULL-Fallback: in `begin; ... rollback;` `select notify_user_i18n('<en-profil-id>','x','DE-T','DE-B','EN-T',NULL,'{}');` → neue Zeile hat Titel `DE-T`, Body `DE-B` (nie leer, nie gemischt). Prüfen, dass `has_function_privilege('authenticated','public.notify_user_i18n(uuid,text,text,text,text,text,jsonb)','execute')` = false.
 - [ ] **Step 5: Commit**
 ```bash
 git add supabase/migrations/20261007120000_notification_i18n_helpers.sql
