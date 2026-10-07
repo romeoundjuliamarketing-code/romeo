@@ -15,7 +15,6 @@ import CardsIntro from '../components/challenge/CardsIntro';
 import { useCardsIntroSeen } from '../hooks/useCardsIntroSeen';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 import { useTranslation } from 'react-i18next';
-import i18n from '../i18n';
 
 export default function CardsScreen(): React.ReactElement {
   const { t } = useTranslation();
@@ -61,7 +60,7 @@ export default function CardsScreen(): React.ReactElement {
         const offerings = await Purchases.getOfferings();
         const source = offerings.current ?? Object.values(offerings.all)[0];
         const cardsPkg = source?.availablePackages.find((pkg) => planForProduct(pkg.product.identifier) === 'cards');
-        if (active) setPrice(cardsPkg !== undefined ? i18n.t('challenge.intro.pricePerMonth', { price: cardsPkg.product.priceString }) : null);
+        if (active) setPrice(cardsPkg !== undefined ? cardsPkg.product.priceString : null);
       } catch {
         if (active) setPrice(null);
       } finally {
@@ -109,7 +108,7 @@ export default function CardsScreen(): React.ReactElement {
         {entitlement.hasAccess ? null : (
           <>
             <CardsBenefits />
-            <CardsOffer price={price} loading={offerLoading} onOpen={() => navigation.navigate('Paywall', { focus: 'cards' })} />
+            <CardsOffer price={price !== null ? t('challenge.intro.pricePerMonth', { price }) : null} loading={offerLoading} onOpen={() => navigation.navigate('Paywall', { focus: 'cards' })} />
           </>
         )}
         <TabBarSpacer />
