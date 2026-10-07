@@ -44,17 +44,22 @@ Vor Beginn: Prüfen, dass Codex an den 6 uncommitteten Screens nicht mehr arbeit
   Anzeige-Strings in `src/data/`): Textfelder als `{ de: string; en: string }`
   (Typ `LocalizedText`). Helfer `localized(text, language)` in `src/utils/localized.ts` (+ Test).
 - Test: jede Karte/Regel/Disziplin hat nicht-leere `de` und `en`.
-- `src/utils/countries.ts`: Namen über `Intl.DisplayNames([locale], { type: 'region' })`;
-  wenn nicht verfügbar oder Ergebnis leer → bestehende Liste als Fallback.
+- `src/utils/countries.ts`: `Country` bekommt `nameEn`; englische Namen einmalig mit Node-`Intl.DisplayNames`
+  generiert und statisch eingecheckt (Hermes-`Intl.DisplayNames` laut Code-Kommentar unzuverlässig).
+  Anzeige/Suche/Sortierung nach aktiver Sprache.
+- **Disziplinnamen** (in DB als deutsche Werte gespeichert: `Boxen`, `K1 / Kickboxen`, `Ringen`,
+  `Sonstiges`, `Kickboxen`, `Wrestling`, …): Helfer `disciplineLabel(value, language)` in
+  `src/utils/disciplineLabel.ts` (+ Test). Unbekannte Werte unverändert. Überall verwenden, wo eine
+  Disziplin angezeigt wird (Badges, Sparring-Karten/-Listen, Gym-Hero, Kämpferlisten, Auswahl-Kacheln).
+  Gespeicherte Werte bleiben unverändert.
 
 ### 1.4 Standard-Sparringtitel
-- Neu erstellte Sparrings ohne eigenen Titel speichern `title` leer statt
-  „{Disziplin} – Sparring“.
-- Anzeige über Helfer `sparringDisplayTitle(sparring, language)` (in `src/utils/`, + Test): leer →
-  „{Disziplin} – Sparring“ in aktiver Sprache; alter gespeicherter Titel, der exakt dem Muster
-  „{deutscher Disziplinname} – Sparring“ entspricht, wird ebenfalls übersetzt.
-- Im Plan prüfen: Spalte erlaubt leeren Titel (NOT NULL/CHECK), alte App-Versionen kommen mit
-  leerem Titel zurecht. Falls nicht: Titel weiter speichern, aber nur Muster-Erkennung nutzen.
+- `open_sparrings.title` ist NOT NULL → der automatische Titel wird weiter als
+  „{deutscher Disziplinwert} – Sparring“ gespeichert (kanonisch, auch für alte App-Versionen).
+- Anzeige über `sparringDisplayTitle(title, language)` (`src/utils/sparringDisplayTitle.ts`, + Test):
+  Titel exakt im Muster „{bekannter Disziplinwert} – Sparring“ → `disciplineLabel` + „ – Sparring“
+  in aktiver Sprache (`Sonstiges – Sparring` → „Sparring“, wie bisher `displaySparringTitle`).
+  Eigene Titel unverändert. Auf alle Anzeigestellen von Sparringtiteln anwenden.
 
 ### 1.5 Wächter
 Jest-Test durchsucht `src/**/*.ts(x)` außer `src/i18n/locales/`, `src/data/` und Tests nach
@@ -66,43 +71,45 @@ Kommentare). Schlägt bei Treffern fehl.
 Entscheidung: Übersetzung beim Erzeugen auf dem Server (Weg A). Grund: eine Quelle für Texte,
 wirkt auch für alte App-Versionen, Liste und Push immer gleich.
 
-### 2.1 Vorlagen
-- Tabelle `notification_templates(type text, lang text CHECK in ('de','en'), title text,
-  body text, PRIMARY KEY (type, lang))`. RLS an, keine Policies (nur DEFINER-Funktionen lesen).
-- Platzhalter `{actor}`, `{sparring}`, `{studio}`, `{event}`, `{plan}` aus `data`.
-- Typen: `sparring_signup`, `sparring_signup_cancelled`, `sparring_cancelled`, `event_signup`,
-  `studio_join_request`, `studio_join_response` (Vorlagenschlüssel `studio_join_response.approved` /
-  `studio_join_response.rejected` nach `data.approved`), `membership_requested`, `membership_confirmed`, `membership_ended`,
-  `cancellation_requested`, plus feste Wörter der Chat-Pushes und alle weiteren Typen, die im Plan
-  in den Funktionen aus 2.3 gefunden werden.
+Revision 2026-10-07 (Planung): Live-Stand hat ~22 Benachrichtigungstypen, viele mit
+Bedingungen und Uhrzeiten (Lifecycle-Cron, `update_sparring`, Warteliste). Eine Vorlagen-Tabelle
+mit Platzhaltern müsste diese Logik nachbauen. Stattdessen baut jede Aufrufstelle Titel/Text in
+**beiden Sprachen** dort, wo die Logik schon steht; der Server wählt pro Empfänger. Ergebnis für
+Nutzer identisch, eine Quelle (Server), alte App-Versionen kompatibel.
 
-### 2.2 `notify_user` / `notify_studio_staff`
-- Signatur unverändert. Pro Empfänger `profiles.language` (NULL → `de`), Vorlage rendern.
-- Fallback: keine Vorlage oder fehlender Platzhalterwert → übergebener `p_title`/`p_body`.
-- `notify_studio_staff` rendert je Staff-Mitglied.
+### 2.1 Helfer
+- `notification_lang(p_user_id uuid) RETURNS text`: `profiles.language`, NULL → `'de'`.
+- `notify_user_i18n(p_user_id, p_type, p_title_de, p_body_de, p_title_en, p_body_en, p_data)`:
+  wählt nach `notification_lang`, ruft dann `notify_user` (Insert + Push). Leerer EN-Text → DE.
+- `notify_studio_staff_i18n(p_studio_id, p_type, p_title_de, p_body_de, p_title_en, p_body_en,
+  p_data, p_exclude_user)`: wie `notify_studio_staff`, je Empfänger `notify_user_i18n`.
+- `sparring_notify_safe_i18n(...)`: wie `sparring_notify_safe` (Fehler schlucken) mit i18n-Variante.
+- `push_i18n(p_user_id, p_title_de, p_body_de, p_title_en, p_body_en, p_data)`: für die
+  Chat-Pushes, die ohne Notification-Zeile direkt `send_push_notification` rufen.
+- `sparring_title_for(p_title text, p_lang text) RETURNS text`: Muster
+  „{Disziplinwert} – Sparring“ → Empfängersprache (DE/EN-Disziplinliste in SQL, identisch zum Client).
+- `notif_time(p_ts timestamptz, p_lang text, p_with_date boolean) RETURNS text`: DE
+  `DD.MM. um HH24:MI Uhr` / `HH24:MI Uhr`, EN `DD/MM at HH24:MI` / `HH24:MI` (Europe/Berlin).
+- Alle `SECURITY DEFINER`, `SET search_path = public`, `REVOKE ALL ... FROM public, anon, authenticated`
+  (wie `notify_user`).
+- Bestehende `notify_user`/`notify_studio_staff`/`sparring_notify_safe` bleiben unverändert.
 
-### 2.3 Aufrufstellen
-Live-Funktionen, die benachrichtigen: `cancel_sparring_signup`, `confirm_membership_end`,
-`deactivate_event`, `deactivate_sparring`, `join_sparring`, `notify_event_message`,
-`notify_event_signup`, `notify_sparring_group_message`, `promote_sparring_waitlist`,
-`request_membership_cancellation`, `request_studio_join`, `respond_membership_request`,
-`respond_studio_join`, `sign_membership`, `sparring_notify_safe`,
-`trg_sparring_signup_legacy_notify`. Je Funktion: Definition 1:1 aus Prod
-(`pg_get_functiondef`) übernehmen, nur `data` um `actor_name`, `sparring_title`,
-`sparring_discipline`, `studio_name`, `event_title`, `plan_name` ergänzen (soweit relevant).
+### 2.2 Aufrufstellen
+Auf die i18n-Helfer umstellen (Definition 1:1 aus Prod via `pg_get_functiondef`, nur der
+Benachrichtigungsaufruf ändert sich): `join_sparring`, `trg_sparring_signup_legacy_notify`,
+`cancel_sparring_signup`, `deactivate_sparring`, `promote_sparring_waitlist`, `update_sparring`,
+`process_sparring_lifecycle` (5 Typen), `deactivate_event`, `notify_event_signup`,
+`notify_event_message`, `notify_sparring_group_message`, `sign_membership`,
+`respond_membership_request` (2 Typen), `request_membership_cancellation`, `confirm_membership_end`,
+`request_studio_join`, `respond_studio_join`.
+Nutzerinhalte (Namen, eigene Titel, Studio-/Planname, Chatnachricht) bleiben unübersetzt; feste
+Fallbacks („Jemand“, „dein Sparring“, „Sparring-Chat“) je Sprache.
 
-### 2.4 Sparringtitel serverseitig
-Helfer `sparring_title_for(title, discipline, lang)`: leer oder Muster „{Disziplin} – Sparring“ →
-in Empfängersprache bauen (kleine DE/EN-Disziplinliste in SQL, gleich wie Client).
+### 2.3 Backfill
+Prod hat aktuell 1 Nutzer mit `language = 'en'` (5 Einträge). Einmalig für Empfänger mit `'en'`:
+Titel per Typ auf EN setzen; Body für die einfachen Typen per Regex neu bauen; sonst unverändert.
 
-### 2.5 Chat-Pushes
-Nachrichteninhalt bleibt unübersetzt; feste Wörter aus Vorlagen.
-
-### 2.6 Backfill
-Einmalig nur Benachrichtigungen von Empfängern mit `language = 'en'`: Titel per Typ ersetzen; Body
-per festem Regex-Muster je Typ parsen und mit EN-Vorlage neu bauen; kein Treffer → unverändert.
-
-### 2.7 Kompatibilität / Kosten / Doku
+### 2.4 Kompatibilität / Kosten / Doku
 Alte App-Versionen lesen `title/body` → automatisch korrekt. Keine kostenpflichtigen Dienste.
 Contract-Note (`Supabase-Contract (Shared).md`) ergänzen; Website nicht betroffen.
 
