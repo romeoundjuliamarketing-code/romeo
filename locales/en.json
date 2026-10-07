@@ -1,0 +1,5 @@
+{
+  "NSLocationWhenInUseUsageDescription": "Sparr shows you sparring partners near you.",
+  "NSPhotoLibraryUsageDescription": "Sparr uses your photos to send pictures in the sparring chat.",
+  "NSCameraUsageDescription": "Sparr uses the camera to scan the QR code of a fighter profile."
+}

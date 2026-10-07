@@ -42,6 +42,11 @@ module.exports = {
       policy: "appVersion",
     },
     orientation: "portrait",
+    // iOS permission texts per device language (Info.plist strings).
+    locales: {
+      de: "./locales/de.json",
+      en: "./locales/en.json",
+    },
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     splash: {
@@ -57,6 +62,8 @@ module.exports = {
       usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        CFBundleDevelopmentRegion: "de",
+        CFBundleLocalizations: ["de", "en"],
         NSLocationWhenInUseUsageDescription:
           "Sparr zeigt dir Sparring-Partner in deiner Nähe.",
         NSPhotoLibraryUsageDescription:
