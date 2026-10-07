@@ -27,6 +27,7 @@ import FocusedStatusBar from '../common/FocusedStatusBar';
 import SparrLogo from '../common/SparrLogo';
 import LoginBackdrop, { LoginDotGrid } from './LoginBackdrop';
 import { colors } from '../../theme/colors';
+import LanguageToggle from '../common/LanguageToggle';
 
 interface ScaffoldProps {
   // Headline in two parts; the second one is set in brand blue.
@@ -131,7 +132,7 @@ export default function LoginScaffold({ titleLead, titleAccent, subtitle, childr
           <LoginBackdrop width={width} top={insets.top + 4} height={surfaceHeight} />
           <View style={styles.inner}>
             <View style={styles.brandBlock} onLayout={onBrandLayout}>
-              <Animated.View style={logoStyle}>
+              <Animated.View style={[styles.topRow, logoStyle]}>
                 <View style={styles.logoRow} accessible accessibilityRole="header" accessibilityLabel="Sparr">
                   <Pressable onPress={onPenguinPress} hitSlop={8} accessible={false}>
                     <Animated.View style={tiltStyle}>
@@ -140,6 +141,7 @@ export default function LoginScaffold({ titleLead, titleAccent, subtitle, childr
                   </Pressable>
                   <Text style={styles.wordmark} maxFontSizeMultiplier={1.3}>Sparr</Text>
                 </View>
+                <LanguageToggle />
               </Animated.View>
               <Animated.View style={[styles.headlineBlock, headlineStyle]}>
                 <Text
@@ -215,6 +217,11 @@ const styles = StyleSheet.create({
   },
   brandBlock: {
     gap: 32,
+  },
+  topRow: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
   },
   logoRow: {
     flexDirection: 'row',

@@ -14,6 +14,7 @@ import SparrLogo from '../../components/common/SparrLogo';
 import WelcomeSlide from '../../components/welcome/WelcomeSlide';
 import WelcomeFooter from '../../components/welcome/WelcomeFooter';
 import { SLIDES } from '../../components/welcome/welcomeSlides';
+import LanguageToggle from '../../components/common/LanguageToggle';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Welcome'>;
 
@@ -75,9 +76,12 @@ export default function WelcomeScreen(): React.ReactElement {
           <SparrLogo size={32} />
           <Text style={styles.wordmark} maxFontSizeMultiplier={1.3}>Sparr</Text>
         </View>
-        <TouchableOpacity style={styles.skip} onPress={toLogin} hitSlop={HIT_SLOP} accessibilityRole="button">
-          <Text style={styles.skipText}>{t('auth.welcome.skip')}</Text>
-        </TouchableOpacity>
+        <View style={styles.topActions}>
+          <LanguageToggle />
+          <TouchableOpacity style={styles.skip} onPress={toLogin} hitSlop={HIT_SLOP} accessibilityRole="button">
+            <Text style={styles.skipText}>{t('auth.welcome.skip')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Animated.ScrollView
@@ -142,6 +146,11 @@ const styles = StyleSheet.create({
     fontWeight:    '900',
     letterSpacing: -0.4,
     color:         colors.text,
+  },
+  topActions: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           16,
   },
   skip: {
     minHeight:      44,
