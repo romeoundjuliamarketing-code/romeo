@@ -2,6 +2,8 @@
 // Kept narrow so neighbouring markers overlap as little as possible.
 
 import i18n from '../i18n';
+import { disciplineLabel } from './disciplineLabel';
+import { parseLanguage } from './language';
 
 const SHORT_DISCIPLINE: Record<string, string> = {
   'K1 / Kickboxen': 'K1',
@@ -18,7 +20,8 @@ export function shortDiscipline(discipline: string): string {
   if (trimmed.length === 0) return 'Sparring';
   const known = SHORT_DISCIPLINE[trimmed];
   if (known !== undefined) return known;
-  const first = trimmed.split(/[\s/]+/)[0];
+  const label = disciplineLabel(trimmed, parseLanguage(i18n.language) ?? 'de');
+  const first = label.split(/[\s/]+/)[0];
   return first.length > MAX_DISCIPLINE_CHARS ? `${first.slice(0, MAX_DISCIPLINE_CHARS - 1)}.` : first;
 }
 

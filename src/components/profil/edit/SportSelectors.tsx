@@ -5,6 +5,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
 import { ALL_DISCIPLINES } from '../../../data/disciplines';
 import { disciplineIcon } from '../../../data/disciplineBadges';
+import { useLanguage } from '../../../i18n/language';
+import { disciplineLabel } from '../../../utils/disciplineLabel';
 import { STANCES, stanceLabel } from '../../../utils/stance';
 import type { Stance } from '../../../utils/stance';
 
@@ -17,6 +19,7 @@ export function DisciplineSelector({ selected, onChange }: {
   onChange: (next: string[]) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const [adding, setAdding] = useState(false);
   const remaining = ALL_DISCIPLINES.filter((d) => !selected.includes(d));
 
@@ -27,12 +30,12 @@ export function DisciplineSelector({ selected, onChange }: {
         {selected.map((d) => (
           <View key={d} style={styles.selectedBadge}>
             <MaterialCommunityIcons name={disciplineIcon(d)} size={16} color={colors.accentBlue} />
-            <Text style={styles.selectedText}>{d}</Text>
+            <Text style={styles.selectedText}>{disciplineLabel(d, language)}</Text>
             <TouchableOpacity
               style={styles.remove}
               onPress={() => onChange(selected.filter((x) => x !== d))}
               accessibilityRole="button"
-              accessibilityLabel={t('profile.edit.removeDiscipline', { name: d })}
+              accessibilityLabel={t('profile.edit.removeDiscipline', { name: disciplineLabel(d, language) })}
             >
               <Ionicons name="close" size={16} color={colors.card} />
             </TouchableOpacity>
@@ -50,10 +53,10 @@ export function DisciplineSelector({ selected, onChange }: {
                 style={styles.option}
                 onPress={() => { onChange([...selected, d]); if (remaining.length === 1) setAdding(false); }}
                 accessibilityRole="button"
-                accessibilityLabel={t('profile.edit.addDiscipline', { name: d })}
+                accessibilityLabel={t('profile.edit.addDiscipline', { name: disciplineLabel(d, language) })}
               >
                 <MaterialCommunityIcons name={disciplineIcon(d)} size={16} color={colors.accentBlue} />
-                <Text style={styles.optionText}>{d}</Text>
+                <Text style={styles.optionText}>{disciplineLabel(d, language)}</Text>
                 <Ionicons name="add" size={16} color={colors.text} />
               </TouchableOpacity>
             ))}

@@ -7,6 +7,8 @@ import InvitationRopes from './InvitationRopes';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../i18n/language';
 import { formatDate } from '../../utils/formatDate';
+import { disciplineLabel } from '../../utils/disciplineLabel';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
 
 export const STORY_CARD_WIDTH = 1080;
 export const STORY_CARD_HEIGHT = 1920;
@@ -43,8 +45,8 @@ export default function SparringStoryCard({
       <View style={styles.badge}>
         <Text style={styles.badgeText}>{t('sparring.story.badge')}</Text>
       </View>
-      <Text style={styles.discipline} numberOfLines={2}>{discipline}</Text>
-      {title.length > 0 && <Text style={styles.title} numberOfLines={2}>{title}</Text>}
+      <Text style={styles.discipline} numberOfLines={2}>{disciplineLabel(discipline, language)}</Text>
+      {title.length > 0 && <Text style={styles.title} numberOfLines={2}>{sparringDisplayTitle(title, language)}</Text>}
 
       <View style={styles.rope} />
 

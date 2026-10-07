@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 // Tests for chatList utility functions.
 // NOTE: no `import type` — babel cannot parse it in test env.
 import { initialsFromTitle, lastMessageTimeLabel, sparringDateLabel } from './chatList';
@@ -164,6 +165,16 @@ describe('chatPreview', () => {
   });
   it('flattens line breaks for the one-line preview', () => {
     expect(chatPreview({ ...base, lastText: 'a\n\nb' }).text).toBe('a b');
+  });
+  it('renders stored German system messages in the active language', async () => {
+    const system = { ...base, lastIsSystem: true, lastSenderName: null, lastText: 'Yves hat sich angemeldet' };
+    expect(chatPreview(system).text).toBe('Yves hat sich angemeldet');
+    await i18n.changeLanguage('en');
+    try {
+      expect(chatPreview(system).text).toBe('Yves signed up');
+    } finally {
+      await i18n.changeLanguage('de');
+    }
   });
 });
 

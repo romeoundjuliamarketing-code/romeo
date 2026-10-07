@@ -3,6 +3,8 @@ import { Trans, useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 import { useLanguage } from '../../i18n/language';
 import { localeFor } from '../../utils/language';
+import { disciplineLabel } from '../../utils/disciplineLabel';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
 import type { AppLanguage } from '../../utils/language';
 import { formatDate } from '../../utils/formatDate';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
@@ -70,15 +72,15 @@ export default function GymSparringList({ sparrings, status, retry, onOpen, onOp
               onPress={() => onOpen(s.id)}
               activeOpacity={0.6}
               accessibilityRole="button"
-              accessibilityLabel={t('gym.sparringList.openOnMap', { title: s.title, date: formatDate(d, 'date', language), time })}
+              accessibilityLabel={t('gym.sparringList.openOnMap', { title: sparringDisplayTitle(s.title, language), date: formatDate(d, 'date', language), time })}
             >
               <View style={styles.date}>
                 <Text style={styles.day}>{d.getDate()}</Text>
                 <Text style={styles.month}>{MONTHS[language][d.getMonth()]}</Text>
               </View>
               <View style={styles.flex}>
-                <Text style={styles.title} numberOfLines={2}>{s.title}</Text>
-                <Text style={styles.muted}>{t('gym.sparringList.when', { weekday, time, discipline: s.discipline })}</Text>
+                <Text style={styles.title} numberOfLines={2}>{sparringDisplayTitle(s.title, language)}</Text>
+                <Text style={styles.muted}>{t('gym.sparringList.when', { weekday, time, discipline: disciplineLabel(s.discipline, language) })}</Text>
                 {slots !== null && (
                   <Text style={[styles.slots, s.free_slots === 0 && styles.slotsFull]}>{slots}</Text>
                 )}

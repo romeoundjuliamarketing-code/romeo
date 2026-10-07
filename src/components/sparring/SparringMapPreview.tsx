@@ -6,6 +6,9 @@ import { compactDateLabel, sparringLocationLines, initialsOf, firstName } from '
 import { formatDistanceKm } from '../../utils/sparringSearch';
 import type { NearbySparring } from '../../hooks/useNearbySparrings';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { disciplineLabel } from '../../utils/disciplineLabel';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
 
 interface Props {
   sparring:      NearbySparring;
@@ -25,6 +28,7 @@ export default function SparringMapPreview({
   sparring, caption, onOpenDetails, onClose,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const location = sparringLocationLines({
     studioId:   sparring.studio_id,
     studioName: sparring.studio_name,
@@ -58,9 +62,9 @@ export default function SparringMapPreview({
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.title} numberOfLines={1}>{sparring.title}</Text>
+          <Text style={styles.title} numberOfLines={1}>{sparringDisplayTitle(sparring.title, language)}</Text>
           <Text style={styles.meta} numberOfLines={1}>
-            {sparring.discipline} · {location.primary} · {formatDistanceKm(sparring.distance_km)}
+            {disciplineLabel(sparring.discipline, language)} · {location.primary} · {formatDistanceKm(sparring.distance_km)}
           </Text>
 
           <View style={styles.footer}>
@@ -82,7 +86,7 @@ export default function SparringMapPreview({
               onPress={onOpenDetails}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel={t('map.preview.viewA11y', { title: sparring.title })}
+              accessibilityLabel={t('map.preview.viewA11y', { title: sparringDisplayTitle(sparring.title, language) })}
             >
               <Text style={styles.ctaText}>{t('map.preview.view')}</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.card} />

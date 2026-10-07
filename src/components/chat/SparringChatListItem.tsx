@@ -5,6 +5,8 @@ import { colors } from '../../theme/colors';
 import UnreadBadge from './UnreadBadge';
 import { initialsFromTitle, lastMessageTimeLabel, sparringDateLabel } from '../../utils/chatList';
 import type { SparringChatEntry } from '../../hooks/useSparringChatList';
+import { useLanguage } from '../../i18n/language';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
 
 interface Props {
   item:     SparringChatEntry;
@@ -13,6 +15,7 @@ interface Props {
 }
 
 export default function SparringChatListItem({ item, onPress, past = false }: Props) {
+  const { language }  = useLanguage();
   const hasUnread     = item.unreadCount > 0;
   const initials      = initialsFromTitle(item.sparringTitle);
   const timeLabel     = lastMessageTimeLabel(item.lastMessageAt);
@@ -37,7 +40,7 @@ export default function SparringChatListItem({ item, onPress, past = false }: Pr
             style={[styles.title, hasUnread && styles.titleUnread]}
             numberOfLines={1}
           >
-            {item.sparringTitle}
+            {sparringDisplayTitle(item.sparringTitle, language)}
           </Text>
           {timeLabel.length > 0 && (
             <Text style={[styles.timeLabel, hasUnread && styles.timeLabelUnread]}>

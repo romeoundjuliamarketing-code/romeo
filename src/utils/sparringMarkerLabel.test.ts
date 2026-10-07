@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { shortDiscipline, shortDay, sparringMarkerLabel } from './sparringMarkerLabel';
 
 // Saturday, 2026-10-03, 10:00 local time.
@@ -19,6 +20,19 @@ describe('shortDiscipline', () => {
     expect(shortDiscipline('Taekwondo Olympic')).toBe('Taekwondo');
     expect(shortDiscipline('Brazilianjiujitsu')).toBe('Brazilian.');
     expect(shortDiscipline('  ')).toBe('Sparring');
+  });
+
+  it('shows stored German disciplines in English', async () => {
+    expect(shortDiscipline('Boxen')).toBe('Boxen');
+    await i18n.changeLanguage('en');
+    try {
+      expect(shortDiscipline('Boxen')).toBe('Boxing');
+      expect(shortDiscipline('Ringen')).toBe('Wrestling');
+      expect(shortDiscipline('K1 / Kickboxen')).toBe('K1');
+      expect(shortDiscipline('Sonstiges')).toBe('Sparring');
+    } finally {
+      await i18n.changeLanguage('de');
+    }
   });
 });
 

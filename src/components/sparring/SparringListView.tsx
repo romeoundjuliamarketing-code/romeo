@@ -9,6 +9,8 @@ import { getInitials } from '../../utils/initials';
 import type { NearbySparring, NearbyStatus } from '../../hooks/useNearbySparrings';
 import type { SearchLocationStatus } from '../../hooks/useSearchLocation';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { disciplineLabel } from '../../utils/disciplineLabel';
 
 interface Props {
   sparrings:      NearbySparring[];
@@ -96,6 +98,7 @@ const SparringListRow = React.memo(function SparringListRow({
   onPress:  (s: NearbySparring) => void;
 }) {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const location = sparringLocationLines({
     studioId:   sparring.studio_id,
     studioName: sparring.studio_name,
@@ -120,14 +123,14 @@ const SparringListRow = React.memo(function SparringListRow({
       onPress={() => onPress(sparring)}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={t('map.list.rowA11y', { discipline: sparring.discipline, date: compactDateLabel(sparring.scheduled_at), place: location.primary, distance, slots: slotsLabel })}
+      accessibilityLabel={t('map.list.rowA11y', { discipline: disciplineLabel(sparring.discipline, language), date: compactDateLabel(sparring.scheduled_at), place: location.primary, distance, slots: slotsLabel })}
     >
       <View style={styles.rowTop}>
         <Text style={styles.date} numberOfLines={1}>{compactDateLabel(sparring.scheduled_at)}</Text>
         <Text style={styles.distance}>{distance}</Text>
       </View>
 
-      <Text style={styles.discipline} numberOfLines={1}>{sparring.discipline}</Text>
+      <Text style={styles.discipline} numberOfLines={1}>{disciplineLabel(sparring.discipline, language)}</Text>
       <Text style={styles.place} numberOfLines={1}>{location.primary}</Text>
 
       <View style={styles.rowBottom}>

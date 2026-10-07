@@ -3,6 +3,9 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
+import { disciplineLabel } from '../../utils/disciplineLabel';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
 
 interface Props {
   title:         string;
@@ -29,6 +32,7 @@ export default function SparringDetailHeader({
   isFeatured, verifiedOnly, isCreator, hasStarted, edited, onClose,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const slotsLabel = hasStarted
     ? t('sparring.detailHeader.over')
     : slotsLeft <= 0
@@ -40,7 +44,7 @@ export default function SparringDetailHeader({
       <View style={styles.topRow}>
         <View style={styles.chips}>
           <View style={styles.chip}>
-            <Text style={styles.chipText} numberOfLines={1}>{discipline}</Text>
+            <Text style={styles.chipText} numberOfLines={1}>{disciplineLabel(discipline, language)}</Text>
           </View>
           {isFeatured && (
             <View style={styles.chip}>
@@ -71,7 +75,7 @@ export default function SparringDetailHeader({
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.title} numberOfLines={2} accessibilityRole="header">{title}</Text>
+      <Text style={styles.title} numberOfLines={2} accessibilityRole="header">{sparringDisplayTitle(title, language)}</Text>
       <Text style={styles.date}>
         {dateLabel}
         {edited && <Text style={styles.edited}> · {t('sparring.detailHeader.edited')}</Text>}

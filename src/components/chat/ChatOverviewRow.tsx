@@ -6,13 +6,16 @@ import UnreadBadge from './UnreadBadge';
 import ChatGroupMotif from './ChatGroupMotif';
 import { chatPlaceLabel, chatPreview, chatWhenLabel, lastMessageTimeLabel } from '../../utils/chatList';
 import type { ChatListEntry } from '../../hooks/useSparringChatList';
+import { parseLanguage } from '../../utils/language';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
+import i18n from '../../i18n';
 
 export function chatEntryKey(item: ChatListEntry): string {
   return item.kind === 'event' ? `event-${item.eventId}` : `sparring-${item.sparringId}`;
 }
 
 function chatTitle(item: ChatListEntry): string {
-  return item.kind === 'event' ? item.title : item.sparringTitle;
+  return item.kind === 'event' ? item.title : sparringDisplayTitle(item.sparringTitle, parseLanguage(i18n.language) ?? 'de');
 }
 
 // One conversation in the overview. Title first, then place + date (what

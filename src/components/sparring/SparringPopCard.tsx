@@ -9,6 +9,8 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { colors } from '../../theme/colors';
+import { useLanguage } from '../../i18n/language';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
 
 // Animated shell for the centered sparring cards (join/cancel results, cancel
 // question): full-screen dim layer, rounded card, pop in on mount and pop out
@@ -96,6 +98,7 @@ interface BodyProps {
 export function SparringPopCardBody({
   icon, iconColor = colors.accentBlue, title, sparringTitle, dateTimeLabel, body,
 }: BodyProps): React.ReactElement {
+  const { language } = useLanguage();
   return (
     <>
       <View style={styles.iconCircle}>
@@ -103,7 +106,7 @@ export function SparringPopCardBody({
       </View>
       <Text style={styles.title}>{title}</Text>
       <View style={styles.sparringBox}>
-        <Text style={styles.sparringTitle} numberOfLines={2}>{sparringTitle}</Text>
+        <Text style={styles.sparringTitle} numberOfLines={2}>{sparringDisplayTitle(sparringTitle, language)}</Text>
         <Text style={styles.sparringDate}>{dateTimeLabel}</Text>
       </View>
       <Text style={styles.body}>{body}</Text>

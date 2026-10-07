@@ -7,6 +7,8 @@ import InvitationRopes from '../InvitationRopes';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../../i18n/language';
 import { formatDate } from '../../../utils/formatDate';
+import { disciplineLabel } from '../../../utils/disciplineLabel';
+import { sparringDisplayTitle } from '../../../utils/sparringDisplayTitle';
 
 const PENGUIN = require('../../../../assets/images/home-penguin.png') as number;
 
@@ -35,11 +37,13 @@ function InvitationPreview({ badge, discipline, title, scheduledAtMs, gymName, a
   const time = formatDate(when, 'time', language);
   const placeName = atStudio ? t('sparring.preview.yourGym') : gymName;
   const placeAddress = address.trim();
+  const shownDiscipline = discipline === null ? null : disciplineLabel(discipline, language);
+  const shownTitle = sparringDisplayTitle(title, language);
 
   const spoken = [
     badge,
-    discipline ?? t('sparring.preview.disciplineMissing'),
-    title,
+    shownDiscipline ?? t('sparring.preview.disciplineMissing'),
+    shownTitle,
     t('sparring.preview.dateTime', { day, time }),
     placeName,
     placeAddress.length > 0 ? placeAddress : t('sparring.preview.placeMissing'),
@@ -55,9 +59,9 @@ function InvitationPreview({ badge, discipline, title, scheduledAtMs, gymName, a
       </View>
 
       <Text style={[styles.discipline, discipline === null && styles.missing]}>
-        {discipline ?? t('sparring.preview.disciplineMissing')}
+        {shownDiscipline ?? t('sparring.preview.disciplineMissing')}
       </Text>
-      {title.length > 0 && <Text style={styles.title}>{title}</Text>}
+      {shownTitle.length > 0 && <Text style={styles.title}>{shownTitle}</Text>}
 
       <View style={styles.rope} />
 

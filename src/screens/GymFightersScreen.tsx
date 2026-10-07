@@ -7,6 +7,8 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { useLanguage } from '../i18n/language';
+import { disciplineLabel } from '../utils/disciplineLabel';
 import type { RootStackParamList } from '../navigation/types';
 import { useGymFighters } from '../hooks/useGyms';
 import type { GymFighter } from '../hooks/useGyms';
@@ -22,6 +24,7 @@ const ROW_HEIGHT = 72;
 // (20 per page) as the list scrolls. Not an official member list.
 export default function GymFightersScreen(): React.ReactElement {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const navigation = useNavigation<Nav>();
   const { gymId, gymName } = useRoute<Route>().params;
   const { fighters, status, hasMore, loadingMore, loadMore, retry } = useGymFighters(gymId);
@@ -38,12 +41,12 @@ export default function GymFightersScreen(): React.ReactElement {
       <View style={styles.flex}>
         <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
         {item.disciplines.length > 0 && (
-          <Text style={styles.muted} numberOfLines={1}>{item.disciplines.join(', ')}</Text>
+          <Text style={styles.muted} numberOfLines={1}>{item.disciplines.map((d) => disciplineLabel(d, language)).join(', ')}</Text>
         )}
       </View>
       <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
     </TouchableOpacity>
-  ), [navigation, t]);
+  ), [navigation, t, language]);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

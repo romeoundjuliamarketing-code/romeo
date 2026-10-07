@@ -1,5 +1,6 @@
 // Utility functions for the sparring chat list screen.
 import i18n from '../i18n';
+import { systemMessageText } from './systemMessageText';
 import { formatDate } from './formatDate';
 import { localeFor, parseLanguage, type AppLanguage } from './language';
 
@@ -174,7 +175,9 @@ export function chatPreview(input: {
     };
   }
   const text = input.lastText.replace(/\s+/g, ' ').trim();
-  if (input.lastIsSystem) return { sender: null, text, empty: false };
+  if (input.lastIsSystem) {
+    return { sender: null, text: systemMessageText(text, (key, opts) => i18n.t(key, opts)), empty: false };
+  }
   if (input.lastFromMe) return { sender: i18n.t('chat.list.you'), text, empty: false };
   const first = input.lastSenderName?.trim().split(/\s+/)[0] ?? '';
   return { sender: first.length > 0 ? first : null, text, empty: false };

@@ -6,6 +6,8 @@ import { fonts } from '../../../theme/typography';
 import { SPARRING_DISCIPLINES, MIN_MAX_SLOTS, type DraftErrors } from '../../../utils/sparringDraft';
 import { StepTitle, SectionLabel, FieldError } from './FlowParts';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../../i18n/language';
+import { disciplineLabel } from '../../../utils/disciplineLabel';
 
 type GlyphName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -25,13 +27,15 @@ const DisciplineTile = React.memo(function DisciplineTile({ name, icon, selected
   selected: boolean;
   onSelect: (name: string) => void;
 }): React.ReactElement {
+  const { language } = useLanguage();
+  const label = disciplineLabel(name, language);
   return (
     <Pressable
       style={({ pressed }) => [styles.tile, selected && styles.tileSelected, pressed && !selected && styles.tilePressed]}
       onPress={() => onSelect(name)}
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
-      accessibilityLabel={name}
+      accessibilityLabel={label}
     >
       <View style={styles.tileTop}>
         <MaterialCommunityIcons name={icon} size={24} color={selected ? colors.headerTextPrimary : colors.text} />
@@ -44,7 +48,7 @@ const DisciplineTile = React.memo(function DisciplineTile({ name, icon, selected
           <View style={styles.ring} />
         )}
       </View>
-      <Text style={[styles.tileName, selected && styles.tileNameSelected]}>{name}</Text>
+      <Text style={[styles.tileName, selected && styles.tileNameSelected]}>{label}</Text>
     </Pressable>
   );
 });

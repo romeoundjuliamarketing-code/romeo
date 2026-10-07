@@ -3,6 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { disciplineIcon } from '../../data/disciplineBadges';
+import { useLanguage } from '../../i18n/language';
+import { disciplineLabel } from '../../utils/disciplineLabel';
 
 // Discipline badges shared by the profile header and the fighter card, so both
 // look identical. `onDark` inverts the badge for dark card frames.
@@ -10,13 +12,14 @@ export default function DisciplineBadges({ disciplines, onDark = false }: {
   disciplines: string[];
   onDark?: boolean;
 }): React.ReactElement | null {
+  const { language } = useLanguage();
   if (disciplines.length === 0) return null;
   return (
     <View style={styles.badges}>
       {disciplines.map((d) => (
         <View key={d} style={[styles.badge, onDark && styles.badgeOnDark]}>
           <MaterialCommunityIcons name={disciplineIcon(d)} size={14} color={colors.accentBlue} />
-          <Text style={[styles.badgeText, onDark && styles.badgeTextOnDark]}>{d}</Text>
+          <Text style={[styles.badgeText, onDark && styles.badgeTextOnDark]}>{disciplineLabel(d, language)}</Text>
         </View>
       ))}
     </View>

@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { getInitials } from '../../utils/initials';
+import { useLanguage } from '../../i18n/language';
+import { disciplineLabel } from '../../utils/disciplineLabel';
 import RingRopesBackdrop from '../common/RingRopesBackdrop';
 import type { Gym } from '../../hooks/useGyms';
 
@@ -35,6 +37,7 @@ export default function GymHero({ gym, isHome, onNameBottom }: {
   onNameBottom: (y: number) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const insets = useSafeAreaInsets();
   const [coverFailed, setCoverFailed] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -96,7 +99,7 @@ export default function GymHero({ gym, isHome, onNameBottom }: {
             {gym.city.length > 0 && <Text style={styles.city} maxFontSizeMultiplier={1.4}>{gym.city}</Text>}
           </View>
           {gym.disciplines.length > 0 && (
-            <Text style={styles.disciplines} maxFontSizeMultiplier={1.4}>{gym.disciplines.join(' · ')}</Text>
+            <Text style={styles.disciplines} maxFontSizeMultiplier={1.4}>{gym.disciplines.map((d) => disciplineLabel(d, language)).join(' · ')}</Text>
           )}
           {isHome && (
             <View style={styles.homeLabel}>

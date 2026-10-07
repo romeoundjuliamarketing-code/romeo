@@ -21,6 +21,7 @@ import type { TFunction } from 'i18next';
 import { colors } from '../theme/colors';
 import { formatDate } from '../utils/formatDate';
 import { useLanguage } from '../i18n/language';
+import { sparringDisplayTitle } from '../utils/sparringDisplayTitle';
 import type { AppLanguage } from '../utils/language';
 import { useSparringGroupChat } from '../hooks/useSparringGroupChat';
 import { useSparringChatSettings } from '../hooks/useSparringChatSettings';
@@ -243,7 +244,7 @@ export default function SparringGroupChatScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>{sparringTitle}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{sparringDisplayTitle(sparringTitle, language)}</Text>
           <Text style={styles.headerSub}>
             {getCountdown(scheduledAt, t, language)}
           </Text>

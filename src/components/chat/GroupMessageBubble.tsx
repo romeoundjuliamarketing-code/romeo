@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { formatDate } from '../../utils/formatDate';
 import { useLanguage } from '../../i18n/language';
+import { systemMessageText } from '../../utils/systemMessageText';
 import type { GroupMessageWithSender } from '../../hooks/useSparringGroupChat';
 
 interface Props {
@@ -29,7 +30,7 @@ function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: P
     return (
       <View style={styles.systemRow}>
         <View style={styles.systemChip}>
-          <Text style={styles.systemText}>{message.content}</Text>
+          <Text style={styles.systemText}>{systemMessageText(message.content ?? '', (key, opts) => t(key, opts))}</Text>
         </View>
       </View>
     );

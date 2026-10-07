@@ -8,6 +8,7 @@ import { useUpcomingSparringCount } from '../../hooks/useUpcomingSparringCount';
 import { useSparringHistory } from '../../hooks/useSparringHistory';
 import type { HistoryEntry } from '../../hooks/useSparringHistory';
 import { formatReliability } from '../../utils/sparringReliability';
+import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
 import { historyStatus } from '../../utils/sparringHistory';
 import type { HistoryTone } from '../../utils/sparringHistory';
 import { BlockTitle } from './ProfileFacts';
@@ -117,6 +118,7 @@ function OwnHistory({ userId, refetchTrigger, onOpen, emptyHint }: {
 function HistoryRow({ entry, first, onOpen }: { entry: HistoryEntry; first: boolean; onOpen?: (id: string) => void }): React.ReactElement {
   const { language } = useLanguage();
   const st = historyStatus(entry);
+  const title = sparringDisplayTitle(entry.title, language);
   const d = new Date(entry.scheduledAt);
   const date = d.toLocaleDateString(localeFor(language), { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
   return (
@@ -126,10 +128,10 @@ function HistoryRow({ entry, first, onOpen }: { entry: HistoryEntry; first: bool
       disabled={onOpen === undefined}
       activeOpacity={0.6}
       accessibilityRole="button"
-      accessibilityLabel={`${entry.title}, ${date}, ${entry.place}, ${st.label}`}
+      accessibilityLabel={`${title}, ${date}, ${entry.place}, ${st.label}`}
     >
       <View style={styles.flex}>
-        <Text style={styles.rowTitle} numberOfLines={1}>{entry.title}</Text>
+        <Text style={styles.rowTitle} numberOfLines={1}>{title}</Text>
         <Text style={styles.muted} numberOfLines={1}>{date} – {entry.place}</Text>
       </View>
       <Text style={[styles.status, styles[TONE_STYLE[st.tone]]]}>{st.label}</Text>
