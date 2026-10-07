@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../../i18n/language';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import Svg, { Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,7 +15,7 @@ import type { ToolbarAction } from './ProfileParts';
 import DisciplineBadges from './DisciplineBadges';
 import ZoomableProfilePhoto from './ZoomableProfilePhoto';
 import CountryFlag from '../common/CountryFlag';
-import { countryByCode } from '../../utils/countries';
+import { countryByCode, countryName } from '../../utils/countries';
 import CoverImage from './CoverImage';
 import RingRopesBackdrop from '../common/RingRopesBackdrop';
 
@@ -49,6 +50,7 @@ export default function ProfileHeader({
   actions:        React.ReactNode;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const insets = useSafeAreaInsets();
   const { width, height: screenHeight } = useWindowDimensions();
   const [coverFailed, setCoverFailed] = useState(false);
@@ -123,7 +125,7 @@ export default function ProfileHeader({
             {displayName}
           </Text>
           {country !== null && (
-            <View style={styles.flag} accessible accessibilityLabel={t('profile.header.flag', { country: country.name })}>
+            <View style={styles.flag} accessible accessibilityLabel={t('profile.header.flag', { country: countryName(country, language) })}>
               <CountryFlag code={country.code} width={40} tilted />
             </View>
           )}

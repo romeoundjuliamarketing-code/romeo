@@ -14,7 +14,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
-import { searchCountries } from '../../utils/countries';
+import { countryName, searchCountries } from '../../utils/countries';
+import { useLanguage } from '../../i18n/language';
 import type { Country } from '../../utils/countries';
 import { useTranslation } from 'react-i18next';
 import CountryFlag from '../common/CountryFlag';
@@ -35,8 +36,9 @@ export default function CountryPickerSheet({ visible, selected, onClose, onSelec
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const sheetHeight = Math.round(useWindowDimensions().height * 0.88);
+  const { language } = useLanguage();
   const [query, setQuery] = useState('');
-  const results = useMemo(() => searchCountries(query), [query]);
+  const results = useMemo(() => searchCountries(query, language), [query, language]);
 
   // Every opening starts with an empty search.
   useEffect(() => {
@@ -112,6 +114,8 @@ export default function CountryPickerSheet({ visible, selected, onClose, onSelec
 const CountryRow = React.memo(function CountryRow({ country, selected, onPress }: {
   country: Country; selected: boolean; onPress: () => void;
 }): React.ReactElement {
+  const { language } = useLanguage();
+  const name = countryName(country, language);
   return (
     <TouchableOpacity
       style={styles.row}
@@ -119,10 +123,10 @@ const CountryRow = React.memo(function CountryRow({ country, selected, onPress }
       activeOpacity={0.6}
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={country.name}
+      accessibilityLabel={name}
     >
       <CountryFlag code={country.code} width={32} />
-      <Text style={styles.rowName} numberOfLines={1}>{country.name}</Text>
+      <Text style={styles.rowName} numberOfLines={1}>{name}</Text>
       {selected && <Ionicons name="checkmark-circle" size={22} color={colors.accentBlue} />}
     </TouchableOpacity>
   );

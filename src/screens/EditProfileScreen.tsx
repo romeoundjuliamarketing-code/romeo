@@ -14,6 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../i18n/language';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
 import { useProfile } from '../hooks/useProfile';
@@ -38,7 +39,7 @@ import CoverEditorModal from '../components/profil/CoverEditorModal';
 import GymPickerSheet from '../components/gym/GymPickerSheet';
 import CountryPickerSheet from '../components/profil/CountryPickerSheet';
 import CountryFlag from '../components/common/CountryFlag';
-import { countryByCode } from '../utils/countries';
+import { countryByCode, countryName } from '../utils/countries';
 import { useGym } from '../hooks/useGyms';
 import type { Gym } from '../hooks/useGyms';
 import * as ImagePicker from 'expo-image-picker';
@@ -417,6 +418,7 @@ export default function EditProfileScreen(): React.ReactElement {
 // Flag under the profile name; opens the country picker.
 function CountryField({ code, onPress }: { code: string; onPress: () => void }): React.ReactElement {
   const { t } = useTranslation();
+  const { language } = useLanguage();
   const country = countryByCode(code);
   return (
     <View style={styles.fieldGroup}>
@@ -429,11 +431,11 @@ function CountryField({ code, onPress }: { code: string; onPress: () => void }):
         onPress={onPress}
         activeOpacity={0.7}
         accessibilityRole="button"
-        accessibilityLabel={country !== null ? t('profile.editScreen.flagChangeA11y', { country: country.name }) : t('profile.editScreen.flagChooseA11y')}
+        accessibilityLabel={country !== null ? t('profile.editScreen.flagChangeA11y', { country: countryName(country, language) }) : t('profile.editScreen.flagChooseA11y')}
       >
         {country !== null && <CountryFlag code={country.code} width={28} />}
         <Text style={[styles.pickerText, country === null && styles.pickerPlaceholder]} numberOfLines={1}>
-          {country !== null ? country.name : t('profile.editScreen.chooseCountry')}
+          {country !== null ? countryName(country, language) : t('profile.editScreen.chooseCountry')}
         </Text>
         <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
       </TouchableOpacity>
