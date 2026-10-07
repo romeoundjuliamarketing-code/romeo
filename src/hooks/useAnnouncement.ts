@@ -6,6 +6,7 @@ import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
 import type { TeamAnnouncement } from '../types/database.types';
 import { serverErrorText } from '../utils/serverErrorText';
+import { announcementPushMessages } from '../utils/announcementPush';
 
 type AnnouncementSnapshot = { announcement: TeamAnnouncement | null };
 
@@ -15,27 +16,16 @@ async function sendAnnouncementPush(studioId: string, message: string): Promise<
 
   const { data: members } = await supabase
     .from('profiles')
-    .select('expo_push_token')
+    .select('expo_push_token, language')
     .eq('studio_id', studioId)
     .neq('id', user.id)
     .not('expo_push_token', 'is', null);
 
   if (members === null || members.length === 0) return;
 
-  const tokens = members
-    .map((m) => m.expo_push_token)
-    .filter((t): t is string => t !== null && t.length > 0);
-
-  if (tokens.length === 0) return;
-
-  const body = JSON.stringify(
-    tokens.map((to) => ({
-      to,
-      title: i18n.t('home.screen.announcementPushTitle'),
-      body: message,
-      sound: 'default',
-    })),
-  );
+  const messages = announcementPushMessages(members, message);
+  if (messages.length === 0) return;
+  const body = JSON.stringify(messages);
 
   await fetch('https://exp.host/--/api/v2/push/send', {
     method: 'POST',
