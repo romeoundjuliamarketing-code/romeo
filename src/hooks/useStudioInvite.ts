@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { serverErrorText } from '../utils/serverErrorText';
 
 interface UseStudioInviteResult {
   code:         string | null;
@@ -24,7 +25,7 @@ export function useStudioInvite(): UseStudioInviteResult {
     setLoading(false);
     if (rpcError !== null) {
       reportNetworkError(rpcError);
-      setError(rpcError.message);
+      setError(serverErrorText(rpcError.message));
       return;
     }
     reportNetworkSuccess();
@@ -37,7 +38,7 @@ export function useStudioInvite(): UseStudioInviteResult {
     });
     if (rpcError !== null) {
       reportNetworkError(rpcError);
-      return { error: rpcError.message, studioId: null };
+      return { error: serverErrorText(rpcError.message), studioId: null };
     }
     reportNetworkSuccess();
     return { error: null, studioId: data as string };

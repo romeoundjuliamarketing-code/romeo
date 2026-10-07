@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import { serverErrorText } from '../utils/serverErrorText';
 
 interface UseMembershipActionsResult {
   loading:             boolean;
@@ -20,7 +21,7 @@ export function useMembershipActions(): UseMembershipActionsResult {
     setLoading(false);
     if (error !== null) {
       reportNetworkError(error);
-      return { id: null, error: error.message };
+      return { id: null, error: serverErrorText(error.message) };
     }
     reportNetworkSuccess();
     return { id: data as string, error: null };
@@ -34,7 +35,7 @@ export function useMembershipActions(): UseMembershipActionsResult {
     setLoading(false);
     if (error !== null) {
       reportNetworkError(error);
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     reportNetworkSuccess();
     return { error: null };
@@ -52,7 +53,7 @@ export function useMembershipActions(): UseMembershipActionsResult {
     setLoading(false);
     if (error !== null) {
       reportNetworkError(error);
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     reportNetworkSuccess();
     return { error: null };
@@ -66,7 +67,7 @@ export function useMembershipActions(): UseMembershipActionsResult {
     setLoading(false);
     if (error !== null) {
       reportNetworkError(error);
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     reportNetworkSuccess();
     return { error: null };

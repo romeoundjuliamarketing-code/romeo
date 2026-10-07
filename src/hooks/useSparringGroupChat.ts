@@ -8,6 +8,7 @@ import { fetchChatPage } from '../lib/chatPage';
 import type { PageQuery } from '../utils/chatSync';
 import { useChatMessageStream } from './useChatMessageStream';
 import type { SparringGroupMessage } from '../types/database.types';
+import { serverErrorText } from '../utils/serverErrorText';
 
 export interface GroupMessageWithSender extends SparringGroupMessage {
   senderName:      string | null;
@@ -108,9 +109,9 @@ export function useSparringGroupChat(
       .select('*')
       .single();
     if (error !== null) {
-      setSendError(error.message);
+      setSendError(serverErrorText(error.message));
       setSending(false);
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     if (newRow !== null && sync !== null) {
       const [msg] = await enrich([newRow]);
@@ -148,7 +149,7 @@ export function useSparringGroupChat(
         sender_id:   userId,
         image_url:   urlData.publicUrl,
       });
-      if (insertError !== null) setSendError(insertError.message);
+      if (insertError !== null) setSendError(serverErrorText(insertError.message));
     } finally {
       setSending(false);
     }

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
 import type { FightRecord, FightRecordInsert } from '../types/database.types';
+import { serverErrorText } from '../utils/serverErrorText';
 
 export type { FightRecord };
 
@@ -64,7 +65,7 @@ export function useFightRecord(refetchTrigger = 0): UseFightRecordResult {
       .insert({ ...data, user_id: user.id })
       .select('*')
       .single();
-    if (error !== null || inserted === null) return { error: error?.message ?? i18n.t('profile.errors.saveFailed') };
+    if (error !== null || inserted === null) return { error: (error ? serverErrorText(error.message) : i18n.t('profile.errors.saveFailed')) };
     setFights((prev) => {
       const next = [...prev, inserted].sort(compareFights);
       if (cacheKey) setCached<FightRecordSnapshot>(cacheKey, { fights: next });
@@ -91,7 +92,7 @@ export function useFightRecord(refetchTrigger = 0): UseFightRecordResult {
     if (error !== null) {
       setFights(removed);
       if (cacheKey) setCached<FightRecordSnapshot>(cacheKey, { fights: removed });
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     return { error: null };
   }, [user, cacheKey]);

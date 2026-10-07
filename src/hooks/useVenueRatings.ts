@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
+import { serverErrorText } from '../utils/serverErrorText';
 
 interface RatingSummary {
   averageStars: number | null;
@@ -106,7 +107,7 @@ export function useVenueRatings(
         { onConflict: 'user_id,venue_id' },
       );
 
-      return { error: error?.message ?? null };
+      return { error: (error ? serverErrorText(error.message) : null) };
     },
     [user],
   );

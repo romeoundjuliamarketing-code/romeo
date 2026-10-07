@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { geocodeAddress } from '../utils/geocoding';
 import { computeVerificationTier, type VerificationFlags, type VerificationTier } from '../utils/verificationTier';
 import { getCached, setCached } from '../lib/queryCache';
+import { serverErrorText } from '../utils/serverErrorText';
 
 const EMPTY_FLAGS: VerificationFlags = {
   email_verified: false,
@@ -57,7 +58,7 @@ export function useVerification(refetchTrigger = 0): {
       .update({ address: trimmed, address_lat: coords?.lat ?? null, address_lng: coords?.lng ?? null })
       .eq('id', user.id);
     if (error === null) refetch();
-    return { error: error?.message ?? null };
+    return { error: (error ? serverErrorText(error.message) : null) };
   }, [user, refetch]);
 
   const updatePhone = useCallback(async (phone: string): Promise<{ error: string | null }> => {
@@ -65,7 +66,7 @@ export function useVerification(refetchTrigger = 0): {
     // Phone is stored but NOT verified (SMS disabled, cost). phone_verified_at stays null.
     const { error } = await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', user.id);
     if (error === null) refetch();
-    return { error: error?.message ?? null };
+    return { error: (error ? serverErrorText(error.message) : null) };
   }, [user, refetch]);
 
   return { flags, tier: computeVerificationTier(flags), loading, refetch, updateAddress, updatePhone };

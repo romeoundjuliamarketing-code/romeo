@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/queryCache';
 import { geocodeAddress } from '../utils/geocoding';
+import { serverErrorText } from '../utils/serverErrorText';
 
 type StudioAddressSnapshot = { address: string | null; lat: number | null; lng: number | null };
 
@@ -58,7 +59,7 @@ export function useStudioAddress(studioId: string): {
       setLng(coords?.lng ?? null);
       if (cacheKey) setCached<StudioAddressSnapshot>(cacheKey, { address: trimmed, lat: coords?.lat ?? null, lng: coords?.lng ?? null });
     }
-    return { error: error?.message ?? null };
+    return { error: (error ? serverErrorText(error.message) : null) };
   }, [studioId, cacheKey]);
 
   return { address, lat, lng, loading, updateAddress };

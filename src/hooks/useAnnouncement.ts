@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
 import type { TeamAnnouncement } from '../types/database.types';
+import { serverErrorText } from '../utils/serverErrorText';
 
 type AnnouncementSnapshot = { announcement: TeamAnnouncement | null };
 
@@ -119,7 +120,7 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
       expires_at: expiresAt,
     });
 
-    if (error !== null) return { error: error.message };
+    if (error !== null) return { error: serverErrorText(error.message) };
     void fetchAnnouncement();
     void sendAnnouncementPush(profile.studio_id, message.trim());
     return { error: null };
@@ -133,7 +134,7 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
       .delete()
       .eq('id', announcement.id);
 
-    if (error !== null) return { error: error.message };
+    if (error !== null) return { error: serverErrorText(error.message) };
     setAnnouncement(null);
     return { error: null };
   }, [announcement]);

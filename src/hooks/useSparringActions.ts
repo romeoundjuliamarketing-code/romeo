@@ -6,6 +6,7 @@ import { SPARRING_RULES_VERSION } from '../data/sparringRules';
 import type { Database } from '../types/database.types';
 import { sparringInsertErrorCode } from '../utils/subscriptionPlans';
 import i18n from '../i18n';
+import { serverErrorText } from '../utils/serverErrorText';
 
 type JoinSparringStatus   = Database['public']['Functions']['join_sparring']['Returns']
 type CancelSparringStatus = Database['public']['Functions']['cancel_sparring_signup']['Returns']
@@ -93,7 +94,7 @@ export function useSparringActions(): {
       p_sparring_id:   sparringId,
       p_rules_version: rulesVersion,
     });
-    if (error !== null) return { error: error.message, status: null };
+    if (error !== null) return { error: serverErrorText(error.message), status: null };
     return { error: null, status: data };
   }, [user]);
 
@@ -102,14 +103,14 @@ export function useSparringActions(): {
   ): Promise<{ error: string | null; status: CancelSparringStatus | null }> => {
     if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn'), status: null };
     const { data, error } = await supabase.rpc('cancel_sparring_signup', { p_sparring_id: sparringId });
-    if (error !== null) return { error: error.message, status: null };
+    if (error !== null) return { error: serverErrorText(error.message), status: null };
     return { error: null, status: data };
   }, [user]);
 
   const confirmSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
     if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
     const { error } = await supabase.rpc('confirm_sparring', { p_sparring_id: sparringId });
-    return { error: error?.message ?? null };
+    return { error: (error ? serverErrorText(error.message) : null) };
   }, [user]);
 
   const markAttendance = useCallback(async (
@@ -123,7 +124,7 @@ export function useSparringActions(): {
       p_user_id:     userId,
       p_present:     present,
     });
-    return { error: error?.message ?? null };
+    return { error: (error ? serverErrorText(error.message) : null) };
   }, [user]);
 
   const createSparring = useCallback(async (params: CreateSparringInput): Promise<{ error: string | null; sparringId?: string; code?: 'subscription_required' }> => {
@@ -203,7 +204,7 @@ export function useSparringActions(): {
       if (sparringInsertErrorCode(error?.code, insertStudioId) === 'subscription_required') {
         return { error: i18n.t('sparring.actions.subscriptionRequired'), code: 'subscription_required' };
       }
-      return { error: error?.message ?? i18n.t('sparring.actions.createFailed') };
+      return { error: (error ? serverErrorText(error.message) : i18n.t('sparring.actions.createFailed')) };
     }
 
     const { error: settingsError } = await supabase
@@ -221,7 +222,7 @@ export function useSparringActions(): {
   const deactivateSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
     if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
     const { error } = await supabase.rpc('deactivate_sparring', { p_id: sparringId });
-    return { error: error?.message ?? null };
+    return { error: (error ? serverErrorText(error.message) : null) };
   }, [user]);
 
   // Links/unlinks the gym of an own sparring (location label only).
@@ -270,7 +271,7 @@ export function useSparringActions(): {
       if (error.message.includes('CONTENT_FILTER_BLOCKED')) {
         return { error: i18n.t('sparring.actions.contentBlocked'), result: null };
       }
-      return { error: error.message, result: null };
+      return { error: serverErrorText(error.message), result: null };
     }
     if (input.gym !== undefined) {
       const { error: gymError } = await setSparringGym(sparringId, input.gym.gymId, input.gym.accessNote);

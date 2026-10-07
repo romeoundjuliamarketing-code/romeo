@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
 import type { TrialBookingWithStudio, MembershipContractWithStudio, StudioJoinRequestWithStudio } from '../types/database.types';
+import { serverErrorText } from '../utils/serverErrorText';
 
 type MyStudioRequestsSnapshot = {
   trialBookings: TrialBookingWithStudio[];
@@ -172,7 +173,7 @@ export function useMyStudioRequests(refetchTrigger = 0): UseMyStudioRequestsResu
       .eq('status', 'pending');
 
     if (error !== null) {
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     refetch();
     return { error: null };
@@ -187,7 +188,7 @@ export function useMyStudioRequests(refetchTrigger = 0): UseMyStudioRequestsResu
       .eq('user_id', user?.id ?? '');
 
     if (error !== null) {
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     refetch();
     return { error: null };

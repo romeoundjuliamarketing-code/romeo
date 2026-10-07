@@ -5,6 +5,7 @@ import { fetchChatPage } from '../lib/chatPage';
 import type { PageQuery } from '../utils/chatSync';
 import { useChatMessageStream } from './useChatMessageStream';
 import type { EventMessage } from '../types/database.types';
+import { serverErrorText } from '../utils/serverErrorText';
 
 export interface EventMessageWithSender extends EventMessage {
   senderName:      string | null;
@@ -104,9 +105,9 @@ export function useEventGroupChat(
       .select('*')
       .single();
     if (error !== null) {
-      setSendError(error.message);
+      setSendError(serverErrorText(error.message));
       setSending(false);
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     if (newRow !== null && sync !== null) {
       const [msg] = await enrich([newRow]);

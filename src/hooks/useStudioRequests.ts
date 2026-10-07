@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/queryCache';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import type { TrialBookingWithUser, MembershipContractWithUser, StudioJoinRequestWithUser } from '../types/database.types';
+import { serverErrorText } from '../utils/serverErrorText';
 
 // Combined snapshot cached under one key so re-opening a studio shows leads instantly.
 interface CachedStudioRequests {
@@ -191,7 +192,7 @@ export function useStudioRequests(studioId: string): UseStudioRequestsResult {
     });
 
     if (error !== null) {
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     refetch();
     return { error: null };
@@ -204,7 +205,7 @@ export function useStudioRequests(studioId: string): UseStudioRequestsResult {
     });
 
     if (error !== null) {
-      return { error: error.message };
+      return { error: serverErrorText(error.message) };
     }
     refetch();
     return { error: null };

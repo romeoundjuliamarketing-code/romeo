@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
+import { serverErrorText } from '../utils/serverErrorText';
 
 export interface BlockedUser {
   id:        string;
@@ -81,7 +82,7 @@ export function useBlockedUsers(refetchTrigger = 0): UseBlockedUsersResult {
     const { error } = await supabase
       .from('user_blocks')
       .upsert({ blocker_id: userId, blocked_id: target.id }, { onConflict: 'blocker_id,blocked_id', ignoreDuplicates: true });
-    if (error !== null) { commit(before); return { error: error.message }; }
+    if (error !== null) { commit(before); return { error: serverErrorText(error.message) }; }
     return { error: null };
   }, [userId, blocked, commit]);
 
@@ -94,7 +95,7 @@ export function useBlockedUsers(refetchTrigger = 0): UseBlockedUsersResult {
       .delete()
       .eq('blocker_id', userId)
       .eq('blocked_id', id);
-    if (error !== null) { commit(before); return { error: error.message }; }
+    if (error !== null) { commit(before); return { error: serverErrorText(error.message) }; }
     return { error: null };
   }, [userId, blocked, commit]);
 

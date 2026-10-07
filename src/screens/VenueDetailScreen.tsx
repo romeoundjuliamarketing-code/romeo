@@ -42,6 +42,7 @@ import EventDetailSheet from '../components/sparring/EventDetailSheet';
 import CreateEventSheet from '../components/sparring/CreateEventSheet';
 import type { EventWithMeta } from '../hooks/useOpenEvents';
 import type { CreateEventParams } from '../hooks/useEventActions';
+import { serverErrorText } from '../utils/serverErrorText';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VenueDetail'>;
 
@@ -209,7 +210,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
         style: 'destructive',
         onPress: async () => {
           const { error } = await supabase.from('venue_photos').delete().eq('id', id);
-          if (error !== null) Alert.alert(t('common.error'), error.message);
+          if (error !== null) Alert.alert(t('common.error'), serverErrorText(error.message));
           else refetchPhotos();
         },
       },
@@ -279,7 +280,7 @@ export default function VenueDetailScreen({ route, navigation }: Props): React.R
         .eq('id', venueId);
 
       if (error !== null) {
-        Alert.alert(t('venue.detail.saveError'), error.message);
+        Alert.alert(t('venue.detail.saveError'), serverErrorText(error.message));
         return;
       }
 

@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import i18n from '../i18n';
+import { serverErrorText } from '../utils/serverErrorText';
 
 export interface CreateEventParams {
   title:       string;
@@ -51,7 +52,7 @@ export function useEventActions(): {
         p_notes:        params.notes,
       });
 
-      if (error !== null) return { error: error.message };
+      if (error !== null) return { error: serverErrorText(error.message) };
 
       const eventId = typeof data === 'string' ? data : (data as { id?: string } | null)?.id;
       return { error: null, eventId };
@@ -74,7 +75,7 @@ export function useEventActions(): {
         p_max_slots:    params.maxSlots,
         p_notes:        params.notes,
       });
-      if (error !== null) return { error: error.message };
+      if (error !== null) return { error: serverErrorText(error.message) };
       const eventId = typeof data === 'string' ? data : (data as { id?: string } | null)?.id;
       return { error: null, eventId };
     },
@@ -85,7 +86,7 @@ export function useEventActions(): {
     async (eventId: string): Promise<{ error: string | null }> => {
       if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
       const { error } = await supabase.rpc('signup_event', { p_event_id: eventId });
-      if (error !== null) return { error: error.message };
+      if (error !== null) return { error: serverErrorText(error.message) };
       return { error: null };
     },
     [user],
@@ -95,7 +96,7 @@ export function useEventActions(): {
     async (eventId: string): Promise<{ error: string | null }> => {
       if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
       const { error } = await supabase.rpc('cancel_event_signup', { p_event_id: eventId });
-      if (error !== null) return { error: error.message };
+      if (error !== null) return { error: serverErrorText(error.message) };
       return { error: null };
     },
     [user],
@@ -105,7 +106,7 @@ export function useEventActions(): {
     async (eventId: string): Promise<{ error: string | null }> => {
       if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
       const { error } = await supabase.rpc('deactivate_event', { p_event_id: eventId });
-      return { error: error?.message ?? null };
+      return { error: (error ? serverErrorText(error.message) : null) };
     },
     [user],
   );
