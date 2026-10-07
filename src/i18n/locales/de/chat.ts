@@ -16,6 +16,8 @@ const chat = {
     unreadCount: '{{count}} ungelesen',
   },
   system: {
+    expired: '{{name}} ist nicht mehr dabei',
+    someone: 'Jemand',
     joined: '{{name}} hat sich angemeldet',
     cancelled: '{{name}} hat abgesagt',
   },

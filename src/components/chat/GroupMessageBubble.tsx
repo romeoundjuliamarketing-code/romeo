@@ -30,7 +30,7 @@ function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: P
     return (
       <View style={styles.systemRow}>
         <View style={styles.systemChip}>
-          <Text style={styles.systemText}>{systemMessageText(message.content ?? '', (key, opts) => t(key, opts))}</Text>
+          <Text style={styles.systemText}>{systemMessageText(message.content ?? '', (key, opts) => t(key, opts), t('chat.system.someone'))}</Text>
         </View>
       </View>
     );

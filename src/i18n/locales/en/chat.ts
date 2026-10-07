@@ -19,6 +19,8 @@ const chat: LocaleShape<typeof de> = {
     unreadCount: '{{count}} unread',
   },
   system: {
+    expired: '{{name}} is no longer in',
+    someone: 'Someone',
     joined: '{{name}} signed up',
     cancelled: '{{name}} cancelled',
   },

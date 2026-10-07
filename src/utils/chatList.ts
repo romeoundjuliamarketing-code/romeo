@@ -176,7 +176,7 @@ export function chatPreview(input: {
   }
   const text = input.lastText.replace(/\s+/g, ' ').trim();
   if (input.lastIsSystem) {
-    return { sender: null, text: systemMessageText(text, (key, opts) => i18n.t(key, opts)), empty: false };
+    return { sender: null, text: systemMessageText(text, (key, opts) => i18n.t(key, opts), i18n.t('chat.system.someone')), empty: false };
   }
   if (input.lastFromMe) return { sender: i18n.t('chat.list.you'), text, empty: false };
   const first = input.lastSenderName?.trim().split(/\s+/)[0] ?? '';
