@@ -44,6 +44,7 @@ import { useMyVenue } from '../hooks/useMyVenue';
 import { supabase } from '../lib/supabase';
 import QRScannerModal from '../components/profil/QRScannerModal';
 import ProfileQrShareSheet from '../components/profil/ProfileQrShareSheet';
+import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -281,6 +282,7 @@ export default function ProfilScreen(): React.ReactElement {
             />
           </View>
         </View>
+        <TabBarSpacer />
       </ScrollView>
 
       <GymPickerSheet

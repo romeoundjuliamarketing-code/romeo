@@ -1,113 +1,26 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Animated, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useReducedMotion } from 'react-native-reanimated';
-import { colors } from '../theme/colors';
+import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 import HomeScreen from '../screens/HomeScreen';
 import CardsScreen from '../screens/CardsScreen';
 import ProfilScreen from '../screens/ProfilScreen';
 import SparringMapScreen from '../screens/SparringMapScreen';
 import { useNotificationsContext } from '../context/NotificationsContext';
+import SparrTabBar from '../components/navigation/SparrTabBar';
+import type { TabItemConfig } from '../components/navigation/SparrTabBar';
 
 const Tab = createBottomTabNavigator();
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-const TAB_CONFIG: Record<string, { active: IoniconName; inactive: IoniconName; label: string }> = {
-  Home:     { active: 'home', inactive: 'home-outline', label: 'Home' },
-  Karten: { active: 'albums', inactive: 'albums-outline', label: 'Karten' },
-  Sparring: { active: 'map', inactive: 'map-outline', label: 'Karte' },
-  Profil:   { active: 'person', inactive: 'person-outline', label: 'Profil' },
+// Visible labels only — route names stay unchanged (deep links, navigate()).
+const TAB_CONFIG: Record<string, TabItemConfig> = {
+  Home:     { label: 'Start',     active: 'home',           inactive: 'home-outline' },
+  Karten:   { label: 'Spiel',     active: 'cards-playing',  inactive: 'cards-playing-outline' },
+  Sparring: { label: 'Entdecken', active: 'map-marker',     inactive: 'map-marker-outline', overContent: true },
+  Profil:   { label: 'Profil',    active: 'account',        inactive: 'account-outline' },
 };
 
-// ─── Persistent animated values (module-level so they survive re-renders) ─────
-
-const ICON_SCALES: Record<string, Animated.Value> = {
-  Home: new Animated.Value(1.2),
-  Karten: new Animated.Value(1),
-  Sparring: new Animated.Value(1),
-  Profil: new Animated.Value(1),
-};
-
-const INDICATOR_SCALES: Record<string, Animated.Value> = {
-  Home: new Animated.Value(1),
-  Karten: new Animated.Value(0),
-  Sparring: new Animated.Value(0),
-  Profil: new Animated.Value(0),
-};
-
-// ─── Animated icon ────────────────────────────────────────────────────────────
-
-function TabIcon({ focused, name, tabName }: { focused: boolean; name: IoniconName; tabName: string }) {
-  const scale = ICON_SCALES[tabName];
-  const reducedMotion = useReducedMotion();
-
-  const indicatorScale = INDICATOR_SCALES[tabName];
-
-  useEffect(() => {
-    if (scale === undefined || indicatorScale === undefined) return;
-    if (reducedMotion) {
-      scale.setValue(focused ? 1.2 : 1);
-      indicatorScale.setValue(focused ? 1 : 0);
-      return;
-    }
-    Animated.spring(scale, {
-      toValue: focused ? 1.2 : 1,
-      useNativeDriver: true,
-      damping: 10,
-      stiffness: 120,
-    }).start();
-    Animated.spring(indicatorScale, {
-      toValue: focused ? 1 : 0,
-      useNativeDriver: true,
-      damping: 10,
-      stiffness: 120,
-    }).start();
-  }, [focused, scale, indicatorScale, reducedMotion]);
-
-  if (scale === undefined || indicatorScale === undefined) return null;
-
-  return (
-    <View style={tabStyles.iconWrap}>
-      <Animated.View style={{ transform: [{ scale }] }}>
-        <Ionicons
-          name={name}
-          size={26}
-          color={focused ? colors.accentBlue : colors.inactive}
-        />
-      </Animated.View>
-      <Animated.View style={[tabStyles.indicator, { transform: [{ scaleX: indicatorScale }] }]} />
-    </View>
-  );
-}
-
-// ─── Animated label ───────────────────────────────────────────────────────────
-
-function TabLabel({ focused, label, color }: { focused: boolean; label: string; color: string }) {
-  const scale = useRef(new Animated.Value(focused ? 1 : 0.88)).current;
-  const reducedMotion = useReducedMotion();
-
-  useEffect(() => {
-    if (reducedMotion) {
-      scale.setValue(focused ? 1 : 0.78);
-      return;
-    }
-    Animated.spring(scale, {
-      toValue: focused ? 1 : 0.78,
-      useNativeDriver: true,
-      damping: 10,
-      stiffness: 120,
-    }).start();
-  }, [focused, scale, reducedMotion]);
-
-  return (
-    <Animated.Text style={[tabStyles.label, { color, transform: [{ scale }] }]}>
-      {label}
-    </Animated.Text>
-  );
-}
+const renderTabBar = (props: BottomTabBarProps) => <SparrTabBar {...props} config={TAB_CONFIG} />;
 
 // ─── Navigator ────────────────────────────────────────────────────────────────
 
@@ -115,27 +28,8 @@ export default function TabNavigator() {
   const { unreadCount } = useNotificationsContext();
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => {
-          const cfg = TAB_CONFIG[route.name];
-          if (cfg === undefined) return null;
-          return <TabIcon focused={focused} name={focused ? cfg.active : cfg.inactive} tabName={route.name} />;
-        },
-        tabBarLabel: ({ focused, color }) => (
-          <TabLabel focused={focused} label={TAB_CONFIG[route.name]?.label ?? route.name} color={color} />
-        ),
-        tabBarActiveTintColor: colors.accentBlue,
-        tabBarInactiveTintColor: colors.inactive,
-        tabBarStyle: {
-          backgroundColor: colors.tabBar,
-          borderTopColor: colors.tabBarBorder,
-          borderTopWidth: 1,
-          height: 88,
-          paddingBottom: 22,
-          paddingTop: 10,
-        },
-        headerShown: false,
-      })}
+      tabBar={renderTabBar}
+      screenOptions={{ headerShown: false }}
     >
       <Tab.Screen
         name="Home"
@@ -144,7 +38,6 @@ export default function TabNavigator() {
           headerShown: false,
           // Red dot on the Home tab while there are unread notifications.
           tabBarBadge: unreadCount > 0 ? '' : undefined,
-          tabBarBadgeStyle: tabStyles.dot,
         }}
       />
       <Tab.Screen name="Karten" component={CardsScreen} options={{ headerShown: false }} />
@@ -153,32 +46,3 @@ export default function TabNavigator() {
     </Tab.Navigator>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const tabStyles = StyleSheet.create({
-  iconWrap: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  indicator: {
-    width: 20,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: colors.accentBlue,
-  },
-  // Small red dot (no number) shown on the Home tab for unread notifications.
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    lineHeight: 10,
-    backgroundColor: colors.deleteRed,
-    transform: [{ translateX: -2 }],
-  },
-});

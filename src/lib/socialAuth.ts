@@ -52,7 +52,10 @@ export async function signInWithApple(captchaToken: string | undefined): Promise
     });
   } catch (e) {
     const code = (e as { code?: string }).code;
-    return code === 'ERR_REQUEST_CANCELED' ? { status: 'cancelled' } : { status: 'error', message: genericError() };
+    if (code === 'ERR_REQUEST_CANCELED') return { status: 'cancelled' };
+    // Keep Apple's code/message visible: without it a failed request is undiagnosable.
+    const detail = [code, (e as { message?: string }).message].filter((p): p is string => typeof p === 'string' && p.length > 0).join(': ');
+    return { status: 'error', message: detail.length > 0 ? `${genericError()} (${detail})` : genericError() };
   }
   if (credential.identityToken === null) return { status: 'error', message: genericError() };
 

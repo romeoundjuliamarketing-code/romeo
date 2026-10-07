@@ -7,6 +7,7 @@ import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import ChallengeCard from './ChallengeCard';
 import { useStepEntrance } from './useStepEntrance';
+import { TabBarSpacer } from '../navigation/SparrTabBar';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -96,6 +97,7 @@ export default function CardsIntro({ card, primaryLabel, onPrimary, onSkip }: Pr
             ) : null}
           </View>
         </Animated.View>
+        <TabBarSpacer />
       </ScrollView>
     </SafeAreaView>
   );

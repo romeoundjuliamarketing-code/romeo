@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { colors } from '../theme/colors';
 import FocusedStatusBar from '../components/common/FocusedStatusBar';
+import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 import HomeHeader from '../components/home/HomeHeader';
 import HomeNextSparring, { HomeNextSparringPlaceholder } from '../components/home/HomeNextSparring';
 import HomeCardDeckEntry from '../components/home/HomeCardDeckEntry';
@@ -183,6 +184,7 @@ export default function HomeScreen() {
               {SHOW_EVENTS && fightNight}
             </View>
           </View>
+          <TabBarSpacer />
         </ScrollView>
       </View>
 

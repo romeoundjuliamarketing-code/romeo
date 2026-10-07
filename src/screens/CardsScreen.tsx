@@ -13,6 +13,7 @@ import { CardsBenefits, CardsHero, CardsOffer, CardsStart } from '../components/
 import CardsShowcase from '../components/challenge/CardsShowcase';
 import CardsIntro from '../components/challenge/CardsIntro';
 import { useCardsIntroSeen } from '../hooks/useCardsIntroSeen';
+import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 
 export default function CardsScreen(): React.ReactElement {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -108,6 +109,7 @@ export default function CardsScreen(): React.ReactElement {
             <CardsOffer price={price} loading={offerLoading} onOpen={() => navigation.navigate('Paywall', { focus: 'cards' })} />
           </>
         )}
+        <TabBarSpacer />
       </ScrollView>
       {!introSeen || introReopened ? (
         // Laid over the cards area, which stays mounted — closing returns to the exact

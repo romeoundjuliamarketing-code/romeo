@@ -27,6 +27,7 @@ export const colors = {
   border:       'rgba(20,20,20,0.08)',
   tabBar:       '#FFFFFF',
   tabBarBorder: 'rgba(20,20,20,0.08)', // alias → border
+  tabInactive:  '#A3A3A3', // inactive tab icon/label on the dark tab bar (>= 7:1 on dark)
 
   // ── Dark section (hero / coach) ───────────────────────────────────────────
   dark:                '#0A0A0A',

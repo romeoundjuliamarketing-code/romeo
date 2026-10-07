@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, BackHandler, type Layo
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarOverlap } from '../components/navigation/SparrTabBar';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
@@ -71,6 +72,8 @@ type Props = { navigation: NavProp };
 
 export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const insets     = useSafeAreaInsets();
+  // Floating tab bar lies over the map; bottom controls sit above it.
+  const bottomSafe = Math.max(insets.bottom, useTabBarOverlap());
   const { user }   = useAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route      = useRoute<RouteProp<RootStackParamList, 'SparringMap'>>();
@@ -732,7 +735,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             radiusKm={radiusKm}
             currentUserId={user?.id ?? null}
             topInset={topBarHeight + 8}
-            bottomInset={insets.bottom + LIST_BOTTOM_SPACE}
+            bottomInset={bottomSafe + LIST_BOTTOM_SPACE}
             onPress={handleListPress}
             onRetry={refetchNearby}
             onPickLocation={() => setLocationPickerVisible(true)}
@@ -792,9 +795,9 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
       {/* ── Bottom: sparring preview stacked above the controls ── */}
       <View
-        style={[styles.bottomStack, { bottom: insets.bottom + 16 }]}
+        style={[styles.bottomStack, { bottom: bottomSafe + 16 }]}
         pointerEvents="box-none"
-        onLayout={(e) => setBottomHeight(e.nativeEvent.layout.height + insets.bottom + 16)}
+        onLayout={(e) => setBottomHeight(e.nativeEvent.layout.height + bottomSafe + 16)}
       >
         {showSparringCards && preview !== null && (
           <SparringMapPreview
