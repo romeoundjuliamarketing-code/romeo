@@ -6,9 +6,9 @@ function card(id: string) {
   return {
     id,
     area: 'boxen' as const,
-    title: `Karte ${id}`,
-    instruction: 'Text',
-    focus: 'Fokus',
+    title: { de: `Karte ${id}`, en: `Card ${id}` },
+    instruction: { de: 'Text', en: 'Text' },
+    focus: { de: 'Fokus', en: 'Focus' },
     difficulty: 'leicht' as const,
   };
 }

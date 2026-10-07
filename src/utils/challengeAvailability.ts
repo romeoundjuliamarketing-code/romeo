@@ -2,7 +2,7 @@ import { CHALLENGE_AREAS, challengesForArea } from '../data/sparringChallenges';
 import type { ChallengeArea, ChallengeAreaMeta, SparringChallenge } from '../data/sparringChallenges';
 
 export function isDeliveredChallenge(challenge: SparringChallenge): boolean {
-  return !challenge.title.startsWith('Platzhalter') && challenge.instruction.trim() !== 'Challenge-Text folgt.';
+  return !challenge.title.de.startsWith('Platzhalter') && challenge.instruction.de.trim() !== 'Challenge-Text folgt.';
 }
 
 export function playableChallengesForArea(area: ChallengeArea): SparringChallenge[] {

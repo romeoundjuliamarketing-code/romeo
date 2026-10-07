@@ -6,6 +6,7 @@ import ViewShot from 'react-native-view-shot';
 import RNShare from 'react-native-share';
 import QRCode from 'react-native-qrcode-svg';
 import { useTranslation } from 'react-i18next';
+import { useLocalized } from '../../i18n/language';
 import { colors } from '../../theme/colors';
 import { CARD_FRAMES, CARD_FRAME_IDS, cardFrame } from '../../data/cardFrames';
 import type { CardFrameId } from '../../data/cardFrames';
@@ -37,6 +38,7 @@ export default function ProfileShareSheet({
   visible, onClose, data, profileCode, isOwn, onSelectFrame,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
+  const tx = useLocalized();
   const [frameId, setFrameId] = useState<CardFrameId>(cardFrame(data.frame).id);
   const [savingFrame, setSavingFrame] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -129,13 +131,13 @@ export default function ProfileShareSheet({
                         style={styles.frameOption}
                         onPress={() => { void handleSelectFrame(id); }}
                         accessibilityRole="button"
-                        accessibilityLabel={t('profile.share.frameLabel', { label: f.label })}
+                        accessibilityLabel={t('profile.share.frameLabel', { label: tx(f.label) })}
                         accessibilityState={{ selected }}
                       >
                         <View style={[styles.swatch, { backgroundColor: f.cardBg, borderColor: f.border, borderWidth: f.borderWidth }]}>
                           <View style={[styles.swatchBand, { backgroundColor: f.band }]} />
                         </View>
-                        <Text style={[styles.frameLabel, selected && styles.frameLabelActive]}>{f.label}</Text>
+                        <Text style={[styles.frameLabel, selected && styles.frameLabelActive]}>{tx(f.label)}</Text>
                         {selected && <Ionicons name="checkmark-circle" size={18} color={colors.accentBlue} />}
                       </TouchableOpacity>
                     );

@@ -5,6 +5,7 @@ import { colors } from '../../theme/colors';
 import { useClarityChoice } from './clarityLevels';
 import ClarityButtons from './ClarityButtons';
 import { useTranslation } from 'react-i18next';
+import { useLocalized } from '../../i18n/language';
 
 interface Props {
   challenge:  SparringChallenge;
@@ -26,6 +27,7 @@ export default function ChallengeRatingOverlay({
   onSkipAll,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
+  const tx = useLocalized();
   const { selected, choose } = useClarityChoice(onRate);
 
   return (
@@ -41,7 +43,7 @@ export default function ChallengeRatingOverlay({
           <Text style={styles.heading}>{progress ?? t('challenge.rating.heading')}</Text>
           <Text style={styles.question} numberOfLines={3}>
             {selected === null
-              ? t('challenge.rating.question', { title: challenge.title })
+              ? t('challenge.rating.question', { title: tx(challenge.title) })
               : t('challenge.rating.thanks')}
           </Text>
 

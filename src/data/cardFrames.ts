@@ -1,4 +1,5 @@
 import { colors } from '../theme/colors';
+import type { LocalizedText } from '../utils/localized';
 
 // Selectable fighter-card frames — all within the Sparr palette (no gold).
 // Stored in profiles.card_frame (CHECK constraint in
@@ -7,7 +8,7 @@ export type CardFrameId = 'klassik' | 'blau' | 'nacht';
 
 export interface CardFrame {
   id:          CardFrameId;
-  label:       string;
+  label:       LocalizedText;
   cardBg:      string;   // card body
   border:      string;   // outer contour
   borderWidth: number;
@@ -22,19 +23,19 @@ export interface CardFrame {
 
 export const CARD_FRAMES: Record<CardFrameId, CardFrame> = {
   klassik: {
-    id: 'klassik', label: 'Klassik',
+    id: 'klassik', label: { de: 'Klassik', en: 'Classic' },
     cardBg: colors.card, border: colors.dark, borderWidth: 2,
     band: colors.dark, bandText: colors.card, nickname: colors.accentBlue,
     text: colors.text, subtle: colors.textMuted, line: colors.hairline, accent: colors.accentBlue,
   },
   blau: {
-    id: 'blau', label: 'Blau',
+    id: 'blau', label: { de: 'Blau', en: 'Blue' },
     cardBg: colors.card, border: colors.accentBlue, borderWidth: 3,
     band: colors.dark, bandText: colors.card, nickname: colors.accentBlue,
     text: colors.text, subtle: colors.textMuted, line: colors.hairline, accent: colors.accentBlue,
   },
   nacht: {
-    id: 'nacht', label: 'Nacht',
+    id: 'nacht', label: { de: 'Nacht', en: 'Night' },
     cardBg: colors.dark, border: colors.dark, borderWidth: 2,
     band: colors.accentBlue, bandText: colors.dark, nickname: colors.dark,
     text: colors.card, subtle: colors.textSecondary, line: colors.headerBorder, accent: colors.accentBlue,

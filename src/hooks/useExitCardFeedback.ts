@@ -39,7 +39,7 @@ export function useExitCardFeedback(current: SparringChallenge | null): ExitFeed
   });
 
   const finish = useCallback((): void => {
-    void recordMissionSession(played.map((c) => c.focus).filter((f) => f.length > 0));
+    void recordMissionSession(played.map((c) => c.focus.de).filter((f) => f.length > 0));
     setIndex(null);
     setDone(true);
   }, [played]);

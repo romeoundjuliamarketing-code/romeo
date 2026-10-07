@@ -6,19 +6,21 @@ import {
   SPARRING_RULES_INTRO,
   SPARRING_RULES_PREAMBLE,
 } from '../../data/sparringRules';
+import { useLocalized } from '../../i18n/language';
 
 // Full Sparr-Grundregeln text. Shared by SparringRulesScreen and the rules
 // overlay inside SparringRulesConsentSheet — render it inside a ScrollView.
 export default function SparringRulesContent(): React.ReactElement {
+  const tx = useLocalized();
   return (
     <>
-      <Text style={styles.preamble}>{SPARRING_RULES_PREAMBLE}</Text>
+      <Text style={styles.preamble}>{tx(SPARRING_RULES_PREAMBLE)}</Text>
 
       {/* Core principle — framed above the numbered rules, not one of them. */}
       <View style={styles.introCard}>
-        <Text style={styles.introTitle}>{SPARRING_RULES_INTRO.title}</Text>
+        <Text style={styles.introTitle}>{tx(SPARRING_RULES_INTRO.title)}</Text>
         {SPARRING_RULES_INTRO.paragraphs.map((paragraph) => (
-          <Text key={paragraph} style={styles.introBody}>{paragraph}</Text>
+          <Text key={paragraph.de} style={styles.introBody}>{tx(paragraph)}</Text>
         ))}
       </View>
 
@@ -28,9 +30,9 @@ export default function SparringRulesContent(): React.ReactElement {
             <View style={styles.numberBadge}>
               <Text style={styles.numberText}>{rule.number}</Text>
             </View>
-            <Text style={styles.ruleTitle}>{rule.title}</Text>
+            <Text style={styles.ruleTitle}>{tx(rule.title)}</Text>
           </View>
-          <Text style={styles.ruleBody}>{rule.body}</Text>
+          <Text style={styles.ruleBody}>{tx(rule.body)}</Text>
         </View>
       ))}
     </>

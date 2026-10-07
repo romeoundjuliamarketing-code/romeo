@@ -9,7 +9,11 @@ import {
 } from './challengePreview';
 
 function card(id: string, title: string, instruction = 'Arbeite nur mit dem Jab. Danach Konter.') {
-  return { id, area: 'kickboxen' as const, title, instruction, focus: 'Technik', difficulty: 'schwer' as const };
+  return {
+    id, area: 'kickboxen' as const,
+    title: { de: title, en: title }, instruction: { de: instruction, en: instruction },
+    focus: { de: 'Technik', en: 'Technique' }, difficulty: 'schwer' as const,
+  };
 }
 
 describe('isDeliveredChallenge', () => {

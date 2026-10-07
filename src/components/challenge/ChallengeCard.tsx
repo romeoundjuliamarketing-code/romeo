@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { challengePosition } from '../../data/sparringChallenges';
 import { useTranslation } from 'react-i18next';
+import { useLocalized } from '../../i18n/language';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import SparrLogo from '../common/SparrLogo';
@@ -51,10 +52,12 @@ export default function ChallengeCard({
   fitContent = false,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
+  const tx = useLocalized();
   const compact = size.width < COMPACT_WIDTH;
   const level   = DIFFICULTY_LEVEL[challenge.difficulty];
-  const meta    = challenge.focus.length > 0
-    ? `${t(`challenge.areas.${challenge.area}`)} · ${challenge.focus}`
+  const focus   = tx(challenge.focus);
+  const meta    = focus.length > 0
+    ? `${t(`challenge.areas.${challenge.area}`)} · ${focus}`
     : t(`challenge.areas.${challenge.area}`);
 
   const brief = (
@@ -72,7 +75,7 @@ export default function ChallengeCard({
         <Text style={styles.levelText}>{t(`challenge.difficulty.${challenge.difficulty}`)}</Text>
       </View>
 
-      <Text style={[styles.title, compact && styles.titleCompact]}>{challenge.title}</Text>
+      <Text style={[styles.title, compact && styles.titleCompact]}>{tx(challenge.title)}</Text>
       {/* Inside the deck the brief cannot scroll (the card is a tap target), so a very
           long text ellipsizes here and stays readable in full under "Alle Karten ansehen". */}
       <Text
@@ -83,7 +86,7 @@ export default function ChallengeCard({
         ]}
         numberOfLines={scrollable || fitContent ? undefined : 9}
       >
-        {challenge.instruction}
+        {tx(challenge.instruction)}
       </Text>
     </>
   );

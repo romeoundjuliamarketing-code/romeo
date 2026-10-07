@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import { useTranslation } from 'react-i18next';
+import { useLocalized } from '../../i18n/language';
 import SparrLogo from '../common/SparrLogo';
 import ChallengeCard from './ChallengeCard';
 import ChallengeCardBack from './ChallengeCardBack';
@@ -62,6 +63,7 @@ interface FlipCardProps {
 // docs/ui-performance.md, "Ruhezustand ist scharf").
 const FlipCard = memo(function FlipCard({ card, width, reduceMotion }: FlipCardProps): React.ReactElement {
   const { t } = useTranslation();
+  const tx = useLocalized();
   const [showBack, setShowBack] = useState(false);
   const [height, setHeight]     = useState<number | null>(null);
   // 0 = front, 180 = back
@@ -104,7 +106,7 @@ const FlipCard = memo(function FlipCard({ card, width, reduceMotion }: FlipCardP
       accessibilityRole="button"
       accessibilityLabel={showBack
         ? t('challenge.showcase.backLabel')
-        : t('challenge.showcase.frontLabel', { title: card.title, instruction: card.instruction })}
+        : t('challenge.showcase.frontLabel', { title: tx(card.title), instruction: tx(card.instruction) })}
       accessibilityHint={showBack ? t('challenge.showcase.hintShow') : t('challenge.showcase.hintFlip')}
     >
       <Animated.View style={pressStyle}>

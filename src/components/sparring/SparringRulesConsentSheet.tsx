@@ -20,6 +20,7 @@ import {
   SPARRING_RULES_VERSION,
 } from '../../data/sparringRules';
 import { useTranslation } from 'react-i18next';
+import { useLocalized } from '../../i18n/language';
 
 interface Props {
   visible: boolean;
@@ -42,6 +43,7 @@ export default function SparringRulesConsentSheet({
   onConfirm,
 }: Props): React.ReactElement | null {
   const { t } = useTranslation();
+  const tx = useLocalized();
   const [accepted, setAccepted] = useState(false);
   // Full rules text shown as an overlay on top of this sheet. Navigating to the
   // SparringRules screen would land behind the open Modals and stay invisible.
@@ -120,20 +122,20 @@ export default function SparringRulesConsentSheet({
             scrollEventThrottle={32}
           >
             <View style={styles.introCard}>
-              <Text style={styles.introTitle}>{SPARRING_RULES_INTRO.title}</Text>
-              <Text style={styles.introBody}>{SPARRING_RULES_INTRO.paragraphs[0]}</Text>
+              <Text style={styles.introTitle}>{tx(SPARRING_RULES_INTRO.title)}</Text>
+              <Text style={styles.introBody}>{tx(SPARRING_RULES_INTRO.paragraphs[0])}</Text>
             </View>
 
             <Text style={styles.listIntro}>{t('sparring.consent.listIntro')}</Text>
 
             {SPARRING_CONSENT_ITEMS.map((item) => (
-              <View key={item} style={styles.item}>
+              <View key={item.de} style={styles.item}>
                 <Ionicons
                   name="checkmark-circle-outline"
                   size={18}
                   color={colors.accentBlue}
                 />
-                <Text style={styles.itemText}>{item}</Text>
+                <Text style={styles.itemText}>{tx(item)}</Text>
               </View>
             ))}
 
@@ -166,7 +168,7 @@ export default function SparringRulesConsentSheet({
             <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
               {accepted && <Ionicons name="checkmark" size={16} color={colors.headerTextPrimary} />}
             </View>
-            <Text style={styles.checkboxLabel}>{SPARRING_CONSENT_CHECKBOX_LABEL}</Text>
+            <Text style={styles.checkboxLabel}>{tx(SPARRING_CONSENT_CHECKBOX_LABEL)}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

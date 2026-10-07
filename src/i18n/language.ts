@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import {
   decideProfileSync, parseLanguage, resolveStartupLanguage, type AppLanguage,
 } from '../utils/language';
+import { localized, type LocalizedText } from '../utils/localized';
 
 // Device-level choice; survives sign-out like the welcome-intro flag.
 const STORAGE_KEY = 'sparr.language.v1';
@@ -120,4 +121,10 @@ export function useLanguage(): { language: AppLanguage; setLanguage: (next: AppL
     if (userId) await enqueueUpload(userId, next);
   }, []);
   return { language, setLanguage };
+}
+
+// Picks the active language from a bilingual content field (src/data/).
+export function useLocalized(): (text: LocalizedText) => string {
+  const { language } = useLanguage();
+  return useCallback((text: LocalizedText) => localized(text, language), [language]);
 }

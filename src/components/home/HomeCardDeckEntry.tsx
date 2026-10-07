@@ -11,6 +11,7 @@ import ChallengeCardBack from '../challenge/ChallengeCardBack';
 import { CARD_ASPECT, CARD_RADIUS } from '../challenge/cardLayout';
 import type { SparringChallenge } from '../../data/sparringChallenges';
 import { useTranslation } from 'react-i18next';
+import { useLocalized } from '../../i18n/language';
 
 interface Props {
   /** The fixed free K-1 example card; null → the card back is shown. */
@@ -60,6 +61,7 @@ function backCardStyle(progress: SharedValue<number>, pose: typeof FAR) {
 // only, skipped with reduced motion).
 export default function HomeCardDeckEntry({ preview, onDraw }: Props) {
   const { t } = useTranslation();
+  const tx = useLocalized();
   const { width, height, fontScale } = useWindowDimensions();
   const inner      = Math.min(width, HOME_MAX_WIDTH) - 2 * PAGE_GUTTER;
   const cardWidth  = Math.round(Math.max(MIN_FRONT_WIDTH, Math.min(
@@ -106,7 +108,7 @@ export default function HomeCardDeckEntry({ preview, onDraw }: Props) {
   }));
 
   const a11yLabel = preview !== null
-    ? t('home.cards.openWithPreview', { title: preview.title })
+    ? t('home.cards.openWithPreview', { title: tx(preview.title) })
     : t('home.cards.open');
 
   return (
