@@ -92,7 +92,7 @@ SQL
 } | "${PSQL[@]}"
 
 # The three new migrations, in deploy order.
-for m in 20261008120000_sparring_trust_schema 20261008120100_sparring_trust_rpcs 20261008120200_sparring_trust_lockdown; do
+for m in 20261008120000_sparring_trust_schema 20261008120100_sparring_trust_rpcs 20261008120150_sparring_trust_search_path 20261008120200_sparring_trust_lockdown; do
   "${PSQL[@]}" -f "$HERE/../migrations/$m.sql"
 done
 "${PSQL[@]}" -f "$HERE/sparring_trust.sql"
