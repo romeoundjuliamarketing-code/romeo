@@ -14,6 +14,9 @@ import { fetchSparringById } from '../hooks/useOpenSparrings';
 import { useNearbySparrings } from '../hooks/useNearbySparrings';
 import { useSearchLocation } from '../hooks/useSearchLocation';
 import { useSparringActions } from '../hooks/useSparringActions';
+import { useSparringReach } from '../hooks/useSparringReach';
+import { useSparringJoinFlow } from '../hooks/useSparringJoinFlow';
+import ReachIntroSheet from '../components/sparring/trust/ReachIntroSheet';
 import { useStudio } from '../hooks/useStudio';
 import { useStudioAddress } from '../hooks/useStudioAddress';
 import { useVerification } from '../hooks/useVerification';
@@ -102,9 +105,12 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const { status: nearbyStatus, sparrings, refetch: refetchNearby } = useNearbySparrings(searchLocation, radiusKm);
   useFocusRefetch(refetchNearby);
   const {
-    signUp, cancelSignup, confirmSparring, createSparring, deactivateSparring, updateSparring, countEditAffected, setSparringGym,
+    cancelSignup, confirmSparring, deactivateSparring, updateSparring, countEditAffected, setSparringGym,
   } = useSparringActions();
   const { totalUnread, refetch: refetchChatList } = useSparringChatList();
+  // Server-side reach status (radius, planned slot, intro state).
+  const reach = useSparringReach();
+  useFocusRefetch(reach.refetch);
 
   // ── Event data ────────────────────────────────────────────────────────────
   const { events, refetch: refetchEvents } = useOpenEvents(0, SHOW_EVENTS);
@@ -158,6 +164,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // Branded "really cancel?" card (inside the detail sheet)
   const [cancelAskVisible, setCancelAskVisible] = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
+  // One-time intro before the first create (own sheet: no other modal is open then).
+  const [createIntroVisible, setCreateIntroVisible] = useState(false);
+  const [createIntroBusy, setCreateIntroBusy] = useState(false);
+  const [createIntroError, setCreateIntroError] = useState<string | null>(null);
   const [createEventVisible, setCreateEventVisible] = useState(false);
   // Gym page "Sparring planen": this gym is preselected as the place.
   const [createGymId, setCreateGymId] = useState<string | null>(null);
@@ -389,6 +399,52 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     return false;
   }
 
+  // Opens the create flow; before the very first create (per account, stored
+  // on the server) the intro comes first. "Später" marks nothing as done.
+  function openCreateFlow(): void {
+    if (reach.status?.intro_acked !== true) {
+      setCreateIntroError(null);
+      setCreateIntroVisible(true);
+      return;
+    }
+    setCreateSheetVisible(true);
+  }
+
+  async function handleCreateIntroNext(): Promise<void> {
+    setCreateIntroBusy(true);
+    setCreateIntroError(null);
+    const ok = await reach.ackIntro();
+    setCreateIntroBusy(false);
+    if (!ok) {
+      setCreateIntroError(t('sparringTrust.intro.saveFailed'));
+      return;
+    }
+    setCreateIntroVisible(false);
+    setCreateSheetVisible(true);
+  }
+
+  // Closes any sheet and shows sparrings around the device position.
+  function showNearbyAtDevice(): void {
+    setCreateSheetVisible(false);
+    setConsentVisible(false);
+    setCommitmentResult(null);
+    setSelected(null);
+    setMapMode('sparrings');
+    setTimeFilter('all');
+    changeView('list');
+    chooseRadius(HOME_RADIUS_KM);
+    void switchToDevice();
+  }
+
+  // Closes the current sheet, then opens the given sparring (focus mechanism).
+  function focusSparring(sparringId: string): void {
+    setCreateSheetVisible(false);
+    setConsentVisible(false);
+    setCommitmentResult(null);
+    setSelected(null);
+    navigation.setParams({ focusSparringId: sparringId });
+  }
+
   // Deep-link from the "no sparrings nearby" notification: open the create sheet.
   useEffect(() => {
     if (route.params?.openCreate !== true) return;
@@ -396,7 +452,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     navigation.setParams({ openCreate: undefined, createAtGymId: undefined });
     if (requireVerified() && requireCreator()) {
       setCreateGymId(gymId);
-      setCreateSheetVisible(true);
+      openCreateFlow();
     }
   }, [route.params?.openCreate]);
 
@@ -461,30 +517,38 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     setSearchOpen(false);
   }
 
+  // Binding join (intro, eligibility, location primer, consent, position check)
+  // lives in useSparringJoinFlow; this screen only owns the consent sheet and
+  // the result card.
+  const joinFlow = useSparringJoinFlow({
+    sparringId:     selected?.id ?? null,
+    reachStatus:    reach.status,
+    ackIntro:       reach.ackIntro,
+    refetchReach:   reach.refetch,
+    setBusy:        setActionLoading,
+    openConsent:    () => setConsentVisible(true),
+    onJoined:       (status) => {
+      // Keep the detail sheet open: the refetch below updates `selected`
+      // (see the sync effect), so the CTA switches to the new status in place.
+      refetchSparrings();
+      setCommitmentResult(status);
+    },
+    onOpenSparring: focusSparring,
+    onShowNearby:   showNearbyAtDevice,
+  });
+
   function handleJoinSparring(): void {
     if (selected === null) return;
     if (!canJoinSparring(selected.verified_only, tier)) {
       requireVerified();
       return;
     }
-    // Joining always requires accepting the Sparr-Grundregeln first.
-    setConsentVisible(true);
+    joinFlow.start();
   }
 
   async function handleConfirmSparringConsent(rulesVersion: number): Promise<void> {
-    if (selected === null) return;
-    setActionLoading(true);
-    const { error, status } = await signUp(selected.id, rulesVersion);
-    setActionLoading(false);
+    await joinFlow.confirm(rulesVersion);
     setConsentVisible(false);
-    if (error !== null) {
-      Alert.alert(t('map.screen.noticeTitle'), error);
-      return;
-    }
-    // Keep the detail sheet open: the refetch below updates `selected`
-    // (see the sync effect), so the CTA switches to the new status in place.
-    refetchSparrings();
-    setCommitmentResult(status);
   }
 
   function handleCancelSparringSignup(): void {
@@ -745,7 +809,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             onRetry={refetchNearby}
             onPickLocation={() => setLocationPickerVisible(true)}
             onWiden={widen}
-            onCreate={() => { if (requireVerified() && requireCreator()) setCreateSheetVisible(true); }}
+            onCreate={() => { if (requireVerified() && requireCreator()) openCreateFlow(); }}
           />
         </View>
       )}
@@ -839,7 +903,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           onPrimary={() => {
             if (!requireVerified()) return;
             if (mapMode === 'sparrings') {
-              if (requireCreator()) setCreateSheetVisible(true);
+              if (requireCreator()) openCreateFlow();
             } else {
               setCreateEventVisible(true);
             }
@@ -856,6 +920,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           setConsentVisible(false);
           setCommitmentResult(null);
           setCancelAskVisible(false);
+          joinFlow.reset();
           setSelected(null);
         }}
         onJoin={handleJoinSparring}
@@ -887,6 +952,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onCancelAskClose={() => setCancelAskVisible(false)}
         onCancelAskConfirm={() => { void performCancelSparringSignup(); }}
         loading={actionLoading}
+        joinFlow={joinFlow.view}
+        onReachChanged={reach.refetch}
       />
 
       {/* ── Event detail sheet ── */}
@@ -921,30 +988,39 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         coachStudio={coachStudio}
         initialGym={createGymId !== null ? createGym : null}
         onClose={() => setCreateSheetVisible(false)}
-        onCreate={async (params) => {
-          const { error, code } = await createSparring(params);
-          if (code === 'subscription_required') {
-            // Close the flow first so the paywall opens above the content.
-            // The draft stays in the flow for the next attempt.
-            setCreateSheetVisible(false);
-            void refetchStoreEntitlements();
-            if (subscriptionRejection(storeEntitlements.creatorActive) === 'activating') {
-              Alert.alert(t('map.screen.subscriptionActivatingTitle'), t('map.screen.subscriptionActivatingMessage'));
-              return false;
-            }
-            Alert.alert(t('map.screen.creatorRequiredTitle'), t('map.screen.creatorRequiredMessage'), [
-              { text: t('common.cancel'), style: 'cancel' },
-              { text: t('map.screen.viewSubscriptions'), onPress: () => navigation.navigate('Paywall', { focus: 'creator' }) },
-            ]);
-            return false;
-          }
-          if (error !== null) {
-            Alert.alert(t('map.screen.notPublishedTitle'), t('map.screen.notPublishedMessage', { error }));
-            return false;
-          }
+        onPublished={(sparringId) => {
+          setCreateSheetVisible(false);
           refetchSparrings();
-          return true;
+          reach.refetch();
+          navigation.setParams({ focusSparringId: sparringId });
         }}
+        onSubscriptionRequired={() => {
+          // Close the flow first so the paywall opens above the content.
+          // The draft stays in the flow for the next attempt.
+          setCreateSheetVisible(false);
+          void refetchStoreEntitlements();
+          if (subscriptionRejection(storeEntitlements.creatorActive) === 'activating') {
+            Alert.alert(t('map.screen.subscriptionActivatingTitle'), t('map.screen.subscriptionActivatingMessage'));
+            return;
+          }
+          Alert.alert(t('map.screen.creatorRequiredTitle'), t('map.screen.creatorRequiredMessage'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            { text: t('map.screen.viewSubscriptions'), onPress: () => navigation.navigate('Paywall', { focus: 'creator' }) },
+          ]);
+        }}
+        onOpenSparring={focusSparring}
+        onShowNearby={showNearbyAtDevice}
+      />
+
+      {/* One-time intro before the first create */}
+      <ReachIntroSheet
+        visible={createIntroVisible}
+        mode="intro"
+        busy={createIntroBusy}
+        error={createIntroError}
+        onPrimary={() => { void handleCreateIntroNext(); }}
+        onSecondary={() => setCreateIntroVisible(false)}
+        onClose={() => setCreateIntroVisible(false)}
       />
 
       {/* ── Edit sheet (organizer) ── */}

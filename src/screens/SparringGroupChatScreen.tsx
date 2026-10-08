@@ -26,6 +26,7 @@ import type { AppLanguage } from '../utils/language';
 import { useSparringGroupChat } from '../hooks/useSparringGroupChat';
 import { useSparringChatSettings } from '../hooks/useSparringChatSettings';
 import { useSparringActions } from '../hooks/useSparringActions';
+import { getLocationPermissionState } from '../hooks/useDeviceFix';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import GroupMessageBubble from '../components/chat/GroupMessageBubble';
@@ -206,6 +207,20 @@ export default function SparringGroupChatScreen() {
   }
 
   async function handleConfirmConsent(rulesVersion: number) {
+    // Explain the location check before the system prompt (spec: primer first).
+    const permission = await getLocationPermissionState();
+    if (permission === 'undetermined' || permission === 'denied') {
+      const proceed = await new Promise<boolean>((resolve) => {
+        Alert.alert(t('sparringTrust.primer.title'), t('sparringTrust.primer.body'), [
+          { text: t('sparringTrust.primer.later'), style: 'cancel', onPress: () => resolve(false) },
+          { text: t('sparringTrust.primer.allow'), onPress: () => resolve(true) },
+        ], { cancelable: true, onDismiss: () => resolve(false) });
+      });
+      if (!proceed) {
+        setConsentVisible(false);
+        return;
+      }
+    }
     setSignupLoading(true);
     const { error } = await signUp(sparringId, rulesVersion);
     setConsentVisible(false);

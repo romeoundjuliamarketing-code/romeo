@@ -27,7 +27,7 @@ function Expander({ label, open, onOpen, children }: {
   );
 }
 
-function StepPreview({ preview, title, autoTitle, notes, titleError, notesError, onTitle, onNotes, onNotesFocus }: {
+function StepPreview({ preview, title, autoTitle, notes, titleError, notesError, onTitle, onNotes, onNotesFocus, permissionConfirmed, permissionMissing, onPermission, footer }: {
   preview:      React.ReactNode;
   title:        string;
   /** Automatic name used without an own title. */
@@ -38,6 +38,13 @@ function StepPreview({ preview, title, autoTitle, notes, titleError, notesError,
   onTitle:      (t: string) => void;
   onNotes:      (t: string) => void;
   onNotesFocus: () => void;
+  /** Self-declaration: we may train at this place. */
+  permissionConfirmed: boolean;
+  /** Publish was pressed without it: explain inline. */
+  permissionMissing:   boolean;
+  onPermission:        (value: boolean) => void;
+  /** Publish problem card etc. */
+  footer?:             React.ReactNode;
 }): React.ReactElement {
   const { t } = useTranslation();
   // Opened rows stay open while they hold text (also after going back).
@@ -88,6 +95,27 @@ function StepPreview({ preview, title, autoTitle, notes, titleError, notesError,
           <FieldError text={notesError} />
         </Expander>
       </View>
+
+      <Pressable
+        style={styles.permission}
+        onPress={() => onPermission(!permissionConfirmed)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: permissionConfirmed }}
+        accessibilityLabel={t('sparringTrust.create.permissionCheckbox')}
+        accessibilityHint={t('sparringTrust.create.permissionHint')}
+      >
+        <Ionicons
+          name={permissionConfirmed ? 'checkbox' : 'square-outline'}
+          size={24}
+          color={permissionConfirmed ? colors.accentBlue : colors.textMuted}
+        />
+        <View style={styles.permissionText}>
+          <Text style={styles.permissionLabel}>{t('sparringTrust.create.permissionCheckbox')}</Text>
+          <Text style={styles.hint}>{t('sparringTrust.create.permissionHint')}</Text>
+        </View>
+      </Pressable>
+      {permissionMissing && !permissionConfirmed && <FieldError text={t('sparringTrust.notice.permissionNotConfirmed')} />}
+      {footer}
 
       {Platform.OS === 'ios' && (
         <InputAccessoryView nativeID={NOTES_ACCESSORY_ID}>
@@ -151,6 +179,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 13,
     color: colors.textMuted,
+  },
+  permission: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 16,
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+  },
+  permissionText: {
+    flex: 1,
+  },
+  permissionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
   },
   accessoryBar: {
     flexDirection: 'row',

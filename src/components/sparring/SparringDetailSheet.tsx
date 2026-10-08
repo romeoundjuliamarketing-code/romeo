@@ -36,6 +36,11 @@ import type { SparringCommitmentResult } from './SparringCommitmentResultCard';
 import SparringCancelConfirmCard from './SparringCancelConfirmCard';
 import SparringStoryCard from './SparringStoryCard';
 import { usePopAnimation } from './SparringPopCard';
+import TrustNoticeCard from './trust/TrustNoticeCard';
+import JoinFlowOverlay, { type JoinFlowView } from './trust/JoinFlowOverlay';
+import CheckinSection from './trust/CheckinSection';
+import TrustPanelOverlays from './trust/TrustPanelOverlays';
+import { useTrustPanel } from './trust/useTrustPanel';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../i18n/language';
 import { formatDate } from '../../utils/formatDate';
@@ -66,6 +71,10 @@ interface Props {
   onCancelAskClose:        () => void;
   onCancelAskConfirm:      () => void;
   loading:           boolean;
+  /** Join gate (intro, location primer, explanation, problem card). */
+  joinFlow:          JoinFlowView;
+  /** The radius may have changed (e.g. after the meeting confirmation). */
+  onReachChanged:    () => void;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -98,7 +107,7 @@ export default function SparringDetailSheet({
   sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onEdit, onOpenChat,
   consentVisible, onConsentClose, onConsentConfirm, commitmentResult, onCommitmentResultClose,
   cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
-  loading,
+  loading, joinFlow, onReachChanged,
 }: Props) {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -118,6 +127,10 @@ export default function SparringDetailSheet({
   // Summary (avatars, counts) + the user's own waitlist position.
   const { participants, loading: participantsLoading } =
     useSparringParticipants(sparring?.id ?? null, participantsVersion);
+
+  // Check-in / meeting confirmation state of this sparring (overlays are
+  // rendered at the root of the Modal below).
+  const trustPanel = useTrustPanel(sparring?.id ?? null, participantsVersion, onReachChanged);
 
   // Full participant list and long description are collapsed per sparring.
   const [listExpanded, setListExpanded] = useState(false);
@@ -218,6 +231,8 @@ export default function SparringDetailSheet({
       onRequestClose={
         commitmentResult !== null ? onCommitmentResultClose
           : cancelAskVisible ? onCancelAskClose
+          : joinFlow.overlay !== null ? joinFlow.onOverlayClose
+          : trustPanel.overlay !== null ? trustPanel.closeOverlay
           : dismiss
       }
     >
@@ -251,6 +266,7 @@ export default function SparringDetailSheet({
               style={styles.scrollView}
               contentContainerStyle={styles.content}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
               <SparringLocationRow primary={location.primary} secondary={location.secondary} />
               <SparringGymRow
@@ -295,6 +311,12 @@ export default function SparringDetailSheet({
                 onConfirm={onConfirm}
                 onCancel={onCancelSignup}
               />
+
+              {joinFlow.problem !== null && (
+                <TrustNoticeCard problem={joinFlow.problem} onAction={joinFlow.onProblemAction} />
+              )}
+
+              <CheckinSection panel={trustPanel} sparringId={sparring.id} sparringTitle={sparring.title} />
 
               {notes.length > 0 && (
                 <View style={styles.section}>
@@ -407,6 +429,9 @@ export default function SparringDetailSheet({
               onConfirm={onCancelAskConfirm}
             />
           )}
+
+          <JoinFlowOverlay flow={joinFlow} />
+          <TrustPanelOverlays panel={trustPanel} sparringId={sparring.id} />
 
           {commitmentResult !== null && (
             <SparringCommitmentResultCard

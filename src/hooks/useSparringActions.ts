@@ -3,12 +3,15 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { geocodeAddress } from '../utils/geocoding';
 import { SPARRING_RULES_VERSION } from '../data/sparringRules';
+import { SPARRING_TRUST } from '../data/sparringConfig';
+import { formatTooFarKm, trustNoticeFor } from '../utils/sparringTrust';
+import { localeFor, parseLanguage } from '../utils/language';
+import { useSparringTrustActions } from './useSparringTrustActions';
 import type { Database } from '../types/database.types';
-import { sparringInsertErrorCode } from '../utils/subscriptionPlans';
 import i18n from '../i18n';
 import { serverErrorText } from '../utils/serverErrorText';
 
-type JoinSparringStatus   = Database['public']['Functions']['join_sparring']['Returns']
+type JoinSparringStatus   = 'pending' | 'confirmed' | 'waitlisted'
 type CancelSparringStatus = Database['public']['Functions']['cancel_sparring_signup']['Returns']
 export type UpdateSparringResult = Database['public']['Functions']['update_sparring']['Returns']
 
@@ -66,18 +69,22 @@ export type CreateSparringInput =
       verifiedOnly?: boolean;
     };
 
+// Dynamic notice keys: the typed t() cannot check a computed key.
+const translate = i18n.t.bind(i18n) as (key: string, params: Record<string, string | number>) => string;
+const currentLanguage = () => parseLanguage(i18n.language) ?? 'de';
+
 export function useSparringActions(): {
   signUp: (sparringId: string, rulesVersion: number) => Promise<{ error: string | null; status: JoinSparringStatus | null }>;
   cancelSignup: (sparringId: string) => Promise<{ error: string | null; status: CancelSparringStatus | null }>;
   confirmSparring: (sparringId: string) => Promise<{ error: string | null }>;
   markAttendance: (sparringId: string, userId: string, present: boolean) => Promise<{ error: string | null }>;
-  createSparring: (params: CreateSparringInput) => Promise<{ error: string | null; sparringId?: string; code?: 'subscription_required' }>;
   deactivateSparring: (sparringId: string) => Promise<{ error: string | null }>;
   updateSparring: (sparringId: string, input: UpdateSparringInput) => Promise<{ error: string | null; result: UpdateSparringResult | null }>;
   countEditAffected: (sparringId: string) => Promise<number>;
   setSparringGym: (sparringId: string, gymId: string | null, accessNote: string | null) => Promise<{ error: string | null }>;
 } {
   const { user } = useAuth();
+  const { join } = useSparringTrustActions();
 
   const signUp = useCallback(async (
     sparringId: string,
@@ -90,13 +97,31 @@ export function useSparringActions(): {
     if (rulesVersion < SPARRING_RULES_VERSION) {
       return { error: i18n.t('sparring.actions.rulesRequired'), status: null };
     }
-    const { data, error } = await supabase.rpc('join_sparring', {
-      p_sparring_id:   sparringId,
-      p_rules_version: rulesVersion,
-    });
-    if (error !== null) return { error: serverErrorText(error.message), status: null };
-    return { error: null, status: data };
-  }, [user]);
+    // Binding join: measures the device position and is checked by the server.
+    const out = await join(sparringId, rulesVersion, true);
+    if (out.kind === 'ok') return { error: null, status: out.data.status };
+    if (out.kind === 'refused') {
+      const radius = out.refusal.radius_km ?? SPARRING_TRUST.radiusBaseKm;
+      if (out.refusal.reason === 'too_far') {
+        // Never invent a distance: without one the radius-only text is used.
+        const distance = formatTooFarKm(out.refusal.distance_m, radius, localeFor(currentLanguage()));
+        const lines = [distance !== null
+          ? translate('sparringTrust.notice.tooFar', { distance, radius })
+          : translate('sparringTrust.notice.tooFarUnknown', { radius })];
+        if (out.refusal.unlocked !== true) {
+          lines.push(translate('sparringTrust.notice.tooFarHint', { km: SPARRING_TRUST.radiusUnlockedKm }));
+        }
+        return { error: lines.join(' '), status: null };
+      }
+      const key = `sparringTrust.notice.${trustNoticeFor(out.refusal.reason).key}` as const;
+      const params: Record<string, string | number> = {
+        radius, time: '', meters: SPARRING_TRUST.checkinRadiusM,
+      };
+      return { error: translate(key, params), status: null };
+    }
+    if (out.kind === 'location') return { error: i18n.t('sparringTrust.notice.locationMissing'), status: null };
+    return { error: i18n.t('sparringTrust.notice.network'), status: null };
+  }, [user, join]);
 
   const cancelSignup = useCallback(async (
     sparringId: string,
@@ -125,98 +150,6 @@ export function useSparringActions(): {
       p_present:     present,
     });
     return { error: (error ? serverErrorText(error.message) : null) };
-  }, [user]);
-
-  const createSparring = useCallback(async (params: CreateSparringInput): Promise<{ error: string | null; sparringId?: string; code?: 'subscription_required' }> => {
-    if (user === null) return { error: i18n.t('sparring.actions.notLoggedIn') };
-
-    let resolvedAddress: string;
-    let studioId: string | null = null;
-    let lat: number | null = null;
-    let lng: number | null = null;
-
-    if (params.studioId !== undefined) {
-      // Coach flow: fetch address from studio
-      const { data: studio, error: studioError } = await supabase
-        .from('studios')
-        .select('address, lat, lng')
-        .eq('id', params.studioId)
-        .single();
-
-      if (studioError !== null || studio === null) {
-        return { error: i18n.t('sparring.actions.gymNotFound') };
-      }
-      if (studio.address === null || studio.address.trim().length === 0) {
-        return { error: i18n.t('sparring.actions.gymNoAddress') };
-      }
-
-      resolvedAddress = studio.address;
-      studioId = params.studioId;
-      lat = studio.lat;
-      lng = studio.lng;
-
-      if (lat === null || lng === null) {
-        const coords = await geocodeAddress(resolvedAddress);
-        lat = coords?.lat ?? null;
-        lng = coords?.lng ?? null;
-      }
-    } else {
-      // User flow: use pre-resolved coords from map picker, or geocode the typed address
-      resolvedAddress = params.address;
-      if (params.lat !== undefined && params.lng !== undefined) {
-        lat = params.lat;
-        lng = params.lng;
-      } else {
-        const coords = await geocodeAddress(resolvedAddress);
-        lat = coords?.lat ?? null;
-        lng = coords?.lng ?? null;
-      }
-    }
-
-    // Gym columns only when a gym was chosen, so creating keeps working on a
-    // backend without the gym migration.
-    const gymFields = params.studioId === undefined && params.gymId !== undefined
-      ? { gym_id: params.gymId, access_note: params.accessNote?.trim() || null }
-      : {};
-    const insertStudioId = params.studioId !== undefined ? studioId : (params.isAtStudio === true ? (params.atStudioId ?? null) : null);
-    const { data: newSparring, error } = await supabase
-      .from('open_sparrings')
-      .insert({
-        studio_id:     insertStudioId,
-        is_at_studio:  params.studioId !== undefined ? true : (params.isAtStudio === true),
-        created_by:    user.id,
-        title:         params.title,
-        discipline:    params.discipline,
-        address:       resolvedAddress,
-        lat,
-        lng,
-        scheduled_at:  params.scheduledAt,
-        duration_min:  params.durationMin,
-        max_slots:     params.maxSlots,
-        notes:         params.notes.trim() || null,
-        verified_only: params.verifiedOnly === true,
-        ...gymFields,
-      })
-      .select('id')
-      .single();
-
-    if (error !== null || newSparring === null) {
-      if (sparringInsertErrorCode(error?.code, insertStudioId) === 'subscription_required') {
-        return { error: i18n.t('sparring.actions.subscriptionRequired'), code: 'subscription_required' };
-      }
-      return { error: (error ? serverErrorText(error.message) : i18n.t('sparring.actions.createFailed')) };
-    }
-
-    const { error: settingsError } = await supabase
-      .from('sparring_chat_settings')
-      .upsert({ sparring_id: newSparring.id }, { onConflict: 'sparring_id', ignoreDuplicates: true });
-
-    if (settingsError !== null) {
-      await supabase.from('open_sparrings').delete().eq('id', newSparring.id);
-      return { error: settingsError.message };
-    }
-
-    return { error: null, sparringId: newSparring.id };
   }, [user]);
 
   const deactivateSparring = useCallback(async (sparringId: string): Promise<{ error: string | null }> => {
@@ -296,7 +229,7 @@ export function useSparringActions(): {
   }, [user]);
 
   return {
-    signUp, cancelSignup, confirmSparring, markAttendance, createSparring, deactivateSparring,
+    signUp, cancelSignup, confirmSparring, markAttendance, deactivateSparring,
     updateSparring, countEditAffected, setSparringGym,
   };
 }

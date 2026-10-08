@@ -1,3 +1,8 @@
+import type {
+  CheckinResult, CheckinSessionResult, EligibilityResult, FeedbackResult, JoinV2Result,
+  PlaceSuggestionResult, PublishResult, SparringCheckinEntry, SparringReachStatus, SparringTrustState,
+} from './sparringTrust'
+
 export type Json =
   | string
   | number
@@ -533,6 +538,11 @@ export type Database = {
           material_changed_at: string | null
           gym_id: string | null
           access_note: string | null
+          place_id: string | null
+          place_name: string | null
+          permission_confirmed_at: string | null
+          deactivated_at: string | null
+          meeting_conflict_at: string | null
         }
         Insert: {
           id?: string
@@ -2161,6 +2171,88 @@ export type Database = {
           attended: number
           committed: number
         }[]
+      }
+      get_sparring_reach_status: {
+        Args: Record<string, never>
+        Returns: SparringReachStatus
+      }
+      check_sparring_eligibility: {
+        Args: {
+          p_action:       'publish' | 'join'
+          p_sparring_id?: string | null
+          p_place_id?:    string | null
+          p_lat?:         number | null
+          p_lng?:         number | null
+          p_accuracy_m?:  number | null
+          p_fix_age_s?:   number | null
+        }
+        Returns: EligibilityResult
+      }
+      publish_sparring: {
+        Args: {
+          p_request_id:           string
+          p_place_id:             string
+          p_title:                string
+          p_discipline:           string
+          p_notes:                string | null
+          p_scheduled_at:         string
+          p_duration_min:         number
+          p_max_slots:            number
+          p_verified_only:        boolean
+          p_permission_confirmed: boolean
+          p_lat:                  number
+          p_lng:                  number
+          p_accuracy_m:           number
+          p_fix_age_s:            number
+          p_gym_id?:              string | null
+          p_studio_id?:           string | null
+          p_access_note?:         string | null
+          p_place_label?:         string | null
+        }
+        Returns: PublishResult
+      }
+      join_sparring_v2: {
+        Args: {
+          p_sparring_id:   string
+          p_rules_version: number
+          p_lat:           number
+          p_lng:           number
+          p_accuracy_m:    number
+          p_fix_age_s:     number
+        }
+        Returns: JoinV2Result
+      }
+      start_checkin_session: {
+        Args: { p_sparring_id: string; p_lat: number; p_lng: number; p_accuracy_m: number; p_fix_age_s: number }
+        Returns: CheckinSessionResult
+      }
+      check_in_sparring: {
+        Args: { p_sparring_id: string; p_token: string; p_lat: number; p_lng: number; p_accuracy_m: number; p_fix_age_s: number }
+        Returns: CheckinResult
+      }
+      get_sparring_trust_state: {
+        Args: { p_sparring_id: string }
+        Returns: SparringTrustState
+      }
+      get_sparring_checkins: {
+        Args: { p_sparring_id: string }
+        Returns: SparringCheckinEntry[]
+      }
+      submit_meeting_feedback: {
+        Args: { p_sparring_id: string; p_answer: 'happened' | 'cancelled' | 'problem'; p_note?: string | null }
+        Returns: FeedbackResult
+      }
+      ack_sparring_intro: {
+        Args: { p_version: number }
+        Returns: undefined
+      }
+      ack_reach_unlock: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
+      submit_place_suggestion: {
+        Args: { p_name: string; p_address: string; p_note?: string | null }
+        Returns: PlaceSuggestionResult
       }
       get_subscribed_studios: {
         Args: Record<string, never>

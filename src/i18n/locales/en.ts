@@ -13,6 +13,7 @@ import venue from './en/venue';
 import team from './en/team';
 import profile from './en/profile';
 import sparring from './en/sparring';
+import sparringTrust from './en/sparringTrust';
 import challenge from './en/challenge';
 import home from './en/home';
 import map from './en/map';
@@ -33,6 +34,7 @@ const en: LocaleShape<typeof de> = {
   team,
   profile,
   sparring,
+  sparringTrust,
   challenge,
   home,
   map,

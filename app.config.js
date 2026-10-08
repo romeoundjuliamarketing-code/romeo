@@ -65,7 +65,7 @@ module.exports = {
         CFBundleDevelopmentRegion: "de",
         CFBundleLocalizations: ["de", "en"],
         NSLocationWhenInUseUsageDescription:
-          "Sparr zeigt dir Sparring-Partner in deiner Nähe.",
+          "Sparr zeigt dir Sparring-Partner in deiner Nähe und prüft deinen Standort beim Veröffentlichen, Zusagen und Einchecken. Er wird anderen nicht angezeigt.",
         NSPhotoLibraryUsageDescription:
           "Sparr verwendet deine Fotos, um Bilder im Sparring-Chat zu senden.",
       },
@@ -103,11 +103,11 @@ module.exports = {
         "expo-location",
         {
           locationWhenInUsePermission:
-            "Sparr zeigt dir Sparring-Partner in deiner Nähe.",
+            "Sparr zeigt dir Sparring-Partner in deiner Nähe und prüft deinen Standort beim Veröffentlichen, Zusagen und Einchecken. Er wird anderen nicht angezeigt.",
         },
       ],
       "@sentry/react-native",
-      ["expo-camera", { cameraPermission: "Sparr nutzt die Kamera, um den QR-Code eines Kämpferprofils zu scannen." }],
+      ["expo-camera", { cameraPermission: "Sparr nutzt die Kamera, um QR-Codes von Kämpferprofilen und Sparring-Check-ins zu scannen." }],
       "expo-apple-authentication",
       ...googleSignInPlugin,
     ],

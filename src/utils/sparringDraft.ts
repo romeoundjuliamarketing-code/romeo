@@ -1,9 +1,11 @@
 // Pure state helpers for the three-step "Sparring erstellen" flow: the draft,
-// per-step validation and the mapping onto the existing CreateSparringInput.
-// The server (open_sparrings insert, RLS, subscription gate) stays the source
-// of truth; this only keeps the client from sending obviously incomplete data.
+// per-step validation, persistence mapping and the mapping onto the publish
+// contract. The server (publish_sparring: place, radius, slot, subscription)
+// stays the source of truth; this only keeps the client from sending obviously
+// incomplete data.
 
-import type { CreateSparringInput } from '../hooks/useSparringActions';
+import type { PublishInput } from '../hooks/useSparringTrustActions';
+import type { SparringPlace } from '../types/sparringTrust';
 import i18n from '../i18n';
 
 export const SPARRING_DISCIPLINES = [
@@ -16,16 +18,17 @@ export const SPARRING_DISCIPLINES = [
   'Sonstiges',
 ] as const;
 
-/** Fixed on creation, adjustable later in the edit sheet. */
-export const CREATE_DURATION_MIN = 90;
+/** Default duration; the user picks one of SPARRING_TRUST.durationOptionsMin. */
+export const DEFAULT_DURATION_MIN = 90;
+export const MIN_DURATION_MIN = 30;
+export const MAX_DURATION_MIN = 300;
+export const PLACE_LABEL_MIN = 2;
+export const PLACE_LABEL_MAX = 80;
 export const DEFAULT_MAX_SLOTS = 10;
 /** Lower bound of max_slots (update_sparring rejects < 1). */
 export const MIN_MAX_SLOTS = 1;
 
 export type FlowStep = 1 | 2 | 3;
-
-/** Where the meeting point comes from. */
-export type PlaceSource = 'gym' | 'custom' | 'studio';
 
 export interface DraftGym {
   id:      string;
@@ -48,13 +51,17 @@ export interface SparringDraft {
   /** Places for participants; the host is not counted (see join_sparring). */
   maxSlots:    number;
   scheduledAt: Date;
-  /** Linked gym (location only). Kept even when the meeting point differs. */
+  /** Linked gym (convenience: pre-fills the place search, sent as gym id). */
   gym:         DraftGym | null;
-  source:      PlaceSource | null;
-  /** The actual meeting point. */
-  address:     string;
-  /** Map pick or stored gym/studio coordinates; null = geocode on save. */
-  coord:       { lat: number; lng: number } | null;
+  /** Coach: meet at the team studio (pre-fills the search, sent as studio id). */
+  atStudio:    boolean;
+  /** Server-resolved place; the only source of the target position. */
+  place:       SparringPlace | null;
+  /** Venue name, required when the place is a plain street address. */
+  placeLabel:  string;
+  durationMin: number;
+  /** Self-declaration: we may train at this place. */
+  permissionConfirmed: boolean;
   accessNote:  string;
   title:       string;
   notes:       string;
@@ -76,9 +83,11 @@ export function emptyDraft(now: Date): SparringDraft {
     maxSlots:    DEFAULT_MAX_SLOTS,
     scheduledAt: nextDay18h(now),
     gym:         null,
-    source:      null,
-    address:     '',
-    coord:       null,
+    atStudio:    false,
+    place:       null,
+    placeLabel:  '',
+    durationMin: DEFAULT_DURATION_MIN,
+    permissionConfirmed: false,
     accessNote:  '',
     title:       '',
     notes:       '',
@@ -100,51 +109,50 @@ export function gymHasAddress(gym: DraftGym): boolean {
   return gym.address !== null && gym.address.trim().length > 0;
 }
 
+/** Plain street addresses need a venue name from the organizer. */
+export function placeNeedsLabel(place: SparringPlace | null): boolean {
+  return place !== null && place.category === 'address';
+}
+
+export function isPlaceLabelValid(label: string): boolean {
+  const n = label.trim().length;
+  return n >= PLACE_LABEL_MIN && n <= PLACE_LABEL_MAX;
+}
+
+/** Name + address + city of a gym, used to pre-fill the place search. */
+export function gymSearchQuery(gym: DraftGym): string {
+  const parts = [gym.name, gym.address ?? '', gym.city].map((p) => p.trim()).filter((p) => p.length > 0);
+  return parts.join(', ');
+}
+
+/** Name + address of the team studio for the place search. */
+export function studioSearchQuery(studio: DraftStudio): string {
+  return studio.address.trim();
+}
+
 /**
- * Takes a gym as the place. Its stored address becomes the meeting point (with
- * stored coordinates if any). Without an address the gym stays linked and the
- * meeting point has to be entered separately.
+ * Takes a gym as a convenience: the place is cleared (the user picks a server
+ * result for it) while the gym stays linked.
  */
 export function applyGym(draft: SparringDraft, gym: DraftGym): SparringDraft {
-  if (gymHasAddress(gym)) {
-    return {
-      ...draft,
-      gym,
-      source:  'gym',
-      address: (gym.address ?? '').trim(),
-      coord:   gym.lat !== null && gym.lng !== null ? { lat: gym.lat, lng: gym.lng } : null,
-    };
-  }
-  // Keep a meeting point the user already typed, but never the address of a
-  // previously chosen gym.
-  const keepCustom = draft.source === 'custom';
-  return {
-    ...draft,
-    gym,
-    source:  'custom',
-    address: keepCustom ? draft.address : '',
-    coord:   keepCustom ? draft.coord : null,
-  };
+  return { ...draft, gym, atStudio: false, place: null, placeLabel: '' };
 }
 
-/** Meeting point differs from the gym: the gym stays linked, address is free. */
-export function toCustomMeetingPoint(draft: SparringDraft): SparringDraft {
-  return { ...draft, source: 'custom', address: '', coord: null };
+export function applyStudio(draft: SparringDraft): SparringDraft {
+  return { ...draft, gym: null, accessNote: '', atStudio: true, place: null, placeLabel: '' };
 }
 
-export function applyStudio(draft: SparringDraft, studio: DraftStudio): SparringDraft {
-  return {
-    ...draft,
-    gym:        null,
-    accessNote: '',
-    source:     'studio',
-    address:    studio.address.trim(),
-    coord:      studio.lat !== null && studio.lng !== null ? { lat: studio.lat, lng: studio.lng } : null,
-  };
+export function selectPlace(draft: SparringDraft, place: SparringPlace): SparringDraft {
+  return { ...draft, place, placeLabel: '' };
 }
 
+/** "Ort ändern": drops the picked place, keeps a gym/studio link. */
 export function clearPlace(draft: SparringDraft): SparringDraft {
-  return { ...draft, gym: null, accessNote: '', source: null, address: '', coord: null };
+  return { ...draft, place: null, placeLabel: '' };
+}
+
+export function clearLink(draft: SparringDraft): SparringDraft {
+  return { ...draft, gym: null, atStudio: false, accessNote: '' };
 }
 
 export function validateStep(step: FlowStep, draft: SparringDraft, now: Date): DraftErrors {
@@ -159,12 +167,10 @@ export function validateStep(step: FlowStep, draft: SparringDraft, now: Date): D
     if (draft.scheduledAt.getTime() <= now.getTime()) {
       errors.scheduledAt = i18n.t('sparring.draft.errors.scheduledAt');
     }
-    if (draft.source === null) {
+    if (draft.place === null) {
       errors.place = i18n.t('sparring.draft.errors.placeNone');
-    } else if (draft.address.trim().length === 0) {
-      errors.place = draft.gym !== null && draft.source === 'custom'
-        ? i18n.t('sparring.draft.errors.placeMeeting')
-        : i18n.t('sparring.draft.errors.placeAddress');
+    } else if (placeNeedsLabel(draft.place) && !isPlaceLabelValid(draft.placeLabel)) {
+      errors.place = i18n.t('sparringTrust.notice.placeLabelRequired');
     }
   }
   return errors;
@@ -183,9 +189,12 @@ export function isDraftDirty(draft: SparringDraft, initial: SparringDraft): bool
     draft.discipline !== initial.discipline ||
     draft.maxSlots !== initial.maxSlots ||
     draft.scheduledAt.getTime() !== initial.scheduledAt.getTime() ||
-    draft.source !== initial.source ||
+    draft.atStudio !== initial.atStudio ||
     (draft.gym?.id ?? null) !== (initial.gym?.id ?? null) ||
-    draft.address !== initial.address ||
+    (draft.place?.id ?? null) !== (initial.place?.id ?? null) ||
+    draft.placeLabel !== initial.placeLabel ||
+    draft.durationMin !== initial.durationMin ||
+    draft.permissionConfirmed !== initial.permissionConfirmed ||
     draft.accessNote !== initial.accessNote ||
     draft.title !== initial.title ||
     draft.notes !== initial.notes
@@ -193,28 +202,71 @@ export function isDraftDirty(draft: SparringDraft, initial: SparringDraft): bool
 }
 
 /**
- * Maps a validated draft onto the existing create contract. Returns null when
- * the draft is incomplete (call validateStep(3, ...) first for messages).
+ * Maps a draft onto the publish contract (without the request id). Returns
+ * null when it is incomplete (call validateStep(3, ...) first for messages).
+ * The permission self-declaration is passed through; the caller explains a
+ * missing one instead of blocking silently.
  */
-export function buildCreateInput(draft: SparringDraft, studioId: string | null): CreateSparringInput | null {
-  if (draft.discipline === null || draft.source === null) return null;
-  const address = draft.address.trim();
-  if (address.length === 0) return null;
-  const atStudio = draft.source === 'studio' && studioId !== null;
+export function buildPublishInput(
+  draft: SparringDraft,
+  studioId: string | null,
+): Omit<PublishInput, 'requestId'> | null {
+  if (draft.discipline === null || draft.place === null) return null;
+  if (draft.durationMin < MIN_DURATION_MIN || draft.durationMin > MAX_DURATION_MIN) return null;
+  const needsLabel = placeNeedsLabel(draft.place);
+  if (needsLabel && !isPlaceLabelValid(draft.placeLabel)) return null;
+  const atStudio = draft.atStudio && studioId !== null;
   const accessNote = draft.accessNote.trim();
+  const notes = draft.notes.trim();
   return {
-    address,
-    ...(draft.coord !== null ? { lat: draft.coord.lat, lng: draft.coord.lng } : {}),
-    ...(atStudio ? { isAtStudio: true as const, atStudioId: studioId } : {}),
-    ...(draft.gym !== null && !atStudio
-      ? { gymId: draft.gym.id, ...(accessNote.length > 0 ? { accessNote } : {}) }
-      : {}),
-    title:       resolvedTitle(draft),
-    discipline:  draft.discipline,
-    scheduledAt: draft.scheduledAt.toISOString(),
-    durationMin: CREATE_DURATION_MIN,
-    maxSlots:    draft.maxSlots,
-    notes:       draft.notes,
+    placeId:      draft.place.id,
+    placeLabel:   needsLabel ? draft.placeLabel.trim() : null,
+    title:        resolvedTitle(draft),
+    discipline:   draft.discipline,
+    notes:        notes.length > 0 ? notes : null,
+    scheduledAt:  draft.scheduledAt.toISOString(),
+    durationMin:  draft.durationMin,
+    maxSlots:     draft.maxSlots,
+    verifiedOnly: false,
+    permissionConfirmed: draft.permissionConfirmed,
+    gymId:        draft.gym !== null && !atStudio ? draft.gym.id : null,
+    studioId:     atStudio ? studioId : null,
+    accessNote:   draft.gym !== null && !atStudio && accessNote.length > 0 ? accessNote : null,
+  };
+}
+
+/** JSON-safe form of the draft kept on the device. */
+export interface StoredDraftData extends Omit<SparringDraft, 'scheduledAt'> {
+  scheduledAt: string;
+}
+
+export function serializeDraft(draft: SparringDraft): StoredDraftData {
+  return { ...draft, scheduledAt: draft.scheduledAt.toISOString() };
+}
+
+/**
+ * Restores a stored draft; fills missing fields with defaults and replaces a
+ * time in the past with the default slot. Returns null for unusable data.
+ */
+export function restoreDraft(raw: Partial<StoredDraftData> | null | undefined, now: Date): SparringDraft | null {
+  if (raw === null || raw === undefined || typeof raw !== 'object') return null;
+  const base = emptyDraft(now);
+  const at = typeof raw.scheduledAt === 'string' ? new Date(raw.scheduledAt) : null;
+  const validAt = at !== null && !Number.isNaN(at.getTime()) && at.getTime() > now.getTime();
+  const place = raw.place !== undefined && raw.place !== null && typeof raw.place.id === 'string' ? raw.place : null;
+  return {
+    discipline:  typeof raw.discipline === 'string' ? raw.discipline : null,
+    maxSlots:    typeof raw.maxSlots === 'number' && raw.maxSlots >= MIN_MAX_SLOTS ? raw.maxSlots : base.maxSlots,
+    scheduledAt: validAt && at !== null ? at : base.scheduledAt,
+    gym:         raw.gym ?? null,
+    atStudio:    raw.atStudio === true,
+    place,
+    placeLabel:  typeof raw.placeLabel === 'string' ? raw.placeLabel : '',
+    durationMin: typeof raw.durationMin === 'number' ? raw.durationMin : base.durationMin,
+    permissionConfirmed: raw.permissionConfirmed === true,
+    accessNote:  typeof raw.accessNote === 'string' ? raw.accessNote : '',
+    title:       typeof raw.title === 'string' ? raw.title : '',
+    notes:       typeof raw.notes === 'string' ? raw.notes : '',
   };
 }
 

@@ -208,6 +208,8 @@ export default function CreateSparringSheet(props: Props) {
   const isEditMode = editing !== null;
   // The studio is the location of a studio sparring: not editable.
   const locationLocked = isAtStudio || (editing !== null && editing.studio_id !== null);
+  // After publishing, place and time are fixed (the server refuses changes).
+  const placeTimeLocked = isEditMode;
 
   const scrollRef = useRef<ScrollView>(null);
   // Tracks whether the multiline notes field currently holds focus, so the
@@ -321,7 +323,7 @@ export default function CreateSparringSheet(props: Props) {
     setGym(picked);
     setGymTouched(true);
     const gymAddress = picked.address?.trim() ?? '';
-    if (gymAddress.length > 0) {
+    if (gymAddress.length > 0 && !placeTimeLocked) {
       setAddress(gymAddress);
       setPickedCoord(picked.lat !== null && picked.lng !== null ? { lat: picked.lat, lng: picked.lng } : null);
     }
@@ -419,28 +421,17 @@ export default function CreateSparringSheet(props: Props) {
       : title.trim();
 
     if (editing !== null) {
-      if (isNaN(dur) || dur < 15 || dur > 600) {
-        Alert.alert(t('sparring.sheet.errDurationTitle'), t('sparring.sheet.errDurationRange'));
-        return;
-      }
-      if (scheduledAt.getTime() <= Date.now()) {
-        Alert.alert(t('sparring.sheet.errPastTitle'), t('sparring.sheet.errPastBody'));
-        return;
-      }
-      // Unchanged address keeps the stored coordinates, a map pick brings its
-      // own, a typed new address is geocoded.
-      const sameAddress = address.trim() === editing.address.trim();
-      const coords = pickedCoord ?? (sameAddress ? { lat: editing.lat, lng: editing.lng } : null);
+      // Place and time are read-only: always send the stored originals.
       const input: UpdateSparringInput = {
         title:        resolvedTitle,
         notes,
         discipline,
-        address:      locationLocked ? editing.address : address.trim(),
-        lat:          locationLocked ? editing.lat : (coords?.lat ?? null),
-        lng:          locationLocked ? editing.lng : (coords?.lng ?? null),
-        geocode:      !locationLocked && coords === null,
-        scheduledAt:  scheduledAt.toISOString(),
-        durationMin:  dur,
+        address:      editing.address,
+        lat:          editing.lat,
+        lng:          editing.lng,
+        geocode:      false,
+        scheduledAt:  editing.scheduled_at,
+        durationMin:  editing.duration_min,
         maxSlots:     slots,
         verifiedOnly: editing.verified_only,
       };
@@ -620,11 +611,11 @@ export default function CreateSparringSheet(props: Props) {
               <FieldLabel icon="location-outline" text={t('sparring.flow.place')} />
               <View style={styles.locationRow}>
                 <TextInput
-                  style={[styles.input, styles.locationInput, locationLocked && styles.inputDisabled]}
+                  style={[styles.input, styles.locationInput, (locationLocked || placeTimeLocked) && styles.inputDisabled]}
                   value={address}
-                  editable={!locationLocked}
+                  editable={!locationLocked && !placeTimeLocked}
                   onChangeText={(t) => {
-                    if (locationLocked) return;
+                    if (locationLocked || placeTimeLocked) return;
                     setAddress(t);
                     // Manual edit clears the map-picked coordinates
                     if (pickedCoord !== null) setPickedCoord(null);
@@ -635,8 +626,9 @@ export default function CreateSparringSheet(props: Props) {
                   blurOnSubmit={true}
                 />
                 <TouchableOpacity
-                  style={[styles.mapPickBtn, locationLocked && styles.mapPickBtnDisabled]}
-                  onPress={() => { if (!locationLocked) setLocationPickerVisible(true); }}
+                  style={[styles.mapPickBtn, (locationLocked || placeTimeLocked) && styles.mapPickBtnDisabled]}
+                  onPress={() => { if (!locationLocked && !placeTimeLocked) setLocationPickerVisible(true); }}
+                  disabled={locationLocked || placeTimeLocked}
                   activeOpacity={0.8}
                 >
                   <Ionicons
@@ -649,7 +641,10 @@ export default function CreateSparringSheet(props: Props) {
               {isEditMode && locationLocked && (
                 <Text style={styles.lockedHint}>{t('sparring.sheet.studioLocked')}</Text>
               )}
-              {pickedCoord !== null && !locationLocked && (
+              {placeTimeLocked && (
+                <Text style={styles.lockedHint}>{t('sparringTrust.create.placeTimeLocked')}</Text>
+              )}
+              {pickedCoord !== null && !locationLocked && !placeTimeLocked && (
                 <View style={styles.pickedBadge}>
                   <Ionicons name="location" size={13} color={colors.accentBlue} />
                   <Text style={styles.pickedBadgeText} numberOfLines={1}>{address}</Text>
@@ -686,7 +681,9 @@ export default function CreateSparringSheet(props: Props) {
               {isEditMode && (
                 <>
                   <FieldLabel icon="hourglass-outline" text={t('sparring.sheet.duration')} />
-                  <Stepper value={durationMin} onChange={setDurationMin} min={15} step={15} />
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.inputText}>{t('sparringTrust.create.durationMinutes', { count: editing?.duration_min ?? 0 })}</Text>
+                  </View>
                 </>
               )}
             </>
@@ -713,17 +710,21 @@ export default function CreateSparringSheet(props: Props) {
           <View style={styles.twoCol}>
             <View style={styles.colItem}>
               <FieldLabel icon="calendar-outline" text={t('sparring.sheet.dateLabel')} />
-              <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+              <TouchableOpacity style={[styles.input, placeTimeLocked && styles.inputDisabled]} onPress={() => setShowDatePicker(true)} disabled={placeTimeLocked}>
                 <Text style={styles.inputText}>{formatDate(scheduledAt)}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.colItem}>
               <FieldLabel icon="time-outline" text={t('sparring.sheet.timeLabel')} />
-              <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
+              <TouchableOpacity style={[styles.input, placeTimeLocked && styles.inputDisabled]} onPress={() => setShowTimePicker(true)} disabled={placeTimeLocked}>
                 <Text style={styles.inputText}>{formatTime(scheduledAt)}</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {placeTimeLocked && !isUserMode && (
+            <Text style={styles.lockedHint}>{t('sparringTrust.create.placeTimeLocked')}</Text>
+          )}
 
           {showDatePicker && (
             <DateTimePicker
@@ -763,7 +764,13 @@ export default function CreateSparringSheet(props: Props) {
             <View style={styles.twoCol}>
               <View style={styles.colItem}>
                 <FieldLabel icon="hourglass-outline" text={t('sparring.sheet.duration')} />
-                <Stepper value={durationMin} onChange={setDurationMin} min={15} step={15} />
+                {placeTimeLocked ? (
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.inputText}>{t('sparringTrust.create.durationMinutes', { count: editing?.duration_min ?? 0 })}</Text>
+                  </View>
+                ) : (
+                  <Stepper value={durationMin} onChange={setDurationMin} min={15} step={15} />
+                )}
               </View>
               <View style={styles.colItem}>
                 <FieldLabel icon="people-outline" text={t('sparring.sheet.maxSlots')} />

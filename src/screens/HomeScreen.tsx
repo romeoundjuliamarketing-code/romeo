@@ -15,6 +15,12 @@ import { AnnouncementNotice } from '../components/home/HomeNotices';
 import NearbySparringsCard from '../components/home/NearbySparringsCard';
 import LocationPickerModal from '../components/sparring/LocationPickerModal';
 import { useAuth } from '../context/AuthContext';
+import { useSparringReach } from '../hooks/useSparringReach';
+import { useFeedbackDue } from '../hooks/useFeedbackDue';
+import ReachStatusCard from '../components/sparring/trust/ReachStatusCard';
+import UnlockNoticeCard from '../components/sparring/trust/UnlockNoticeCard';
+import FeedbackDueCard from '../components/sparring/trust/FeedbackDueCard';
+import ReachIntroSheet from '../components/sparring/trust/ReachIntroSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useAnnouncement } from '../hooks/useAnnouncement';
 import { useNotifications } from '../hooks/useNotifications';
@@ -71,6 +77,10 @@ export default function HomeScreen() {
     focusTrigger,
   );
   const [locationPickerVisible, setLocationPickerVisible] = useState(false);
+  // Reach status (radius, planned slot, unlock notice) and open meeting answers.
+  const reach = useSparringReach(focusTrigger);
+  const feedbackDue = useFeedbackDue(user?.id ?? null, focusTrigger);
+  const [explainVisible, setExplainVisible] = useState(false);
 
   function openNearby(radiusKm: number): void {
     navigation.navigate('Tabs', { screen: 'Sparring', params: { nearbyRadiusKm: radiusKm, nearbyEntryAt: Date.now() } });
@@ -166,6 +176,18 @@ export default function HomeScreen() {
                 />
               )}
 
+              {reach.status !== null && reach.status.unlock_unseen && (
+                <UnlockNoticeCard onAck={() => { void reach.ackUnlock(); }} />
+              )}
+              {feedbackDue !== null && <FeedbackDueCard due={feedbackDue} onOpen={openSparring} />}
+              {reach.status !== null && (
+                <ReachStatusCard
+                  status={reach.status}
+                  onOpenActive={openSparring}
+                  onHowItWorks={() => setExplainVisible(true)}
+                />
+              )}
+
               {cardEntry}
 
               {home.status === 'error' && (
@@ -190,6 +212,12 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
+      <ReachIntroSheet
+        visible={explainVisible}
+        mode="explain"
+        onPrimary={() => setExplainVisible(false)}
+        onClose={() => setExplainVisible(false)}
+      />
       <LocationPickerModal
         visible={locationPickerVisible}
         onClose={() => setLocationPickerVisible(false)}

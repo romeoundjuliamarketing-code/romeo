@@ -1,208 +1,214 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { colors } from '../../../theme/colors';
 import { GYM_LIMITS } from '../../../utils/gymSearch';
-import { gymHasAddress, type DraftGym, type PlaceSource } from '../../../utils/sparringDraft';
+import { placeNeedsLabel, PLACE_LABEL_MAX, type DraftGym } from '../../../utils/sparringDraft';
+import type { SparringPlace } from '../../../types/sparringTrust';
+import type { TrustAction } from '../../../utils/sparringTrust';
+import { usePlaceSearch, type PlaceSearchError } from '../../../hooks/usePlaceSearch';
+import { useSearchLocation } from '../../../hooks/useSearchLocation';
+import { useLanguage } from '../../../i18n/language';
 import { TextAction } from '../../common/TextAction';
 import { FieldError } from './FlowParts';
-import { useTranslation } from 'react-i18next';
-
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+import PlaceSuggestForm from './PlaceSuggestForm';
 
 export interface PlaceActions {
-  onPickGym:           () => void;
-  onSearchAddress:     () => void;
-  onOpenMap:           () => void;
-  onAddress:           (text: string) => void;
-  onClearAddress:      () => void;
-  onClearPlace:        () => void;
-  onUseStudio:         () => void;
-  onUseGymAddress:     () => void;
-  onCustomMeeting:     () => void;
-  onAccessNote:        (text: string) => void;
+  onPickGym:    () => void;
+  onUseStudio:  () => void;
+  onClearLink:  () => void;
+  onPickPlace:  (place: SparringPlace) => void;
+  onClearPlace: () => void;
+  onLabel:      (text: string) => void;
+  onAccessNote: (text: string) => void;
+  onTrustAction: (action: TrustAction) => void;
+  /** The pre-fill was consumed (search started). */
+  onPrefillUsed: () => void;
 }
 
-// Compact place view: icon, label, name, address, "Ändern" (and remove).
-function PlaceSummary({ icon, label, name, address, onChange, changeLabel, onRemove, removeLabel }: {
-  icon:        IoniconsName;
-  label:       string;
-  name:        string;
-  address:     string | null;
-  onChange?:   () => void;
-  changeLabel: string;
-  onRemove:    () => void;
-  removeLabel: string;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <View style={styles.summary}>
-      <View style={styles.summaryIcon}>
-        <Ionicons name={icon} size={20} color={colors.headerTextPrimary} />
-      </View>
-      <View style={styles.summaryText}>
-        <Text style={styles.summaryLabel}>{label}</Text>
-        <Text style={styles.summaryName}>{name}</Text>
-        {address !== null && <Text style={styles.summaryAddress}>{address}</Text>}
-      </View>
-      <View style={styles.summaryActions}>
-        {onChange !== undefined && (
-          <TouchableOpacity onPress={onChange} style={styles.summaryBtn} accessibilityRole="button" accessibilityLabel={changeLabel}>
-            <Text style={styles.changeText}>{t('map.search.change')}</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity onPress={onRemove} style={styles.summaryBtn} accessibilityRole="button" accessibilityLabel={removeLabel}>
-          <Ionicons name="close" size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+/** Pre-fills the search (gym / studio pick); nonce makes repeats re-run it. */
+export interface SearchPrefill {
+  text:  string;
+  nonce: number;
 }
 
-function ChoiceTile({ icon, label, hint, onPress }: {
-  icon: IoniconsName; label: string; hint: string; onPress: () => void;
-}): React.ReactElement {
+type SearchStatus = 'idle' | 'noResults' | PlaceSearchError;
+
+function PlaceResultRow({ place, onPick }: { place: SparringPlace; onPick: (p: SparringPlace) => void }): React.ReactElement {
   return (
     <Pressable
-      style={({ pressed }) => [styles.choice, pressed && styles.choicePressed]}
-      onPress={onPress}
+      style={({ pressed }) => [styles.result, pressed && styles.resultPressed]}
+      onPress={() => onPick(place)}
       accessibilityRole="button"
-      accessibilityHint={hint}
+      accessibilityLabel={`${place.name}, ${place.address}`}
     >
-      <Ionicons name={icon} size={24} color={colors.accentBlueText} />
-      <Text style={styles.choiceLabel}>{label}</Text>
-      <Text style={styles.choiceHint}>{hint}</Text>
+      <Ionicons name="location-outline" size={20} color={colors.accentBlueText} />
+      <View style={styles.resultText}>
+        <Text style={styles.resultName} numberOfLines={2}>{place.name}</Text>
+        <Text style={styles.resultAddress} numberOfLines={2}>{place.address}</Text>
+      </View>
     </Pressable>
   );
 }
 
-// The meeting point as free address: typed (geocoded on save) or from the map.
-function AddressField({ address, fromMap, onAddress, onOpenMap, onClear }: {
-  address: string; fromMap: boolean;
-  onAddress: (t: string) => void; onOpenMap: () => void; onClear: () => void;
+function PlaceSection({ gym, atStudio, studioAvailable, place, placeLabel, accessNote, error, prefill, notice, actions }: {
+  gym:             DraftGym | null;
+  atStudio:        boolean;
+  /** Coach with a team studio: "Am Studio-Standort" is offered. */
+  studioAvailable: boolean;
+  place:           SparringPlace | null;
+  placeLabel:      string;
+  accessNote:      string;
+  error:           string | undefined;
+  prefill:         SearchPrefill | null;
+  /** Too-far notice etc., rendered under the place card. */
+  notice:          React.ReactNode;
+  actions:         PlaceActions;
 }): React.ReactElement {
   const { t } = useTranslation();
-  if (fromMap) {
-    return (
-      <PlaceSummary
-        icon="location" label={t('sparring.place.meetingPoint')} name={address} address={null}
-        onChange={onOpenMap} changeLabel={t('sparring.place.changeOnMap')}
-        onRemove={onClear} removeLabel={t('sparring.place.removeMeeting')}
-      />
-    );
-  }
-  return (
-    <View style={styles.addressRow}>
-      <TextInput
-        style={[styles.field, styles.addressInput]}
-        value={address}
-        onChangeText={onAddress}
-        placeholder={t('sparring.place.addressPlaceholder')}
-        placeholderTextColor={colors.textMuted}
-        returnKeyType="done"
-        blurOnSubmit
-        autoCorrect={false}
-        textContentType="fullStreetAddress"
-        accessibilityLabel={t('sparring.place.addressA11y')}
-      />
-      <TouchableOpacity style={styles.mapBtn} onPress={onOpenMap} accessibilityRole="button" accessibilityLabel={t('sparring.place.pickOnMap')}>
-        <Ionicons name="map-outline" size={20} color={colors.accentBlueText} />
-        <Text style={styles.mapBtnText}>{t('map.search.viewMap')}</Text>
-      </TouchableOpacity>
+  const { language } = useLanguage();
+  const { location } = useSearchLocation({ askPermission: false });
+  const { searching, search } = usePlaceSearch();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SparringPlace[]>([]);
+  const [status, setStatus] = useState<SearchStatus>('idle');
+  const [noteOpen, setNoteOpen] = useState(accessNote.length > 0);
+  const requestRef = useRef(0);
+  const nearRef = useRef<{ lat: number; lng: number } | null>(null);
+  nearRef.current = location !== null ? { lat: location.lat, lng: location.lng } : null;
+
+  const run = useCallback(async (text: string): Promise<void> => {
+    const trimmed = text.trim();
+    if (trimmed.length < 2) return;
+    requestRef.current += 1;
+    const mine = requestRef.current;
+    const outcome = await search(trimmed, nearRef.current, language);
+    if (mine !== requestRef.current) return;
+    setResults(outcome.places);
+    setStatus(outcome.error !== null ? outcome.error : outcome.places.length === 0 ? 'noResults' : 'idle');
+  }, [search, language]);
+
+  const lastNonce = useRef<number>(-1);
+  useEffect(() => {
+    if (prefill === null || prefill.nonce === lastNonce.current) return;
+    lastNonce.current = prefill.nonce;
+    setQuery(prefill.text);
+    setResults([]);
+    setStatus('idle');
+    void run(prefill.text);
+    actions.onPrefillUsed();
+  }, [prefill, run, actions]);
+
+  const pick = useCallback((p: SparringPlace) => {
+    setResults([]);
+    setStatus('idle');
+    actions.onPickPlace(p);
+  }, [actions]);
+
+  const link = (
+    <View style={styles.linkRow}>
+      {gym !== null ? (
+        <View style={styles.chip}>
+          <Ionicons name="business" size={16} color={colors.accentBlueText} />
+          <Text style={styles.chipText} numberOfLines={1}>{gym.name}</Text>
+          <TouchableOpacity onPress={actions.onClearLink} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('sparring.place.removeGym')}>
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      ) : atStudio ? (
+        <View style={styles.chip}>
+          <Ionicons name="home" size={16} color={colors.accentBlueText} />
+          <Text style={styles.chipText} numberOfLines={1}>{t('sparring.place.studioLocation')}</Text>
+          <TouchableOpacity onPress={actions.onClearLink} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('sparring.place.removePlace')}>
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      <TextAction label={gym !== null ? t('sparring.place.otherGym') : t('sparring.place.pickGym')} icon="business-outline" onPress={actions.onPickGym} />
+      {studioAvailable && !atStudio && (
+        <TextAction label={t('sparring.place.atStudio')} icon="home-outline" onPress={actions.onUseStudio} />
+      )}
     </View>
   );
-}
-
-function PlaceSection({ gym, source, address, hasCoord, accessNote, studioAddress, error, actions }: {
-  gym:           DraftGym | null;
-  source:        PlaceSource | null;
-  address:       string;
-  hasCoord:      boolean;
-  accessNote:    string;
-  /** Team studio address when the user may meet at the studio. */
-  studioAddress: string | null;
-  error:         string | undefined;
-  actions:       PlaceActions;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const [noteOpen, setNoteOpen] = useState(accessNote.length > 0);
-
-  if (source === null) {
-    return (
-      <View>
-        <View style={styles.choices}>
-          <ChoiceTile icon="business-outline" label={t('sparring.place.pickGym')} hint={t('sparring.place.pickGymHint')} onPress={actions.onPickGym} />
-          <ChoiceTile icon="search-outline" label={t('sparring.place.searchAddress')} hint={t('sparring.place.searchAddressHint')} onPress={actions.onSearchAddress} />
-        </View>
-        {studioAddress !== null && (
-          <TextAction label={t('sparring.place.atStudio')} icon="home-outline" onPress={actions.onUseStudio} />
-        )}
-        <FieldError text={error} />
-      </View>
-    );
-  }
-
-  if (source === 'studio') {
-    return (
-      <View>
-        <PlaceSummary
-          icon="home" label={t('sparring.place.studioLocation')} name={t('sparring.preview.yourGym')} address={address}
-          changeLabel="" onRemove={actions.onClearPlace} removeLabel={t('sparring.place.removePlace')}
-        />
-        <FieldError text={error} />
-      </View>
-    );
-  }
-
-  const meetingDiffers = gym !== null && source === 'custom';
-  const gymAddressMissing = gym !== null && !gymHasAddress(gym);
 
   return (
     <View>
-      {gym !== null && (
-        <PlaceSummary
-          icon="business" label={t('sparring.place.gym')} name={gym.name}
-          address={source === 'gym' ? address : gym.city}
-          onChange={actions.onPickGym} changeLabel={t('sparring.place.otherGym')}
-          onRemove={actions.onClearPlace} removeLabel={t('sparring.place.removeGym')}
-        />
-      )}
+      {place === null ? (
+        <View>
+          <View style={styles.searchRow}>
+            <TextInput
+              style={[styles.field, styles.searchInput]}
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('sparringTrust.create.placeSearchPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              returnKeyType="search"
+              onSubmitEditing={() => { void run(query); }}
+              autoCorrect={false}
+              accessibilityLabel={t('sparringTrust.create.placeSearchPlaceholder')}
+            />
+            <TouchableOpacity
+              style={styles.searchBtn}
+              onPress={() => { void run(query); }}
+              disabled={searching}
+              accessibilityRole="button"
+              accessibilityLabel={t('sparringTrust.create.search')}
+            >
+              {searching ? <ActivityIndicator color={colors.headerTextPrimary} /> : (
+                <Ionicons name="search" size={20} color={colors.headerTextPrimary} />
+              )}
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.note}>{t('sparringTrust.create.placeSearchHint')}</Text>
 
-      {gymAddressMissing && (
-        <Text style={styles.note}>
-          {t('sparring.place.gymNoAddress')}
-        </Text>
-      )}
-
-      {source === 'custom' && (
-        <View style={gym !== null ? styles.meetingBlock : undefined}>
-          {meetingDiffers && <Text style={styles.meetingLabel}>{t('sparring.place.meetingPoint')}</Text>}
-          <AddressField
-            address={address}
-            fromMap={hasCoord && address.trim().length > 0}
-            onAddress={actions.onAddress}
-            onOpenMap={actions.onOpenMap}
-            onClear={actions.onClearAddress}
-          />
-          {gym === null && (
-            <TextAction label={t('sparring.place.pickGymInstead')} icon="business-outline" onPress={actions.onPickGym} />
+          {results.map((p) => <PlaceResultRow key={p.id} place={p} onPick={pick} />)}
+          {status === 'noResults' && <Text style={styles.note}>{t('sparringTrust.create.noResults')}</Text>}
+          {status === 'quota' && <Text style={styles.note}>{t('sparringTrust.create.searchQuota')}</Text>}
+          {status === 'network' && <Text style={styles.note}>{t('sparringTrust.create.searchNetwork')}</Text>}
+          <FieldError text={error} />
+          {link}
+          <PlaceSuggestForm onAction={actions.onTrustAction} />
+        </View>
+      ) : (
+        <View>
+          <View style={styles.card}>
+            <Ionicons name="location" size={24} color={colors.accentBlueText} />
+            <View style={styles.resultText}>
+              <Text style={styles.resultName}>{place.name}</Text>
+              <Text style={styles.resultAddress}>{place.address}</Text>
+            </View>
+            <TouchableOpacity onPress={actions.onClearPlace} style={styles.changeBtn} accessibilityRole="button">
+              <Text style={styles.changeText}>{t('sparringTrust.create.changePlace')}</Text>
+            </TouchableOpacity>
+          </View>
+          {placeNeedsLabel(place) && (
+            <View style={styles.block}>
+              <Text style={styles.label}>{t('sparringTrust.create.placeLabel')}</Text>
+              <TextInput
+                style={styles.field}
+                value={placeLabel}
+                onChangeText={actions.onLabel}
+                placeholder={t('sparringTrust.create.placeLabelPlaceholder')}
+                placeholderTextColor={colors.textMuted}
+                maxLength={PLACE_LABEL_MAX}
+                returnKeyType="done"
+                blurOnSubmit
+                accessibilityLabel={t('sparringTrust.create.placeLabel')}
+              />
+              <Text style={styles.note}>{t('sparringTrust.create.placeLabelHint')}</Text>
+            </View>
           )}
-          {meetingDiffers && !gymAddressMissing && (
-            <TextAction label={t('sparring.place.useGymAddress')} icon="arrow-undo-outline" onPress={actions.onUseGymAddress} />
-          )}
+          <FieldError text={error} />
+          {notice}
+          {link}
         </View>
       )}
 
-      <FieldError text={error} />
-
-      {source === 'gym' && (
-        <TextAction label={t('sparring.place.customMeeting')} icon="navigate-outline" onPress={actions.onCustomMeeting} />
-      )}
-
-      {gym !== null && (
+      {gym !== null && !atStudio && (
         noteOpen ? (
-          <View style={styles.meetingBlock}>
-            <Text style={styles.meetingLabel}>{t('sparring.place.gymAccess')}</Text>
+          <View style={styles.block}>
+            <Text style={styles.label}>{t('sparring.place.gymAccess')}</Text>
             <TextInput
               style={styles.field}
               value={accessNote}
@@ -227,97 +233,20 @@ function PlaceSection({ gym, source, address, hasCoord, accessNote, studioAddres
 export default React.memo(PlaceSection);
 
 const styles = StyleSheet.create({
-  choices: {
+  searchRow: {
     flexDirection: 'row',
     gap: 8,
   },
-  choice: {
+  searchInput: {
     flex: 1,
-    minHeight: 112,
-    padding: 16,
+  },
+  searchBtn: {
+    width: 56,
+    minHeight: 56,
     borderRadius: 16,
-    backgroundColor: colors.card,
-    gap: 8,
-  },
-  choicePressed: {
-    backgroundColor: colors.hairline,
-  },
-  choiceLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  choiceHint: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  summary: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: colors.card,
-  },
-  summaryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.dark,
+    backgroundColor: colors.accentBlue,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  summaryText: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.textMuted,
-  },
-  summaryName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginTop: 8,
-  },
-  summaryAddress: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.textMuted,
-    marginTop: 8,
-  },
-  summaryActions: {
-    alignItems: 'flex-end',
-  },
-  summaryBtn: {
-    minHeight: 40,
-    minWidth: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  changeText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.accentBlueText,
-  },
-  meetingBlock: {
-    marginTop: 16,
-  },
-  meetingLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  addressRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addressInput: {
-    flex: 1,
   },
   field: {
     minHeight: 56,
@@ -328,19 +257,79 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
-  mapBtn: {
-    minWidth: 72,
-    minHeight: 56,
+  result: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    minHeight: 64,
+    marginTop: 8,
+    padding: 16,
     borderRadius: 16,
     backgroundColor: colors.card,
+  },
+  resultPressed: {
+    backgroundColor: colors.hairline,
+  },
+  resultText: {
+    flex: 1,
+  },
+  resultName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  resultAddress: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
+    marginTop: 8,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+  },
+  changeBtn: {
+    minHeight: 40,
+    minWidth: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
   },
-  mapBtnText: {
-    fontSize: 12,
+  changeText: {
+    fontSize: 15,
     fontWeight: '700',
     color: colors.accentBlueText,
+  },
+  linkRow: {
+    marginTop: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 16,
+    minHeight: 40,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+  },
+  chipText: {
+    flexShrink: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  block: {
+    marginTop: 16,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
   },
   note: {
     fontSize: 14,

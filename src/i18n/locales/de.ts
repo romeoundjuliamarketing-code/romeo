@@ -13,6 +13,7 @@ import venue from './de/venue';
 import team from './de/team';
 import profile from './de/profile';
 import sparring from './de/sparring';
+import sparringTrust from './de/sparringTrust';
 import challenge from './de/challenge';
 import home from './de/home';
 import map from './de/map';
@@ -31,6 +32,7 @@ const de = {
   team,
   profile,
   sparring,
+  sparringTrust,
   challenge,
   home,
   map,

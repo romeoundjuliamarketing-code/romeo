@@ -2,17 +2,22 @@ import {
   emptyDraft,
   applyGym,
   applyStudio,
-  toCustomMeetingPoint,
+  selectPlace,
   clearPlace,
+  clearLink,
   validateStep,
   firstStepWithError,
   isDraftDirty,
-  buildCreateInput,
+  buildPublishInput,
+  serializeDraft,
+  restoreDraft,
+  placeNeedsLabel,
+  gymSearchQuery,
   resolvedTitle,
   defaultSparringTitle,
   withDay,
   withTime,
-  CREATE_DURATION_MIN,
+  DEFAULT_DURATION_MIN,
 } from './sparringDraft';
 
 const NOW = new Date(2026, 9, 4, 12, 0, 0);
@@ -25,11 +30,11 @@ const GYM = {
   lat: 53.08,
   lng: 8.8,
 };
-const GYM_NO_ADDRESS = { ...GYM, id: 'gym-2', address: null, lat: null, lng: null };
-const STUDIO = { id: 'studio-1', address: 'Ringweg 5, Bremen', lat: 53.1, lng: 8.9 };
+const PLACE = { id: 'place-1', name: 'Phoenix Gym', address: 'Hauptstr. 1, 28195 Bremen', lat: 53.08, lng: 8.8, category: 'gym' };
+const ADDRESS_PLACE = { ...PLACE, id: 'place-2', name: 'Hauptstr. 1', category: 'address' };
 
 function complete() {
-  return { ...applyGym(emptyDraft(NOW), GYM), discipline: 'Boxen' };
+  return { ...selectPlace(applyGym(emptyDraft(NOW), GYM), PLACE), discipline: 'Boxen' };
 }
 
 describe('emptyDraft', () => {
@@ -56,52 +61,38 @@ describe('titles', () => {
 });
 
 describe('place', () => {
-  it('takes address and coordinates from a gym', () => {
-    const d = applyGym(emptyDraft(NOW), GYM);
-    expect(d.source).toBe('gym');
-    expect(d.address).toBe(GYM.address);
-    expect(d.coord).toEqual({ lat: 53.08, lng: 8.8 });
-  });
-
-  it('keeps a gym without address linked but asks for the meeting point', () => {
-    const d = applyGym(emptyDraft(NOW), GYM_NO_ADDRESS);
-    expect(d.gym?.id).toBe('gym-2');
-    expect(d.source).toBe('custom');
-    expect(d.address).toBe('');
-    expect(validateStep(2, d, NOW).place).toBe('Gib an, wo ihr euch trefft.');
-  });
-
-  it('does not carry the old gym address over to a gym without address', () => {
-    const d = applyGym(applyGym(emptyDraft(NOW), GYM), GYM_NO_ADDRESS);
-    expect(d.address).toBe('');
-    expect(d.coord).toBeNull();
-  });
-
-  it('keeps a typed meeting point when switching to a gym without address', () => {
-    const typed = { ...emptyDraft(NOW), source: 'custom' as const, address: 'Parkplatz Nord' };
-    expect(applyGym(typed, GYM_NO_ADDRESS).address).toBe('Parkplatz Nord');
-  });
-
-  it('a different meeting point keeps the gym link', () => {
-    const d = toCustomMeetingPoint(applyGym(emptyDraft(NOW), GYM));
+  it('picking a gym keeps it linked but clears the place', () => {
+    const d = applyGym(complete(), GYM);
     expect(d.gym?.id).toBe('gym-1');
-    expect(d.source).toBe('custom');
-    expect(d.address).toBe('');
-    expect(d.coord).toBeNull();
+    expect(d.place).toBeNull();
+    expect(d.atStudio).toBe(false);
   });
 
   it('studio location drops a gym and its access note', () => {
-    const d = applyStudio({ ...applyGym(emptyDraft(NOW), GYM), accessNote: 'Klingeln' }, STUDIO);
+    const d = applyStudio({ ...complete(), accessNote: 'Klingeln' });
     expect(d.gym).toBeNull();
     expect(d.accessNote).toBe('');
-    expect(d.address).toBe(STUDIO.address);
+    expect(d.atStudio).toBe(true);
+    expect(d.place).toBeNull();
   });
 
-  it('clearPlace resets everything location related', () => {
-    const d = clearPlace(applyGym(emptyDraft(NOW), GYM));
-    expect(d.source).toBeNull();
-    expect(d.gym).toBeNull();
-    expect(d.address).toBe('');
+  it('clearPlace keeps the link, clearLink removes it', () => {
+    const d = clearPlace({ ...complete(), placeLabel: 'x' });
+    expect(d.place).toBeNull();
+    expect(d.placeLabel).toBe('');
+    expect(d.gym?.id).toBe('gym-1');
+    expect(clearLink(d).gym).toBeNull();
+  });
+
+  it('builds a search query from name, address and city', () => {
+    expect(gymSearchQuery(GYM)).toBe('Phoenix Gym, Hauptstr. 1, 28195 Bremen, Bremen');
+    expect(gymSearchQuery({ ...GYM, address: null })).toBe('Phoenix Gym, Bremen');
+  });
+
+  it('only plain addresses need a venue name', () => {
+    expect(placeNeedsLabel(PLACE)).toBe(false);
+    expect(placeNeedsLabel(ADDRESS_PLACE)).toBe(true);
+    expect(placeNeedsLabel(null)).toBe(false);
   });
 });
 
@@ -126,6 +117,13 @@ describe('validateStep', () => {
     expect(errors.discipline).toBeUndefined();
   });
 
+  it('step 2 asks for a venue name on an address place', () => {
+    const d = selectPlace(complete(), ADDRESS_PLACE);
+    expect(validateStep(2, d, NOW).place).toBeDefined();
+    expect(validateStep(2, { ...d, placeLabel: 'B' }, NOW).place).toBeDefined();
+    expect(validateStep(2, { ...d, placeLabel: 'Boxclub Nord' }, NOW)).toEqual({});
+  });
+
   it('step 3 checks everything', () => {
     const errors = validateStep(3, emptyDraft(NOW), NOW);
     expect(Object.keys(errors).sort()).toEqual(['discipline', 'place']);
@@ -144,48 +142,64 @@ describe('isDraftDirty', () => {
   });
 });
 
-describe('buildCreateInput', () => {
-  it('maps a gym place onto the existing contract', () => {
-    const input = buildCreateInput({ ...complete(), accessNote: ' Gäste nach Absprache ', maxSlots: 4 }, null);
+describe('buildPublishInput', () => {
+  it('maps a place onto the publish contract', () => {
+    const input = buildPublishInput({ ...complete(), accessNote: ' Gäste nach Absprache ', maxSlots: 4, permissionConfirmed: true }, null);
     expect(input).toEqual({
-      address: GYM.address,
-      lat: 53.08,
-      lng: 8.8,
-      gymId: 'gym-1',
-      accessNote: 'Gäste nach Absprache',
+      placeId: 'place-1',
+      placeLabel: null,
       title: 'Boxen – Sparring',
       discipline: 'Boxen',
+      notes: null,
       scheduledAt: complete().scheduledAt.toISOString(),
-      durationMin: CREATE_DURATION_MIN,
+      durationMin: DEFAULT_DURATION_MIN,
       maxSlots: 4,
-      notes: '',
+      verifiedOnly: false,
+      permissionConfirmed: true,
+      gymId: 'gym-1',
+      studioId: null,
+      accessNote: 'Gäste nach Absprache',
     });
   });
 
-  it('a typed address without coordinates is geocoded later', () => {
-    const d = { ...complete(), gym: null, source: 'custom' as const, address: 'Parkstr. 2', coord: null };
-    const input = buildCreateInput(d, null);
-    expect(input).not.toBeNull();
-    expect(input !== null && 'lat' in input).toBe(false);
-    expect(input !== null && 'gymId' in input).toBe(false);
+  it('sends the venue name only for address places', () => {
+    const d = { ...selectPlace(complete(), ADDRESS_PLACE), placeLabel: ' Boxclub Nord ' };
+    expect(buildPublishInput(d, null)?.placeLabel).toBe('Boxclub Nord');
+    expect(buildPublishInput({ ...d, placeLabel: '' }, null)).toBeNull();
   });
 
-  it('keeps the gym link with a different meeting point', () => {
-    const d = { ...toCustomMeetingPoint(complete()), address: 'Parkplatz Nord' };
-    const input = buildCreateInput(d, null);
-    expect(input?.address).toBe('Parkplatz Nord');
-    expect(input !== null && 'gymId' in input ? input.gymId : null).toBe('gym-1');
+  it('marks the studio location and drops the gym', () => {
+    const d = { ...selectPlace(applyStudio(emptyDraft(NOW)), PLACE), discipline: 'MMA' };
+    const input = buildPublishInput(d, 'studio-1');
+    expect(input?.studioId).toBe('studio-1');
+    expect(input?.gymId).toBeNull();
   });
 
-  it('marks the studio location', () => {
-    const d = { ...applyStudio(emptyDraft(NOW), STUDIO), discipline: 'MMA' };
-    const input = buildCreateInput(d, STUDIO.id);
-    expect(input !== null && 'isAtStudio' in input ? input.isAtStudio : false).toBe(true);
-    expect(input !== null && 'atStudioId' in input ? input.atStudioId : null).toBe('studio-1');
+  it('rejects durations outside 30..300', () => {
+    expect(buildPublishInput({ ...complete(), durationMin: 20 }, null)).toBeNull();
+    expect(buildPublishInput({ ...complete(), durationMin: 301 }, null)).toBeNull();
   });
 
-  it('returns null for an incomplete draft', () => {
-    expect(buildCreateInput(emptyDraft(NOW), null)).toBeNull();
+  it('returns null without a place or discipline', () => {
+    expect(buildPublishInput(emptyDraft(NOW), null)).toBeNull();
+    expect(buildPublishInput({ ...emptyDraft(NOW), discipline: 'BJJ' }, null)).toBeNull();
+  });
+});
+
+describe('draft storage', () => {
+  it('round-trips through the stored form', () => {
+    const d = { ...complete(), placeLabel: 'x', permissionConfirmed: true, durationMin: 120 };
+    const stored = JSON.parse(JSON.stringify(serializeDraft(d)));
+    expect(restoreDraft(stored, NOW)).toEqual(d);
+  });
+
+  it('replaces a time in the past with the default slot', () => {
+    const stored = serializeDraft({ ...complete(), scheduledAt: new Date(2026, 9, 1, 10, 0) });
+    expect(restoreDraft(stored, NOW)?.scheduledAt.getDate()).toBe(5);
+  });
+
+  it('returns null for unusable data', () => {
+    expect(restoreDraft(null, NOW)).toBeNull();
   });
 });
 
