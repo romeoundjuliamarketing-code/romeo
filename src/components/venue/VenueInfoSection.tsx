@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
+import { instagramProfileUrl } from '../../utils/profileDraft';
 import type { Venue } from '../../types/database.types';
 
 interface Props {
@@ -28,7 +29,9 @@ function openAddress(address: string): void {
   void Linking.openURL('https://maps.apple.com/?q=' + encodeURIComponent(address));
 }
 
-function openInstagram(url: string): void {
+function openInstagram(stored: string): void {
+  const url = instagramProfileUrl(stored);
+  if (url === null) return;
   void Linking.openURL(url);
 }
 

@@ -4,6 +4,7 @@ import i18n from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
+import { sanitizeSearchTerm } from '../utils/postgrestSearch';
 import { serverErrorText } from '../utils/serverErrorText';
 
 export interface Studio {
@@ -83,7 +84,7 @@ export function useStudio(refetchTrigger = 0): {
   }, [user]);
 
   const searchStudios = useCallback(async (query: string): Promise<Studio[]> => {
-    const trimmed = query.trim();
+    const trimmed = sanitizeSearchTerm(query);
     const req = supabase.from('studios').select('id, name, city').order('name').limit(30);
     const { data } = trimmed.length === 0
       ? await req

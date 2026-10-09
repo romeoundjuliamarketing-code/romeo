@@ -5,6 +5,11 @@ const team: LocaleShape<typeof de> = {
   errors: {
     notSignedIn: 'Not signed in.',
   },
+  invite: {
+    invalid: 'Invalid or expired code.',
+    locked: 'Too many failed attempts. Please try again in an hour.',
+    noSubscription: "This gym can't accept members via code right now.",
+  },
   requests: {
     title: 'Requests',
     empty: 'No open requests.',

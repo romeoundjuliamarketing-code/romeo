@@ -2100,6 +2100,14 @@ export type Database = {
         Args: { p_code: string }
         Returns: string
       }
+      accept_studio_invite_v2: {
+        Args: { p_code: string }
+        Returns: Json
+      }
+      get_event_signup_counts: {
+        Args: { p_event_ids: string[] }
+        Returns: { event_id: string; signup_count: number }[]
+      }
       delete_my_account: {
         Args: Record<string, never>
         Returns: undefined

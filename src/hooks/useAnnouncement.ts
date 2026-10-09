@@ -1,43 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import i18n from '../i18n';
 import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import { getCached, setCached } from '../lib/queryCache';
 import type { TeamAnnouncement } from '../types/database.types';
 import { serverErrorText } from '../utils/serverErrorText';
-import { announcementPushMessages } from '../utils/announcementPush';
 
 type AnnouncementSnapshot = { announcement: TeamAnnouncement | null };
-
-async function sendAnnouncementPush(studioId: string, message: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user === null) return;
-
-  const { data: members } = await supabase
-    .from('profiles')
-    .select('expo_push_token, language')
-    .eq('studio_id', studioId)
-    .neq('id', user.id)
-    .not('expo_push_token', 'is', null);
-
-  if (members === null || members.length === 0) return;
-
-  const messages = announcementPushMessages(members, message);
-  if (messages.length === 0) return;
-  const body = JSON.stringify(messages);
-
-  await fetch('https://exp.host/--/api/v2/push/send', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body,
-  });
-}
 
 interface UseAnnouncementResult {
   announcement: TeamAnnouncement | null;
   loading: boolean;
-  postAnnouncement: (message: string, expiresAt: string | null) => Promise<{ error: string | null }>;
   deleteAnnouncement: () => Promise<{ error: string | null }>;
 }
 
@@ -90,32 +63,6 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
 
   useEffect(() => { void fetchAnnouncement(); }, [fetchAnnouncement, refetchTrigger]);
 
-  const postAnnouncement = useCallback(async (message: string, expiresAt: string | null): Promise<{ error: string | null }> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user === null) return { error: i18n.t('home.hooks.notLoggedIn') };
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('studio_id, is_coach')
-      .eq('id', user.id)
-      .single();
-
-    if (profile === null || profile.studio_id === null) return { error: i18n.t('home.hooks.noTeam') };
-    if (!profile.is_coach) return { error: i18n.t('home.hooks.coachOnly') };
-
-    const { error } = await supabase.from('team_announcements').insert({
-      studio_id:  profile.studio_id,
-      coach_id:   user.id,
-      message:    message.trim(),
-      expires_at: expiresAt,
-    });
-
-    if (error !== null) return { error: serverErrorText(error.message) };
-    void fetchAnnouncement();
-    void sendAnnouncementPush(profile.studio_id, message.trim());
-    return { error: null };
-  }, [fetchAnnouncement]);
-
   const deleteAnnouncement = useCallback(async (): Promise<{ error: string | null }> => {
     if (announcement === null) return { error: null };
 
@@ -129,5 +76,5 @@ export function useAnnouncement(refetchTrigger?: number): UseAnnouncementResult 
     return { error: null };
   }, [announcement]);
 
-  return { announcement, loading, postAnnouncement, deleteAnnouncement };
+  return { announcement, loading, deleteAnnouncement };
 }

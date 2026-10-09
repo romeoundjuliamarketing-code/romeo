@@ -34,11 +34,11 @@ export function useVenueEvents(venueId: string): {
       if (cancelled) return;
       const ids = (rows ?? []).map((r) => r.id);
       const { data: signups } = ids.length > 0
-        ? await supabase.from('event_signups').select('event_id').in('event_id', ids)
-        : { data: [] as Array<{ event_id: string }> };
+        ? await supabase.rpc('get_event_signup_counts', { p_event_ids: ids })
+        : { data: [] as Array<{ event_id: string; signup_count: number }> };
       if (cancelled) return;
       const countMap: Record<string, number> = {};
-      for (const s of signups ?? []) countMap[s.event_id] = (countMap[s.event_id] ?? 0) + 1;
+      for (const s of signups ?? []) countMap[s.event_id] = s.signup_count;
       const result: EventWithMeta[] = (rows ?? []).map((r) => ({
         id:           r.id,
         created_by:   r.created_by,

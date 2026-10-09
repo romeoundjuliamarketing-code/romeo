@@ -64,14 +64,14 @@ export function useOpenEvents(refetchTrigger = 0, enabled = true): {
       const [{ data: mySignups }, { data: allSignups }] = await Promise.all([
         supabase.from('event_signups').select('event_id').eq('user_id', user.id),
         eventIds.length > 0
-          ? supabase.from('event_signups').select('event_id').in('event_id', eventIds)
-          : Promise.resolve({ data: [] as Array<{ event_id: string }>, error: null }),
+          ? supabase.rpc('get_event_signup_counts', { p_event_ids: eventIds })
+          : Promise.resolve({ data: [] as Array<{ event_id: string; signup_count: number }>, error: null }),
       ]);
 
       const signedUpIds = new Set((mySignups ?? []).map((s) => s.event_id));
       const countMap: Record<string, number> = {};
       for (const s of allSignups ?? []) {
-        countMap[s.event_id] = (countMap[s.event_id] ?? 0) + 1;
+        countMap[s.event_id] = s.signup_count;
       }
 
       const result: EventWithMeta[] = (rows ?? []).map((r) => ({

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
+import i18n from '../i18n';
 import { serverErrorText } from '../utils/serverErrorText';
 
 interface UseStudioInviteResult {
@@ -33,7 +34,7 @@ export function useStudioInvite(): UseStudioInviteResult {
   }
 
   async function acceptInvite(codeInput: string): Promise<{ error: string | null; studioId: string | null }> {
-    const { data, error: rpcError } = await supabase.rpc('accept_studio_invite', {
+    const { data, error: rpcError } = await supabase.rpc('accept_studio_invite_v2', {
       p_code: codeInput,
     });
     if (rpcError !== null) {
@@ -41,7 +42,19 @@ export function useStudioInvite(): UseStudioInviteResult {
       return { error: serverErrorText(rpcError.message), studioId: null };
     }
     reportNetworkSuccess();
-    return { error: null, studioId: data as string };
+    const result: unknown = data;
+    const status: unknown = typeof result === 'object' && result !== null && 'status' in result
+      ? (result as { status?: unknown }).status
+      : undefined;
+    if (status === 'ok') {
+      const id: unknown = (result as { studio_id?: unknown }).studio_id;
+      if (typeof id === 'string' && id.length > 0) return { error: null, studioId: id };
+      return { error: i18n.t('team.invite.invalid'), studioId: null };
+    }
+    if (status === 'locked') return { error: i18n.t('team.invite.locked'), studioId: null };
+    if (status === 'no_subscription') return { error: i18n.t('team.invite.noSubscription'), studioId: null };
+    if (status === 'not_signed_in') return { error: i18n.t('team.errors.notSignedIn'), studioId: null };
+    return { error: i18n.t('team.invite.invalid'), studioId: null };
   }
 
   return { code, loading, error, createInvite, acceptInvite };
