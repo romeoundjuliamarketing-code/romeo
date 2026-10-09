@@ -202,3 +202,82 @@ describe('isChatArchived', () => {
     expect(isChatArchived(new Date(2026, 9, 4, 11, 0).toISOString(), 90, now)).toBe(false);
   });
 });
+
+// ── Chat overview display (2026-10-09) ───────────────────────────────────────
+
+import {
+  chatDisplayTitle, defaultTitleDiscipline, nextUpLabel, participantNamesLabel,
+} from './chatList';
+
+describe('defaultTitleDiscipline', () => {
+  it('recognises only known auto titles', () => {
+    expect(defaultTitleDiscipline('Boxen – Sparring')).toBe('Boxen');
+    expect(defaultTitleDiscipline('K1 / Kickboxen – Sparring')).toBe('K1 / Kickboxen');
+    expect(defaultTitleDiscipline('Hamburg – Sparring')).toBeNull();
+    expect(defaultTitleDiscipline('Boxen Sparring')).toBeNull();
+    expect(defaultTitleDiscipline('Lockeres Boxen')).toBeNull();
+  });
+});
+
+describe('chatDisplayTitle', () => {
+  const base = { kind: 'sparring' as const, placeName: null, address: null };
+
+  it('uses the city when there is no place name', () => {
+    expect(chatDisplayTitle({ ...base, title: 'Boxen – Sparring', address: 'Hauptstr. 1, 26441 Jever' }, 'de'))
+      .toEqual({ text: 'Boxen in Jever', placeInTitle: true });
+    expect(chatDisplayTitle({ ...base, title: 'K1 / Kickboxen – Sparring', address: '26441 Jever' }, 'de').text)
+      .toBe('K1 in Jever');
+  });
+
+  it('prefers the place name over the city', () => {
+    expect(chatDisplayTitle({ ...base, title: 'Boxen – Sparring', placeName: 'Coast Fighter', address: '26441 Jever' }, 'de'))
+      .toEqual({ text: 'Boxen · Coast Fighter', placeInTitle: true });
+  });
+
+  it('falls back to a short form without place data', () => {
+    expect(chatDisplayTitle({ ...base, title: 'Boxen – Sparring' }, 'de'))
+      .toEqual({ text: 'Boxen · Sparring', placeInTitle: false });
+    expect(chatDisplayTitle({ ...base, title: 'Sonstiges – Sparring' }, 'de').text).toBe('Sparring');
+    expect(chatDisplayTitle({ ...base, title: 'Sonstiges – Sparring', address: '26441 Jever' }, 'de').text)
+      .toBe('Sparring in Jever');
+  });
+
+  it('keeps custom titles and event titles untouched', () => {
+    expect(chatDisplayTitle({ ...base, title: '  Hamburg – Sparring ', placeName: 'Coast Fighter' }, 'de'))
+      .toEqual({ text: 'Hamburg – Sparring', placeInTitle: false });
+    expect(chatDisplayTitle({ kind: 'event', title: 'Boxen – Sparring', placeName: 'Bar', address: null }, 'de').text)
+      .toBe('Boxen – Sparring');
+  });
+
+  it('translates the discipline', async () => {
+    await i18n.changeLanguage('en');
+    try {
+      expect(chatDisplayTitle({ ...base, title: 'Boxen – Sparring', address: '26441 Jever' }, 'en').text)
+        .toBe('Boxing in Jever');
+      expect(chatDisplayTitle({ ...base, title: 'K1 / Kickboxen – Sparring', placeName: 'Coast Fighter' }, 'en').text)
+        .toBe('K1 · Coast Fighter');
+    } finally {
+      await i18n.changeLanguage('de');
+    }
+  });
+});
+
+describe('nextUpLabel', () => {
+  const now = new Date(2026, 9, 9, 12, 0);
+  it('names today and tomorrow, otherwise a neutral label', () => {
+    expect(nextUpLabel(new Date(2026, 9, 9, 18, 0).toISOString(), now)).toEqual({ text: 'Heute · 18:00', hasTime: true });
+    expect(nextUpLabel(new Date(2026, 9, 10, 19, 30).toISOString(), now)).toEqual({ text: 'Morgen · 19:30', hasTime: true });
+    expect(nextUpLabel(new Date(2026, 9, 14, 18, 0).toISOString(), now)).toEqual({ text: 'Nächstes Treffen', hasTime: false });
+  });
+});
+
+describe('participantNamesLabel', () => {
+  it('lists first names and the rest', () => {
+    expect(participantNamesLabel([{ name: 'Anna Berg' }, { name: 'Ben' }], 5)).toBe('mit Anna, Ben +3');
+    expect(participantNamesLabel([{ name: 'Anna' }], 1)).toBe('mit Anna');
+  });
+  it('returns null without names', () => {
+    expect(participantNamesLabel([], 3)).toBeNull();
+    expect(participantNamesLabel([{ name: null }, { name: '  ' }], 2)).toBeNull();
+  });
+});

@@ -2401,6 +2401,8 @@ export type Database = {
           last_is_system:    boolean
           my_status:         string | null
           participants:      { id: string; name: string | null; avatar_url: string | null }[]
+          /** Other chat members in total; missing on servers before 20261009120000. */
+          other_count?:      number
         }[]
       }
       get_my_verification: {

@@ -3,6 +3,7 @@ import i18n from '../i18n';
 import { systemMessageText } from './systemMessageText';
 import { formatDate } from './formatDate';
 import { localeFor, parseLanguage, type AppLanguage } from './language';
+import { disciplineLabel, KNOWN_DISCIPLINES } from './disciplineLabel';
 
 function currentLanguage(): AppLanguage {
   return parseLanguage(i18n.language) ?? 'de';
@@ -207,4 +208,84 @@ export function nextUpChatKey(
 /** Same rule as before the redesign: archived once the meeting has ended. */
 export function isChatArchived(scheduledAt: string, durationMin: number, now: Date = new Date()): boolean {
   return new Date(scheduledAt).getTime() + durationMin * 60_000 < now.getTime();
+}
+
+// ── Chat overview display (2026-10-09) ───────────────────────────────────────
+
+const DEFAULT_TITLE_SUFFIX = ' – Sparring';
+
+/**
+ * Discipline of an auto-generated sparring title ("<discipline> – Sparring",
+ * see public.sparring_title_for). Only known disciplines count, so a free
+ * title like "Hamburg – Sparring" is never treated as a default.
+ */
+export function defaultTitleDiscipline(title: string): string | null {
+  const trimmed = title.trim();
+  if (!trimmed.endsWith(DEFAULT_TITLE_SUFFIX)) return null;
+  const discipline = trimmed.slice(0, -DEFAULT_TITLE_SUFFIX.length);
+  return KNOWN_DISCIPLINES.includes(discipline) ? discipline : null;
+}
+
+// "K1 / Kickboxen" → "K1"; "Sonstiges" → null (no discipline to name).
+function shortDiscipline(discipline: string, language: AppLanguage): string | null {
+  if (discipline === 'Sonstiges') return null;
+  return disciplineLabel(discipline, language).split(' / ')[0].trim();
+}
+
+export interface ChatTitle {
+  text: string;
+  /** Title already names the place/city: the meta line leaves it out. */
+  placeInTitle: boolean;
+}
+
+/**
+ * Display title of a chat row. Custom titles are kept as written; only
+ * auto-generated sparring titles are composed from the stored place:
+ * "Boxen · Coast Fighter" (gym/studio name) > "Boxen in Jever" (city from
+ * the address) > "Boxen · Sparring". Display only, nothing is stored.
+ */
+export function chatDisplayTitle(input: {
+  kind:      'sparring' | 'event';
+  title:     string;
+  placeName: string | null;
+  address:   string | null;
+}, language: AppLanguage = currentLanguage()): ChatTitle {
+  const custom = { text: input.title.trim(), placeInTitle: false };
+  if (input.kind !== 'sparring') return custom;
+  const discipline = defaultTitleDiscipline(input.title);
+  if (discipline === null) return custom;
+  const name = shortDiscipline(discipline, language) ?? i18n.t('chat.overview.sparring');
+  const place = input.placeName?.trim() ?? '';
+  if (place.length > 0) return { text: `${name} · ${place}`, placeInTitle: true };
+  const city = cityFromAddress(input.address);
+  if (city !== null) return { text: i18n.t('chat.overview.titleInCity', { discipline: name, city }), placeInTitle: true };
+  const sparring = i18n.t('chat.overview.sparring');
+  return { text: name === sparring ? name : `${name} · ${sparring}`, placeInTitle: false };
+}
+
+/**
+ * Label of the highlighted next meeting: "Heute · 18:00" / "Morgen · 19:30",
+ * later "Nächstes Treffen". `hasTime`: the row's meta line can skip the date.
+ */
+export function nextUpLabel(iso: string, now: Date = new Date()): { text: string; hasTime: boolean } {
+  const when = new Date(iso);
+  const time = formatDate(when, 'time', currentLanguage());
+  const diff = dayDiff(now, when);
+  if (diff === 0) return { text: i18n.t('chat.list.today', { time }), hasTime: true };
+  if (diff === 1) return { text: i18n.t('chat.list.tomorrow', { time }), hasTime: true };
+  return { text: i18n.t('chat.overview.nextUp'), hasTime: false };
+}
+
+/** "mit Anna, Ben +3" from the shown members; null when no names are known. */
+export function participantNamesLabel(
+  participants: { name: string | null }[],
+  otherCount: number,
+): string | null {
+  const names = participants
+    .map((p) => p.name?.trim().split(/\s+/)[0] ?? '')
+    .filter((n) => n.length > 0);
+  if (names.length === 0) return null;
+  const rest = Math.max(0, otherCount - names.length);
+  const list = rest > 0 ? `${names.join(', ')} +${rest}` : names.join(', ');
+  return i18n.t('chat.overview.withNames', { names: list });
 }

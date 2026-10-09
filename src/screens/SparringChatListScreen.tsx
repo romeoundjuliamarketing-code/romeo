@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { colors } from '../theme/colors';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
-import ChatOverviewRow, { chatEntryKey } from '../components/chat/ChatOverviewRow';
+import ChatOverviewRow, { chatEntryKey, chatTitle } from '../components/chat/ChatOverviewRow';
 import {
   ChatOverviewHeader, ArchiveToggle, ChatOverviewEmpty, ChatOverviewNotice, RowSeparator,
 } from '../components/chat/ChatOverviewParts';
@@ -19,7 +19,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 // One virtualized list: active chats (activity order unchanged), then the
 // collapsed "Vergangene Treffen" row and, when open, the past chats.
 type Row =
-  | { type: 'chat'; key: string; item: ChatListEntry; archived: boolean; nextUp: boolean }
+  | { type: 'chat'; key: string; item: ChatListEntry; archived: boolean; nextUp: boolean; showNames: boolean }
   | { type: 'empty'; key: 'empty' }
   | { type: 'archive'; key: 'archive'; count: number; unread: number };
 
@@ -33,6 +33,13 @@ export default function SparringChatListScreen() {
 
   const rows = useMemo<Row[]>(() => {
     const now = new Date();
+    // Equal display titles get the members' names as a tie-breaker line.
+    const titleCount = new Map<string, number>();
+    for (const c of chats) {
+      const text = chatTitle(c).text;
+      titleCount.set(text, (titleCount.get(text) ?? 0) + 1);
+    }
+    const dup = (c: ChatListEntry): boolean => (titleCount.get(chatTitle(c).text) ?? 0) > 1;
     const active = chats.filter((c) => !isChatArchived(c.scheduledAt, c.durationMin, now));
     const archived = chats.filter((c) => isChatArchived(c.scheduledAt, c.durationMin, now));
     // Highlight is separate from the order: the row stays where it is.
@@ -42,7 +49,7 @@ export default function SparringChatListScreen() {
     );
     const out: Row[] = active.map((item) => {
       const key = chatEntryKey(item);
-      return { type: 'chat', key, item, archived: false, nextUp: key === nextKey };
+      return { type: 'chat', key, item, archived: false, nextUp: key === nextKey, showNames: dup(item) };
     });
     if (active.length === 0) out.push({ type: 'empty', key: 'empty' });
     if (archived.length > 0) {
@@ -54,7 +61,7 @@ export default function SparringChatListScreen() {
       });
       if (archiveOpen) {
         for (const item of archived) {
-          out.push({ type: 'chat', key: chatEntryKey(item), item, archived: true, nextUp: false });
+          out.push({ type: 'chat', key: chatEntryKey(item), item, archived: true, nextUp: false, showNames: dup(item) });
         }
       }
     }
@@ -90,7 +97,15 @@ export default function SparringChatListScreen() {
     if (row.type === 'archive') {
       return <ArchiveToggle count={row.count} unread={row.unread} open={archiveOpen} onToggle={toggleArchive} />;
     }
-    return <ChatOverviewRow item={row.item} nextUp={row.nextUp} archived={row.archived} onOpen={openChat} />;
+    return (
+      <ChatOverviewRow
+        item={row.item}
+        nextUp={row.nextUp}
+        archived={row.archived}
+        showNames={row.showNames}
+        onOpen={openChat}
+      />
+    );
   }, [archiveOpen, findSparring, openChat, toggleArchive]);
 
   const firstLoadFailed = failed && chats.length === 0;

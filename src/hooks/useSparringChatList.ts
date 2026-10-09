@@ -21,6 +21,8 @@ export interface ChatListMeta {
   myStatus:       string | null;
   /** Up to two other chat members, organizer first. */
   participants:   ChatParticipant[];
+  /** All other chat members (>= participants.length); drives the "+N". */
+  otherCount:     number;
 }
 
 export interface SparringChatEntry extends ChatListMeta {
@@ -82,6 +84,7 @@ function toEntry(row: RowV1, meta: ChatListMeta): ChatListEntry {
 }
 
 function metaFromV2(row: RowV2): ChatListMeta {
+  const participants = (row.participants ?? []).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatar_url }));
   return {
     placeName:      row.place_name,
     address:        row.address,
@@ -89,14 +92,16 @@ function metaFromV2(row: RowV2): ChatListMeta {
     lastFromMe:     row.last_from_me,
     lastIsSystem:   row.last_is_system,
     myStatus:       row.my_status,
-    participants:   (row.participants ?? []).map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatar_url })),
+    participants,
+    // Older server without other_count: show no "+N" rather than a guess.
+    otherCount:     Math.max(row.other_count ?? 0, participants.length),
   };
 }
 
 function metaFromV1(row: RowV1): ChatListMeta {
   return {
     placeName: null, address: null, lastSenderName: null, lastFromMe: false, lastIsSystem: false,
-    myStatus: row.is_organizer ? 'organizer' : null, participants: [],
+    myStatus: row.is_organizer ? 'organizer' : null, participants: [], otherCount: 0,
   };
 }
 

@@ -111,4 +111,10 @@ export const colors = {
   coverTextMuted:   'rgba(255,255,255,0.82)',  // small text on the darkened cover
   coverChip:        'rgba(10,10,10,0.45)',     // round toolbar buttons over a photo
   flagGloss:        'rgba(255,255,255,0.30)',  // cartoon highlight on flag stickers
+
+  // ── Avatar fallbacks (initials / chat tile; text stays colors.text) ───────
+  avatarSky:        '#D6E6F5',
+  avatarSage:       '#D9E4D3',
+  avatarSand:       '#EEE2CC',
+  avatarLavender:   '#E1DCEE',
 };

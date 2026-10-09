@@ -3,35 +3,44 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import UnreadBadge from './UnreadBadge';
-import ChatGroupMotif from './ChatGroupMotif';
-import { chatPlaceLabel, chatPreview, chatWhenLabel, lastMessageTimeLabel } from '../../utils/chatList';
+import ChatGroupAvatar from './ChatGroupAvatar';
+import {
+  chatDisplayTitle, chatPlaceLabel, chatPreview, chatWhenLabel, lastMessageTimeLabel, nextUpLabel, participantNamesLabel,
+} from '../../utils/chatList';
 import type { ChatListEntry } from '../../hooks/useSparringChatList';
-import { parseLanguage } from '../../utils/language';
-import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
-import i18n from '../../i18n';
 
 export function chatEntryKey(item: ChatListEntry): string {
   return item.kind === 'event' ? `event-${item.eventId}` : `sparring-${item.sparringId}`;
 }
 
-function chatTitle(item: ChatListEntry): string {
-  return item.kind === 'event' ? item.title : sparringDisplayTitle(item.sparringTitle, parseLanguage(i18n.language) ?? 'de');
+export function chatTitle(item: ChatListEntry): ReturnType<typeof chatDisplayTitle> {
+  return chatDisplayTitle({
+    kind:      item.kind,
+    title:     item.kind === 'event' ? item.title : item.sparringTitle,
+    placeName: item.placeName,
+    address:   item.address,
+  });
 }
 
-// One conversation in the overview. Title first, then place + date (what
-// tells equally named meetings apart), then a one-line preview. The whole
-// row opens the chat. `nextUp` only changes the surface, never the layout.
-function ChatOverviewRow({ item, nextUp, archived, onOpen }: {
-  item:     ChatListEntry;
-  nextUp:   boolean;
-  archived: boolean;
-  onOpen:   (item: ChatListEntry) => void;
+// One conversation in the overview: group avatar, then title + time of the
+// last message, meeting date (+ place when the title does not name it), an
+// optional names line (only for otherwise equal titles) and a one-line
+// preview. The whole row opens the chat. `nextUp` only changes the surface.
+function ChatOverviewRow({ item, nextUp, archived, showNames, onOpen }: {
+  item:      ChatListEntry;
+  nextUp:    boolean;
+  archived:  boolean;
+  /** Same title as another row: add the members' first names. */
+  showNames: boolean;
+  onOpen:    (item: ChatListEntry) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const title = chatTitle(item);
-  const place = chatPlaceLabel(item.placeName, item.address);
-  const when = chatWhenLabel(item.scheduledAt);
-  const meta = place !== null ? `${place} · ${when}` : when;
+  const place = title.placeInTitle ? null : chatPlaceLabel(item.placeName, item.address);
+  const label = nextUp ? nextUpLabel(item.scheduledAt) : null;
+  const when = label?.hasTime === true ? null : chatWhenLabel(item.scheduledAt);
+  const meta = [when, place].filter((p): p is string => p !== null).join(' · ');
+  const names = showNames ? participantNamesLabel(item.participants, item.otherCount) : null;
   const unread = item.unreadCount > 0;
   const preview = chatPreview({
     kind:           item.kind,
@@ -43,10 +52,11 @@ function ChatOverviewRow({ item, nextUp, archived, onOpen }: {
   const time = lastMessageTimeLabel(item.lastMessageAt);
 
   const spoken = [
-    nextUp ? t('chat.overview.nextUp') : null,
-    title,
-    meta,
-    preview.sender !== null ? `${preview.sender}: ${preview.text}` : preview.text,
+    label?.text ?? null,
+    title.text,
+    meta.length > 0 ? meta : null,
+    names,
+    archived ? null : (preview.sender !== null ? `${preview.sender}: ${preview.text}` : preview.text),
     unread ? t('chat.overview.unreadCount', { count: item.unreadCount }) : null,
   ].filter((p): p is string => p !== null).join('. ');
 
@@ -63,20 +73,42 @@ function ChatOverviewRow({ item, nextUp, archived, onOpen }: {
       accessibilityLabel={spoken}
       accessibilityHint={t('chat.overview.openHint')}
     >
-      <ChatGroupMotif kind={item.kind} participants={item.participants} compact={archived} highlighted={nextUp} />
+      <ChatGroupAvatar
+        chatId={item.kind === 'event' ? item.eventId : item.sparringId}
+        kind={item.kind}
+        participants={item.participants}
+        otherCount={item.otherCount}
+        compact={archived}
+        onBlue={nextUp}
+      />
 
       <View style={styles.body}>
-        {nextUp && <Text style={styles.nextLabel}>{t('chat.overview.nextUp')}</Text>}
+        {label !== null && <Text style={styles.nextLabel}>{label.text}</Text>}
         <View style={styles.titleRow}>
-          <Text style={[styles.title, archived && styles.titleCompact]} numberOfLines={archived ? 1 : 2}>
-            {title}
+          <Text
+            style={[styles.title, unread && styles.titleUnread, archived && styles.titleCompact]}
+            numberOfLines={archived ? 1 : 2}
+          >
+            {title.text}
           </Text>
           {time.length > 0 && <Text style={[styles.time, unread && styles.timeUnread]}>{time}</Text>}
         </View>
-        <Text style={[styles.meta, nextUp && styles.metaNext]} numberOfLines={1}>{meta}</Text>
+        {meta.length > 0 && (
+          <Text style={[styles.meta, nextUp && styles.metaNext, archived && styles.metaArchived]} numberOfLines={1}>
+            {meta}
+          </Text>
+        )}
+        {names !== null && <Text style={styles.names} numberOfLines={1}>{names}</Text>}
         {!archived && (
           <View style={styles.previewRow}>
-            <Text style={[styles.preview, unread && styles.previewUnread, preview.empty && styles.previewEmpty]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.preview,
+                unread && !item.lastIsSystem && styles.previewUnread,
+                item.lastIsSystem && styles.previewSystem,
+              ]}
+              numberOfLines={1}
+            >
               {preview.sender !== null && <Text style={styles.sender}>{preview.sender}: </Text>}
               {preview.text}
             </Text>
@@ -113,6 +145,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.hairline,
   },
   rowNext: {
+    marginHorizontal: 8,
+    marginVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     backgroundColor: colors.accentBlueTint,
   },
   rowNextPressed: {
@@ -140,13 +176,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17,
     lineHeight: 22,
-    fontWeight: '800',
+    fontWeight: '700',
     color: colors.text,
+  },
+  titleUnread: {
+    fontWeight: '800',
   },
   titleCompact: {
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   time: {
     fontSize: 12,
@@ -167,6 +206,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '700',
   },
+  metaArchived: {
+    color: colors.text,
+  },
+  names: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textMuted,
+  },
   previewRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -183,7 +230,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
-  previewEmpty: {
+  previewSystem: {
+    fontStyle: 'italic',
     color: colors.textMuted,
   },
   sender: {
