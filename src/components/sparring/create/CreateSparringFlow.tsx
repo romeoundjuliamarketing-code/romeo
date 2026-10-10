@@ -364,6 +364,7 @@ export default function CreateSparringFlow({
                   gym={draft.gym}
                   atStudio={draft.atStudio}
                   studioAvailable={coachStudio !== null && coachStudio.address.trim().length > 0}
+                  studioName={coachStudio?.name ?? ''}
                   place={draft.place}
                   placeLabel={draft.placeLabel}
                   accessNote={draft.accessNote}

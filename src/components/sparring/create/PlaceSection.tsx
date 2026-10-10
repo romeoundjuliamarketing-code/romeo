@@ -13,6 +13,7 @@ import { useLanguage } from '../../../i18n/language';
 import { TextAction } from '../../common/TextAction';
 import { FieldError } from './FlowParts';
 import PlaceSuggestForm from './PlaceSuggestForm';
+import LocationPickerModal from '../LocationPickerModal';
 
 export interface PlaceActions {
   onPickGym:    () => void;
@@ -33,7 +34,7 @@ export interface SearchPrefill {
   nonce: number;
 }
 
-type SearchStatus = 'idle' | 'noResults' | PlaceSearchError;
+type SearchStatus = 'idle' | 'noResults' | 'pinNone' | PlaceSearchError;
 
 function PlaceResultRow({ place, onPick }: { place: SparringPlace; onPick: (p: SparringPlace) => void }): React.ReactElement {
   return (
@@ -52,11 +53,13 @@ function PlaceResultRow({ place, onPick }: { place: SparringPlace; onPick: (p: S
   );
 }
 
-function PlaceSection({ gym, atStudio, studioAvailable, place, placeLabel, accessNote, error, prefill, notice, actions }: {
+function PlaceSection({ gym, atStudio, studioAvailable, studioName, place, placeLabel, accessNote, error, prefill, notice, actions }: {
   gym:             DraftGym | null;
   atStudio:        boolean;
-  /** Coach with a team studio: "Am Studio-Standort" is offered. */
+  /** Coach with a team studio: "Mein Studio als Ort" is offered. */
   studioAvailable: boolean;
+  /** Shown in the studio chip; empty falls back to a generic label. */
+  studioName:      string;
   place:           SparringPlace | null;
   placeLabel:      string;
   accessNote:      string;
@@ -69,7 +72,8 @@ function PlaceSection({ gym, atStudio, studioAvailable, place, placeLabel, acces
   const { t } = useTranslation();
   const { language } = useLanguage();
   const { location } = useSearchLocation({ askPermission: false });
-  const { searching, search } = usePlaceSearch();
+  const { searching, search, resolvePin } = usePlaceSearch();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SparringPlace[]>([]);
   const [status, setStatus] = useState<SearchStatus>('idle');
@@ -106,6 +110,24 @@ function PlaceSection({ gym, atStudio, studioAvailable, place, placeLabel, acces
     actions.onPickPlace(p);
   }, [actions]);
 
+  // Map pin (e.g. a meadow): the server describes and stores the point, the
+  // result is taken like a search hit.
+  const handlePin = useCallback(async (lat: number, lng: number): Promise<void> => {
+    setPickerOpen(false);
+    setResults([]);
+    setStatus('idle');
+    requestRef.current += 1;
+    const mine = requestRef.current;
+    const outcome = await resolvePin(lat, lng, language);
+    if (mine !== requestRef.current) return;
+    const first = outcome.places[0];
+    if (outcome.error === null && first !== undefined) {
+      pick(first);
+      return;
+    }
+    setStatus(outcome.error !== null ? outcome.error : 'pinNone');
+  }, [resolvePin, language, pick]);
+
   const link = (
     <View style={styles.linkRow}>
       {gym !== null ? (
@@ -119,7 +141,7 @@ function PlaceSection({ gym, atStudio, studioAvailable, place, placeLabel, acces
       ) : atStudio ? (
         <View style={styles.chip}>
           <Ionicons name="home" size={16} color={colors.accentBlueText} />
-          <Text style={styles.chipText} numberOfLines={1}>{t('sparring.place.studioLocation')}</Text>
+          <Text style={styles.chipText} numberOfLines={1}>{studioName.trim() !== '' ? studioName : t('sparring.place.studioLocation')}</Text>
           <TouchableOpacity onPress={actions.onClearLink} hitSlop={8} accessibilityRole="button" accessibilityLabel={t('sparring.place.removePlace')}>
             <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -161,14 +183,22 @@ function PlaceSection({ gym, atStudio, studioAvailable, place, placeLabel, acces
             </TouchableOpacity>
           </View>
           <Text style={styles.note}>{t('sparringTrust.create.placeSearchHint')}</Text>
+          <TextAction label={t('sparringTrust.create.pickOnMap')} icon="map-outline" onPress={() => setPickerOpen(true)} />
 
           {results.map((p) => <PlaceResultRow key={p.id} place={p} onPick={pick} />)}
           {status === 'noResults' && <Text style={styles.note}>{t('sparringTrust.create.noResults')}</Text>}
+          {status === 'pinNone' && <Text style={styles.note}>{t('sparringTrust.create.pinNone')}</Text>}
           {status === 'quota' && <Text style={styles.note}>{t('sparringTrust.create.searchQuota')}</Text>}
           {status === 'network' && <Text style={styles.note}>{t('sparringTrust.create.searchNetwork')}</Text>}
           <FieldError text={error} />
           {link}
           <PlaceSuggestForm onAction={actions.onTrustAction} />
+          {/* Child of the open create modal (a sibling modal would not show on iOS). */}
+          <LocationPickerModal
+            visible={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            onConfirm={(lat, lng) => { void handlePin(lat, lng); }}
+          />
         </View>
       ) : (
         <View>

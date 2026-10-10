@@ -41,6 +41,7 @@ export interface DraftGym {
 
 export interface DraftStudio {
   id:      string;
+  name:    string;
   address: string;
   lat:     number | null;
   lng:     number | null;

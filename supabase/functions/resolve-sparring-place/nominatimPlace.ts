@@ -27,8 +27,55 @@ export interface NominatimResult {
   address?: NominatimAddress;
 }
 
+// Photon (photon.komoot.io, OSM data) GeoJSON feature. Nominatim's public
+// instance blocks the Supabase Edge network (403), so searches go to Photon and
+// are mapped into the Nominatim shape; normalisation and stored OSM ids stay
+// the same (Photon returns the same OSM objects).
+export interface PhotonFeature {
+  geometry?: { coordinates?: [number, number] };
+  properties?: {
+    osm_type?: string;
+    osm_id?: number;
+    osm_key?: string;
+    osm_value?: string;
+    type?: string;
+    name?: string;
+    housenumber?: string;
+    street?: string;
+    postcode?: string;
+    city?: string;
+    country?: string;
+  };
+}
+
+const PHOTON_OSM_TYPES: Readonly<Record<string, string>> = { N: 'node', W: 'way', R: 'relation' };
+
+export function photonToNominatim(f: PhotonFeature): NominatimResult {
+  const p = f.properties ?? {};
+  const coords = f.geometry?.coordinates;
+  // A street feature carries the street as its name and has no street field.
+  const road = p.street ?? (p.type === 'street' ? p.name : undefined);
+  return {
+    osm_type: PHOTON_OSM_TYPES[p.osm_type ?? ''] ?? p.osm_type,
+    osm_id: p.osm_id,
+    lat: coords !== undefined ? String(coords[1]) : undefined,
+    lon: coords !== undefined ? String(coords[0]) : undefined,
+    category: p.osm_key,
+    type: p.osm_value,
+    name: p.name,
+    address: {
+      road,
+      house_number: p.housenumber,
+      postcode: p.postcode,
+      city: p.city,
+      country: p.country,
+    },
+  };
+}
+
 export interface NormalizedPlace {
-  osm_type: 'node' | 'way' | 'relation';
+  // 'pin' = point tapped on the map (osm_id = pinKey of the rounded position).
+  osm_type: 'node' | 'way' | 'relation' | 'pin';
   osm_id: number;
   name: string;
   address: string;
@@ -87,6 +134,48 @@ export function normalizePlace(r: NominatimResult): NormalizedPlace | null {
     lat,
     lng,
     category: isPoi ? `${clean(r.category)}:${clean(r.type)}` : 'address',
+  };
+}
+
+// Map pins are rounded to 5 decimals (about 1 m). The key packs both rounded
+// values into one non-negative safe integer, so the same spot reuses one row.
+const PIN_SCALE = 1e5;
+
+function roundPin(v: number): number {
+  return Math.round(v * PIN_SCALE) / PIN_SCALE;
+}
+
+export function pinKey(lat: number, lng: number): number {
+  const latInt = Math.round(lat * PIN_SCALE) + 90 * PIN_SCALE;
+  const lngInt = Math.round(lng * PIN_SCALE) + 180 * PIN_SCALE;
+  return latInt * (360 * PIN_SCALE + 1) + lngInt;
+}
+
+// A map pin (e.g. a meadow) for a Nominatim reverse result. The target is the
+// tapped position itself; the reverse result only describes it. A locality is
+// required, so pins outside any settlement (sea, wilderness) are refused.
+// Category 'address' makes publish_sparring require a place label.
+export function normalizePin(lat: number, lng: number, r: NominatimResult): NormalizedPlace | null {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  const a = r.address ?? {};
+  const street = clean(a.road) || clean(a.pedestrian) || clean(a.square);
+  const locality = clean(a.city) || clean(a.town) || clean(a.village) || clean(a.municipality);
+  if (locality === '') return null;
+
+  const address = [street, [clean(a.postcode), locality].filter((p) => p !== '').join(' '), clean(a.country)]
+    .filter((p) => p !== '')
+    .join(', ')
+    .slice(0, 300);
+  if (address.length < 5) return null;
+
+  return {
+    osm_type: 'pin',
+    osm_id: pinKey(lat, lng),
+    name: (clean(r.name) || street || locality).slice(0, 120),
+    address,
+    lat: roundPin(lat),
+    lng: roundPin(lng),
+    category: 'address',
   };
 }
 
