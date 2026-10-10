@@ -177,10 +177,8 @@ export default function SparringChallengeScreen(): React.ReactElement {
         <ChallengeRatingOverlay
           key={feedback.card.id}
           challenge={feedback.card}
-          progress={feedback.progress}
           onRate={feedback.rate}
           onSkip={feedback.skip}
-          onSkipAll={feedback.skipAll}
         />
       ) : null}
     </SafeAreaView>
