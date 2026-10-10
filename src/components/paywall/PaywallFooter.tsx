@@ -4,8 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
-const PRIVACY_URL = 'https://www.notion.so/Datenschutzerkl-rung-Sparr-34f1f56f1531804ebd59ec7351220d82?source=copy_link';
-const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const PRIVACY_URL = 'https://sparrapp.com/datenschutz.html';
+const TERMS_URL = 'https://sparrapp.com/agb.html';
 
 interface Props {
   label: string;
