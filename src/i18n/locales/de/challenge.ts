@@ -70,6 +70,7 @@ const challenge = {
   card: {
     difficulty: 'Schwierigkeit {{level}}',
     done: 'Geschafft',
+    successCriteria: 'Geschafft, wenn',
   },
   rating: {
     heading: 'Kurz gefragt',
@@ -81,7 +82,7 @@ const challenge = {
   },
   deck: {
     drawLabel: 'Neue Karte ziehen',
-    drawHint: 'Tippe auf die Karte, um eine neue Mission zu ziehen',
+    drawHint: 'Tippe auf den Stapel, um eine Karte aufzudecken',
   },
   browser: {
     close: 'Schliessen',
@@ -89,12 +90,16 @@ const challenge = {
   noCards: 'Noch keine Karten in diesem Bereich',
   deckFinished: 'Deck durchgespielt',
   screen: {
-    title: 'Sparrings-Challenge',
+    title: 'Sparringsspiel',
+    settings: 'Einstellungen',
     changeDiscipline: 'Disziplin ändern',
-    mission: 'DEINE MISSION',
+    inviteTitle: 'Was ist dein nächster Auftrag?',
+    inviteBody: 'Zieh eine Karte. Behalte deine Aufgabe für dich.',
+    revealedTitle: 'Dein Auftrag',
+    revealedBody: 'Behalte ihn für dich und setz ihn im Sparring um.',
     newCard: 'Neue Karte',
     drawCard: 'Karte ziehen',
-    browseAll: 'Alle Karten ansehen',
+    collection: 'Kartensammlung',
   },
   intro: {
     pricePerMonth: '{{price}} / Monat',

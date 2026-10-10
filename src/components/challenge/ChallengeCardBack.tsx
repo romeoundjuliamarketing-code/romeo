@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 import { colors } from '../../theme/colors';
 import SparrLogo from '../common/SparrLogo';
 import { CARD_RADIUS, cardShadow } from './cardLayout';
@@ -12,30 +13,68 @@ interface Props {
   elevated?: boolean;
 }
 
-// Back of a challenge card, the strongest brand moment: Sparr blue, a fine double
-// inset frame like a printed card, the mascot large in the middle over the wordmark.
-// It must never carry anything about the mission underneath.
+// Inset of the fine contour from the card edge.
+const KEYLINE_INSET = 10;
+// Spacing between the ring-corner ropes.
+const ROPE_GAP = 8;
+const ROPE_COUNT = 3;
+
+// The ropes meeting at a ring corner: nested L shapes in two opposite corners, drawn
+// faintly inside the keyline. Bottom right is the top left one mirrored.
+function ringCornerPath(width: number, height: number): string {
+  const arm = Math.round(width * 0.26);
+  const parts: string[] = [];
+  for (let i = 1; i <= ROPE_COUNT; i += 1) {
+    const o = KEYLINE_INSET + ROPE_GAP * i;
+    const len = arm - ROPE_GAP * (i - 1);
+    parts.push(`M${o} ${o + len} L${o} ${o} L${o + len} ${o}`);
+    parts.push(`M${width - o} ${height - o - len} L${width - o} ${height - o} L${width - o - len} ${height - o}`);
+  }
+  return parts.join(' ');
+}
+
+// Back of a challenge card, the strongest brand moment: Sparr blue with a restrained
+// vertical gradient, one fine inset contour, faint ring-corner ropes and the mascot
+// in the middle over the wordmark. It must never carry anything about the mission.
 export default function ChallengeCardBack({ size, elevated = true }: Props): React.ReactElement {
-  const logoSize      = Math.round(size.width * 0.42);
-  const watermarkSize = Math.round(size.width * 1.05);
-  const compact       = size.width < 240;
+  const { width, height } = size;
+  const logoSize = Math.round(width * 0.4);
+  const compact  = width < 240;
 
   return (
-    <View style={[styles.card, { width: size.width, height: size.height }, elevated && cardShadow]}>
-      {/* Oversized mark, offset and cropped by the card edge so it reads as a
-          background texture instead of a second face behind the centred logo. */}
-      <View style={styles.watermark} pointerEvents="none">
-        <SparrLogo size={watermarkSize} opacity={0.06} />
-      </View>
+    <View style={[styles.card, { width, height }, elevated && cardShadow]}>
+      <Svg style={StyleSheet.absoluteFill} width={width} height={height} pointerEvents="none">
+        <Defs>
+          <LinearGradient id="cardBackFill" x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={colors.cardBackTop} />
+            <Stop offset="0.55" stopColor={colors.accentBlue} />
+            <Stop offset="1" stopColor={colors.cardBackBottom} />
+          </LinearGradient>
+        </Defs>
+        <Rect x={0} y={0} width={width} height={height} fill="url(#cardBackFill)" />
+        <Path
+          d={ringCornerPath(width, height)}
+          stroke={colors.cardBackPattern}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <Rect
+          x={KEYLINE_INSET + 0.5}
+          y={KEYLINE_INSET + 0.5}
+          width={width - KEYLINE_INSET * 2 - 1}
+          height={height - KEYLINE_INSET * 2 - 1}
+          rx={CARD_RADIUS - KEYLINE_INSET}
+          stroke={colors.cardBackKeyline}
+          strokeWidth={1}
+          fill="none"
+        />
+      </Svg>
 
-      <View style={styles.frameOuter}>
-        <View style={styles.frameInner}>
-          <View style={styles.center}>
-            <SparrLogo size={logoSize} />
-            <Text style={[styles.wordmark, compact && styles.wordmarkCompact]}>SPARR</Text>
-            <View style={styles.rule} />
-          </View>
-        </View>
+      <View style={styles.center}>
+        <SparrLogo size={logoSize} />
+        <Text style={[styles.wordmark, compact && styles.wordmarkCompact]} maxFontSizeMultiplier={1.2}>SPARR</Text>
       </View>
     </View>
   );
@@ -44,29 +83,9 @@ export default function ChallengeCardBack({ size, elevated = true }: Props): Rea
 const styles = StyleSheet.create({
   card: {
     borderRadius: CARD_RADIUS,
+    // Same blue under the gradient, so no light seam can show at the rounded corners.
     backgroundColor: colors.accentBlue,
-    borderWidth: 2,
-    borderColor: colors.dark,
-    padding: 8,
     overflow: 'hidden',
-  },
-  watermark: {
-    position: 'absolute',
-    right: -56,
-    bottom: -48,
-  },
-  frameOuter: {
-    flex: 1,
-    borderRadius: CARD_RADIUS - 8,
-    borderWidth: 1,
-    borderColor: colors.headerBorder,
-    padding: 4,
-  },
-  frameInner: {
-    flex: 1,
-    borderRadius: CARD_RADIUS - 12,
-    borderWidth: 1,
-    borderColor: colors.headerDotFuture,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -75,19 +94,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   wordmark: {
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '800',
-    letterSpacing: 6,
+    letterSpacing: 3,
     color: colors.headerTextPrimary,
   },
   wordmarkCompact: {
-    fontSize: 20,
-    letterSpacing: 4,
-  },
-  rule: {
-    width: 32,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: colors.headerBorder,
+    fontSize: 16,
+    letterSpacing: 2,
   },
 });

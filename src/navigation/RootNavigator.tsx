@@ -99,7 +99,8 @@ function AppNavigator({ showOnboarding }: { showOnboarding: boolean }) {
       <AppStack.Screen
         name="SparringChallenge"
         component={GatedChallenge}
-        options={{ presentation: 'modal' }}
+        // A stage of its own: full screen, nothing of the previous page behind it.
+        options={{ presentation: 'fullScreenModal' }}
       />
     </AppStack.Navigator>
     </NotificationsProvider>

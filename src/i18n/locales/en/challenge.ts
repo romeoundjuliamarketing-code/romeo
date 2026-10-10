@@ -73,6 +73,7 @@ const challenge: LocaleShape<typeof de> = {
   card: {
     difficulty: 'Difficulty {{level}}',
     done: 'Done',
+    successCriteria: 'Done when',
   },
   rating: {
     heading: 'Quick question',
@@ -84,7 +85,7 @@ const challenge: LocaleShape<typeof de> = {
   },
   deck: {
     drawLabel: 'Draw a new card',
-    drawHint: 'Tap the card to draw a new mission',
+    drawHint: 'Tap the deck to turn over a card',
   },
   browser: {
     close: 'Close',
@@ -92,12 +93,16 @@ const challenge: LocaleShape<typeof de> = {
   noCards: 'No cards in this area yet',
   deckFinished: 'Deck completed',
   screen: {
-    title: 'Sparring challenge',
+    title: 'Sparring game',
+    settings: 'Settings',
     changeDiscipline: 'Change discipline',
-    mission: 'YOUR MISSION',
+    inviteTitle: "What's your next assignment?",
+    inviteBody: 'Draw a card. Keep your task to yourself.',
+    revealedTitle: 'Your assignment',
+    revealedBody: 'Keep it to yourself and work it into your sparring.',
     newCard: 'New card',
     drawCard: 'Draw card',
-    browseAll: 'View all cards',
+    collection: 'Card collection',
   },
   intro: {
     pricePerMonth: '{{price}} / month',
