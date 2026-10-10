@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
+import { View, Text, Image, Linking, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 import { formatDate } from '../../utils/formatDate';
 import { useLanguage } from '../../i18n/language';
-import { systemMessageText } from '../../utils/systemMessageText';
+import SystemEventLine from './SystemEventLine';
 import type { GroupMessageWithSender } from '../../hooks/useSparringGroupChat';
 
 interface Props {
@@ -14,49 +14,65 @@ interface Props {
   isLastInGroup:  boolean;
 }
 
-const AVATAR_SIZE   = 32;
+const AVATAR_SIZE   = 28;
 const AVATAR_GUTTER = AVATAR_SIZE + 8; // avatar width + gap
+const URL_RE        = /(https?:\/\/[^\s]+)/g;
 
 function getInitial(name: string | null): string {
   if (name === null || name.trim().length === 0) return '?';
   return name.trim().charAt(0).toUpperCase();
 }
 
+// Message text with http(s) links as tappable, underlined spans.
+function MessageText({ content, isOwn }: { content: string; isOwn: boolean }) {
+  const parts = content.split(URL_RE);
+  return (
+    <Text style={[styles.content, isOwn && styles.contentOwn]} selectable>
+      {parts.map((part, i) => (i % 2 === 1 ? (
+        <Text
+          key={i}
+          style={[styles.link, isOwn && styles.linkOwn]}
+          onPress={() => { void Linking.openURL(part); }}
+          accessibilityRole="link"
+        >
+          {part}
+        </Text>
+      ) : part))}
+    </Text>
+  );
+}
+
 function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: Props) {
   const { t } = useTranslation();
   const { language } = useLanguage();
-  // System messages: centred chip, ignore grouping props
   if (message.is_system) {
-    return (
-      <View style={styles.systemRow}>
-        <View style={styles.systemChip}>
-          <Text style={styles.systemText}>{systemMessageText(message.content ?? '', (key, opts) => t(key, opts), t('chat.system.someone'))}</Text>
-        </View>
-      </View>
-    );
+    return <SystemEventLine content={message.content ?? ''} />;
   }
 
   const rowStyle = [
     styles.row,
     isOwn ? styles.rowOwn : styles.rowOther,
-    // Vertical spacing: tighter within a group, larger at the start of one
+    // Vertical spacing: tight within a group, more air at the start of one
     isFirstInGroup ? styles.rowMarginFirst : styles.rowMarginContinue,
   ];
 
   const bubbleStyle = [
     styles.bubble,
-    isOwn   ? styles.bubbleOwn   : styles.bubbleOther,
-    // Tail: last bubble in a group gets a pointy bottom corner
-    isOwn && isLastInGroup  ? styles.bubbleTailOwn   : null,
-    !isOwn && isLastInGroup ? styles.bubbleTailOther : null,
+    isOwn ? styles.bubbleOwn : styles.bubbleOther,
+    message.image_url !== null && styles.bubbleWithImage,
+    // Grouped bubbles: soften only the corners facing the neighbours
+    isOwn && !isFirstInGroup ? styles.joinTopOwn : null,
+    isOwn && !isLastInGroup ? styles.joinBottomOwn : null,
+    !isOwn && !isFirstInGroup ? styles.joinTopOther : null,
+    !isOwn && !isLastInGroup ? styles.joinBottomOther : null,
   ];
 
   return (
     <View style={rowStyle}>
-      {/* Avatar gutter (other messages only) */}
+      {/* Avatar gutter (other messages only), avatar next to the last bubble */}
       {!isOwn && (
         <View style={styles.avatarGutter}>
-          {isFirstInGroup && (
+          {isLastInGroup && (
             <View style={styles.avatar}>
               {message.senderAvatarUrl !== null ? (
                 <Image source={{ uri: message.senderAvatarUrl }} style={styles.avatarImg} />
@@ -68,11 +84,9 @@ function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: P
         </View>
       )}
 
-      {/* Message column */}
-      <View style={styles.messageColumn}>
-        {/* Sender name: only on first message of a group (other side) */}
+      <View style={[styles.messageColumn, isOwn && styles.messageColumnOwn]}>
         {!isOwn && isFirstInGroup && (
-          <Text style={styles.senderName}>{message.senderName ?? t('chat.unknownSender')}</Text>
+          <Text style={styles.senderName} numberOfLines={1}>{message.senderName ?? t('chat.unknownSender')}</Text>
         )}
 
         <View style={bubbleStyle}>
@@ -84,11 +98,13 @@ function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: P
             />
           )}
           {message.content !== null && (
-            <Text style={[styles.content, isOwn && styles.contentOwn]}>
-              {message.content}
-            </Text>
+            <View style={message.image_url !== null ? styles.captionPad : null}>
+              <MessageText content={message.content} isOwn={isOwn} />
+            </View>
           )}
-          <Text style={[styles.time, isOwn && styles.timeOwn]}>{formatDate(message.created_at, 'time', language)}</Text>
+          <Text style={[styles.time, isOwn && styles.timeOwn, message.image_url !== null && styles.timeWithImage]}>
+            {formatDate(message.created_at, 'time', language)}
+          </Text>
         </View>
       </View>
     </View>
@@ -97,10 +113,13 @@ function GroupMessageBubble({ message, isOwn, isFirstInGroup, isLastInGroup }: P
 
 export default React.memo(GroupMessageBubble);
 
+const RADIUS       = 18;
+const RADIUS_JOIN  = 6;
+
 const styles = StyleSheet.create({
   row: {
     flexDirection:     'row',
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     alignItems:        'flex-end',
   },
   rowOther: {
@@ -110,7 +129,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   rowMarginFirst: {
-    marginTop: 8,
+    marginTop: 16,
   },
   rowMarginContinue: {
     marginTop: 2,
@@ -121,13 +140,12 @@ const styles = StyleSheet.create({
     width:          AVATAR_GUTTER,
     alignItems:     'flex-start',
     justifyContent: 'flex-end',
-    paddingBottom:  2,
   },
   avatar: {
     width:           AVATAR_SIZE,
     height:          AVATAR_SIZE,
     borderRadius:    AVATAR_SIZE / 2,
-    backgroundColor: colors.accentBlueSoft,
+    backgroundColor: colors.accentBlueTint,
     alignItems:      'center',
     justifyContent:  'center',
     overflow:        'hidden',
@@ -137,91 +155,85 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
   },
   avatarInitial: {
-    fontSize:   13,
+    fontSize:   12,
     fontWeight: '700',
-    color:      colors.accentBlue,
+    color:      colors.accentBlueText,
   },
 
-  // Message column holds the sender name + bubble
+  // Sender name + bubble, at most ~80% of the row
   messageColumn: {
-    maxWidth: '78%',
-    gap:       2,
+    maxWidth: '80%',
+    flexShrink: 1,
+  },
+  messageColumnOwn: {
+    alignItems: 'flex-end',
   },
   senderName: {
-    fontSize:    12,
-    fontWeight:  '600',
-    color:       colors.accentBlue,
-    marginLeft:  4,
-    marginBottom: 2,
+    fontSize:     12,
+    fontWeight:   '600',
+    color:        colors.accentBlueText,
+    marginLeft:   8,
+    marginBottom: 4,
   },
 
-  // Bubble
   bubble: {
-    borderRadius:      16,
-    paddingVertical:   8,
-    paddingHorizontal: 12,
-    shadowColor:       colors.dark,
-    shadowOffset:      { width: 0, height: 1 },
-    shadowOpacity:     0.08,
-    shadowRadius:      2,
+    borderRadius:      RADIUS,
+    paddingTop:        8,
+    paddingBottom:     8,
+    paddingHorizontal: 16,
+    overflow:          'hidden',
   },
   bubbleOwn: {
     backgroundColor: colors.accentBlue,
   },
   bubbleOther: {
     backgroundColor: colors.card,
+    borderWidth:     StyleSheet.hairlineWidth,
+    borderColor:     colors.hairline,
   },
-  // Tail: flatten the near-sender bottom corner on the last bubble in a group
-  bubbleTailOwn: {
-    borderBottomRightRadius: 4,
+  bubbleWithImage: {
+    paddingTop:        0,
+    paddingHorizontal: 0,
   },
-  bubbleTailOther: {
-    borderBottomLeftRadius: 4,
-  },
+  joinTopOwn:      { borderTopRightRadius: RADIUS_JOIN },
+  joinBottomOwn:   { borderBottomRightRadius: RADIUS_JOIN },
+  joinTopOther:    { borderTopLeftRadius: RADIUS_JOIN },
+  joinBottomOther: { borderBottomLeftRadius: RADIUS_JOIN },
 
-  // Content
   content: {
-    fontSize:  15,
-    color:     colors.text,
-    lineHeight: 21,
+    fontSize:   16,
+    lineHeight: 22,
+    color:      colors.text,
   },
   contentOwn: {
     color: colors.card,
   },
+  link: {
+    textDecorationLine: 'underline',
+    color:              colors.accentBlueText,
+  },
+  linkOwn: {
+    color: colors.card,
+  },
   image: {
-    width:        220,
-    height:       160,
-    borderRadius: 8,
-    marginBottom:  8,
+    width:  240,
+    height: 176,
+  },
+  captionPad: {
+    paddingTop:        8,
+    paddingHorizontal: 16,
   },
 
-  // Timestamp
   time: {
     fontSize:  11,
-    color:     colors.textSecondary,
+    color:     colors.textMuted,
     marginTop: 2,
     alignSelf: 'flex-end',
   },
   timeOwn: {
-    color: colors.headerTextSecondary,
+    color: colors.coverTextMuted,
   },
-
-  // System message
-  systemRow: {
-    alignItems:        'center',
-    paddingVertical:   8,
+  timeWithImage: {
     paddingHorizontal: 16,
-    marginTop:         4,
-  },
-  systemChip: {
-    backgroundColor:   colors.border,
-    borderRadius:      12,
-    paddingHorizontal: 12,
-    paddingVertical:   4,
-  },
-  systemText: {
-    fontSize:  12,
-    color:     colors.textSecondary,
-    textAlign: 'center',
   },
 });

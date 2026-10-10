@@ -10,10 +10,12 @@ interface Props {
   /** Resolves true when the text was sent and the draft should be cleared. */
   onSend:      (text: string) => Promise<boolean>;
   leading?:    React.ReactNode;
+  /** Overrides the generic placeholder (e.g. "Nachricht an die Gruppe …"). */
+  placeholder?: string;
 }
 
 // Owns the draft so keystrokes re-render only this row, not the chat screen and its message list.
-export default function ChatComposer({ sending, bottomInset, onSend, leading }: Props) {
+export default function ChatComposer({ sending, bottomInset, onSend, leading, placeholder }: Props) {
   const { t } = useTranslation();
   const [text, setText] = useState('');
   const trimmed  = text.trim();
@@ -31,8 +33,9 @@ export default function ChatComposer({ sending, bottomInset, onSend, leading }: 
         style={styles.input}
         value={text}
         onChangeText={setText}
-        placeholder={t('chat.composerPlaceholder')}
-        placeholderTextColor={colors.textSecondary}
+        placeholder={placeholder ?? t('chat.composerPlaceholder')}
+        placeholderTextColor={colors.textMuted}
+        accessibilityLabel={placeholder ?? t('chat.composerPlaceholder')}
         multiline
         returnKeyType="send"
         onSubmitEditing={() => { void submit(); }}
@@ -42,10 +45,13 @@ export default function ChatComposer({ sending, bottomInset, onSend, leading }: 
         style={[styles.sendBtn, disabled && styles.sendBtnDisabled]}
         onPress={() => { void submit(); }}
         disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel={t('chat.send')}
+        accessibilityState={{ disabled }}
       >
         {sending
           ? <ActivityIndicator size="small" color={colors.card} />
-          : <Ionicons name="send" size={18} color={colors.card} />
+          : <Ionicons name="arrow-up" size={20} color={disabled ? colors.textMuted : colors.card} />
         }
       </TouchableOpacity>
     </View>
@@ -56,35 +62,38 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection:     'row',
     alignItems:        'flex-end',
-    paddingHorizontal: 8,
+    paddingHorizontal: 16,
     paddingTop:        8,
-    borderTopWidth:    1,
-    borderTopColor:    colors.border,
+    borderTopWidth:    StyleSheet.hairlineWidth,
+    borderTopColor:    colors.fieldBorder,
     backgroundColor:   colors.background,
     gap:               8,
   },
   input: {
     flex:              1,
-    minHeight:         40,
-    maxHeight:         120,
+    minHeight:         44,
+    maxHeight:         128,
     backgroundColor:   colors.card,
-    borderRadius:      20,
+    borderRadius:      24,
     paddingHorizontal: 16,
-    paddingVertical:   10,
-    fontSize:          15,
+    paddingTop:        12,
+    paddingBottom:     12,
+    fontSize:          16,
+    lineHeight:        20,
     color:             colors.text,
-    borderWidth:       1,
-    borderColor:       colors.border,
+    borderWidth:       StyleSheet.hairlineWidth,
+    borderColor:       colors.fieldBorder,
+    textAlignVertical: 'top',
   },
   sendBtn: {
-    width:           40,
-    height:          40,
-    borderRadius:    20,
+    width:           44,
+    height:          44,
+    borderRadius:    22,
     backgroundColor: colors.accentBlue,
     alignItems:      'center',
     justifyContent:  'center',
   },
   sendBtnDisabled: {
-    opacity: 0.4,
+    backgroundColor: colors.hairline,
   },
 });

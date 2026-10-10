@@ -43,8 +43,8 @@ export default function ChatImagePicker({ onImageSelected, disabled }: Props) {
 
 const styles = StyleSheet.create({
   btn: {
-    width:          40,
-    height:         40,
+    width:          44,
+    height:         44,
     alignItems:     'center',
     justifyContent: 'center',
   },

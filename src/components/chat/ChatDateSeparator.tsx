@@ -6,30 +6,34 @@ interface Props {
   label: string;
 }
 
+// Day change: small centred label between two fine lines, clearly different
+// from the system event lines in the history.
 export default function ChatDateSeparator({ label }: Props) {
   return (
-    <View style={styles.wrapper}>
-      <View style={styles.chip}>
-        <Text style={styles.label}>{label}</Text>
-      </View>
+    <View style={styles.wrapper} accessibilityRole="header">
+      <View style={styles.line} />
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.line} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: {
-    alignItems:      'center',
-    paddingVertical: 8,
+    flexDirection:     'row',
+    alignItems:        'center',
+    paddingHorizontal: 24,
+    paddingVertical:   16,
+    gap:               8,
   },
-  chip: {
-    backgroundColor:   colors.border,
-    borderRadius:      12,
-    paddingHorizontal: 12,
-    paddingVertical:   4,
+  line: {
+    flex:            1,
+    height:          StyleSheet.hairlineWidth,
+    backgroundColor: colors.fieldBorder,
   },
   label: {
     fontSize:   12,
-    color:      colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
+    color:      colors.textMuted,
   },
 });
