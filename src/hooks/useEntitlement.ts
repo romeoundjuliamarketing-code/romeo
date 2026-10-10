@@ -47,7 +47,7 @@ export function useEntitlement(refetchTrigger = 0): {
   entitlement: EntitlementState;
   loading: boolean;
   error: boolean;
-  refetch: () => Promise<void>;
+  refetch: () => Promise<EntitlementState>;
 } {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -58,13 +58,13 @@ export function useEntitlement(refetchTrigger = 0): {
   const [resolvedUserId, setResolvedUserId] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
-  const refetch = useCallback(async (): Promise<void> => {
+  const refetch = useCallback(async (): Promise<EntitlementState> => {
     if (userId === null) {
       setEntitlement(DEFAULT_ENTITLEMENT);
       setError(false);
       setResolvedUserId(null);
       setLoading(false);
-      return;
+      return DEFAULT_ENTITLEMENT;
     }
 
     await loginRevenueCat(userId).catch(() => undefined);
@@ -82,10 +82,12 @@ export function useEntitlement(refetchTrigger = 0): {
     if (error !== null || data === null || data.length === 0) {
       if (error !== null) reportNetworkError(error);
       setError(!rcHasAccess);
-      if (rcHasAccess) setEntitlement({ ...DEFAULT_ENTITLEMENT, hasAccess: true });
+      const fallback = rcHasAccess ? { ...DEFAULT_ENTITLEMENT, hasAccess: true } : null;
+      if (fallback !== null) setEntitlement(fallback);
       setResolvedUserId(userId);
       setLoading(false);
-      return;
+      // Unknown server state without store access: report no access.
+      return fallback ?? DEFAULT_ENTITLEMENT;
     }
     reportNetworkSuccess();
 
@@ -118,6 +120,7 @@ export function useEntitlement(refetchTrigger = 0): {
     setResolvedUserId(userId);
     if (cacheKey) setCached<EntitlementSnapshot>(cacheKey, { entitlement: newEntitlement });
     setLoading(false);
+    return newEntitlement;
   }, [userId, cacheKey]);
 
   useEffect(() => {

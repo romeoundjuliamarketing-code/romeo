@@ -17,6 +17,9 @@ import { useSparringActions } from '../hooks/useSparringActions';
 import { useSparringReach } from '../hooks/useSparringReach';
 import { useSparringJoinFlow } from '../hooks/useSparringJoinFlow';
 import ReachIntroSheet from '../components/sparring/trust/ReachIntroSheet';
+import CoachInviteOverlay from '../components/coach/CoachInviteOverlay';
+import { COACH_INVITING } from '../components/coach/coachFigures';
+import { useMountedOnce } from '../components/common/SheetShell';
 import { useStudio } from '../hooks/useStudio';
 import { useStudioAddress } from '../hooks/useStudioAddress';
 import { useVerification } from '../hooks/useVerification';
@@ -69,6 +72,9 @@ import { sparringDisplayTitle } from '../utils/sparringDisplayTitle';
 
 // Last chosen sparring view (map/list). Without a stored choice the list opens.
 const VIEW_KEY = 'sparring_view_v1';
+
+// Create attempt parked behind the coach invite / paywall.
+type PendingCreate = { gymId: string | null };
 const NO_POINTS: Array<{ lat: number; lng: number }> = [];
 
 interface NavProp {
@@ -135,7 +141,19 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const {
     entitlements: storeEntitlements, loading: storeEntitlementsLoading, refetch: refetchStoreEntitlements,
   } = useStoreEntitlements();
-  useFocusRefetch(() => { void refetchStoreEntitlements(); });
+  // Back from the paywall opened via the coach invite: with the creator
+  // entitlement now active, continue straight into the create flow.
+  const paywallFromInviteRef = useRef<PendingCreate | null>(null);
+  useFocusRefetch(() => {
+    const pending = paywallFromInviteRef.current;
+    paywallFromInviteRef.current = null;
+    void refetchStoreEntitlements().then((fresh) => {
+      if (pending === null) return;
+      if (!creatorGateAllows({ loading: false, canCreateSparring: fresh.canCreateSparring, inStudio: coachStudio !== null })) return;
+      setCreateGymId(pending.gymId);
+      openCreateFlow();
+    });
+  });
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [mapMode, setMapMode]           = useState<MapMode>('sparrings');
@@ -174,6 +192,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const [createIntroBusy, setCreateIntroBusy] = useState(false);
   const [createIntroError, setCreateIntroError] = useState<string | null>(null);
   const [createEventVisible, setCreateEventVisible] = useState(false);
+  // Coach invite before the paywall (creator subscription missing). Holds the
+  // gym preselection of the attempted create.
+  const [creatorInvite, setCreatorInvite] = useState<PendingCreate | null>(null);
+  const creatorInviteMounted = useMountedOnce(creatorInvite !== null);
   // Gym page "Sparring planen": this gym is preselected as the place.
   const [createGymId, setCreateGymId] = useState<string | null>(null);
   const { gym: createGym } = useGym(createGymId);
@@ -404,14 +426,23 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   }
 
   // Private sparrings need the creator subscription (see creatorGateAllows).
-  function requireCreator(): boolean {
+  // Without it the coach invite comes first, the paywall only on request.
+  function requireCreator(gymId: string | null = null): boolean {
     if (creatorGateAllows({
       loading: storeEntitlementsLoading,
       canCreateSparring: storeEntitlements.canCreateSparring,
       inStudio: coachStudio !== null,
     })) return true;
-    navigation.navigate('Paywall', { focus: 'creator' });
+    setCreatorInvite({ gymId });
     return false;
+  }
+
+  // Close the invite first so the paywall opens above the content.
+  function handleBecomeCreator(): void {
+    if (creatorInvite === null) return;
+    paywallFromInviteRef.current = creatorInvite;
+    setCreatorInvite(null);
+    navigation.navigate('Paywall', { focus: 'creator' });
   }
 
   // Opens the create flow; before the very first create (per account, stored
@@ -466,7 +497,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (route.params?.openCreate !== true) return;
     const gymId = route.params?.createAtGymId ?? null;
     navigation.setParams({ openCreate: undefined, createAtGymId: undefined });
-    if (requireVerified() && requireCreator()) {
+    if (requireVerified() && requireCreator(gymId)) {
       setCreateGymId(gymId);
       openCreateFlow();
     }
@@ -1040,6 +1071,19 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onOpenSparring={focusSparring}
         onShowNearby={showNearbyAtDevice}
       />
+
+      {/* Coach scene before the paywall (creator subscription missing) */}
+      {creatorInviteMounted && <CoachInviteOverlay
+        visible={creatorInvite !== null}
+        figure={COACH_INVITING}
+        bottomInset={bottomSafe}
+        lead={t('map.screen.creatorInviteLead')}
+        body={t('map.screen.creatorInviteBody')}
+        primaryLabel={t('map.screen.creatorInvitePrimary')}
+        laterLabel={t('map.screen.creatorInviteLater')}
+        onPrimary={handleBecomeCreator}
+        onClose={() => setCreatorInvite(null)}
+      />}
 
       {/* One-time intro before the first create */}
       <ReachIntroSheet

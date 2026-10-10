@@ -12,6 +12,7 @@ import { planForProduct } from '../utils/subscriptionPlans';
 import { CardsBenefits, CardsHero, CardsOffer, CardsStart } from '../components/challenge/CardsLanding';
 import CardsShowcase from '../components/challenge/CardsShowcase';
 import CardsIntro from '../components/challenge/CardsIntro';
+import CardGameInvite from '../components/challenge/CardGameInvite';
 import { useCardsIntroSeen } from '../hooks/useCardsIntroSeen';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +23,10 @@ export default function CardsScreen(): React.ReactElement {
   const { entitlement, loading, error, refetch } = useEntitlement();
   const firstFocus = useRef(true);
   const [checking, setChecking] = useState(false);
+  // Coach invite before the paywall; the ref marks a paywall opened from it,
+  // so returning with access starts the game right away.
+  const [inviteVisible, setInviteVisible] = useState(false);
+  const paywallFromInviteRef = useRef(false);
   const [price, setPrice] = useState<string | null>(null);
   const [offerLoading, setOfferLoading] = useState(true);
   const exampleCard = freePreviewChallenge();
@@ -48,10 +53,30 @@ export default function CardsScreen(): React.ReactElement {
       return;
     }
     let active = true;
+    const fromInvite = paywallFromInviteRef.current;
+    paywallFromInviteRef.current = false;
     setChecking(true);
-    void refetch().finally(() => { if (active) setChecking(false); });
+    void refetch()
+      .then((fresh) => { if (active && fromInvite && fresh.hasAccess) navigation.navigate('SparringChallenge'); })
+      .finally(() => { if (active) setChecking(false); });
     return () => { active = false; };
-  }, [refetch]));
+  }, [refetch, navigation]));
+
+  // Without access the coach explains first; on a failed check the game
+  // route's own gate shows the error.
+  function startGame(): void {
+    if (!error && !entitlement.hasAccess) {
+      setInviteVisible(true);
+      return;
+    }
+    navigation.navigate('SparringChallenge');
+  }
+
+  function openPaywallFromInvite(): void {
+    paywallFromInviteRef.current = true;
+    setInviteVisible(false);
+    navigation.navigate('Paywall', { focus: 'cards' });
+  }
 
   useEffect(() => {
     let active = true;
@@ -100,9 +125,9 @@ export default function CardsScreen(): React.ReactElement {
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <CardsHero />
         <CardsShowcase cards={showcaseCards} />
-        {/* The game route checks access itself; without it, it shows the unlock hint. */}
+        {/* The game route still checks access itself (deep links, failed checks). */}
         <CardsStart
-          onStart={() => navigation.navigate('SparringChallenge')}
+          onStart={startGame}
           onHowItWorks={() => setIntroReopened(true)}
         />
         {entitlement.hasAccess ? null : (
@@ -124,6 +149,7 @@ export default function CardsScreen(): React.ReactElement {
           )}
         </View>
       ) : null}
+      <CardGameInvite visible={inviteVisible} onUnlock={openPaywallFromInvite} onClose={() => setInviteVisible(false)} />
     </SafeAreaView>
   );
 }

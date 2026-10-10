@@ -21,7 +21,7 @@ const NONE: StoreEntitlements = { canCreateSparring: false, creatorActive: false
 export function useStoreEntitlements(refetchTrigger = 0): {
   entitlements: StoreEntitlements;
   loading: boolean;
-  refetch: () => Promise<void>;
+  refetch: () => Promise<StoreEntitlements>;
 } {
   const { user } = useAuth();
   const userId = user?.id ?? null;
@@ -30,11 +30,11 @@ export function useStoreEntitlements(refetchTrigger = 0): {
   const [entitlements, setEntitlements] = useState<StoreEntitlements>(() => cached ?? NONE);
   const [loading, setLoading] = useState(cached === undefined);
 
-  const refetch = useCallback(async (): Promise<void> => {
+  const refetch = useCallback(async (): Promise<StoreEntitlements> => {
     if (userId === null) {
       setEntitlements(NONE);
       setLoading(false);
-      return;
+      return NONE;
     }
     await loginRevenueCat(userId).catch(() => undefined);
     const [rcInfo, dbResult] = await Promise.all([
@@ -57,6 +57,7 @@ export function useStoreEntitlements(refetchTrigger = 0): {
     setEntitlements(next);
     if (cacheKey && row !== undefined) setCached<StoreEntitlements>(cacheKey, next);
     setLoading(false);
+    return next;
   }, [userId, cacheKey]);
 
   useEffect(() => {

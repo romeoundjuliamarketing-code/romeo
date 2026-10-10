@@ -110,6 +110,10 @@ export const colors = {
   brandPrimarySoft: 'rgba(36,85,219,0.14)',     // focus ring / info background
   brandAccent:      '#F7C21A',                  // penguin-beak yellow, tiny accents only
 
+  // ── Coach dialog (comic speech bubble + chunky buttons) ──────────────────
+  coachBubble:      '#FFFDF7',                  // warm bubble / secondary answer fill
+  coachButtonEdge:  '#163A9C',                  // pressable bottom edge under brandPrimary
+
   // ── Overlays ──────────────────────────────────────────────────────────────
   mapOverlay:       'rgba(0,0,0,0.55)',
   heroBannerScrim:  'rgba(0,0,0,0.25)',

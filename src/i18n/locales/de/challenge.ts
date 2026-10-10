@@ -6,6 +6,12 @@ const challenge = {
     offers: 'Abo-Angebote ansehen',
     backToCards: 'Zurück zu Karten',
   },
+  invite: {
+    lead: 'Bereit für die nächste Karte?',
+    body: 'Mit einem Abo spielst du alle Sparr-Karten. Zieh die erste und leg los!',
+    primary: 'Spiel freischalten',
+    later: 'Jetzt nicht',
+  },
   hint: {
     text: 'Probier die Übung aus. Du musst sie nicht sofort beherrschen. Bereite Chancen vor, statt Treffer zu erzwingen.',
     close: 'Hinweis schließen',

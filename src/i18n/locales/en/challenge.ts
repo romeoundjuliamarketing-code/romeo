@@ -9,6 +9,12 @@ const challenge: LocaleShape<typeof de> = {
     offers: 'View subscription options',
     backToCards: 'Back to cards',
   },
+  invite: {
+    lead: 'Ready for the next card?',
+    body: 'With a subscription you can play every Sparr card. Draw the first one and get going!',
+    primary: 'Unlock the game',
+    later: 'Not now',
+  },
   hint: {
     text: 'Try the drill. You do not have to master it right away. Set up chances instead of forcing hits.',
     close: 'Dismiss hint',
