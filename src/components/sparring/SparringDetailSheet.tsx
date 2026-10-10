@@ -38,6 +38,7 @@ import SparringStoryCard from './SparringStoryCard';
 import { usePopAnimation } from './SparringPopCard';
 import TrustNoticeCard from './trust/TrustNoticeCard';
 import JoinFlowOverlay, { type JoinFlowView } from './trust/JoinFlowOverlay';
+import JoinBlockedCard from './trust/JoinBlockedCard';
 import CheckinSection from './trust/CheckinSection';
 import TrustPanelOverlays from './trust/TrustPanelOverlays';
 import { useTrustPanel } from './trust/useTrustPanel';
@@ -75,6 +76,8 @@ interface Props {
   joinFlow:          JoinFlowView;
   /** The radius may have changed (e.g. after the meeting confirmation). */
   onReachChanged:    () => void;
+  /** Join blocked by distance: show joinable sparrings near the user instead. */
+  onFindNearby:      () => void;
 }
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -107,7 +110,7 @@ export default function SparringDetailSheet({
   sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onEdit, onOpenChat,
   consentVisible, onConsentClose, onConsentConfirm, commitmentResult, onCommitmentResultClose,
   cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
-  loading, joinFlow, onReachChanged,
+  loading, joinFlow, onReachChanged, onFindNearby,
 }: Props) {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -188,6 +191,10 @@ export default function SparringDetailSheet({
   const myWaitlistEntry = participants.find((p) => p.user_id === currentUserId);
   const waitlistPosition = myWaitlistEntry?.waitlist_position ?? null;
   const canOpenChat = isSparringChatMember(isCreator, sparring.my_status);
+  // Only replaces the join CTA: existing participation, organizer, waitlist
+  // and cancelled states are never covered by the distance block.
+  const joinGate = joinFlow.gate;
+  const blockedGate = cta.type === 'join' && joinGate.kind === 'tooFar' ? joinGate : null;
 
   // sparring is guaranteed non-null here (guarded above)
   const s = sparring;
@@ -302,15 +309,18 @@ export default function SparringDetailSheet({
                 )}
               </View>
 
-              <SparringCommitmentActions
-                cta={cta}
-                scheduledAt={sparring.scheduled_at}
-                waitlistPosition={waitlistPosition}
-                loading={loading}
-                onJoin={onJoin}
-                onConfirm={onConfirm}
-                onCancel={onCancelSignup}
-              />
+              {blockedGate === null && (
+                <SparringCommitmentActions
+                  cta={cta}
+                  scheduledAt={sparring.scheduled_at}
+                  waitlistPosition={waitlistPosition}
+                  loading={loading}
+                  checking={joinGate.kind === 'checking'}
+                  onJoin={onJoin}
+                  onConfirm={onConfirm}
+                  onCancel={onCancelSignup}
+                />
+              )}
 
               {joinFlow.problem !== null && (
                 <TrustNoticeCard problem={joinFlow.problem} onAction={joinFlow.onProblemAction} />
@@ -392,6 +402,20 @@ export default function SparringDetailSheet({
                 </View>
               )}
             </ScrollView>
+
+            {/* Fixed action area: the distance block stays visible while the
+                details above remain scrollable (own scroll for large text). */}
+            {blockedGate !== null && (
+              <View style={styles.footer}>
+                <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+                  <JoinBlockedCard
+                    gate={blockedGate}
+                    onNearby={onFindNearby}
+                    onWhy={() => joinFlow.onProblemAction('limit')}
+                  />
+                </ScrollView>
+              </View>
+            )}
           </Animated.View>
 
           <View style={styles.storyCapture} pointerEvents="none">
@@ -474,6 +498,15 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  footer: {
+    maxHeight:         '55%',
+    paddingHorizontal: 16,
+    paddingTop:        16,
+    paddingBottom:     16,
+    borderTopWidth:    1,
+    borderTopColor:    colors.hairline,
+    backgroundColor:   colors.card,
   },
   content: {
     padding: 24,

@@ -32,7 +32,7 @@ import SparringListView from '../components/sparring/SparringListView';
 import LocationPickerModal from '../components/sparring/LocationPickerModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OVERVIEW_REGION, regionAround } from '../utils/mapStartRegion';
-import type { MapRegion } from '../utils/mapStartRegion';
+import type { GeoPoint, MapRegion } from '../utils/mapStartRegion';
 import { HOME_RADIUS_KM, radiusForZoom, visibleRadiusKm, widerRadius } from '../utils/sparringSearch';
 import type { SearchRadius } from '../utils/sparringSearch';
 import { useMapStartRegion } from '../hooks/useMapStartRegion';
@@ -51,6 +51,8 @@ import SparringMapView from '../components/sparring/SparringMapView';
 import { useGym } from '../hooks/useGyms';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
 import { canJoinSparring } from '../utils/sparringAccess';
+import { resolveCommitmentCta } from '../utils/sparringCommitment';
+import { nearbyRadiusWithin } from '../utils/joinGate';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
 import type { EventWithMeta } from '../hooks/useOpenEvents';
 import type { RootStackParamList } from '../navigation/types';
@@ -102,7 +104,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const {
     status: locationStatus, location: searchLocation, setManual, switchToDevice,
   } = useSearchLocation({ askPermission: true });
-  const { status: nearbyStatus, sparrings, refetch: refetchNearby } = useNearbySparrings(searchLocation, radiusKm);
+  // Place search ("Berlin"): a temporary view only. Sparrings load around the
+  // found place, but the search location is never changed or stored.
+  const [placeJump, setPlaceJump] = useState<(GeoPoint & { label: string }) | null>(null);
+  const { status: nearbyStatus, sparrings, refetch: refetchNearby } = useNearbySparrings(placeJump ?? searchLocation, radiusKm);
   useFocusRefetch(refetchNearby);
   const {
     cancelSignup, confirmSparring, deactivateSparring, updateSparring, countEditAffected, setSparringGym,
@@ -209,7 +214,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     currentStudio !== null &&
     studioAddress !== null &&
     studioAddress.trim().length > 0
-      ? { id: currentStudio.id, address: studioAddress, lat: studioLat, lng: studioLng }
+      ? { id: currentStudio.id, name: currentStudio.name, address: studioAddress, lat: studioLat, lng: studioLng }
       : null;
 
   // ── Derived: sparrings (unchanged) ────────────────────────────────────────
@@ -292,7 +297,17 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (mapModeRef.current !== 'sparrings') return;
     setRadiusKm((prev) => radiusForZoom(prev, visibleRadiusKm(region)));
   }, []);
-  const startRegion = searchRegion ?? fallbackRegion;
+  // A new search region (location or radius chosen) ends the place view.
+  useEffect(() => { setPlaceJump(null); }, [searchRegion]);
+  const placeJumpRegion = useMemo(
+    (): MapRegion | null => (placeJump !== null ? regionAround(placeJump, PLACE_JUMP_RADIUS_KM) : null),
+    [placeJump],
+  );
+  function handlePlaceFound(lat: number, lng: number, label: string): void {
+    setPlaceJump({ lat, lng, label });
+    changeView('map');
+  }
+  const startRegion = placeJumpRegion ?? searchRegion ?? fallbackRegion;
 
   // ── Search: refresh, view preference, entry from Home ─────────────────────
   // After an action: refresh the search; a sparring opened outside of it
@@ -367,7 +382,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   function handleLocationPress(): void {
     Alert.alert(t('map.screen.locationTitle'), t('map.screen.locationMessage'), [
       { text: t('map.screen.locationOnMap'), onPress: () => setLocationPickerVisible(true) },
-      { text: t('map.screen.locationDevice'), onPress: () => { void switchToDevice(); } },
+      { text: t('map.screen.locationDevice'), onPress: () => { setPlaceJump(null); void switchToDevice(); } },
       { text: t('common.cancel'), style: 'cancel' },
     ]);
   }
@@ -423,7 +438,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     setCreateSheetVisible(true);
   }
 
-  // Closes any sheet and shows sparrings around the device position.
+  // Closes any sheet and shows sparrings around the device position, within a
+  // radius filter the user may actually join (never wider than the reach).
   function showNearbyAtDevice(): void {
     setCreateSheetVisible(false);
     setConsentVisible(false);
@@ -432,7 +448,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     setMapMode('sparrings');
     setTimeFilter('all');
     changeView('list');
-    chooseRadius(HOME_RADIUS_KM);
+    chooseRadius(nearbyRadiusWithin(reach.status?.radius_km));
     void switchToDevice();
   }
 
@@ -520,8 +536,19 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // Binding join (intro, eligibility, location primer, consent, position check)
   // lives in useSparringJoinFlow; this screen only owns the consent sheet and
   // the result card.
+  // Same CTA decision as the detail sheet: only check eligibility on open
+  // when the normal join button would show.
+  const joinCheckOnOpen = selected !== null && resolveCommitmentCta({
+    myStatus:      selected.my_status,
+    scheduledAt:   selected.scheduled_at,
+    now:           new Date(),
+    isFull:        selected.max_slots - selected.signup_count <= 0,
+    isCreator:     selected.created_by === user?.id,
+    verifiedBlock: !canJoinSparring(selected.verified_only, tier),
+  }).type === 'join';
   const joinFlow = useSparringJoinFlow({
     sparringId:     selected?.id ?? null,
+    checkOnOpen:    joinCheckOnOpen,
     reachStatus:    reach.status,
     ackIntro:       reach.ackIntro,
     refetchReach:   reach.refetch,
@@ -842,12 +869,13 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             <SparringSearchBar
               view={view}
               onViewChange={changeView}
-              locationLabel={searchLocation?.label ?? null}
+              locationLabel={placeJump?.label ?? searchLocation?.label ?? null}
               onLocationPress={searchLocation !== null ? handleLocationPress : () => setLocationPickerVisible(true)}
               radiusKm={radiusKm}
               onRadiusChange={chooseRadius}
               open={searchOpen}
               onOpenChange={setSearchOpen}
+              onPlaceFound={handlePlaceFound}
               notice={searchNotice}
             />
           )}
@@ -954,6 +982,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         loading={actionLoading}
         joinFlow={joinFlow.view}
         onReachChanged={reach.refetch}
+        onFindNearby={showNearbyAtDevice}
       />
 
       {/* ── Event detail sheet ── */}
@@ -1075,6 +1104,9 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     </View>
   );
 }
+
+// Camera zoom after a place search: roughly one city.
+const PLACE_JUMP_RADIUS_KM = 10;
 
 // Room below the last list row for the bottom controls.
 const LIST_BOTTOM_SPACE = 104;

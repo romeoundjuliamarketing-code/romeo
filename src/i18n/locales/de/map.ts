@@ -27,6 +27,10 @@ const map = {
     radius: 'Umkreis',
     searchEverywhere: 'Überall suchen',
     radiusA11y: 'Umkreis {{count}} Kilometer',
+    placePlaceholder: 'Ort suchen, z. B. Berlin',
+    placeSearchA11y: 'Ort suchen',
+    placeNotFound: 'Ort nicht gefunden.',
+    placeClear: 'Eingabe löschen',
   },
   list: {
     pickPlace: 'Wähle einen Ort, um Sparrings in deiner Umgebung zu sehen.',

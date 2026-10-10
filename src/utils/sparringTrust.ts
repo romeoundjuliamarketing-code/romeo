@@ -52,7 +52,7 @@ export function formatTooFarKm(distanceM: number | undefined | null, radiusKm: n
   return Math.round(km).toLocaleString(locale);
 }
 
-export type TrustAction = 'nearby' | 'howItWorks' | 'mySparring' | 'retry' | 'settings';
+export type TrustAction = 'nearby' | 'howItWorks' | 'limit' | 'mySparring' | 'retry' | 'settings';
 
 export interface TrustNotice {
   // i18n key below sparringTrust.notice.*

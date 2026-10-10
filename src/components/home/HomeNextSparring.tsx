@@ -9,6 +9,7 @@ import {
 } from '../../utils/homeAgenda';
 import type { HomeSparring, SparringCardState } from '../../utils/homeAgenda';
 import { initialsOf } from '../../utils/sparringDetail';
+import TicketRopes from './TicketRopes';
 import { useTranslation } from 'react-i18next';
 import i18n from '../../i18n';
 
@@ -40,10 +41,12 @@ function deadlineText(deadline: Date, now: Date): string {
   return i18n.t('home.next.deadline', { day: dayLower, time: timeLabel(deadline) });
 }
 
-// Home's next sparring as an appointment panel on a white surface (set apart
-// from the open Sparr Cards composition): dark date block and a large time line
-// lead, then title, place and status. Date and details are top-aligned columns. The main area opens the details; the chat
-// is a sibling target laid over the participants row (no nested pressables).
+// Home's next sparring as an event ticket: deep blue surface with faint ring
+// ropes on the right, a cream date block next to time and place in white sport
+// type, a compact status chip, participants and the chat as a small side action.
+// A set-off strip at the bottom opens the sparring. Date block, time/place block
+// and participants open the details as sibling targets; the chat is its own
+// target next to them (no nested pressables).
 export default function HomeNextSparring({
   sparring, now, currentUserId, upcomingCount, chatUnread, confirming, confirmError,
   onConfirm, onDetails, onChat, onAll,
@@ -62,16 +65,18 @@ export default function HomeNextSparring({
   const people   = participantsPreview(sparring.participants, currentUserId, maxAvatars);
   const alert    = state === 'confirm';
   const deadline = alert ? confirmDeadline(sparring.scheduledAt, now) : null;
-  // Gym (if any) adds information; the place only when it is not the title already.
+  // The city leads (last part of the location label); an own title and the gym
+  // follow as a quiet line when they add information.
   const city  = sparring.locationLabel.split(',').map((p) => p.trim()).filter((p) => p.length > 0).pop() ?? null;
-  const where = sparring.gymName !== null && sparring.gymName !== title.text
-    ? sparring.gymName
-    : title.isPlace ? null : city;
+  const place = city ?? title.text;
+  const meta  = [
+    title.isPlace || title.text === place ? null : title.text,
+    sparring.gymName !== null && sparring.gymName !== place ? sparring.gymName : null,
+  ].filter((part): part is string => part !== null).join(' · ');
 
   const a11yLabel = [
-    title.text,
     isToday ? `${t('home.agenda.today')}, ${time}` : `${appointmentDayLabel(startsAt, now)}, ${time}`,
-    where, title.isPlace ? null : sparring.locationLabel, t(status.textKey), people.label,
+    place, meta, t(status.textKey), people.label,
   ].filter((part): part is string => part !== null && part.length > 0).join(', ');
 
   const avatarStack = people.shown.length === 0 ? null : (
@@ -88,43 +93,41 @@ export default function HomeNextSparring({
 
   return (
     <View style={styles.root}>
-      <View style={styles.headerRow}>
-        <Text style={styles.heading} accessibilityRole="header">{t('home.next.heading')}</Text>
-        {upcomingCount > 1 && (
+      <TicketRopes />
+      <View style={styles.body}>
+        <View style={styles.headerRow}>
+          <Text style={styles.heading} accessibilityRole="header">{t('home.next.heading')}</Text>
+          {upcomingCount > 1 && (
+            <TouchableOpacity
+              style={styles.allLink}
+              onPress={onAll}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.next.allLabel', { count: upcomingCount })}
+            >
+              <Text style={styles.allLinkText}>{t('home.next.all')}</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.headerTextPrimary} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.entry}>
           <TouchableOpacity
-            style={styles.allLink}
-            onPress={onAll}
-            activeOpacity={0.6}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.next.allLabel', { count: upcomingCount })}
+            style={styles.dateBox}
+            onPress={onDetails}
+            activeOpacity={0.7}
+            accessible={false}
+            importantForAccessibility="no-hide-descendants"
           >
-            <Text style={styles.allLinkText}>{t('home.next.all')}</Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.accentBlueText} />
+            <Text style={styles.weekday}>{block.weekday}</Text>
+            <Text style={styles.day}>{block.day}</Text>
+            <Text style={styles.month}>{block.month}</Text>
+            {block.year !== null && <Text style={styles.month}>{block.year}</Text>}
           </TouchableOpacity>
-        )}
-      </View>
 
-      {/* Date, title block and participants all open the details as sibling
-          targets; only the title block is announced (with the full summary),
-          the others are hidden from screen readers. The chat is its own
-          target next to the participants — no nested pressables. */}
-      <View style={styles.entry}>
-        <TouchableOpacity
-          style={styles.dateBox}
-          onPress={onDetails}
-          activeOpacity={0.7}
-          accessible={false}
-          importantForAccessibility="no-hide-descendants"
-        >
-          <Text style={styles.weekday}>{block.weekday}</Text>
-          <Text style={styles.day}>{block.day}</Text>
-          <Text style={styles.month}>{block.month}</Text>
-          {block.year !== null && <Text style={styles.month}>{block.year}</Text>}
-        </TouchableOpacity>
-
-        <View style={styles.info}>
           <TouchableOpacity
+            style={styles.info}
             onPress={onDetails}
             activeOpacity={0.7}
             accessibilityRole="button"
@@ -132,113 +135,117 @@ export default function HomeNextSparring({
             accessibilityHint={t('home.next.openHint')}
           >
             <Text style={styles.time}>{isToday ? `${t('home.agenda.today')} · ${time}` : time}</Text>
-            <Text style={styles.title} numberOfLines={2}>{title.text}</Text>
-            <Text style={styles.meta}>
-              {where !== null && `${where} · `}
-              <Text style={alert ? styles.statusAlert : styles.status}>{t(status.textKey)} </Text>
-              <Ionicons name={status.icon} size={14} color={alert ? colors.accentBlueText : colors.text} />
-            </Text>
+            <Text style={styles.place}>{place}</Text>
+            {meta.length > 0 && <Text style={styles.meta}>{meta}</Text>}
           </TouchableOpacity>
+        </View>
 
-          <View style={styles.peopleRow}>
-            {(people.label !== null || avatarStack !== null) && (
-              <TouchableOpacity
-                style={styles.people}
-                onPress={onDetails}
-                activeOpacity={0.7}
-                accessible={false}
-                importantForAccessibility="no-hide-descendants"
-              >
-                {avatarStack}
-                {people.label !== null && <Text style={styles.peopleText} numberOfLines={2}>{people.label}</Text>}
-              </TouchableOpacity>
-            )}
+        <View style={styles.statusChip} accessible={false} importantForAccessibility="no-hide-descendants">
+          <Ionicons name={status.icon} size={16} color={colors.headerTextPrimary} />
+          <Text style={styles.statusText}>{t(status.textKey)}</Text>
+        </View>
+
+        <View style={styles.peopleRow}>
+          {(people.label !== null || avatarStack !== null) && (
             <TouchableOpacity
-              style={styles.chat}
-              onPress={onChat}
-              activeOpacity={0.6}
-              accessibilityRole="button"
-              accessibilityLabel={chatUnread > 0 ? t('home.next.chatUnread', { count: chatUnread }) : t('home.next.chat')}
+              style={styles.people}
+              onPress={onDetails}
+              activeOpacity={0.7}
+              accessible={false}
+              importantForAccessibility="no-hide-descendants"
             >
-              <View style={styles.chatCircle}>
-                <Ionicons name="chatbubbles-outline" size={18} color={colors.text} />
+              {avatarStack}
+              {people.label !== null && <Text style={styles.peopleText} numberOfLines={2}>{people.label}</Text>}
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.chat}
+            onPress={onChat}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel={chatUnread > 0 ? t('home.next.chatUnread', { count: chatUnread }) : t('home.next.chat')}
+          >
+            <Ionicons name="chatbubbles-outline" size={18} color={colors.headerTextPrimary} />
+            <Text style={styles.chatText}>{t('home.next.chatShort')}</Text>
+            {chatUnread > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{chatUnread > 99 ? '99+' : String(chatUnread)}</Text>
               </View>
-              {chatUnread > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{chatUnread > 99 ? '99+' : String(chatUnread)}</Text>
-                </View>
-              )}
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {alert && (
+          <View style={styles.confirmArea}>
+            <Text style={styles.hint}>
+              {deadline !== null ? deadlineText(deadline, now) : t('home.next.confirmPrompt')}
+            </Text>
+            <TouchableOpacity
+              style={[styles.confirm, confirming && styles.confirmBusy]}
+              onPress={onConfirm}
+              disabled={confirming}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityState={{ busy: confirming, disabled: confirming }}
+            >
+              {confirming
+                ? <ActivityIndicator color={colors.dark} />
+                : <Text style={styles.confirmText}>{t('home.next.confirm')}</Text>}
             </TouchableOpacity>
           </View>
-        </View>
+        )}
+        {confirmError !== null && <Text style={styles.error}>{confirmError}</Text>}
       </View>
 
-      {alert && (
-        <View style={styles.confirmArea}>
-          <Text style={styles.hint}>
-            {deadline !== null ? deadlineText(deadline, now) : t('home.next.confirmPrompt')}
-          </Text>
-          <TouchableOpacity
-            style={[styles.confirm, confirming && styles.confirmBusy]}
-            onPress={onConfirm}
-            disabled={confirming}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityState={{ busy: confirming, disabled: confirming }}
-          >
-            {confirming
-              ? <ActivityIndicator color={colors.dark} />
-              : <Text style={styles.confirmText}>{t('home.next.confirm')}</Text>}
-          </TouchableOpacity>
-        </View>
-      )}
-      {confirmError !== null && <Text style={styles.error}>{confirmError}</Text>}
-
       <TouchableOpacity
-        style={styles.detailsLink}
+        style={styles.action}
         onPress={onDetails}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel={t('home.next.detailsLabel')}
       >
-        <Text style={styles.detailsLinkText}>{t('home.next.details')}</Text>
-        <Ionicons name="arrow-forward" size={16} color={colors.accentBlueText} />
+        <Text style={styles.actionText}>{t('home.next.details')}</Text>
+        <Ionicons name="arrow-forward" size={18} color={colors.headerTextPrimary} />
       </TouchableOpacity>
     </View>
   );
 }
 
-// Loading stand-in in the same open layout, so the page does not reorder.
+// Loading stand-in with the same ticket frame, so the page does not reorder.
 export function HomeNextSparringPlaceholder() {
   const { t } = useTranslation();
   return (
-    <View style={[styles.root, styles.placeholderRoot]} accessibilityLabel={t('home.next.loading')}>
-      <Text style={styles.heading}>{t('home.next.heading')}</Text>
-      <View style={styles.entry}>
-        <View style={styles.placeholderDate} />
-        <View style={styles.info}>
-          <View style={styles.placeholderLong} />
-          <View style={styles.placeholderShort} />
+    <View style={styles.root} accessibilityLabel={t('home.next.loading')}>
+      <View style={styles.body}>
+        <Text style={styles.heading}>{t('home.next.heading')}</Text>
+        <View style={styles.entry}>
+          <View style={styles.placeholderDate} />
+          <View style={styles.info}>
+            <View style={styles.placeholderLong} />
+            <View style={styles.placeholderShort} />
+          </View>
         </View>
       </View>
     </View>
   );
 }
 
-const DATE_BOX_WIDTH = 64;
+const DATE_BOX_WIDTH = 72;
 const AVATAR_SIZE    = 28;
-const CHAT_SIZE      = 44;
+const TOUCH_MIN      = 44;
 
 const styles = StyleSheet.create({
-  // White appointment panel; flat (no shadow).
+  // Deep blue ticket; children are clipped to the rounded corners (ropes and
+  // the action strip never show a light seam at the edges).
   root: {
-    padding: 16,
-    paddingBottom: 8,
-    borderRadius: 16,
-    backgroundColor: colors.card,
+    borderRadius: 24,
+    backgroundColor: colors.ticketBlue,
+    overflow: 'hidden',
   },
-  placeholderRoot: {
-    paddingBottom: 16,
+  body: {
+    padding: 16,
+    paddingTop: 16,
+    gap: 16,
   },
   headerRow: {
     flexDirection: 'row',
@@ -247,12 +254,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     columnGap: 8,
   },
-  // Blue label: accentBlueText keeps small text above 4.5:1 on the page background.
   heading: {
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
-    color: colors.accentBlueText,
+    color: colors.ticketTextMuted,
   },
   allLink: {
     flexDirection: 'row',
@@ -261,98 +267,94 @@ const styles = StyleSheet.create({
   },
   allLinkText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.accentBlueText,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
   },
   entry: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 14,
-    marginTop: 8,
+    gap: 16,
   },
-  // Dark date block, white text (high contrast).
+  // Cream date block with dark type (the ticket stub).
   dateBox: {
     width: DATE_BOX_WIDTH,
     paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: colors.dark,
+    borderRadius: 16,
+    backgroundColor: colors.background,
     alignItems: 'center',
   },
   weekday: {
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
-    color: colors.card,
+    color: colors.text,
   },
   day: {
-    fontSize: 32,
-    lineHeight: 36,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    color: colors.card,
+    fontFamily: fonts.display,
+    fontSize: 40,
+    lineHeight: 44,
+    color: colors.text,
   },
   month: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.card,
-  },
-  // Time leads the details column (sport face, blue for links/text on light).
-  time: {
-    fontFamily: fonts.display,
-    fontSize: 32,
-    lineHeight: 34,
     textTransform: 'uppercase',
-    color: colors.accentBlueText,
+    color: colors.text,
   },
   info: {
     flex: 1,
     minWidth: 0,
   },
-  // Sport face, uppercase; long names wrap to a second line instead of shrinking.
-  title: {
+  time: {
+    fontFamily: fonts.display,
+    fontSize: 32,
+    lineHeight: 36,
+    textTransform: 'uppercase',
+    color: colors.headerTextPrimary,
+  },
+  // Long place names wrap instead of shrinking or being cut.
+  place: {
     fontFamily: fonts.display,
     fontSize: 24,
-    lineHeight: 26,
+    lineHeight: 28,
     textTransform: 'uppercase',
-    color: colors.text,
+    color: colors.headerTextPrimary,
   },
   meta: {
     marginTop: 4,
     fontSize: 14,
     lineHeight: 20,
-    color: colors.textMuted,
+    color: colors.ticketTextMuted,
   },
-  detailsLink: {
+  statusChip: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
     gap: 8,
-    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: colors.ticketChip,
   },
-  detailsLinkText: {
-    fontSize: 15,
+  statusText: {
+    flexShrink: 1,
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.accentBlueText,
-  },
-  status: {
-    fontWeight: '600',
-    color: colors.text,
-  },
-  statusAlert: {
-    fontWeight: '700',
-    color: colors.accentBlueText,
+    color: colors.headerTextPrimary,
   },
   peopleRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'space-between',
+    gap: 8,
   },
   people: {
     flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    minHeight: CHAT_SIZE,
+    minHeight: TOUCH_MIN,
   },
   avatars: {
     flexDirection: 'row',
@@ -362,7 +364,7 @@ const styles = StyleSheet.create({
     height: AVATAR_SIZE,
     borderRadius: AVATAR_SIZE / 2,
     borderWidth: 2,
-    borderColor: colors.card,
+    borderColor: colors.ticketBlue,
     backgroundColor: colors.accentBlueTint,
     alignItems: 'center',
     justifyContent: 'center',
@@ -384,30 +386,24 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.headerTextPrimary,
   },
-  // Sits right after the participants, not at the far edge.
+  // Small, clearly recognisable side action (44 pt high).
   chat: {
-    width: CHAT_SIZE,
-    height: CHAT_SIZE,
-    marginLeft: 4,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+    minHeight: TOUCH_MIN,
+    paddingHorizontal: 16,
+    borderRadius: TOUCH_MIN / 2,
+    backgroundColor: colors.ticketChip,
   },
-  chatCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.fieldBorder,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
+  chatText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
   },
   badge: {
-    position: 'absolute',
-    top: 2,
-    right: 0,
     minWidth: 18,
     height: 18,
     borderRadius: 9,
@@ -422,18 +418,17 @@ const styles = StyleSheet.create({
     color: colors.headerTextPrimary,
   },
   confirmArea: {
-    marginTop: 8,
     gap: 8,
   },
   hint: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.accentBlueText,
+    color: colors.headerTextPrimary,
   },
   confirm: {
     minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: colors.accentBlue,
+    borderRadius: 16,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -441,34 +436,51 @@ const styles = StyleSheet.create({
   confirmBusy: {
     opacity: 0.7,
   },
-  // Dark text on blue: #0A0A0A on #4A90D9 is above 6:1 (white would be ~3.3:1).
   confirmText: {
     fontSize: 15,
     fontWeight: '800',
-    color: colors.dark,
+    color: colors.text,
   },
   error: {
-    marginTop: 8,
     fontSize: 14,
-    color: colors.deleteRed,
+    fontWeight: '600',
+    color: colors.headerTextPrimary,
+  },
+  // Set-off action strip at the bottom edge of the ticket.
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    minHeight: 56,
+    paddingHorizontal: 16,
+    backgroundColor: colors.ticketBlueDeep,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.ticketDivider,
+  },
+  actionText: {
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.headerTextPrimary,
   },
   placeholderDate: {
     width: DATE_BOX_WIDTH,
-    height: 72,
-    borderRadius: 12,
-    backgroundColor: colors.hairline,
+    height: 80,
+    borderRadius: 16,
+    backgroundColor: colors.ticketChip,
   },
   placeholderLong: {
     width: '70%',
-    height: 24,
+    height: 32,
     borderRadius: 8,
-    backgroundColor: colors.hairline,
+    backgroundColor: colors.ticketChip,
   },
   placeholderShort: {
     width: '45%',
-    height: 14,
+    height: 24,
     marginTop: 8,
     borderRadius: 8,
-    backgroundColor: colors.hairline,
+    backgroundColor: colors.ticketChip,
   },
 });

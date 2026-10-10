@@ -11,6 +11,8 @@ interface Props {
   scheduledAt:      string;
   waitlistPosition: number | null;
   loading:          boolean;
+  /** Eligibility is still being checked: the join button waits. */
+  checking?:        boolean;
   onJoin:           () => void;
   onConfirm:        () => void;
   onCancel:         () => void;
@@ -21,7 +23,7 @@ interface Props {
 // Every promise shown here maps to an existing mechanism (24h confirmation,
 // cancel deadline, waitlist promotion) — nothing is invented.
 export default function SparringCommitmentActions({
-  cta, scheduledAt, waitlistPosition, loading, onJoin, onConfirm, onCancel,
+  cta, scheduledAt, waitlistPosition, loading, checking = false, onJoin, onConfirm, onCancel,
 }: Props): React.ReactElement | null {
   const { t } = useTranslation();
   if (cta.type === 'none' || cta.type === 'started_organizer') {
@@ -47,12 +49,18 @@ export default function SparringCommitmentActions({
       <View style={styles.unit}>
         <Text style={styles.title}>{cta.full ? t('sparring.commitment.titleFull') : t('sparring.commitment.titleJoin')}</Text>
         <TouchableOpacity
-          style={styles.btnPrimary}
+          style={[styles.btnPrimary, checking && styles.btnChecking]}
           onPress={onJoin}
-          disabled={loading}
+          disabled={loading || checking}
           accessibilityRole="button"
+          accessibilityState={{ busy: checking, disabled: loading || checking }}
         >
-          {loading ? (
+          {checking ? (
+            <View style={styles.checkingRow}>
+              <ActivityIndicator color={colors.text} />
+              <Text style={styles.checkingText}>{t('sparringTrust.blocked.checking')}</Text>
+            </View>
+          ) : loading ? (
             <ActivityIndicator color={colors.card} />
           ) : (
             <Text style={styles.btnPrimaryText}>
@@ -215,6 +223,19 @@ const styles = StyleSheet.create({
     color:     colors.textSecondary,
     textAlign: 'center',
     marginTop: -8,
+  },
+  btnChecking: {
+    backgroundColor: colors.background,
+  },
+  checkingRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           8,
+  },
+  checkingText: {
+    fontSize:   15,
+    fontWeight: '600',
+    color:      colors.text,
   },
   btnPrimary: {
     backgroundColor: colors.accentBlue,

@@ -30,6 +30,10 @@ const map: LocaleShape<typeof de> = {
     radius: 'Radius',
     searchEverywhere: 'Search everywhere',
     radiusA11y: 'Radius {{count}} kilometres',
+    placePlaceholder: 'Search a place, e.g. Berlin',
+    placeSearchA11y: 'Search place',
+    placeNotFound: 'Place not found.',
+    placeClear: 'Clear input',
   },
   list: {
     pickPlace: 'Choose a place to see sparring sessions in your area.',

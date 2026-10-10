@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Keyboard, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { RADIUS_OPTIONS_KM, radiusLabel } from '../../utils/sparringSearch';
+import { geocodeAddress } from '../../utils/geocoding';
 import type { SearchRadius } from '../../utils/sparringSearch';
 import { useTranslation } from 'react-i18next';
 
@@ -22,6 +23,8 @@ interface Props {
   /** Whether the location/radius editor below the summary row is open. */
   open:            boolean;
   onOpenChange:    (open: boolean) => void;
+  /** A typed place was found: the map jumps there (search location unchanged). */
+  onPlaceFound:    (lat: number, lng: number, label: string) => void;
   /** Status line with an action, e.g. a failed load with "Erneut versuchen". */
   notice?:         { text: string; actionLabel: string; onAction: () => void } | null;
 }
@@ -38,9 +41,30 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 0, right: 0 };
 // radius, plus a small map/list switch. Both views read the same values, so
 // switching keeps them.
 export default function SparringSearchBar({
-  view, onViewChange, locationLabel, onLocationPress, radiusKm, onRadiusChange, open, onOpenChange, notice = null,
+  view, onViewChange, locationLabel, onLocationPress, radiusKm, onRadiusChange, open, onOpenChange, onPlaceFound, notice = null,
 }: Props) {
   const { t } = useTranslation();
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [placeNotFound, setPlaceNotFound] = useState(false);
+  const [placeFocused, setPlaceFocused] = useState(false);
+
+  async function searchPlace(): Promise<void> {
+    const query = placeQuery.trim();
+    if (query.length === 0 || placeSearching) return;
+    setPlaceSearching(true);
+    setPlaceNotFound(false);
+    const result = await geocodeAddress(query);
+    setPlaceSearching(false);
+    if (result === null) {
+      setPlaceNotFound(true);
+      return;
+    }
+    Keyboard.dismiss();
+    setPlaceQuery('');
+    onPlaceFound(result.lat, result.lng, query);
+    onOpenChange(false);
+  }
   const summary = locationLabel !== null ? `${locationLabel} · ${radiusLabel(radiusKm)}` : t('map.search.chooseLocation');
 
   return (
@@ -81,6 +105,57 @@ export default function SparringSearchBar({
         </View>
       </View>
 
+      <View style={[styles.placeRow, placeFocused && styles.placeRowFocused, placeNotFound && styles.placeRowError]}>
+        <View style={styles.placeIcon}>
+          <Ionicons name="search" size={16} color={colors.accentBlue} />
+        </View>
+        <TextInput
+          style={styles.placeInput}
+          value={placeQuery}
+          onChangeText={(text) => { setPlaceQuery(text); setPlaceNotFound(false); }}
+          onSubmitEditing={() => { void searchPlace(); }}
+          onFocus={() => setPlaceFocused(true)}
+          onBlur={() => setPlaceFocused(false)}
+          placeholder={t('map.search.placePlaceholder')}
+          placeholderTextColor={colors.textSecondary}
+          selectionColor={colors.accentBlue}
+          returnKeyType="search"
+          autoCorrect={false}
+          accessibilityLabel={t('map.search.placeSearchA11y')}
+        />
+        {placeQuery.length > 0 && !placeSearching && (
+          <TouchableOpacity
+            onPress={() => { setPlaceQuery(''); setPlaceNotFound(false); }}
+            hitSlop={HIT_SLOP}
+            accessibilityRole="button"
+            accessibilityLabel={t('map.search.placeClear')}
+          >
+            <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+        {placeSearching ? (
+          <View style={styles.placeGo}>
+            <ActivityIndicator size="small" color={colors.card} />
+          </View>
+        ) : placeQuery.trim().length > 0 && (
+          <TouchableOpacity
+            style={styles.placeGo}
+            onPress={() => { void searchPlace(); }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('map.search.placeSearchA11y')}
+          >
+            <Ionicons name="arrow-forward" size={16} color={colors.card} />
+          </TouchableOpacity>
+        )}
+      </View>
+      {placeNotFound && (
+        <View style={styles.placeErrorRow}>
+          <Ionicons name="alert-circle" size={16} color={colors.deleteRed} />
+          <Text style={styles.placeError}>{t('map.search.placeNotFound')}</Text>
+        </View>
+      )}
+
       {open && locationLabel !== null && (
         <View style={styles.editor}>
           <TouchableOpacity
@@ -115,6 +190,7 @@ export default function SparringSearchBar({
               );
             })}
           </View>
+
         </View>
       )}
 
@@ -224,6 +300,57 @@ const styles = StyleSheet.create({
   },
   radiusTextActive: {
     color: colors.card,
+  },
+  placeRow: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             8,
+    height:          40,
+    paddingLeft:     4,
+    paddingRight:    4,
+    borderRadius:    20,
+    borderWidth:     1,
+    borderColor:     colors.border,
+    backgroundColor: colors.card,
+  },
+  placeRowFocused: {
+    borderColor: colors.accentBlue,
+  },
+  placeRowError: {
+    borderColor: colors.deleteRed,
+  },
+  placeIcon: {
+    width:           32,
+    height:          32,
+    borderRadius:    16,
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: colors.accentBlueTint,
+  },
+  placeInput: {
+    flex:       1,
+    height:     40,
+    fontSize:   14,
+    fontWeight: '500',
+    color:      colors.text,
+  },
+  placeGo: {
+    width:           32,
+    height:          32,
+    borderRadius:    16,
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: colors.accentBlue,
+  },
+  placeErrorRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    gap:               8,
+    paddingHorizontal: 16,
+  },
+  placeError: {
+    fontSize: 13,
+    color:    colors.deleteRed,
   },
   noticeRow: {
     flexDirection:     'row',

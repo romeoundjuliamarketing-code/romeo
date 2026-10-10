@@ -42,6 +42,15 @@ export const colors = {
   // ── Challenge cards (solid fills — stacked cards must not be translucent) ──
   cardStackNear: '#3B78B6', // card resting directly under the top one
   cardStackFar:  '#2F6091', // the one below that
+  cardBackTop:     '#5A9CE0', // card back gradient, upper edge
+  cardBackBottom:  '#3F82C9', // card back gradient, lower edge
+  cardBackKeyline: 'rgba(255,255,255,0.30)', // fine inset contour on the back
+  cardBackPattern: 'rgba(255,255,255,0.10)', // ring-corner ropes on the back
+
+  // ── Card game screen (SparringChallengeScreen only) ───────────────────────
+  gameBackground:  '#101318', // anthracite behind the deck
+  gameSurface:     '#1C2129', // secondary button after the reveal
+  gameShadow:      '#000000', // drop shadow under the deck
 
   // ── Module category left borders ──────────────────────────────────────────
   catSchlagkraft:      '#0A0A0A',
@@ -111,6 +120,14 @@ export const colors = {
   coverTextMuted:   'rgba(255,255,255,0.82)',  // small text on the darkened cover
   coverChip:        'rgba(10,10,10,0.45)',     // round toolbar buttons over a photo
   flagGloss:        'rgba(255,255,255,0.30)',  // cartoon highlight on flag stickers
+
+  // ── Home event ticket (next sparring) ─────────────────────────────────────
+  ticketBlue:       '#173F68',                 // ticket surface (white text >= 10:1)
+  ticketBlueDeep:   '#11314F',                 // set-off action strip at the bottom
+  ticketTextMuted:  'rgba(255,255,255,0.78)',  // small secondary text on the ticket
+  ticketRope:       'rgba(255,255,255,0.09)',  // faint ring ropes behind the content
+  ticketChip:       'rgba(255,255,255,0.14)',  // status chip / chat disc on the ticket
+  ticketDivider:    'rgba(255,255,255,0.16)',
 
   // ── Avatar fallbacks (initials / chat tile; text stays colors.text) ───────
   avatarSky:        '#D6E6F5',

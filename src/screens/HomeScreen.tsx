@@ -20,7 +20,6 @@ import { useFeedbackDue } from '../hooks/useFeedbackDue';
 import ReachStatusCard from '../components/sparring/trust/ReachStatusCard';
 import UnlockNoticeCard from '../components/sparring/trust/UnlockNoticeCard';
 import FeedbackDueCard from '../components/sparring/trust/FeedbackDueCard';
-import ReachIntroSheet from '../components/sparring/trust/ReachIntroSheet';
 import { useProfile } from '../hooks/useProfile';
 import { useAnnouncement } from '../hooks/useAnnouncement';
 import { useNotifications } from '../hooks/useNotifications';
@@ -80,7 +79,6 @@ export default function HomeScreen() {
   // Reach status (radius, planned slot, unlock notice) and open meeting answers.
   const reach = useSparringReach(focusTrigger);
   const feedbackDue = useFeedbackDue(user?.id ?? null, focusTrigger);
-  const [explainVisible, setExplainVisible] = useState(false);
 
   function openNearby(radiusKm: number): void {
     navigation.navigate('Tabs', { screen: 'Sparring', params: { nearbyRadiusKm: radiusKm, nearbyEntryAt: Date.now() } });
@@ -158,34 +156,41 @@ export default function HomeScreen() {
               {/* With a commitment (or while it is still loading) the
                   appointment leads; without one, Sparr Cards lead and the
                   nearby section carries the "none yet" note. A load error is
-                  never shown as "no commitment". */}
-              {home.status === 'loading' && <HomeNextSparringPlaceholder />}
-              {featured !== null && (
-                <HomeNextSparring
-                  sparring={featured}
-                  now={now}
-                  currentUserId={user?.id ?? null}
-                  upcomingCount={home.upcomingCount}
-                  chatUnread={home.chatUnread}
-                  confirming={home.confirming}
-                  confirmError={home.confirmError}
-                  onConfirm={home.confirm}
-                  onDetails={() => openSparring(featured.id)}
-                  onChat={() => openSparringChat(featured)}
-                  onAll={() => navigation.navigate('SparringChatList')}
-                />
-              )}
+                  never shown as "no commitment". Ticket and reach module form
+                  one tighter group, so the Sparr Cards move up. */}
+              {(home.status === 'loading' || featured !== null || reach.status !== null || feedbackDue !== null) && (
+                <View style={styles.group}>
+                  {home.status === 'loading' && <HomeNextSparringPlaceholder />}
+                  {featured !== null && (
+                    <HomeNextSparring
+                      sparring={featured}
+                      now={now}
+                      currentUserId={user?.id ?? null}
+                      upcomingCount={home.upcomingCount}
+                      chatUnread={home.chatUnread}
+                      confirming={home.confirming}
+                      confirmError={home.confirmError}
+                      onConfirm={home.confirm}
+                      onDetails={() => openSparring(featured.id)}
+                      onChat={() => openSparringChat(featured)}
+                      onAll={() => navigation.navigate('SparringChatList')}
+                    />
+                  )}
 
-              {reach.status !== null && reach.status.unlock_unseen && (
-                <UnlockNoticeCard onAck={() => { void reach.ackUnlock(); }} />
-              )}
-              {feedbackDue !== null && <FeedbackDueCard due={feedbackDue} onOpen={openSparring} />}
-              {reach.status !== null && (
-                <ReachStatusCard
-                  status={reach.status}
-                  onOpenActive={openSparring}
-                  onHowItWorks={() => setExplainVisible(true)}
-                />
+                  {reach.status !== null && reach.status.unlock_unseen && (
+                    <UnlockNoticeCard onAck={() => { void reach.ackUnlock(); }} />
+                  )}
+                  {feedbackDue !== null && <FeedbackDueCard due={feedbackDue} onOpen={openSparring} />}
+                  {reach.status !== null && (
+                    <ReachStatusCard
+                      status={reach.status}
+                      refetchTrigger={focusTrigger}
+                      feedbackPending={feedbackDue !== null}
+                      onOpenSparring={openSparring}
+                      onFind={() => navigation.navigate('Tabs', { screen: 'Sparring', params: {} })}
+                    />
+                  )}
+                </View>
               )}
 
               {cardEntry}
@@ -212,12 +217,6 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      <ReachIntroSheet
-        visible={explainVisible}
-        mode="explain"
-        onPrimary={() => setExplainVisible(false)}
-        onClose={() => setExplainVisible(false)}
-      />
       <LocationPickerModal
         visible={locationPickerVisible}
         onClose={() => setLocationPickerVisible(false)}
@@ -253,6 +252,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     gap: 32,
+  },
+  group: {
+    gap: 16,
   },
   loadError: {
     minHeight: 44,
