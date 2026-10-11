@@ -1,5 +1,7 @@
 {
-  "NSLocationWhenInUseUsageDescription": "Sparr shows you sparring partners near you and checks your location when you publish, join or check in. It is not shown to others.",
-  "NSPhotoLibraryUsageDescription": "Sparr uses your photos to send pictures in the sparring chat.",
-  "NSCameraUsageDescription": "Sparr uses the camera to scan fighter profile QR codes and sparring check-in codes."
+  "ios": {
+    "NSLocationWhenInUseUsageDescription": "Sparr shows you sparring partners near you and checks your location when you publish, join or check in. It is not shown to others.",
+    "NSPhotoLibraryUsageDescription": "Sparr uses your photos to send pictures in the sparring chat.",
+    "NSCameraUsageDescription": "Sparr uses the camera to scan fighter profile QR codes and sparring check-in codes."
+  }
 }
