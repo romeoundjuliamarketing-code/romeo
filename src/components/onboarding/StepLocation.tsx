@@ -20,7 +20,9 @@ type Message = 'denied' | 'unavailable' | 'finishFailed' | null;
 // requested on "Standort verwenden"; any failure stays on this step and offers
 // the manual place search (a sub view of this step, not a third step). A
 // picked place is a search anchor only: joining always measures the device.
-export default function StepLocation({ onBack, onComplete, onSignOut }: {
+export default function StepLocation({ total, onBack, onComplete, onSignOut }: {
+  /** Steps of the whole flow shown in the progress. */
+  total:      number;
   onBack:     () => void;
   /** Saves the onboarding as done; false = not saved, stay here. */
   onComplete: () => Promise<boolean>;
@@ -109,7 +111,7 @@ export default function StepLocation({ onBack, onComplete, onSignOut }: {
   return (
     <OnboardingShell
       step={2}
-      total={2}
+      total={total}
       onBack={() => {
         if (busyRef.current) return;
         if (panelOpen) setPanelOpen(false);

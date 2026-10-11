@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -46,9 +46,8 @@ import QRScannerModal from '../components/profil/QRScannerModal';
 import ProfileQrShareSheet from '../components/profil/ProfileQrShareSheet';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 import { useTranslation } from 'react-i18next';
-import { useTour, useTourTarget } from '../context/TourContext';
 import ProfileCompletionHint from '../components/profil/ProfileCompletionHint';
-import { missingProfileItems } from '../utils/tour';
+import { missingProfileItems } from '../utils/intro';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -57,20 +56,6 @@ export default function ProfilScreen(): React.ReactElement {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [focusTrigger, setFocusTrigger] = useState(0);
   useFocusRefetch(() => setFocusTrigger((n) => n + 1));
-  const tour = useTour();
-  const tourCard = useTourTarget('profileCard');
-  const scrollRef = useRef<ScrollView>(null);
-  // The tour explains the card at the top: its lower part (name, disciplines,
-  // actions) stays above the coach group, the decorative cover may scroll away.
-  const [cardHeight, setCardHeight] = useState(0);
-  const notifyTourLayout = tourCard.onLayout;
-  useEffect(() => {
-    if (tour.station !== 'profile') return;
-    const free = tour.freeBottom;
-    const y = free !== null && cardHeight > 0 ? Math.max(0, cardHeight + 16 - free) : 0;
-    scrollRef.current?.scrollTo({ y, animated: false });
-    notifyTourLayout();
-  }, [tour.station, tour.freeBottom, cardHeight, notifyTourLayout]);
 
   // ── Hooks ──
   const { currentStudio, requestJoin, leaveStudio, removeMember: _removeMember, searchStudios, createStudio } = useStudio(focusTrigger);
@@ -197,17 +182,10 @@ export default function ProfilScreen(): React.ReactElement {
     <View style={styles.safe}>
       <FocusedStatusBar style="light" />
       <ScrollView
-        ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Coach tour station 1 highlights this card (the fighter card). */}
-        <View
-          ref={tourCard.ref}
-          onLayout={(e) => { setCardHeight(Math.round(e.nativeEvent.layout.height)); tourCard.onLayout(); }}
-          collapsable={false}
-        >
         <ProfileHeader
           data={cardData}
           coverUrl={profile?.cover_url ?? null}
@@ -237,10 +215,9 @@ export default function ProfilScreen(): React.ReactElement {
             </View>
           )}
         />
-        </View>
 
         <View style={styles.page}>
-          {!tour.active && <ProfileCompletionHint gaps={profileGaps} onEdit={openEdit} />}
+          <ProfileCompletionHint gaps={profileGaps} onEdit={openEdit} />
 
           {/* About: body numbers, description and training belong together */}
           <View style={styles.group}>

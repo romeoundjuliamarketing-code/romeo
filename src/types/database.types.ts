@@ -16,9 +16,9 @@ export type Database = {
     Tables: {
       // Owner-only (RLS); written via set_my_profile_basics. Never public.
       profile_private: {
-        Row: { id: string; birth_date: string; updated_at: string; tour_status: string | null; tour_station: number | null }
-        Insert: { id: string; birth_date: string; updated_at?: string; tour_status?: string | null; tour_station?: number | null }
-        Update: { id?: string; birth_date?: string; updated_at?: string; tour_status?: string | null; tour_station?: number | null }
+        Row: { id: string; birth_date: string; updated_at: string; tour_status: string | null; tour_station: number | null; tour_version: number | null }
+        Insert: { id: string; birth_date: string; updated_at?: string; tour_status?: string | null; tour_station?: number | null; tour_version?: number | null }
+        Update: { id?: string; birth_date?: string; updated_at?: string; tour_status?: string | null; tour_station?: number | null; tour_version?: number | null }
         Relationships: []
       }
       profiles: {
@@ -2044,9 +2044,9 @@ export type Database = {
         Args: Record<string, never>
         Returns: undefined
       }
-      // Coach tour (migration 20261011140000).
+      // Intro progress (migrations 20261011140000, 20261011160000; p_version 2 = new intro).
       set_my_tour_state: {
-        Args: { p_status: string; p_station: number | null }
+        Args: { p_status: string; p_station: number | null; p_version?: number }
         Returns: undefined
       }
       add_workout_points: {

@@ -69,9 +69,11 @@ export interface OnboardingState {
   name:                 string | null;
   has_birth_date:       boolean;
   onboarding_completed: boolean;
-  /** Coach tour, independent of the onboarding; null = never started. */
+  /** Optional intro after the setup (formerly the coach tour); null = never started. */
   tour_status?:         TourStatus | null;
   tour_station?:        number | null;
+  /** Which flow tour_station counts: null/1 old coach tour, 2 new intro. */
+  tour_version?:        number | null;
 }
 
 export type OnboardingRoute = 'profile' | 'location' | 'done';
@@ -101,6 +103,7 @@ export function parseOnboardingState(raw: unknown): OnboardingState | null {
     tour_status:          r.tour_status === 'in_progress' || r.tour_status === 'completed' || r.tour_status === 'skipped'
       ? r.tour_status : null,
     tour_station:         typeof r.tour_station === 'number' ? r.tour_station : null,
+    tour_version:         typeof r.tour_version === 'number' ? r.tour_version : null,
   };
 }
 

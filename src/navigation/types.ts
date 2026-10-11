@@ -12,13 +12,17 @@ export type SparringMapParams = {
   /** With openCreate: preselect this gym as the place (gym page "Sparring planen"). */
   createAtGymId?: string;
   focusSparringId?: string;
+  /** With focusSparringId: opened from the intro; only a still joinable one shows. */
+  focusFromIntro?: boolean;
+  /** Set only by the intro hand-over: the target page may show its coach hint once. */
+  introHint?: boolean;
   // Entry from the Home "near me" card: show sparrings in this radius with no
   // other filter. `nearbyEntryAt` makes a repeated tap a new request.
   nearbyRadiusKm?: number;
   nearbyEntryAt?: number;
-  // First entry after the onboarding: sparrings in list view around the
-  // search location just chosen. A new timestamp is a new request.
-  listEntryAt?: number;
+  // First entry after the onboarding: the sparring map around the search
+  // location just chosen. A new timestamp is a new request.
+  searchEntryAt?: number;
   // Entry from the Home fight-night block: event map with watch parties for
   // this promotion (and, when known, this official fight night).
   watchEntryAt?: number;
@@ -40,6 +44,8 @@ export type TabParamList = {
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Settings: undefined;
+  /** Optional intro again (settings): card and sparring step only. */
+  Intro: undefined;
   Impressum: undefined;
   SparringRules: undefined;
   BlockedUsers: undefined;

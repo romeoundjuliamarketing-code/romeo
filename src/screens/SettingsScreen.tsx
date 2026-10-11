@@ -7,6 +7,8 @@ import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/types';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +26,6 @@ import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { restorePurchases } from '../lib/restorePurchases';
 import TurnstileWidget from '../components/auth/TurnstileWidget';
 import LanguageSection from '../components/settings/LanguageSection';
-import { useTour } from '../context/TourContext';
 import { useTranslation } from 'react-i18next';
 
 const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
@@ -54,14 +55,13 @@ function SettingsRow({
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SettingsScreen(): React.ReactElement {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, signOut } = useAuth();
   const { entitlement } = useEntitlement();
   const { entitlements: storeEntitlements, refetch: refetchStore } = useStoreEntitlements();
   const { profile, updateProfile } = useProfile();
   const { blocked, refetch: refetchBlocked } = useBlockedUsers();
   const { t } = useTranslation();
-  const tour = useTour();
   useFocusRefetch(refetchBlocked);
   // Optimistic value while the update is in flight; null = follow the profile.
   const [recordPublicDraft, setRecordPublicDraft] = useState<boolean | null>(null);
@@ -228,11 +228,11 @@ export default function SettingsScreen(): React.ReactElement {
             onPress={handleRadiusPick}
           />
           <View style={styles.divider} />
-          {/* Coach tour on request: never the onboarding data entry. */}
+          {/* Intro on request: only the optional steps, never name, birth date or place. */}
           <SettingsRow
             icon="school-outline"
-            label={tour.status === 'in_progress' ? t('onboarding.tour.entryResume') : t('onboarding.tour.entry')}
-            onPress={() => tour.start(tour.status === 'in_progress' ? undefined : 0)}
+            label={t('onboarding.intro.replay')}
+            onPress={() => navigation.navigate('Intro')}
           />
         </View>
 

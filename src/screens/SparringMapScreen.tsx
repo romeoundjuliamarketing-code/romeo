@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarOverlap } from '../components/navigation/SparrTabBar';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { useStoreEntitlements } from '../hooks/useStoreEntitlements';
@@ -63,12 +63,13 @@ import type { MapMode } from '../components/sparring/MapModeToggle';
 import type { TimeFilter } from '../components/sparring/MapTimeFilter';
 import type { SparringView } from '../components/sparring/SparringSearchBar';
 import type { NearbySparring } from '../hooks/useNearbySparrings';
+import { isIntroCandidate, searchArrivalHint } from '../utils/intro';
+import { isIntroHintSeen, markIntroHintSeen } from '../lib/introHint';
+import IntroArrivalHint from '../components/intro/IntroArrivalHint';
 import { watchPartyMatches } from '../utils/fightEvents';
 import { SHOW_EVENTS } from '../data/sparringConfig';
 import type { FightPromotion } from '../utils/fightEvents';
 import { useTranslation } from 'react-i18next';
-import { useTour, useTourTarget } from '../context/TourContext';
-import { pickTourSparring } from '../utils/tour';
 import { useLanguage } from '../i18n/language';
 import { sparringDisplayTitle } from '../utils/sparringDisplayTitle';
 
@@ -252,47 +253,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     [sparringsWithCoords, timeFilter],
   );
 
-  // ── Coach tour station 3/4 ────────────────────────────────────────────────
-  // Reports the sparring the tour may open (upcoming, active, free slot) and
-  // opens it like a normal tap (no verification needed just to look).
-  const tour = useTour();
-  const tourSearch = useTourTarget('discoverSearch');
-  const tourOpenedRef = useRef(false);
-  const tourOnDiscover = tour.station === 'discover';
-  const reportDiscover = tour.reportDiscover;
-  useEffect(() => {
-    if (!tourOnDiscover) return;
-    reportDiscover({
-      status: nearbyStatus === 'error' ? 'error'
-        : nearbyStatus === 'ready' || locationStatus === 'none' ? 'ready' : 'loading',
-      candidateId: pickTourSparring(filteredSparrings, new Date())?.id ?? null,
-      retry: refetchNearby,
-    });
-  }, [tourOnDiscover, nearbyStatus, locationStatus, filteredSparrings, refetchNearby, reportDiscover]);
-  useEffect(() => {
-    const id = tour.detailSparringId;
-    if (id === null) return;
-    const hit = filteredSparrings.find((s) => s.id === id);
-    if (hit === undefined || !hit.is_active) {
-      tour.markDetailGone();
-      return;
-    }
-    tourOpenedRef.current = true;
-    setPreviewId(null);
-    setSelected(hit);
-  }, [tour.detailSparringId]);
-  // Leaving station 4 (back, skip from discover) closes the sheet the tour opened.
-  useEffect(() => {
-    if (tour.station === 'detail' || !tourOpenedRef.current) return;
-    if (!tour.active) {
-      // Finished on the detail sheet: it stays open as the user's own page.
-      tourOpenedRef.current = false;
-      return;
-    }
-    tourOpenedRef.current = false;
-    setSelected(null);
-  }, [tour.station, tour.active]);
-
   const sparringTabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const s of sparringsWithCoords) {
@@ -418,16 +378,16 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     navigation.setParams({ nearbyEntryAt: undefined, nearbyRadiusKm: undefined });
   }, [route.params?.nearbyEntryAt]);
 
-  // First entry after the onboarding: nearby sparrings as a list around the
-  // search location chosen there (map stays one tap away).
+  // First entry after the onboarding: the sparring map around the search
+  // location chosen there (the list stays one tap away).
   useEffect(() => {
-    if (route.params?.listEntryAt === undefined) return;
+    if (route.params?.searchEntryAt === undefined) return;
     setMapMode('sparrings');
     setTimeFilter('all');
     setPlaceJump(null);
-    changeView('list');
-    navigation.setParams({ listEntryAt: undefined });
-  }, [route.params?.listEntryAt]);
+    changeView('map');
+    navigation.setParams({ searchEntryAt: undefined });
+  }, [route.params?.searchEntryAt]);
 
   // Home "UFC gucken": event map, watch parties for that fight night. The search
   // location is shared; sparring filters (radius, time window) do not carry over.
@@ -466,7 +426,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     ]);
   }
 
-  const handleListPress = useCallback((s: NearbySparring): void => setSelected(s), []);
+  const handleListPress = useCallback((s: NearbySparring): void => {
+    setArrival(null);
+    setSelected(s);
+  }, []);
 
   // ── Guard: require verified user before interacting ───────────────────────
   function requireVerified(): boolean {
@@ -564,21 +527,61 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // or a push tap. Falls back to a direct fetch when the sparring is not in
   // the upcoming list (e.g. it already started, or a push arrived before the
   // list refreshed).
+  // ── Coach hint after the intro hand-over (once per account) ──────────────
+  // Only the intro sets `introHint`; ordinary visits never show it. It goes
+  // away on "Verstanden", on the first fitting action (opening a hit, joining,
+  // closing the sheet) and when the page loses focus.
+  const [arrival, setArrival] = useState<'search' | 'detail' | null>(null);
+  const arrivalTargetRef = useRef<'search' | 'detail'>('search');
+  const arrivalSparringRef = useRef<string | null>(null);
+  const arrivalMarkedRef = useRef(false);
+  useEffect(() => {
+    if (route.params?.introHint !== true) return;
+    const focusId = route.params?.focusSparringId ?? null;
+    arrivalSparringRef.current = focusId;
+    arrivalTargetRef.current = focusId !== null ? 'detail' : 'search';
+    navigation.setParams({ introHint: undefined });
+    if (user === null) return;
+    void isIntroHintSeen(user.id).then((seen) => {
+      if (!seen) setArrival(arrivalTargetRef.current);
+    });
+  }, [route.params?.introHint]);
+  useFocusEffect(useCallback(() => () => setArrival(null), []));
+  const dismissArrival = useCallback((): void => setArrival(null), []);
+  const arrivalShown = useCallback((): void => {
+    if (arrivalMarkedRef.current || user === null) return;
+    arrivalMarkedRef.current = true;
+    markIntroHintSeen(user.id);
+  }, [user?.id]);
+
+  // From the intro (`focusFromIntro`) only a still joinable sparring opens;
+  // otherwise the search around the chosen place shows instead of an empty
+  // or ended detail.
   useEffect(() => {
     const id = route.params?.focusSparringId;
     if (id === undefined) return;
+    const fromIntro = route.params?.focusFromIntro === true;
     const match = sparrings.find((sp) => sp.id === id);
-    if (match) {
+    if (match && (!fromIntro || isIntroCandidate(match, new Date()))) {
       setSelected(match);
-      navigation.setParams({ focusSparringId: undefined });
+      navigation.setParams({ focusSparringId: undefined, focusFromIntro: undefined });
       return;
     }
     if (user === null) return;
     void (async () => {
       const fetched = await fetchSparringById(id, user.id);
-      navigation.setParams({ focusSparringId: undefined });
-      if (fetched !== null) {
+      navigation.setParams({ focusSparringId: undefined, focusFromIntro: undefined });
+      if (fetched !== null && (!fromIntro || isIntroCandidate(fetched, new Date()))) {
         setSelected(fetched);
+      } else if (fromIntro) {
+        // The hint follows to the search instead of the gone sparring.
+        arrivalTargetRef.current = 'search';
+        setArrival((a) => (a === null ? null : 'search'));
+        setMapMode('sparrings');
+        setTimeFilter('all');
+        setPlaceJump(null);
+        changeView('map');
+        Alert.alert(t('onboarding.intro.sparring.goneTitle'), t('onboarding.intro.sparring.goneMessage'));
       } else {
         Alert.alert(t('map.screen.notFoundTitle'), t('map.screen.notFoundMessage'));
       }
@@ -857,6 +860,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
   // ── Search presentation ───────────────────────────────────────────────────
   const showList = mapMode === 'sparrings' && view === 'list';
+  const searchHintVariant = arrival === 'search' ? searchArrivalHint(nearbyStatus, locationStatus, filteredSparrings.length) : null;
+  const searchHint = searchHintVariant !== null
+    ? <IntroArrivalHint variant={searchHintVariant} onDismiss={dismissArrival} onShown={arrivalShown} />
+    : null;
   const wider = widerRadius(radiusKm);
   const widen = wider !== undefined ? () => chooseRadius(wider) : null;
   // The list shows its own full-size notice; the bar carries it on the map.
@@ -926,6 +933,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             onWiden={widen}
             onCreate={() => { if (requireVerified() && requireCreator()) openCreateFlow(); }}
             onAdjust={() => setSearchOpen(true)}
+            header={searchHint}
           />
         </View>
       )}
@@ -955,7 +963,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             </TouchableOpacity>
           )}
           {mapMode === 'sparrings' && (
-            <View ref={tourSearch.ref} onLayout={tourSearch.onLayout} collapsable={false}>
             <SparringSearchBar
               view={view}
               onViewChange={changeView}
@@ -968,7 +975,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
               onPlaceFound={handlePlaceFound}
               notice={searchNotice}
             />
-            </View>
           )}
           {showTimeFilter && (
             <MapTimeFilter
@@ -987,11 +993,14 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         pointerEvents="box-none"
         onLayout={(e) => setBottomHeight(e.nativeEvent.layout.height + bottomSafe + 16)}
       >
+        {/* Coach hint after the intro: stacked here on the map, so it covers
+            neither the search panel nor the tab bar. */}
+        {!showList && mapMode === 'sparrings' && searchHint}
         {showSparringCards && preview !== null && (
           <SparringMapPreview
             sparring={preview}
             caption={tappedPreview === null ? t('map.screen.nearest') : null}
-            onOpenDetails={() => setSelected(preview)}
+            onOpenDetails={() => { setArrival(null); setSelected(preview); }}
             onClose={closePreview}
           />
         )}
@@ -1041,9 +1050,12 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           setCancelAskVisible(false);
           joinFlow.reset();
           setSelected(null);
-          tour.detailClosed();
+          setArrival((a) => (a === 'detail' ? null : a));
         }}
-        onJoin={handleJoinSparring}
+        onJoin={() => { setArrival(null); handleJoinSparring(); }}
+        arrivalHint={arrival === 'detail' && selected !== null && selected.id === arrivalSparringRef.current
+          ? <IntroArrivalHint variant="detail" onDismiss={dismissArrival} onShown={arrivalShown} />
+          : null}
         onConfirm={() => { void handleConfirmSparring(); }}
         onCancelSignup={handleCancelSparringSignup}
         onDeactivate={handleDeactivateSparring}

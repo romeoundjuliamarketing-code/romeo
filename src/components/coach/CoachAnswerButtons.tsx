@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming,
@@ -12,10 +12,12 @@ const RADIUS = 16;
 const STROKE = 2;
 
 // Chunky "game" button: a face on a darker edge. Pressing sinks the face,
-// releasing springs it back. The touch area never moves.
-export function CoachPrimaryButton({ label, onPress }: {
-  label:   string;
-  onPress: () => void;
+// releasing springs it back. The touch area never moves. `loading`: a
+// spinner instead of the arrow, not pressable until it is done.
+export function CoachPrimaryButton({ label, onPress, loading = false }: {
+  label:    string;
+  onPress:  () => void;
+  loading?: boolean;
 }): React.ReactElement {
   const reduceMotion = useReducedMotion();
   const pressed = useSharedValue(0);
@@ -25,6 +27,7 @@ export function CoachPrimaryButton({ label, onPress }: {
     <Pressable
       style={styles.primaryTouch}
       onPress={onPress}
+      disabled={loading}
       onPressIn={() => { pressed.value = withTiming(1, { duration: 60 }); }}
       onPressOut={() => {
         pressed.value = reduceMotion
@@ -33,11 +36,14 @@ export function CoachPrimaryButton({ label, onPress }: {
       }}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ busy: loading, disabled: loading }}
     >
       <View style={styles.edge} />
-      <Animated.View style={[styles.face, faceStyle]}>
+      <Animated.View style={[styles.face, loading && styles.faceLoading, faceStyle]}>
         <Text style={styles.primaryText}>{label}</Text>
-        <Ionicons name="arrow-forward" size={20} color={colors.card} />
+        {loading
+          ? <ActivityIndicator color={colors.card} />
+          : <Ionicons name="arrow-forward" size={20} color={colors.card} />}
       </Animated.View>
     </Pressable>
   );
@@ -88,6 +94,7 @@ const styles = StyleSheet.create({
     borderColor:       colors.dark,
     backgroundColor:   colors.brandPrimary,
   },
+  faceLoading: { opacity: 0.85 },
   primaryText: { flexShrink: 1, fontSize: 18, fontWeight: '800', color: colors.card, textAlign: 'center' },
   secondary: {
     minHeight:         44,

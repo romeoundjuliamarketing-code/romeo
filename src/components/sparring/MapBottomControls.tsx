@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useTranslation } from 'react-i18next';
-import { useTourTarget } from '../../context/TourContext';
 
 interface Props {
   onChat:       () => void;
@@ -20,8 +19,6 @@ export default function MapBottomControls({
   onChat, totalUnread, primaryLabel, onPrimary,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
-  // Coach tour station 3 explains the create action.
-  const tourCreate = useTourTarget('discoverCreate');
   return (
     <View style={styles.row} pointerEvents="box-none">
       <View style={styles.tools}>
@@ -42,7 +39,7 @@ export default function MapBottomControls({
       </View>
 
       {primaryLabel !== null && (
-        <View ref={tourCreate.ref} onLayout={tourCreate.onLayout} style={styles.primaryWrap} collapsable={false}>
+        <View style={styles.primaryWrap}>
           <TouchableOpacity
             style={styles.primary}
             onPress={onPrimary}

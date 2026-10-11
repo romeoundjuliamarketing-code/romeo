@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
-import type { ProfileGap } from '../../utils/tour';
+import type { ProfileGap } from '../../utils/intro';
 
 const ICONS: Record<ProfileGap, React.ComponentProps<typeof Ionicons>['name']> = {
   photo:       'camera-outline',

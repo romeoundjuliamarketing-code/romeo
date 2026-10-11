@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Keyboard, Platform, StyleSheet, useWindowDimensions } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { CoachPrimaryButton } from '../coach/CoachAnswerButtons';
 import AuthTextField from '../auth/AuthTextField';
@@ -121,6 +122,12 @@ export default function StepProfile({ step, total, name, birth, onNameChange, on
         <Text style={styles.title} accessibilityRole="header">{t('onboarding.profile.title')}</Text>
         <Text style={styles.intro}>{t('onboarding.profile.intro')}</Text>
       </View>
+      {/* The fighter profile in one line; photo and disciplines come later
+          via the profile completion hint, no extra required page. */}
+      <View style={styles.profileNote}>
+        <Ionicons name="person-circle-outline" size={20} color={colors.accentBlueText} />
+        <Text style={styles.profileNoteText}>{t('onboarding.profile.profileNote')}</Text>
+      </View>
       <View style={styles.fields}>
         <AuthTextField
           variant="warm"
@@ -158,6 +165,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, lineHeight: 34, fontWeight: '800', color: colors.text },
   intro: { fontSize: 16, lineHeight: 24, color: colors.textMuted },
   fields: { gap: 16 },
+  profileNote: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  profileNoteText: { flex: 1, fontSize: 15, lineHeight: 22, fontWeight: '600', color: colors.text },
   formError: {
     fontSize:   14,
     lineHeight: 20,

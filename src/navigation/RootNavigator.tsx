@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TabNavigator from './TabNavigator';
@@ -37,16 +37,17 @@ import { NotificationsProvider } from '../context/NotificationsContext';
 import { markWelcomeIntroSeen, useWelcomeIntroSeen } from '../lib/welcomeIntro';
 import { authInitialRoute, isEntryLoading } from '../utils/authEntry';
 import { useOnboardingGate } from '../hooks/useOnboardingGate';
-import { TourProvider } from '../context/TourContext';
-import TourOverlay from '../components/tour/TourOverlay';
+import IntroReplayScreen, { IntroFlow, type IntroExit } from '../screens/IntroScreen';
+import IntroLeaveLayer from '../components/intro/IntroLeaveLayer';
+import { FLOW_TOTAL_STEPS } from '../utils/intro';
 import OnboardingScreen, { OnboardingGateError, OnboardingPreview } from '../screens/OnboardingScreen';
 
 // Dev-only visual check: with EXPO_PUBLIC_PREVIEW_ONBOARDING=1 both onboarding
 // steps show without an account; nothing is saved.
 const PREVIEW_ONBOARDING = __DEV__ && process.env.EXPO_PUBLIC_PREVIEW_ONBOARDING === '1';
-// Dev-only: EXPO_PUBLIC_PREVIEW_TOUR=1 starts the coach tour on every app
-// start for a signed-in account, without saving any tour state.
-const PREVIEW_TOUR = __DEV__ && process.env.EXPO_PUBLIC_PREVIEW_TOUR === '1';
+// Dev-only: EXPO_PUBLIC_PREVIEW_INTRO=1 shows the intro (card + sparring step)
+// on every app start for a signed-in account, without saving any progress.
+const PREVIEW_INTRO = __DEV__ && process.env.EXPO_PUBLIC_PREVIEW_INTRO === '1';
 
 const AppStack  = createNativeStackNavigator<RootStackParamList>();
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -55,16 +56,23 @@ function GatedChallenge(): React.ReactElement {
   return <CardGameGate><SparringChallengeScreen /></CardGameGate>;
 }
 
-// `tourEntry`: first entry right after the onboarding (or the tour preview)
-// opens the own profile, where the coach tour starts, instead of Home.
-function AppNavigator({ tourEntry }: { tourEntry: boolean }) {
+// `entry`: right after the intro the app opens on the sparring it showed or
+// on the real search around the chosen place, instead of Home.
+function entryParams(entry: IntroExit | null) {
+  if (entry === null) return undefined;
+  return entry.kind === 'sparring'
+    ? { screen: 'Sparring' as const, params: { focusSparringId: entry.id, focusFromIntro: true, introHint: true } }
+    : { screen: 'Sparring' as const, params: { searchEntryAt: Date.now(), introHint: true } };
+}
+
+function AppNavigator({ entry }: { entry: IntroExit | null }) {
   return (
     <NotificationsProvider>
     <AppStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: 'transparent' } }}>
       <AppStack.Screen
         name="Tabs"
         component={TabNavigator}
-        initialParams={tourEntry ? { screen: 'Profil' } : undefined}
+        initialParams={entryParams(entry)}
       />
       <AppStack.Screen name="Settings" component={SettingsScreen} />
       <AppStack.Screen name="Impressum" component={ImpressumScreen} />
@@ -112,6 +120,12 @@ function AppNavigator({ tourEntry }: { tourEntry: boolean }) {
         // A stage of its own: full screen, nothing of the previous page behind it.
         options={{ presentation: 'fullScreenModal' }}
       />
+      {/* Settings "Einführung wiederholen": the optional steps only. */}
+      <AppStack.Screen
+        name="Intro"
+        component={IntroReplayScreen}
+        options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
+      />
     </AppStack.Navigator>
     </NotificationsProvider>
   );
@@ -137,6 +151,12 @@ export default function RootNavigator() {
   const introSeen = useWelcomeIntroSeen();
   // Decided before any app screen renders, so Home never flashes up first.
   const onboarding = useOnboardingGate(session?.user.id ?? null);
+  // Where the app opens after the intro (first entry only).
+  const [entry, setEntry] = useState<IntroExit | null>(null);
+  const [previewIntroDone, setPreviewIntroDone] = useState(false);
+  // The intro fades out over the already mounted app (hand-over).
+  const [leavingIntro, setLeavingIntro] = useState(false);
+  const endLeaving = useCallback((): void => setLeavingIntro(false), []);
 
   // Anyone who has been signed in is an existing user: the intro must never
   // show up after their logout.
@@ -203,6 +223,9 @@ export default function RootNavigator() {
           userId={session.user.id}
           route={onboarding.route}
           state={onboarding.state}
+          // Full flow: 4 steps (also when stepping back from the intro);
+          // existing accounts only catch up on step 1.
+          total={onboarding.state.onboarding_completed && onboarding.finishedAt === null ? 1 : FLOW_TOTAL_STEPS}
           fallbackName={providerName}
           onSaveProfile={onboarding.saveProfile}
           onComplete={onboarding.complete}
@@ -214,20 +237,34 @@ export default function RootNavigator() {
     );
   }
 
+  // Optional intro (steps 3 and 4): its own screens, no app behind it. On
+  // its exit the app mounts right away on the target (never Home first) and
+  // the intro fades out above it. The slots keep their positions, so the
+  // intro is not remounted when the app joins.
+  const previewIntro = PREVIEW_INTRO && !previewIntroDone;
+  const introActive = onboarding.intro !== null || previewIntro;
+  const showApp = !introActive || leavingIntro;
+  const showIntro = introActive || leavingIntro;
+
   return (
-    <View style={styles.root}>
-      {/* The tour is active from the first frame, so no page shows up unaccompanied. */}
-      <TourProvider
-        initialStatus={onboarding.state?.tour_status ?? null}
-        initialStation={onboarding.state?.tour_station ?? null}
-        autoStart={onboarding.finishedAt !== null || PREVIEW_TOUR}
-        persistEnabled={!PREVIEW_TOUR}
-        userName={onboarding.state?.name ?? null}
-      >
-        <AppNavigator tourEntry={onboarding.finishedAt !== null || PREVIEW_TOUR} />
-        <TourOverlay layer="root" />
-      </TourProvider>
-      <CacheWarmer />
+    <View style={[styles.root, styles.warm]}>
+      {showApp && <AppNavigator entry={entry} />}
+      {showApp && <CacheWarmer />}
+      {showIntro && (
+        <IntroLeaveLayer leaving={leavingIntro} onDone={endLeaving}>
+          <IntroFlow
+            initialStep={onboarding.intro ?? 0}
+            onStepChange={previewIntro ? undefined : onboarding.setIntroStep}
+            onBackFromFirst={!previewIntro && onboarding.finishedAt !== null ? onboarding.backToLocation : undefined}
+            onExit={(exit, result) => {
+              setEntry(exit);
+              setLeavingIntro(true);
+              if (previewIntro) setPreviewIntroDone(true);
+              else onboarding.endIntro(result);
+            }}
+          />
+        </IntroLeaveLayer>
+      )}
       <OfflineBanner />
     </View>
   );
@@ -236,6 +273,10 @@ export default function RootNavigator() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  // Warm background under the intro hand-over: no white or black frame.
+  warm: {
+    backgroundColor: colors.background,
   },
   loader: {
     flex: 1,

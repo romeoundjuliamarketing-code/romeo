@@ -11,7 +11,6 @@ import type { SearchLocationStatus } from '../../hooks/useSearchLocation';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../i18n/language';
 import { disciplineLabel } from '../../utils/disciplineLabel';
-import { useTourTarget } from '../../context/TourContext';
 
 interface Props {
   sparrings:      NearbySparring[];
@@ -29,25 +28,22 @@ interface Props {
   onCreate:       () => void;
   /** Opens the search panel (place, radius). */
   onAdjust:       () => void;
+  /** Coach hint after the intro: above the hits or the empty state, scrolls with them. */
+  header?:        React.ReactElement | null;
 }
 
 // List view of the nearby search — the same hits as the map markers, nearest
 // first. Shows only fields the search delivers; nothing is filled in.
 export default function SparringListView({
   sparrings, status, locationStatus, radiusKm, currentUserId, topInset, bottomInset,
-  onPress, onRetry, onPickLocation, onWiden, onCreate, onAdjust,
+  onPress, onRetry, onPickLocation, onWiden, onCreate, onAdjust, header = null,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
-  // Coach tour station 3 highlights the first hit.
-  const tourFirst = useTourTarget('discoverFirst');
   const renderItem = useCallback(
-    ({ item, index }: { item: NearbySparring; index: number }) => {
-      const row = <SparringListRow sparring={item} isOwn={item.created_by === currentUserId} onPress={onPress} />;
-      return index === 0
-        ? <View ref={tourFirst.ref} onLayout={tourFirst.onLayout} collapsable={false}>{row}</View>
-        : row;
-    },
-    [currentUserId, onPress, tourFirst.ref, tourFirst.onLayout],
+    ({ item }: { item: NearbySparring }) => (
+      <SparringListRow sparring={item} isOwn={item.created_by === currentUserId} onPress={onPress} />
+    ),
+    [currentUserId, onPress],
   );
 
   const contentStyle = { paddingTop: topInset, paddingBottom: bottomInset };
@@ -88,6 +84,7 @@ export default function SparringListView({
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       contentContainerStyle={[styles.content, contentStyle]}
+      ListHeaderComponent={header !== null ? <View style={styles.header}>{header}</View> : null}
       ListEmptyComponent={empty}
       ListFooterComponent={sparrings.length > 0 ? <Text style={styles.footnote}>{t('map.list.footnote')}</Text> : null}
       showsVerticalScrollIndicator={false}
@@ -197,6 +194,9 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 16,
     gap: 8,
+  },
+  header: {
+    paddingBottom: 8,
   },
   row: {
     backgroundColor: colors.card,

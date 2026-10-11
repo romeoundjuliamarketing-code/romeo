@@ -9,6 +9,7 @@ import StepLocation from '../components/onboarding/StepLocation';
 import { TextAction } from '../components/common/TextAction';
 import type { SaveProfileResult } from '../hooks/useOnboardingGate';
 import type { CalendarDate, OnboardingRoute, OnboardingState } from '../utils/onboarding';
+import { FLOW_TOTAL_STEPS } from '../utils/intro';
 
 const ENTER = FadeIn.duration(180);
 
@@ -19,10 +20,12 @@ function parseIsoDate(iso: string): CalendarDate | null {
 
 // Onboarding after sign-up, outside the app navigator (no app behind it).
 // The drafts live here, so going back from step 2 keeps what was entered.
-export default function OnboardingScreen({ userId, route, state, fallbackName, onSaveProfile, onComplete, onBackToProfile, onSignOut }: {
+export default function OnboardingScreen({ userId, route, state, total, fallbackName, onSaveProfile, onComplete, onBackToProfile, onSignOut }: {
   userId:          string;
   route:           Exclude<OnboardingRoute, 'done'>;
   state:           OnboardingState;
+  /** Steps shown in the progress: 4 for the full flow, 1 for a catch-up of step 1. */
+  total:           number;
   /** Name from the sign-in provider (Apple / Google), if the profile has none. */
   fallbackName:    string | null;
   onSaveProfile:   (name: string, birthDateIso: string) => Promise<SaveProfileResult>;
@@ -46,9 +49,6 @@ export default function OnboardingScreen({ userId, route, state, fallbackName, o
     return () => { cancelled = true; };
   }, [state.has_birth_date, userId]);
 
-  // Existing accounts only catch up on step 1.
-  const total = state.onboarding_completed ? 1 : 2;
-
   return (
     <View style={styles.root}>
       {route === 'profile' ? (
@@ -66,7 +66,7 @@ export default function OnboardingScreen({ userId, route, state, fallbackName, o
         </Animated.View>
       ) : (
         <Animated.View key="location" style={styles.root} entering={ENTER}>
-          <StepLocation onBack={onBackToProfile} onComplete={onComplete} onSignOut={onSignOut} />
+          <StepLocation total={total} onBack={onBackToProfile} onComplete={onComplete} onSignOut={onSignOut} />
         </Animated.View>
       )}
     </View>
@@ -83,6 +83,7 @@ export function OnboardingPreview(): React.ReactElement {
       userId="preview"
       route={route}
       state={state}
+      total={FLOW_TOTAL_STEPS}
       fallbackName={null}
       onSaveProfile={async () => { setRoute('location'); return { ok: true }; }}
       onComplete={async () => false}

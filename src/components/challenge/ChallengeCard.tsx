@@ -27,9 +27,12 @@ interface Props {
   // Height follows the content (min. one square card width) instead of the fixed
   // playing-card ratio. For screens that scroll the card as a whole.
   fitContent?:   boolean;
-  // Static example (coach tour): no difficulty row, height follows the text,
-  // small band.
+  // Onboarding example: compact band (small mark, `previewLabel`, `badge`;
+  // no focus category, no card number), no difficulty row, height follows
+  // the text. The regular card design is untouched.
   preview?:      boolean;
+  previewLabel?: string;
+  badge?:        string;
 }
 
 // Narrow cards (thumbnails in the feedback step) get a smaller type scale so the
@@ -54,10 +57,12 @@ export default function ChallengeCard({
   elevated = true,
   fitContent = false,
   preview = false,
+  previewLabel,
+  badge,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const tx = useLocalized();
-  const compact = preview || size.width < COMPACT_WIDTH;
+  const compact = !preview && size.width < COMPACT_WIDTH;
   const level   = DIFFICULTY_LEVEL[challenge.difficulty];
   const focus   = tx(challenge.focus);
   const meta    = focus.length > 0
@@ -79,7 +84,7 @@ export default function ChallengeCard({
         <Text style={styles.levelText}>{t(`challenge.difficulty.${challenge.difficulty}`)}</Text>
       </View>}
 
-      <Text style={[styles.title, compact && styles.titleCompact]}>{tx(challenge.title)}</Text>
+      <Text style={[styles.title, compact && styles.titleCompact, preview && styles.titlePreview]}>{tx(challenge.title)}</Text>
       {/* Inside the deck the brief cannot scroll (the card is a tap target), so a very
           long text ellipsizes here and stays readable in full under "Alle Karten ansehen". */}
       <Text
@@ -87,6 +92,7 @@ export default function ChallengeCard({
           styles.instruction,
           !scrollable && !fitContent && styles.instructionDeck,
           compact && styles.instructionCompact,
+          preview && styles.instructionPreview,
         ]}
         numberOfLines={scrollable || fitContent ? undefined : 9}
       >
@@ -120,6 +126,17 @@ export default function ChallengeCard({
 
   return (
     <View style={[styles.card, sizeStyle, elevated && cardShadow]}>
+      {preview ? (
+        <View style={[styles.band, styles.bandPreview]}>
+          <SparrLogo size={24} />
+          <Text style={styles.meta}>{previewLabel ?? t(`challenge.areas.${challenge.area}`)}</Text>
+          {badge !== undefined && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge}</Text>
+            </View>
+          )}
+        </View>
+      ) : (
       <View style={styles.band}>
         {/* Cropped by the band edge — texture behind the text, not a second logo. */}
         <View style={styles.watermark} pointerEvents="none">
@@ -127,7 +144,7 @@ export default function ChallengeCard({
         </View>
 
         <SparrLogo size={compact ? 32 : 40} />
-        <Text style={styles.meta} numberOfLines={preview ? 1 : 2}>{meta}</Text>
+        <Text style={styles.meta} numberOfLines={2}>{meta}</Text>
         <View style={styles.numberWrap}>
           {done ? (
             <Ionicons name="checkmark-circle" size={16} color={colors.headerTextPrimary} />
@@ -135,6 +152,7 @@ export default function ChallengeCard({
           <Text style={styles.number}>{missionNumber(challenge)}</Text>
         </View>
       </View>
+      )}
 
       {fitContent || preview ? (
         <>
@@ -181,6 +199,24 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: colors.accentBlue,
     overflow: 'hidden',
+  },
+  bandPreview: {
+    minHeight: 0,
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.headerBorder,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.headerTextPrimary,
   },
   watermark: {
     position: 'absolute',
@@ -264,6 +300,16 @@ const styles = StyleSheet.create({
   // Fixed-size deck card that cannot scroll: one step smaller so the longest missions
   // still fit in full.
   instructionDeck: {
+    fontSize: 17,
+    lineHeight: 24,
+  },
+  titlePreview: {
+    marginTop: 0,
+    fontSize: 24,
+    lineHeight: 30,
+  },
+  instructionPreview: {
+    marginTop: 8,
     fontSize: 17,
     lineHeight: 24,
   },

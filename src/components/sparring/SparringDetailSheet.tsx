@@ -50,8 +50,6 @@ import CheckinSection from './trust/CheckinSection';
 import TrustPanelOverlays from './trust/TrustPanelOverlays';
 import { useTrustPanel } from './trust/useTrustPanel';
 import { useTranslation } from 'react-i18next';
-import TourOverlay from '../tour/TourOverlay';
-import { useTourTarget } from '../../context/TourContext';
 import { useLanguage } from '../../i18n/language';
 import { formatDate } from '../../utils/formatDate';
 import type { AppLanguage } from '../../utils/language';
@@ -88,6 +86,8 @@ interface Props {
   onReachChanged:    () => void;
   /** Join blocked by distance: show joinable sparrings near the user instead. */
   onFindNearby:      () => void;
+  /** Coach hint after the intro, in the flow right under the meetup data. */
+  arrivalHint?:      React.ReactNode;
 }
 
 // Near full-screen bottom sheet: a little of the dimmed map stays visible.
@@ -108,15 +108,13 @@ export default function SparringDetailSheet({
   sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onEdit, onOpenChat,
   consentVisible, onConsentClose, onConsentConfirm, commitmentResult, onCommitmentResultClose,
   cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
-  loading, joinFlow, onReachChanged, onFindNearby,
+  loading, joinFlow, onReachChanged, onFindNearby, arrivalHint = null,
 }: Props) {
   const { t } = useTranslation();
   const { language } = useLanguage();
   // Reload participants when the slot count or the user's own status changes
   // (join/cancel/confirm keep the window open and refresh `sparring`).
   const [participantsVersion, setParticipantsVersion] = useState(0);
-  // Coach tour station 4 highlights discipline, date and place (the header).
-  const tourHeader = useTourTarget('detailHeader');
   const lastSnapshotRef = useRef<string | null>(null);
   const snapshot = sparring !== null ? `${sparring.id}|${sparring.signup_count}|${sparring.my_status ?? ''}` : null;
   useEffect(() => {
@@ -321,7 +319,6 @@ export default function SparringDetailSheet({
               scrollEventThrottle={16}
             >
               {/* Orientation: who invites, what, when, where — visible without scrolling */}
-              <View ref={tourHeader.ref} onLayout={tourHeader.onLayout} collapsable={false}>
               <SparringDetailHeader
                 title={displayTitle}
                 discipline={sparring.discipline}
@@ -353,9 +350,9 @@ export default function SparringDetailSheet({
                   }}
                 />
               </SparringDetailHeader>
-              </View>
 
               <View style={styles.body}>
+                {arrivalHint}
                 <View style={styles.group}>
                   <SparringParticipantsSummary
                     participants={participants}
@@ -507,9 +504,6 @@ export default function SparringDetailSheet({
               onClose={onCommitmentResultClose}
             />
           )}
-
-          {/* Coach tour station 4: inside this Modal, which would cover it otherwise. */}
-          <TourOverlay layer="sheet" />
         </View>
       </GestureHandlerRootView>
     </Modal>

@@ -89,10 +89,11 @@ describe('parseOnboardingState / onboardingSaveError', () => {
   it('parses defensively', () => {
     expect(parseOnboardingState(null)).toBeNull();
     expect(parseOnboardingState({ name: 5, has_birth_date: 'yes' }))
-      .toEqual({ name: null, has_birth_date: false, onboarding_completed: false, tour_status: null, tour_station: null });
+      .toEqual({ name: null, has_birth_date: false, onboarding_completed: false, tour_status: null, tour_station: null, tour_version: null });
     expect(parseOnboardingState({ name: 'Mo', has_birth_date: true, onboarding_completed: true, tour_status: 'in_progress', tour_station: 2 }))
       .toMatchObject({ tour_status: 'in_progress', tour_station: 2 });
     expect(parseOnboardingState({ tour_status: 'weird' })?.tour_status).toBeNull();
+    expect(parseOnboardingState({ tour_status: 'in_progress', tour_station: 1, tour_version: 2 })?.tour_version).toBe(2);
   });
 
   it('maps server codes', () => {

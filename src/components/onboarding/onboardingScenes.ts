@@ -18,3 +18,10 @@ export const SCENE_LOCATION: OnboardingScene = {
   source: require('../../../assets/coach/coach-location-map.png'),
   ratio:  1152 / 768,
 };
+
+// Coach holding out a single SPARR card (intro card step; shown mirrored so
+// he presents it towards the real card on the right).
+export const SCENE_DRAW_CARD: OnboardingScene = {
+  source: require('../../../assets/coach/coach-draw-card.png'),
+  ratio:  1152 / 768,
+};
