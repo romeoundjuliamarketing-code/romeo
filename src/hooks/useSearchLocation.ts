@@ -87,7 +87,8 @@ export function useSearchLocation({ askPermission }: Options): {
   status:    SearchLocationStatus;
   location:  SearchLocation | null;
   setManual: (lat: number, lng: number, label: string) => Promise<void>;
-  switchToDevice: () => Promise<void>;
+  /** Resolves true when a device position was found (asks for permission if needed). */
+  switchToDevice: () => Promise<boolean>;
 } {
   const [snapshot, setSnapshot] = useState<StoreState>(state);
 
@@ -112,7 +113,7 @@ export function useSearchLocation({ askPermission }: Options): {
     }
   }, []);
 
-  const switchToDevice = useCallback(async (): Promise<void> => {
+  const switchToDevice = useCallback(async (): Promise<boolean> => {
     version += 1;
     const started = version;
     try {
@@ -122,8 +123,9 @@ export function useSearchLocation({ askPermission }: Options): {
     }
     publish({ status: 'loading', location: null });
     const device = await readDevice(true);
-    if (version !== started) return;
+    if (version !== started) return device !== null;
     publish({ status: device !== null ? 'ready' : 'none', location: device });
+    return device !== null;
   }, []);
 
   return { status: snapshot.status, location: snapshot.location, setManual, switchToDevice };

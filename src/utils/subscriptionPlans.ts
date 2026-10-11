@@ -70,15 +70,6 @@ export function formatSavings(amount: number, currencyCode: string): string {
   return new Intl.NumberFormat((parseLanguage(i18n.language) ?? 'de') === 'en' ? 'en-GB' : 'de-DE', { style: 'currency', currency: currencyCode }).format(amount);
 }
 
-// Postgres "insufficient_privilege" on a private insert means the RLS check
-// can_create_sparring() failed — i.e. no creator subscription on the server.
-export function sparringInsertErrorCode(
-  pgCode: string | undefined,
-  studioId: string | null,
-): 'subscription_required' | null {
-  return pgCode === '42501' && studioId === null ? 'subscription_required' : null;
-}
-
 // Until entitlements are loaded the client must not block: the insert policy
 // decides. Members of a studio may open the sheet (studio sparrings are free).
 export function creatorGateAllows(state: { loading: boolean; canCreateSparring: boolean; inStudio: boolean }): boolean {

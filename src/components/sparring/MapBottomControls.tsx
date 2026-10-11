@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useTranslation } from 'react-i18next';
+import { useTourTarget } from '../../context/TourContext';
 
 interface Props {
   onChat:       () => void;
@@ -19,6 +20,8 @@ export default function MapBottomControls({
   onChat, totalUnread, primaryLabel, onPrimary,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
+  // Coach tour station 3 explains the create action.
+  const tourCreate = useTourTarget('discoverCreate');
   return (
     <View style={styles.row} pointerEvents="box-none">
       <View style={styles.tools}>
@@ -39,15 +42,17 @@ export default function MapBottomControls({
       </View>
 
       {primaryLabel !== null && (
-        <TouchableOpacity
-          style={styles.primary}
-          onPress={onPrimary}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-        >
-          <Ionicons name="add" size={20} color={colors.card} />
-          <Text style={styles.primaryText}>{primaryLabel}</Text>
-        </TouchableOpacity>
+        <View ref={tourCreate.ref} onLayout={tourCreate.onLayout} style={styles.primaryWrap} collapsable={false}>
+          <TouchableOpacity
+            style={styles.primary}
+            onPress={onPrimary}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+          >
+            <Ionicons name="add" size={20} color={colors.card} />
+            <Text style={styles.primaryText}>{primaryLabel}</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );
@@ -97,8 +102,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color:      colors.card,
   },
+  primaryWrap: { flex: 1 },
   primary: {
-    flex:              1,
     flexDirection:     'row',
     alignItems:        'center',
     justifyContent:    'center',

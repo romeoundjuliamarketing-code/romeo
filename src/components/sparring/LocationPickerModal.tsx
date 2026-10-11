@@ -26,9 +26,11 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onConfirm: (lat: number, lng: number, displayAddress: string) => void;
+  /** False: only use an already granted permission, never prompt (onboarding "choose myself"). */
+  askPermission?: boolean;
 };
 
-export default function LocationPickerModal({ visible, onClose, onConfirm }: Props) {
+export default function LocationPickerModal({ visible, onClose, onConfirm, askPermission = true }: Props) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   // 'pending' until the start position is known: the map mounts directly at
@@ -39,6 +41,8 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
   const [marker, setMarker] = useState<Coord | null>(null);
   const [displayAddress, setDisplayAddress] = useState('');
   const [geocoding, setGeocoding] = useState(false);
+  // The iOS map asks for permission itself when it shows the user dot.
+  const [locationGranted, setLocationGranted] = useState(askPermission);
 
   useEffect(() => {
     if (!visible) return;
@@ -54,8 +58,11 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
 
     void (async () => {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const { status } = askPermission
+          ? await Location.requestForegroundPermissionsAsync()
+          : await Location.getForegroundPermissionsAsync();
         if (cancelled) return;
+        setLocationGranted(status === 'granted');
         if (status !== 'granted') { setStart(null); return; }
         // Last known position is instant; the fresh fix refines it afterwards.
         const last = await Location.getLastKnownPositionAsync();
@@ -77,7 +84,7 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [visible]);
+  }, [visible, askPermission]);
 
   async function handleMapPress(latitude: number, longitude: number): Promise<void> {
     const coord: Coord = { latitude, longitude };
@@ -136,7 +143,7 @@ export default function LocationPickerModal({ visible, onClose, onConfirm }: Pro
             centerOn={userCenter}
             marker={marker}
             onPress={handleMapPress}
-            showsUserLocation
+            showsUserLocation={locationGranted}
           />
         )}
 

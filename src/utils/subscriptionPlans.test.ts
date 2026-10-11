@@ -1,6 +1,6 @@
 import {
   activePlan, bundleSavings, creatorGateAllows, defaultSelection, formatSavings, orderPlans, planForProduct, planLabel,
-  planSwitchNotice, replacedProductId, sparringInsertErrorCode, subscriptionRejection,
+  planSwitchNotice, replacedProductId, subscriptionRejection,
 } from './subscriptionPlans';
 
 describe('planForProduct', () => {
@@ -74,17 +74,6 @@ describe('bundleSavings / formatSavings', () => {
   });
   it('formats as currency', () => {
     expect(formatSavings(0.99, 'EUR')).toMatch(/^0,99\s€$/);
-  });
-});
-
-describe('sparringInsertErrorCode', () => {
-  it('flags an RLS rejection of a private sparring', () => {
-    expect(sparringInsertErrorCode('42501', null)).toBe('subscription_required');
-  });
-  it('does not blame the subscription for studio inserts or other errors', () => {
-    expect(sparringInsertErrorCode('42501', 'studio-1')).toBeNull();
-    expect(sparringInsertErrorCode('23505', null)).toBeNull();
-    expect(sparringInsertErrorCode(undefined, null)).toBeNull();
   });
 });
 

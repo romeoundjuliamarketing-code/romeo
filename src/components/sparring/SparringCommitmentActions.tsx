@@ -1,267 +1,152 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import type { CommitmentCta } from '../../utils/sparringCommitment';
-import { isBeforeCancelDeadline, isInConfirmWindow } from '../../utils/sparringCommitment';
+import type { JoinGate } from '../../utils/joinGate';
 import { useTranslation } from 'react-i18next';
+import SparrDepthButton from './SparrDepthButton';
 
 interface Props {
   cta:              CommitmentCta;
-  scheduledAt:      string;
   waitlistPosition: number | null;
+  slotsLeft:        number;
+  /** false once the organizer cancelled the sparring. */
+  isActive:         boolean;
+  /** Join refused by distance: replaces the join action. */
+  blockedGate:      Extract<JoinGate, { kind: 'tooFar' }> | null;
+  /** Formatted distance of the blocked sparring, when measured. */
+  blockedDistance:  string | null;
   loading:          boolean;
   /** Eligibility is still being checked: the join button waits. */
   checking?:        boolean;
   onJoin:           () => void;
   onConfirm:        () => void;
   onCancel:         () => void;
+  onFindNearby:     () => void;
 }
 
-// Status-driven commitment unit of the sparring detail window (spec 8.3):
-// one calm surface with the question, the action and what a commitment means.
-// Every promise shown here maps to an existing mechanism (24h confirmation,
-// cancel deadline, waitlist promotion) — nothing is invented.
+// Fixed action area of the sparring sheet: one short status (what is the
+// situation for me) and the main action. Longer explanations live in
+// SparringStatusNote inside the scrollable content. The state comes from
+// resolveCommitmentCta and the join gate; nothing is decided here.
 export default function SparringCommitmentActions({
-  cta, scheduledAt, waitlistPosition, loading, checking = false, onJoin, onConfirm, onCancel,
-}: Props): React.ReactElement | null {
+  cta, waitlistPosition, slotsLeft, isActive, blockedGate, blockedDistance, loading, checking = false,
+  onJoin, onConfirm, onCancel, onFindNearby,
+}: Props): React.ReactElement {
   const { t } = useTranslation();
-  if (cta.type === 'none' || cta.type === 'started_organizer') {
-    return null;
+  const busyLabel = checking ? t('sparringTrust.blocked.checking') : undefined;
+
+  if (!isActive) return <Status title={t('sparring.invite.cancelledTitle')} sub={t('sparring.invite.cancelledBody')} />;
+  if (cta.type === 'none') return <Status title={t('sparring.invite.overTitle')} />;
+  if (cta.type === 'started_organizer') {
+    return <Status title={t('sparring.invite.overTitle')} sub={t('sparring.invite.overOrganizerBody')} />;
   }
 
-  const now = new Date();
+  if (blockedGate !== null) {
+    const distance = blockedDistance;
+    return (
+      <Status
+        title={t('sparringTrust.blocked.title')}
+        sub={distance !== null
+          ? t('sparring.invite.blockedShort', { distance, limit: blockedGate.radiusKm })
+          : t('sparring.invite.blockedShortUnknown', { limit: blockedGate.radiusKm })}
+      >
+        <SparrDepthButton label={t('sparringTrust.blocked.findNearby')} onPress={onFindNearby} />
+      </Status>
+    );
+  }
 
   if (cta.type === 'join') {
-    const points = cta.full
-      ? [
-          t('sparring.commitment.pointWaitlistPromote'),
-          t('sparring.commitment.pointWaitlistLeave'),
-        ]
-      : [
-          t('sparring.commitment.pointOthersCount'),
-          isInConfirmWindow(scheduledAt, now)
-            ? t('sparring.commitment.pointConfirmedNow')
-            : t('sparring.commitment.pointConfirmLater'),
-          ...(isBeforeCancelDeadline(scheduledAt, now) ? [t('sparring.commitment.pointCancelFree')] : []),
-        ];
-    return (
-      <View style={styles.unit}>
-        <Text style={styles.title}>{cta.full ? t('sparring.commitment.titleFull') : t('sparring.commitment.titleJoin')}</Text>
-        <TouchableOpacity
-          style={[styles.btnPrimary, checking && styles.btnChecking]}
-          onPress={onJoin}
-          disabled={loading || checking}
-          accessibilityRole="button"
-          accessibilityState={{ busy: checking, disabled: loading || checking }}
-        >
-          {checking ? (
-            <View style={styles.checkingRow}>
-              <ActivityIndicator color={colors.text} />
-              <Text style={styles.checkingText}>{t('sparringTrust.blocked.checking')}</Text>
-            </View>
-          ) : loading ? (
-            <ActivityIndicator color={colors.card} />
-          ) : (
-            <Text style={styles.btnPrimaryText}>
-              {cta.full ? t('sparring.commitment.joinWaitlist') : t('sparring.commitment.joinBinding')}
-            </Text>
-          )}
-        </TouchableOpacity>
-        <View style={styles.points}>
-          {points.map((p) => (
-            <View key={p} style={styles.point}>
-              <Ionicons name="checkmark" size={16} color={colors.accentBlue} />
-              <Text style={styles.pointText}>{p}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+    return cta.full ? (
+      <Status title={t('sparring.invite.fullTitle')}>
+        <SparrDepthButton label={t('sparring.commitment.joinWaitlist')} onPress={onJoin} loading={loading} busyLabel={busyLabel} />
+      </Status>
+    ) : (
+      <Status
+        title={t('sparring.detailHeader.slotsFree', { count: slotsLeft })}
+      >
+        <SparrDepthButton label={t('sparring.commitment.joinBinding')} onPress={onJoin} loading={loading} busyLabel={busyLabel} />
+      </Status>
     );
   }
 
   if (cta.type === 'verified_required') {
-    return (
-      <View style={styles.unit}>
-        <Text style={styles.title}>{t('sparring.commitment.verifiedOnlyTitle')}</Text>
-        <Text style={styles.body}>{t('sparring.commitment.verifiedOnlyBody')}</Text>
-        <View style={[styles.btnPrimary, styles.btnVerifyRequired]}>
-          <Text style={styles.btnPrimaryText}>{t('sparring.commitment.verificationRequired')}</Text>
-        </View>
-      </View>
-    );
+    return <Status title={t('sparring.commitment.verifiedOnlyTitle')} sub={t('sparring.commitment.verifiedOnlyBody')} />;
   }
-
-  const cancelButton = (label: string) => (
-    <TouchableOpacity
-      style={styles.btnCancel}
-      onPress={onCancel}
-      disabled={loading}
-      accessibilityRole="button"
-    >
-      {loading ? (
-        <ActivityIndicator color={colors.deleteRed} />
-      ) : (
-        <Text style={styles.btnCancelText}>{label}</Text>
-      )}
-    </TouchableOpacity>
-  );
 
   if (cta.type === 'waitlisted') {
     return (
-      <View style={styles.unit}>
-        <StatusLine icon="time-outline" title={t('sparring.commitment.onWaitlist')} />
-        <Text style={styles.body}>
-          {waitlistPosition !== null
-            ? t('sparring.commitment.waitlistBodyPosition', { position: waitlistPosition })
-            : t('sparring.commitment.waitlistBody')}
-        </Text>
-        {cancelButton(t('sparring.commitment.leaveWaitlist'))}
-      </View>
+      <Status
+        title={t('sparring.commitment.onWaitlist')}
+        sub={waitlistPosition !== null ? t('sparring.invite.waitlistShort', { position: waitlistPosition }) : undefined}
+      >
+        <SparrDepthButton variant="danger" label={t('sparring.commitment.leaveWaitlist')} onPress={onCancel} loading={loading} />
+      </Status>
     );
   }
 
-  const cancelHint = cta.cancelIsFree ? (
-    <Text style={styles.microcopy}>{t('sparring.commitment.cancelFreeHint')}</Text>
-  ) : null;
-
-  if (cta.type === 'pending') {
-    if (cta.confirmUrgent) {
-      return (
-        <View style={styles.unit}>
-          <Text style={styles.title}>{t('sparring.commitment.confirmTitle')}</Text>
-          <Text style={styles.body}>{t('sparring.commitment.confirmBody')}</Text>
-          <TouchableOpacity
-            style={styles.btnPrimary}
-            onPress={onConfirm}
-            disabled={loading}
-            accessibilityRole="button"
-          >
-            {loading ? (
-              <ActivityIndicator color={colors.card} />
-            ) : (
-              <Text style={styles.btnPrimaryText}>{t('sparring.commitment.confirmYes')}</Text>
-            )}
-          </TouchableOpacity>
-          {cancelButton(t('sparring.commitment.cannotAttend'))}
-          {cancelHint}
-        </View>
-      );
-    }
-    // No early confirmation: the regular flow asks 24h before the start.
+  if (cta.type === 'pending' && cta.confirmUrgent) {
     return (
-      <View style={styles.unit}>
-        <StatusLine icon="checkmark-circle" title={t('sparring.commitment.youAreIn')} />
-        <Text style={styles.body}>
-          {t('sparring.commitment.reservedBody')}
-        </Text>
-        {cancelButton(t('sparring.commitment.cannotAttend'))}
-        {cancelHint}
-      </View>
+      <Status title={t('sparring.commitment.confirmTitle')}>
+        <SparrDepthButton label={t('sparring.commitment.confirmYes')} onPress={onConfirm} loading={loading} />
+        <TouchableOpacity
+          style={styles.textAction}
+          onPress={onCancel}
+          disabled={loading}
+          accessibilityRole="button"
+        >
+          <Text style={styles.textActionLabel}>{t('sparring.commitment.cannotAttend')}</Text>
+        </TouchableOpacity>
+      </Status>
     );
   }
 
-  // cta.type === 'confirmed'
+  // pending (the app asks again 24h before) or confirmed
   return (
-    <View style={styles.unit}>
-      <StatusLine icon="checkmark-circle" title={t('sparring.commitment.youAreIn')} />
-      <Text style={styles.body}>{t('sparring.commitment.confirmedBody')}</Text>
-      {cancelButton(t('sparring.commitment.cannotAttend'))}
-      {cancelHint}
-    </View>
+    <Status
+      title={t('sparring.commitment.youAreIn')}
+      sub={cta.type === 'confirmed' ? t('sparring.invite.statusConfirmed') : t('sparring.invite.statusReserved')}
+    >
+      <SparrDepthButton variant="danger" label={t('sparring.commitment.cannotAttend')} onPress={onCancel} loading={loading} />
+    </Status>
   );
 }
 
-function StatusLine({ icon, title }: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string }) {
+// One short status line (bold state + optional detail) above the action.
+function Status({ title, sub, children }: { title: string; sub?: string; children?: React.ReactNode }) {
   return (
-    <View style={styles.statusLine}>
-      <Ionicons name={icon} size={24} color={colors.accentBlue} />
-      <Text style={styles.title}>{title}</Text>
+    <View style={styles.unit}>
+      <Text style={styles.status} accessibilityRole="text" accessibilityLiveRegion="polite">
+        <Text style={styles.title}>{title}</Text>
+        {sub !== undefined && <Text style={styles.sub}>{`  ·  ${sub}`}</Text>}
+      </Text>
+      {children}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   unit: {
-    backgroundColor: colors.background,
-    borderRadius:    16,
-    padding:         16,
-    gap:             16,
-  },
-  title: {
-    flexShrink: 1,
-    fontSize:   18,
-    fontWeight: '700',
-    color:      colors.text,
-  },
-  statusLine: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           8,
-  },
-  body: {
-    fontSize:   14,
-    lineHeight: 20,
-    color:      colors.text,
-  },
-  points: {
     gap: 8,
   },
-  point: {
-    flexDirection: 'row',
-    alignItems:    'flex-start',
-    gap:           8,
-  },
-  pointText: {
-    flex:       1,
-    fontSize:   14,
-    lineHeight: 20,
-    color:      colors.text,
-  },
-  microcopy: {
-    fontSize:  12,
-    color:     colors.textSecondary,
-    textAlign: 'center',
-    marginTop: -8,
-  },
-  btnChecking: {
-    backgroundColor: colors.background,
-  },
-  checkingRow: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           8,
-  },
-  checkingText: {
+  status: {
     fontSize:   15,
-    fontWeight: '600',
+    lineHeight: 20,
+    textAlign:  'center',
+  },
+  title: {
+    fontWeight: '800',
     color:      colors.text,
   },
-  btnPrimary: {
-    backgroundColor: colors.accentBlue,
-    borderRadius:    16,
-    minHeight:       48,
-    paddingVertical: 8,
-    alignItems:      'center',
-    justifyContent:  'center',
+  sub: {
+    color: colors.textMuted,
   },
-  btnPrimaryText: {
-    fontSize:   16,
-    fontWeight: '700',
-    color:      colors.card,
+  textAction: {
+    minHeight:      44,
+    alignItems:     'center',
+    justifyContent: 'center',
   },
-  btnVerifyRequired: {
-    backgroundColor: colors.sparringsOrange,
-  },
-  btnCancel: {
-    borderRadius:    16,
-    minHeight:       44,
-    paddingVertical: 8,
-    alignItems:      'center',
-    justifyContent:  'center',
-    backgroundColor: colors.card,
-  },
-  btnCancelText: {
+  textActionLabel: {
     fontSize:   15,
     fontWeight: '600',
     color:      colors.deleteRed,

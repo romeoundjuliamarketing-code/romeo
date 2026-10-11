@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import type { SparringParticipant } from '../../types/database.types';
 import { summarizeParticipants, initialsOf } from '../../utils/sparringDetail';
 import { useTranslation } from 'react-i18next';
+import { avatarTone } from '../../utils/avatarTone';
 
 interface Props {
   participants:     SparringParticipant[];
@@ -17,11 +18,9 @@ interface Props {
   onToggleExpanded: () => void;
 }
 
-const MAX_AVATARS = 5;
-
-// Social summary of who takes part: headline, overlapping avatars (photo or
-// initials), a short names line and the waitlist. The full list (status,
-// attendance) stays reachable via "Alle Teilnehmer ansehen".
+const MAX_AVATARS = 4;
+// One tappable line of who takes part: overlapping avatars (photo or
+// initials), the count and the waitlist. Tapping opens the full list.
 export default function SparringParticipantsSummary({
   participants, currentUserId, hasStarted, fallbackCount, loading, expanded, onToggleExpanded,
 }: Props): React.ReactElement {
@@ -34,30 +33,32 @@ export default function SparringParticipantsSummary({
   const headline = count === 0
     ? (hasStarted ? t('sparring.participants.nobodyWas') : t('sparring.participants.nobodyYet'))
     : hasStarted
-      ? t('sparring.participants.headlinePast', { count })
-      : t('sparring.participants.headlinePresent', { count });
-
-  const details: string[] = [];
-  if (summary.confirmedCount > 0 && !hasStarted) {
-    details.push(t('sparring.participants.confirmedCount', { count: summary.confirmedCount }));
-  }
-  if (summary.waitlistCount > 0) {
-    details.push(t('sparring.participants.waitlistCount', { count: summary.waitlistCount }));
-  }
+      ? t('sparring.invite.peopleWere', { count })
+      : t('sparring.invite.peopleIn', { count });
+  const detail = summary.waitlistCount > 0
+    ? t('sparring.participants.waitlistCount', { count: summary.waitlistCount })
+    : count === 0 && !hasStarted
+      ? t('sparring.participants.noCommitments')
+      : null;
   const hasList = participants.some((p) => p.user_id !== currentUserId);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.headline}>{headline}</Text>
-
+    <Pressable
+      style={({ pressed }) => [styles.row, pressed && hasList && styles.rowPressed]}
+      onPress={onToggleExpanded}
+      disabled={!hasList}
+      accessibilityRole={hasList ? 'button' : undefined}
+      accessibilityLabel={[headline, detail].filter((v) => v !== null).join('. ')}
+      accessibilityHint={hasList ? (expanded ? t('sparring.invite.closeList') : t('sparring.invite.openList')) : undefined}
+      accessibilityState={hasList ? { expanded } : undefined}
+    >
       {avatars.length > 0 && (
-        <View
-          style={styles.avatarRow}
-          accessible
-          accessibilityLabel={summary.namesLine ?? headline}
-        >
+        <View style={styles.avatars}>
           {avatars.map((p, i) => (
-            <View key={p.user_id} style={[styles.avatar, i > 0 && styles.avatarOverlap]}>
+            <View
+              key={p.user_id}
+              style={[styles.avatar, i > 0 && styles.avatarOverlap, { zIndex: MAX_AVATARS - i, backgroundColor: avatarTone(p.user_id) }]}
+            >
               {p.avatar_url !== null && p.avatar_url.length > 0 ? (
                 <Image source={{ uri: p.avatar_url }} style={styles.avatarImage} />
               ) : (
@@ -73,59 +74,46 @@ export default function SparringParticipantsSummary({
         </View>
       )}
 
-      {summary.namesLine !== null && (
-        <Text style={styles.names} numberOfLines={2}>{summary.namesLine}</Text>
-      )}
-      {count === 0 && !hasStarted && (
-        <Text style={styles.names}>{t('sparring.participants.noCommitments')}</Text>
-      )}
-      {details.length > 0 && (
-        <Text style={styles.details}>{details.join(' · ')}</Text>
-      )}
+      <Text style={styles.texts} numberOfLines={2}>
+        <Text style={styles.headline}>{headline}</Text>
+        {detail !== null && <Text style={styles.detail}>{`  ·  ${detail}`}</Text>}
+      </Text>
 
       {hasList && (
-        <TouchableOpacity
-          style={styles.toggle}
-          onPress={onToggleExpanded}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.toggleText}>
-            {expanded ? t('sparring.participants.hideList') : t('sparring.participants.showList')}
-          </Text>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.accentBlue} />
-        </TouchableOpacity>
+        <View style={styles.view}>
+          <Text style={styles.viewText}>{expanded ? t('sparring.invite.hide') : t('sparring.invite.view')}</Text>
+          <Ionicons name={expanded ? 'chevron-up' : 'chevron-forward'} size={16} color={colors.accentBlueText} />
+        </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
-const AVATAR_SIZE = 40;
+const AVATAR_SIZE = 28;
 
 const styles = StyleSheet.create({
-  container: {
-    gap: 8,
+  row: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    gap:           8,
+    minHeight:     44,
   },
-  headline: {
-    fontSize:   18,
-    fontWeight: '700',
-    color:      colors.text,
+  rowPressed: {
+    opacity: 0.7,
   },
-  avatarRow: {
+  avatars: {
     flexDirection: 'row',
     alignItems:    'center',
   },
   avatar: {
-    width:           AVATAR_SIZE,
-    height:          AVATAR_SIZE,
-    borderRadius:    AVATAR_SIZE / 2,
-    backgroundColor: colors.accentBlueSoft,
-    borderWidth:     2,
-    borderColor:     colors.card,
-    alignItems:      'center',
-    justifyContent:  'center',
-    overflow:        'hidden',
+    width:          AVATAR_SIZE,
+    height:         AVATAR_SIZE,
+    borderRadius:   AVATAR_SIZE / 2,
+    borderWidth:    2,
+    borderColor:    colors.background,
+    alignItems:     'center',
+    justifyContent: 'center',
+    overflow:       'hidden',
   },
   avatarOverlap: {
     marginLeft: -8,
@@ -135,37 +123,39 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarInitials: {
-    fontSize:   14,
-    fontWeight: '700',
-    color:      colors.accentBlue,
+    fontSize:   11,
+    fontWeight: '800',
+    color:      colors.text,
   },
   avatarMore: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.text,
   },
   avatarMoreText: {
-    fontSize:   13,
+    fontSize:   10,
+    fontWeight: '800',
+    color:      colors.card,
+  },
+  texts: {
+    flex: 1,
+  },
+  headline: {
+    fontSize:   15,
+    lineHeight: 20,
     fontWeight: '700',
     color:      colors.text,
   },
-  names: {
-    fontSize:   14,
-    lineHeight: 20,
-    color:      colors.text,
+  detail: {
+    fontSize: 14,
+    color:    colors.textMuted,
   },
-  details: {
-    fontSize: 13,
-    color:    colors.textSecondary,
-  },
-  toggle: {
+  view: {
     flexDirection: 'row',
     alignItems:    'center',
-    gap:             8,
-    alignSelf:       'flex-start',
-    paddingVertical: 8,
+    gap:           4,
   },
-  toggleText: {
+  viewText: {
     fontSize:   14,
     fontWeight: '600',
-    color:      colors.accentBlue,
+    color:      colors.accentBlueText,
   },
 });

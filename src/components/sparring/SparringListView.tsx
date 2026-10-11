@@ -11,6 +11,7 @@ import type { SearchLocationStatus } from '../../hooks/useSearchLocation';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../i18n/language';
 import { disciplineLabel } from '../../utils/disciplineLabel';
+import { useTourTarget } from '../../context/TourContext';
 
 interface Props {
   sparrings:      NearbySparring[];
@@ -26,20 +27,27 @@ interface Props {
   onPickLocation: () => void;
   onWiden:        (() => void) | null;
   onCreate:       () => void;
+  /** Opens the search panel (place, radius). */
+  onAdjust:       () => void;
 }
 
 // List view of the nearby search — the same hits as the map markers, nearest
 // first. Shows only fields the search delivers; nothing is filled in.
 export default function SparringListView({
   sparrings, status, locationStatus, radiusKm, currentUserId, topInset, bottomInset,
-  onPress, onRetry, onPickLocation, onWiden, onCreate,
+  onPress, onRetry, onPickLocation, onWiden, onCreate, onAdjust,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
+  // Coach tour station 3 highlights the first hit.
+  const tourFirst = useTourTarget('discoverFirst');
   const renderItem = useCallback(
-    ({ item }: { item: NearbySparring }) => (
-      <SparringListRow sparring={item} isOwn={item.created_by === currentUserId} onPress={onPress} />
-    ),
-    [currentUserId, onPress],
+    ({ item, index }: { item: NearbySparring; index: number }) => {
+      const row = <SparringListRow sparring={item} isOwn={item.created_by === currentUserId} onPress={onPress} />;
+      return index === 0
+        ? <View ref={tourFirst.ref} onLayout={tourFirst.onLayout} collapsable={false}>{row}</View>
+        : row;
+    },
+    [currentUserId, onPress, tourFirst.ref, tourFirst.onLayout],
   );
 
   const contentStyle = { paddingTop: topInset, paddingBottom: bottomInset };
@@ -65,9 +73,10 @@ export default function SparringListView({
     );
   } else {
     empty = (
-      <Notice text={radiusKm === null ? t('map.list.noneUpcoming') : t('map.list.noneInRadius', { radius: radiusKm })}>
+      <Notice title={t('map.list.emptyTitle')} text={t('map.list.emptyText')}>
+        <NoticeAction label={t('map.list.adjust')} icon="options-outline" onPress={onAdjust} />
         {onWiden !== null && <NoticeAction label={t('map.preview.widen')} icon="resize-outline" onPress={onWiden} />}
-        <NoticeAction label={t('map.list.offer')} icon="add-circle-outline" onPress={onCreate} />
+        <NoticeAction label={t('map.list.offerSubscription')} icon="add-circle-outline" onPress={onCreate} />
       </Notice>
     );
   }
@@ -155,9 +164,10 @@ const SparringListRow = React.memo(function SparringListRow({
   );
 });
 
-function Notice({ text, children }: { text: string; children: React.ReactNode }) {
+function Notice({ title, text, children }: { title?: string; text: string; children: React.ReactNode }) {
   return (
     <View style={styles.notice}>
+      {title !== undefined && <Text style={styles.noticeTitle} accessibilityRole="header">{title}</Text>}
       <Text style={styles.noticeText}>{text}</Text>
       <View style={styles.noticeActions}>{children}</View>
     </View>
@@ -293,6 +303,12 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     alignItems: 'center',
     gap: 8,
+  },
+  noticeTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
   },
   noticeText: {
     fontSize: 15,

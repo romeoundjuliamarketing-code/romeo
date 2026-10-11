@@ -12,6 +12,11 @@ interface Options {
   pointsReady: boolean;
   /** Fallback anchor without a position (the user's own studio). */
   home:        GeoPoint | null;
+  /**
+   * False: only use an already granted permission (read once on mount), e.g.
+   * when the user picked the search place by hand and declined the device.
+   */
+  askPermission?: boolean;
 }
 
 // Last known fixes up to this age are good enough for the start view.
@@ -22,7 +27,7 @@ const DECIDE_TIMEOUT_MS     = 3000;
 // Decides the map's start viewport ONCE per mount: search radius around the
 // position (or home studio), widened to the nearest hit when that is empty.
 // The location request is the one the map always made on open — no new prompt.
-export function useMapStartRegion({ points, pointsReady, home }: Options): MapRegion | null {
+export function useMapStartRegion({ points, pointsReady, home, askPermission = true }: Options): MapRegion | null {
   const [region, setRegion]             = useState<MapRegion | null>(null);
   const [user, setUser]                 = useState<GeoPoint | null>(null);
   const [radiusKm, setRadiusKm]         = useState(DEFAULT_RADIUS_KM);
@@ -41,7 +46,9 @@ export function useMapStartRegion({ points, pointsReady, home }: Options): MapRe
         // Unreadable preference: keep the default radius.
       }
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
+        const { status } = askPermission
+          ? await Location.requestForegroundPermissionsAsync()
+          : await Location.getForegroundPermissionsAsync();
         if (status === 'granted') {
           const last = await Location.getLastKnownPositionAsync({ maxAge: LAST_KNOWN_MAX_AGE_MS });
           const pos = last ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });

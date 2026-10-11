@@ -7,7 +7,8 @@ import { colors } from '../../theme/colors';
 
 interface Props extends Omit<TextInputProps, 'style' | 'secureTextEntry'> {
   label:      string;
-  icon:       React.ComponentProps<typeof Ionicons>['name'];
+  /** Leading icon; omitted where the visible label says enough. */
+  icon?:      React.ComponentProps<typeof Ionicons>['name'];
   error?:     string | null;
   /** Adds the show/hide toggle and masks the value while hidden. */
   isPassword?: boolean;
@@ -43,11 +44,13 @@ export default function AuthTextField({
             hasError && styles.fieldError,
           ]}
         >
-          <Ionicons
-            name={icon}
-            size={20}
-            color={hasError ? colors.deleteRed : focused ? accent : muted}
-          />
+          {icon !== undefined && (
+            <Ionicons
+              name={icon}
+              size={20}
+              color={hasError ? colors.deleteRed : focused ? accent : muted}
+            />
+          )}
           <TextInput
             ref={inputRef}
             style={[styles.input, warm && styles.inputWarm]}

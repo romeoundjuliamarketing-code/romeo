@@ -35,3 +35,13 @@ describe('formatDate dateLong', () => {
     expect(formatDate(d, 'dateLong', 'en')).toBe('6 October 2026');
   });
 });
+
+describe('formatDate calendar parts', () => {
+  it('formats day number, short month and weekday separately', () => {
+    expect(formatDate(d, 'dayNumber', 'en')).toBe('6');
+    expect(formatDate(d, 'monthShort', 'de')).toBe('Okt');
+    expect(formatDate(d, 'monthShort', 'en')).toBe('Oct');
+    expect(formatDate(d, 'weekday', 'de')).toBe('Dienstag');
+    expect(formatDate(d, 'weekday', 'en')).toBe('Tuesday');
+  });
+});

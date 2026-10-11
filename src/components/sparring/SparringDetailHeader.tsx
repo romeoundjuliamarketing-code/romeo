@@ -1,179 +1,157 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet } from 'react-native';
 import { colors } from '../../theme/colors';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../i18n/language';
 import { disciplineLabel } from '../../utils/disciplineLabel';
-import { sparringDisplayTitle } from '../../utils/sparringDisplayTitle';
+import { formatDate } from '../../utils/formatDate';
+import { TOP_BAR_CLEARANCE } from './SparringSheetTopBar';
 
 interface Props {
+  /** Display title, already localized and never empty (see the sheet). */
   title:         string;
   discipline:    string;
-  bannerColor:   string;
-  dateLabel:     string;
-  takingPart:    number;
-  slotsLeft:     number;
+  scheduledAt:   string;
   durationMin:   number;
   isFeatured:    boolean;
   verifiedOnly:  boolean;
   isCreator:     boolean;
-  hasStarted:    boolean;
   /** Organizer changed the sparring after publishing it */
   edited:        boolean;
-  onClose:       () => void;
+  /** Personal opening ("<Name> lädt ein"), rendered above the title. */
+  hostLine:      React.ReactNode;
+  /** Place lines, rendered directly below the date band. */
+  children:      React.ReactNode;
 }
 
-// Compact banner of the sparring detail window: discipline + close, the
-// organizer's title (user content, shown as entered), when, and the three
-// numbers that matter at a glance.
+// Band edges are tilted by this much; the text itself stays horizontal.
+const BAND_TILT = '-1.5deg';
+
+// Orientation head of the sparring sheet, composed like a small invitation:
+// who invites, what (title + discipline), when (the blue date band, the one
+// strong accent) and where (children, directly below the band). Dates in
+// device-local time like everywhere else.
 export default function SparringDetailHeader({
-  title, discipline, bannerColor, dateLabel, takingPart, slotsLeft, durationMin,
-  isFeatured, verifiedOnly, isCreator, hasStarted, edited, onClose,
+  title, discipline, scheduledAt, durationMin, isFeatured, verifiedOnly, isCreator, edited, hostLine, children,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const { language } = useLanguage();
-  const slotsLabel = hasStarted
-    ? t('sparring.detailHeader.over')
-    : slotsLeft <= 0
-      ? t('sparring.detailHeader.soldOut')
-      : t('sparring.detailHeader.slotsFree', { count: slotsLeft });
+  const weekday = formatDate(scheduledAt, 'weekday', language);
+  const day     = formatDate(scheduledAt, 'dayMonth', language);
+  const time    = formatDate(scheduledAt, 'time', language);
+  // Discipline ("Sonstiges" says nothing, so it is left out) and the few tags
+  // that change who may join or whose sparring it is.
+  const meta = [
+    discipline === 'Sonstiges' ? null : disciplineLabel(discipline, language),
+    isCreator ? t('sparring.detailHeader.yours') : null,
+    verifiedOnly ? t('sparring.detailHeader.verifiedOnly') : null,
+    isFeatured ? 'Sparr Pick' : null,
+  ].filter((v): v is string => v !== null);
 
   return (
-    <View style={[styles.banner, { backgroundColor: bannerColor }]}>
-      <View style={styles.topRow}>
-        <View style={styles.chips}>
-          <View style={styles.chip}>
-            <Text style={styles.chipText} numberOfLines={1}>{disciplineLabel(discipline, language)}</Text>
-          </View>
-          {isFeatured && (
-            <View style={styles.chip}>
-              <Ionicons name="checkmark-circle" size={14} color={colors.card} />
-              <Text style={styles.chipText}>Sparr Pick</Text>
-            </View>
-          )}
-          {verifiedOnly && (
-            <View style={styles.chip}>
-              <Ionicons name="shield-checkmark-outline" size={14} color={colors.card} />
-              <Text style={styles.chipText}>{t('sparring.detailHeader.verifiedOnly')}</Text>
-            </View>
-          )}
-          {isCreator && (
-            <View style={styles.chip}>
-              <Text style={styles.chipText}>{t('sparring.detailHeader.yours')}</Text>
-            </View>
-          )}
+    <View>
+      <View style={styles.texts}>
+        {/* Right padding keeps the host line clear of share / close. */}
+        <View style={styles.hostSlot}>{hostLine}</View>
+        <Text style={styles.title} numberOfLines={4} accessibilityRole="header">
+          {title}
+        </Text>
+        {meta.length > 0 && <Text style={styles.meta}>{meta.join('  ·  ')}</Text>}
+      </View>
+
+      <View
+        style={styles.band}
+        accessible
+        accessibilityLabel={`${formatDate(scheduledAt, 'weekdayLong', language)}, ${t('sparring.invite.time', { time })}, ${t('sparring.detailHeader.minutes', { count: durationMin })}`}
+      >
+        {/* Tilted surfaces behind horizontal text: darker edge, then the band. */}
+        <View style={[styles.bandShape, styles.bandEdge]} />
+        <View style={[styles.bandShape, styles.bandFace]} />
+        <View style={styles.bandPart}>
+          <Text style={styles.bandSmall}>{weekday}</Text>
+          <Text style={styles.bandBig}>{day}</Text>
         </View>
-        <TouchableOpacity
-          style={styles.closeBtn}
-          onPress={onClose}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityRole="button"
-          accessibilityLabel={t('sparring.detailHeader.close')}
-        >
-          <Ionicons name="close" size={22} color={colors.card} />
-        </TouchableOpacity>
+        <View style={styles.bandPart}>
+          <Text style={styles.bandSmall}>
+            {t('sparring.detailHeader.minutes', { count: durationMin })}
+            {edited && ` · ${t('sparring.invite.edited')}`}
+          </Text>
+          <Text style={styles.bandBig}>{t('sparring.invite.time', { time })}</Text>
+        </View>
       </View>
 
-      <Text style={styles.title} numberOfLines={2} accessibilityRole="header">{sparringDisplayTitle(title, language)}</Text>
-      <Text style={styles.date}>
-        {dateLabel}
-        {edited && <Text style={styles.edited}> · {t('sparring.detailHeader.edited')}</Text>}
-      </Text>
-
-      <View style={styles.stats}>
-        <Stat icon="people" label={t('sparring.detailHeader.takingPart', { count: takingPart })} />
-        <Stat icon={slotsLeft <= 0 && !hasStarted ? 'lock-closed' : 'ticket-outline'} label={slotsLabel} />
-        <Stat icon="time-outline" label={t('sparring.detailHeader.minutes', { count: durationMin })} />
-      </View>
-    </View>
-  );
-}
-
-function Stat({ icon, label }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string }) {
-  return (
-    <View style={styles.stat}>
-      <Ionicons name={icon} size={14} color={colors.card} />
-      <Text style={styles.statText}>{label}</Text>
+      <View style={styles.place}>{children}</View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: {
+  texts: {
     paddingHorizontal: 24,
-    paddingTop:        16,
+    paddingTop:        8,
     paddingBottom:     24,
     gap:               8,
   },
-  topRow: {
-    flexDirection:  'row',
-    alignItems:     'flex-start',
-    justifyContent: 'space-between',
-    gap:            16,
-  },
-  chips: {
-    flex:          1,
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    gap:           8,
-    paddingTop:    4,
-  },
-  chip: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               8,
-    backgroundColor:   colors.headerBorder,
-    borderRadius:      8,
-    paddingHorizontal: 8,
-    paddingVertical:   4,
-    maxWidth:          '100%',
-  },
-  chipText: {
-    fontSize:   12,
-    fontWeight: '700',
-    color:      colors.card,
-  },
-  closeBtn: {
-    width:           36,
-    height:          36,
-    borderRadius:    18,
-    backgroundColor: colors.headerBorder,
-    alignItems:      'center',
-    justifyContent:  'center',
+  hostSlot: {
+    paddingRight: TOP_BAR_CLEARANCE,
   },
   title: {
-    fontSize:   22,
+    fontSize:   30,
+    lineHeight: 34,
+    fontWeight: '800',
+    color:      colors.text,
+  },
+  meta: {
+    fontSize:   13,
     fontWeight: '700',
+    color:      colors.accentBlueText,
+  },
+  band: {
+    flexDirection:     'row',
+    flexWrap:          'wrap',
+    alignItems:        'flex-end',
+    rowGap:            8,
+    columnGap:         32,
+    paddingHorizontal: 24,
+    paddingTop:        16,
+    paddingBottom:     16,
+    marginBottom:      8,
+  },
+  bandShape: {
+    position:  'absolute',
+    left:      -16,
+    right:     -16,
+    top:       4,
+    bottom:    4,
+    transform: [{ rotate: BAND_TILT }],
+  },
+  bandEdge: {
+    top:             8,
+    bottom:          0,
+    backgroundColor: colors.accentBlueEdge,
+  },
+  bandFace: {
+    // Darker than accentBlue so the small white text keeps >= 4.5:1.
+    backgroundColor: colors.dateBand,
+  },
+  bandPart: {
+    flexShrink: 1,
+  },
+  bandBig: {
+    fontSize:   24,
     lineHeight: 28,
+    fontWeight: '800',
     color:      colors.card,
-    marginTop:  8,
   },
-  date: {
-    fontSize:      13,
-    fontWeight:    '700',
-    letterSpacing: 1,
-    color:         colors.headerTextSecondary,
-  },
-  edited: {
-    fontWeight: '500',
-    color:      colors.headerTextSecondary,
-  },
-  stats: {
-    flexDirection: 'row',
-    flexWrap:      'wrap',
-    columnGap:     16,
-    rowGap:        8,
-    marginTop:     8,
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    gap:           8,
-  },
-  statText: {
+  bandSmall: {
     fontSize:   14,
+    lineHeight: 18,
     fontWeight: '600',
     color:      colors.card,
+  },
+  place: {
+    paddingHorizontal: 24,
+    paddingTop:        16,
+    gap:               8,
   },
 });

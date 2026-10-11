@@ -112,6 +112,7 @@ export const colors = {
 
   // ── Coach dialog (comic speech bubble + chunky buttons) ──────────────────
   coachBubble:      '#FFFCF5',                 // warm bubble / secondary answer fill
+  tourPill:         'rgba(10,10,10,0.72)',     // coach tour: compact progress/skip row over the app
   coachButtonEdge:  '#163A9C',                  // pressable bottom edge under brandPrimary
 
   // ── Overlays ──────────────────────────────────────────────────────────────
@@ -132,6 +133,14 @@ export const colors = {
   ticketRope:       'rgba(255,255,255,0.09)',  // faint ring ropes behind the content
   ticketChip:       'rgba(255,255,255,0.14)',  // status chip / chat disc on the ticket
   ticketDivider:    'rgba(255,255,255,0.16)',
+
+  // ── Sparring detail sheet (invitation) ────────────────────────────────────
+  dateBand:         '#3A78BB',                 // blue date band (white text >= 4.5:1)
+  dateBandDivider:  'rgba(255,255,255,0.35)',  // line between date and time on the band
+  sheetScrim:       'rgba(10,10,10,0.68)',     // strong dim behind the sheet
+  accentBlueEdge:   '#2F6CAD',                 // darker bottom edge of the blue depth button
+  ticketDash:       '#CFCAC0',                 // dashed ticket edge above the action area
+  noteSurface:      '#EEF3F9',                 // calm note area of the organizer's text
 
   // ── Avatar fallbacks (initials / chat tile; text stays colors.text) ───────
   avatarSky:        '#D6E6F5',
