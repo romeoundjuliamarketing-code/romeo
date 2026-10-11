@@ -111,7 +111,7 @@ export const colors = {
   brandAccent:      '#F7C21A',                  // penguin-beak yellow, tiny accents only
 
   // ── Coach dialog (comic speech bubble + chunky buttons) ──────────────────
-  coachBubble:      '#FFFDF7',                  // warm bubble / secondary answer fill
+  coachBubble:      '#FFFCF5',                 // warm bubble / secondary answer fill
   coachButtonEdge:  '#163A9C',                  // pressable bottom edge under brandPrimary
 
   // ── Overlays ──────────────────────────────────────────────────────────────

@@ -17,7 +17,7 @@ import { useSparringActions } from '../hooks/useSparringActions';
 import { useSparringReach } from '../hooks/useSparringReach';
 import { useSparringJoinFlow } from '../hooks/useSparringJoinFlow';
 import ReachIntroSheet from '../components/sparring/trust/ReachIntroSheet';
-import CoachInviteOverlay from '../components/coach/CoachInviteOverlay';
+import CoachDialog from '../components/coach/CoachDialog';
 import { COACH_INVITING } from '../components/coach/coachFigures';
 import { useMountedOnce } from '../components/common/SheetShell';
 import { useStudio } from '../hooks/useStudio';
@@ -1073,11 +1073,11 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       />
 
       {/* Coach scene before the paywall (creator subscription missing) */}
-      {creatorInviteMounted && <CoachInviteOverlay
+      {creatorInviteMounted && <CoachDialog
         visible={creatorInvite !== null}
         figure={COACH_INVITING}
         bottomInset={bottomSafe}
-        lead={t('map.screen.creatorInviteLead')}
+        title={t('map.screen.creatorInviteLead')}
         body={t('map.screen.creatorInviteBody')}
         primaryLabel={t('map.screen.creatorInvitePrimary')}
         laterLabel={t('map.screen.creatorInviteLater')}
