@@ -1,6 +1,6 @@
 import type { ImageSourcePropType } from 'react-native';
 
-// A cut-out coach pose for CoachInviteOverlay.
+// A cut-out coach pose for CoachInviteOverlay / CoachScene.
 export type CoachFigure = {
   source: ImageSourcePropType;
   /** Width / height of the asset. */

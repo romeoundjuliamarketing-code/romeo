@@ -1,6 +1,5 @@
-// Single source for the experience and training-frequency choices: the
-// onboarding steps render these options and the athlete profile shows the
-// same wording (src/utils/athleteProfile.ts).
+// Single source for the experience and training-frequency choices shown in
+// the athlete profile (src/utils/athleteProfile.ts).
 
 import i18n from '../i18n';
 

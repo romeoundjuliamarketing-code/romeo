@@ -1,6 +1,7 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme, type LinkingOptions } from '@react-navigation/native';
+import { navigationRef } from './src/navigation/navigationRef';
 import * as Linking from 'expo-linking';
 import { useFonts, Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { View, ActivityIndicator } from 'react-native';
@@ -73,7 +74,7 @@ function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <LanguageSync />
-          <NavigationContainer theme={NAV_THEME} linking={linking}>
+          <NavigationContainer ref={navigationRef} theme={NAV_THEME} linking={linking}>
             {/* No backgroundColor: edge-to-edge (SDK 55) draws under the bar;
                 the prop only triggers the deprecated Window.setStatusBarColor. */}
             <StatusBar style="dark" />

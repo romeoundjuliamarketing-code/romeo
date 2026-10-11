@@ -16,6 +16,9 @@ export type SparringMapParams = {
   // other filter. `nearbyEntryAt` makes a repeated tap a new request.
   nearbyRadiusKm?: number;
   nearbyEntryAt?: number;
+  // First entry after the onboarding: sparrings in list view around the
+  // search location just chosen. A new timestamp is a new request.
+  listEntryAt?: number;
   // Entry from the Home fight-night block: event map with watch parties for
   // this promotion (and, when known, this official fight night).
   watchEntryAt?: number;
@@ -35,7 +38,6 @@ export type TabParamList = {
 };
 
 export type RootStackParamList = {
-  Onboarding: undefined;
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Settings: undefined;
   Impressum: undefined;

@@ -14,6 +14,13 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      // Owner-only (RLS); written via set_my_profile_basics. Never public.
+      profile_private: {
+        Row: { id: string; birth_date: string; updated_at: string; tour_status: string | null; tour_station: number | null }
+        Insert: { id: string; birth_date: string; updated_at?: string; tour_status?: string | null; tour_station?: number | null }
+        Update: { id?: string; birth_date?: string; updated_at?: string; tour_status?: string | null; tour_station?: number | null }
+        Relationships: []
+      }
       profiles: {
         Row: {
           age_years: number | null
@@ -2024,6 +2031,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      // Onboarding (migration 20261011130000). Errors are machine codes, see utils/onboarding.
+      get_my_onboarding_state: {
+        Args: Record<string, never>
+        Returns: Json
+      }
+      set_my_profile_basics: {
+        Args: { p_name: string; p_birth_date: string }
+        Returns: undefined
+      }
+      complete_onboarding: {
+        Args: Record<string, never>
+        Returns: undefined
+      }
+      // Coach tour (migration 20261011140000).
+      set_my_tour_state: {
+        Args: { p_status: string; p_station: number | null }
+        Returns: undefined
+      }
       add_workout_points: {
         Args: { p_user_id: string; p_date: string; p_points: number }
         Returns: undefined

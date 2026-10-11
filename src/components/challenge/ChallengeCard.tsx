@@ -27,6 +27,9 @@ interface Props {
   // Height follows the content (min. one square card width) instead of the fixed
   // playing-card ratio. For screens that scroll the card as a whole.
   fitContent?:   boolean;
+  // Static example (coach tour): no difficulty row, height follows the text,
+  // small band.
+  preview?:      boolean;
 }
 
 // Narrow cards (thumbnails in the feedback step) get a smaller type scale so the
@@ -50,10 +53,11 @@ export default function ChallengeCard({
   scrollable = true,
   elevated = true,
   fitContent = false,
+  preview = false,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const tx = useLocalized();
-  const compact = size.width < COMPACT_WIDTH;
+  const compact = preview || size.width < COMPACT_WIDTH;
   const level   = DIFFICULTY_LEVEL[challenge.difficulty];
   const focus   = tx(challenge.focus);
   const meta    = focus.length > 0
@@ -62,7 +66,7 @@ export default function ChallengeCard({
 
   const brief = (
     <>
-      <View
+      {!preview && <View
         style={styles.levelRow}
         accessible
         accessibilityLabel={t('challenge.card.difficulty', { level: t(`challenge.difficulty.${challenge.difficulty}`) })}
@@ -73,7 +77,7 @@ export default function ChallengeCard({
           ))}
         </View>
         <Text style={styles.levelText}>{t(`challenge.difficulty.${challenge.difficulty}`)}</Text>
-      </View>
+      </View>}
 
       <Text style={[styles.title, compact && styles.titleCompact]}>{tx(challenge.title)}</Text>
       {/* Inside the deck the brief cannot scroll (the card is a tap target), so a very
@@ -108,7 +112,9 @@ export default function ChallengeCard({
     </TouchableOpacity>
   ) : null;
 
-  const sizeStyle = fitContent
+  const sizeStyle = preview
+    ? { width: size.width }
+    : fitContent
     ? { width: size.width, minHeight: size.width }
     : { width: size.width, height: size.height };
 
@@ -121,7 +127,7 @@ export default function ChallengeCard({
         </View>
 
         <SparrLogo size={compact ? 32 : 40} />
-        <Text style={styles.meta} numberOfLines={2}>{meta}</Text>
+        <Text style={styles.meta} numberOfLines={preview ? 1 : 2}>{meta}</Text>
         <View style={styles.numberWrap}>
           {done ? (
             <Ionicons name="checkmark-circle" size={16} color={colors.headerTextPrimary} />
@@ -130,7 +136,7 @@ export default function ChallengeCard({
         </View>
       </View>
 
-      {fitContent ? (
+      {fitContent || preview ? (
         <>
           <View style={styles.bodyContent}>{brief}</View>
           {doneButton}

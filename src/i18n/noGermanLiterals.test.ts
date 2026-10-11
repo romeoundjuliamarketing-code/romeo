@@ -52,7 +52,9 @@ function hits(file: string): string[] {
     const trimmed = text.trim();
     if (trimmed.length === 0 || ALLOWED.has(text) || ALLOWED.has(trimmed)) return;
     // Route/icon names (name="Profil") are identifiers, not UI text.
-    const isNameProp = ts.isJsxAttribute(node.parent) && node.parent.name.getText() === 'name';
+    const isNameProp = (ts.isJsxAttribute(node.parent) && node.parent.name.getText() === 'name')
+      // ...as are nested route targets in navigate(): { screen: 'Profil' }.
+      || (ts.isPropertyAssignment(node.parent) && node.parent.name.getText() === 'screen');
     if (GERMAN.test(trimmed) && !isNameProp && !isLoggingCall(node) && !isRegExpSource(node)) {
       const { line } = src.getLineAndCharacterOfPosition(node.getStart());
       out.push(`${path.relative(ROOT, file)}:${line + 1}  ${trimmed.slice(0, 60)}`);

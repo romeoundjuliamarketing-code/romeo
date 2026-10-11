@@ -6,6 +6,8 @@ import { colors } from '../../theme/colors';
 const STROKE = 2.75;
 const SHADOW_X = 2;
 const SHADOW_Y = 4;                // harder and smaller than the button edge (5)
+const COMPACT_STROKE = 2;
+const COMPACT_SHADOW = 2;
 const ARCH = 5;                    // how far the top edge rises in the middle
 const BULGE = 2;                   // outward curve of the side edges
 const TAIL_HALF = 12;              // half of the tail base
@@ -54,9 +56,10 @@ function bubblePath(w: number, h: number, tail: BubbleTail): string {
 
 // Comic speech bubble with its tail on the bottom edge. The body grows with
 // its content (native text inside); the outline is drawn behind it in SVG.
-export default function ComicSpeechBubble({ tail, children }: {
-  /** Tail geometry; called with the measured bubble size. */
-  tail:     (width: number, height: number) => BubbleTail;
+// `compact`: thinner outline, smaller offset shadow and padding (coach tour).
+export default function ComicSpeechBubble({ tail, compact = false, children }: {
+  tail:     BubbleTail;
+  compact?: boolean;
   children: React.ReactNode;
 }): React.ReactElement {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
@@ -66,10 +69,10 @@ export default function ComicSpeechBubble({ tail, children }: {
     if (size === null || size.w !== width || size.h !== height) setSize({ w: width, h: height });
   }
 
-  const d = size !== null ? bubblePath(size.w, size.h, tail(size.w, size.h)) : null;
+  const d = size !== null ? bubblePath(size.w, size.h, tail) : null;
 
   return (
-    <View style={styles.body} onLayout={onLayout}>
+    <View style={compact ? styles.bodyCompact : styles.body} onLayout={onLayout}>
       {size !== null && d !== null && (
         <Svg
           style={[styles.svg, { width: size.w + PAD * 2, height: size.h + PAD * 2 }]}
@@ -78,14 +81,14 @@ export default function ComicSpeechBubble({ tail, children }: {
           importantForAccessibility="no-hide-descendants"
         >
           <G x={PAD} y={PAD}>
-            <G x={SHADOW_X} y={SHADOW_Y}>
+            <G x={compact ? COMPACT_SHADOW : SHADOW_X} y={compact ? COMPACT_SHADOW : SHADOW_Y}>
               <Path d={d} fill={colors.dark} />
             </G>
             <Path
               d={d}
               fill={colors.coachBubble}
               stroke={colors.dark}
-              strokeWidth={STROKE}
+              strokeWidth={compact ? COMPACT_STROKE : STROKE}
               strokeLinejoin="round"
             />
           </G>
@@ -101,6 +104,10 @@ const styles = StyleSheet.create({
     paddingTop:        24,
     paddingBottom:     24,
     paddingHorizontal: 24,
+  },
+  bodyCompact: {
+    paddingVertical:   12,
+    paddingHorizontal: 16,
   },
   svg: {
     position: 'absolute',

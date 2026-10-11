@@ -16,14 +16,15 @@ const STACKED_COACH_MAX = 112;
 // (label, arrow, padding, outline); below that the answers move under the scene.
 const PRIMARY_NEEDS = 204;
 const TAIL_DROP = 20;              // tail tip below the bubble's bottom edge
+const EYE_DROP = TAIL_DROP + 2;    // eye level sits just under the tip
 const TAIL_SWING = 22;             // tail base sits this far right of its tip
 const TIP_GAP = 6;                 // tip to the head outline
 const DEFAULT_HEAD = { x: 0.6, y: 0.1 };
 // One 400 ms entrance; each part plays in its own slice of it.
 const ENTER_DURATION = 400;
-const COACH_RANGE = [0, 260 / 400];
-const BUBBLE_RANGE = [80 / 400, 300 / 400];
-const ACTIONS_RANGE = [180 / 400, 1];
+const COACH_RANGE = [0, 260 / ENTER_DURATION];
+const BUBBLE_RANGE = [80 / ENTER_DURATION, 300 / ENTER_DURATION];
+const ACTIONS_RANGE = [180 / ENTER_DURATION, 1];
 const RISE = 16;
 const ACTIONS_SHIFT = 6;
 
@@ -33,11 +34,12 @@ type Layout = { coachWidth: number; stacked: boolean };
 // label; if even the smallest coach leaves too little room, they go below.
 function sceneLayout(width: number, fontScale: number): Layout {
   const needs = PRIMARY_NEEDS * Math.max(1, fontScale);
-  const preferred = Math.round(Math.max(COACH_MIN, Math.min(COACH_MAX, width * COACH_SHARE)));
-  for (const coachWidth of [preferred, COACH_MIN]) {
+  const share = width * COACH_SHARE;
+  const sized = (max: number): number => Math.round(Math.max(COACH_MIN, Math.min(max, share)));
+  for (const coachWidth of [sized(COACH_MAX), COACH_MIN]) {
     if (width - coachWidth - ACTIONS_GAP >= needs) return { coachWidth, stacked: false };
   }
-  return { coachWidth: Math.round(Math.max(COACH_MIN, Math.min(STACKED_COACH_MAX, width * COACH_SHARE))), stacked: true };
+  return { coachWidth: sized(STACKED_COACH_MAX), stacked: true };
 }
 
 // Coach scene: a wide comic speech bubble on top, the coach below its
@@ -95,8 +97,8 @@ export default function CoachScene({ visible, figure, width, title, body, primar
   // The tip sits just right of the head at eye level; the coach is shifted
   // so that eye level lands right under the tip.
   const tipX = head.x * coachWidth + TIP_GAP;
-  const coachTop = TAIL_DROP + 2 - head.y * coachHeight;
-  const tail = (): BubbleTail => ({ baseX: tipX + TAIL_SWING, tipX, tipY: TAIL_DROP });
+  const coachTop = EYE_DROP - head.y * coachHeight;
+  const tail: BubbleTail = { baseX: tipX + TAIL_SWING, tipX, tipY: TAIL_DROP };
 
   const answers = (
     <Animated.View style={[styles.answers, stacked ? styles.answersStacked : styles.answersBeside, actionsStyle]}>
@@ -124,9 +126,9 @@ export default function CoachScene({ visible, figure, width, title, body, primar
           importantForAccessibility="no-hide-descendants"
           accessibilityElementsHidden
         />
-        {stacked ? null : answers}
+        {!stacked && answers}
       </View>
-      {stacked ? answers : null}
+      {stacked && answers}
     </View>
   );
 }

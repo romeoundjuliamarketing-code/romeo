@@ -24,6 +24,7 @@ import { useFocusRefetch } from '../hooks/useFocusRefetch';
 import { restorePurchases } from '../lib/restorePurchases';
 import TurnstileWidget from '../components/auth/TurnstileWidget';
 import LanguageSection from '../components/settings/LanguageSection';
+import { useTour } from '../context/TourContext';
 import { useTranslation } from 'react-i18next';
 
 const RADIUS_OPTIONS = [10, 30, 50, 100] as const;
@@ -60,6 +61,7 @@ export default function SettingsScreen(): React.ReactElement {
   const { profile, updateProfile } = useProfile();
   const { blocked, refetch: refetchBlocked } = useBlockedUsers();
   const { t } = useTranslation();
+  const tour = useTour();
   useFocusRefetch(refetchBlocked);
   // Optimistic value while the update is in flight; null = follow the profile.
   const [recordPublicDraft, setRecordPublicDraft] = useState<boolean | null>(null);
@@ -224,6 +226,13 @@ export default function SettingsScreen(): React.ReactElement {
             label={t('settings.rows.sparringRadius')}
             value={`${radiusKm} km`}
             onPress={handleRadiusPick}
+          />
+          <View style={styles.divider} />
+          {/* Coach tour on request: never the onboarding data entry. */}
+          <SettingsRow
+            icon="school-outline"
+            label={tour.status === 'in_progress' ? t('onboarding.tour.entryResume') : t('onboarding.tour.entry')}
+            onPress={() => tour.start(tour.status === 'in_progress' ? undefined : 0)}
           />
         </View>
 

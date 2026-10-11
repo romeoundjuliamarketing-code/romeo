@@ -67,6 +67,8 @@ import { watchPartyMatches } from '../utils/fightEvents';
 import { SHOW_EVENTS } from '../data/sparringConfig';
 import type { FightPromotion } from '../utils/fightEvents';
 import { useTranslation } from 'react-i18next';
+import { useTour, useTourTarget } from '../context/TourContext';
+import { pickTourSparring } from '../utils/tour';
 import { useLanguage } from '../i18n/language';
 import { sparringDisplayTitle } from '../utils/sparringDisplayTitle';
 
@@ -250,6 +252,47 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     [sparringsWithCoords, timeFilter],
   );
 
+  // ── Coach tour station 3/4 ────────────────────────────────────────────────
+  // Reports the sparring the tour may open (upcoming, active, free slot) and
+  // opens it like a normal tap (no verification needed just to look).
+  const tour = useTour();
+  const tourSearch = useTourTarget('discoverSearch');
+  const tourOpenedRef = useRef(false);
+  const tourOnDiscover = tour.station === 'discover';
+  const reportDiscover = tour.reportDiscover;
+  useEffect(() => {
+    if (!tourOnDiscover) return;
+    reportDiscover({
+      status: nearbyStatus === 'error' ? 'error'
+        : nearbyStatus === 'ready' || locationStatus === 'none' ? 'ready' : 'loading',
+      candidateId: pickTourSparring(filteredSparrings, new Date())?.id ?? null,
+      retry: refetchNearby,
+    });
+  }, [tourOnDiscover, nearbyStatus, locationStatus, filteredSparrings, refetchNearby, reportDiscover]);
+  useEffect(() => {
+    const id = tour.detailSparringId;
+    if (id === null) return;
+    const hit = filteredSparrings.find((s) => s.id === id);
+    if (hit === undefined || !hit.is_active) {
+      tour.markDetailGone();
+      return;
+    }
+    tourOpenedRef.current = true;
+    setPreviewId(null);
+    setSelected(hit);
+  }, [tour.detailSparringId]);
+  // Leaving station 4 (back, skip from discover) closes the sheet the tour opened.
+  useEffect(() => {
+    if (tour.station === 'detail' || !tourOpenedRef.current) return;
+    if (!tour.active) {
+      // Finished on the detail sheet: it stays open as the user's own page.
+      tourOpenedRef.current = false;
+      return;
+    }
+    tourOpenedRef.current = false;
+    setSelected(null);
+  }, [tour.station, tour.active]);
+
   const sparringTabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const s of sparringsWithCoords) {
@@ -301,7 +344,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     () => (studioLat !== null && studioLng !== null ? { lat: studioLat, lng: studioLng } : null),
     [studioLat, studioLng],
   );
-  const fallbackRegion = useMapStartRegion({ points: NO_POINTS, pointsReady: true, home: homePoint });
+  // A hand-picked search place wins: opening the map then never prompts again.
+  const fallbackRegion = useMapStartRegion({
+    points: NO_POINTS, pointsReady: true, home: homePoint, askPermission: searchLocation?.source !== 'manual',
+  });
   const searchLat = searchLocation?.lat ?? null;
   const searchLng = searchLocation?.lng ?? null;
   // A new search location is fitted with the radius in effect at that moment.
@@ -371,6 +417,17 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     setPreviewId(null);
     navigation.setParams({ nearbyEntryAt: undefined, nearbyRadiusKm: undefined });
   }, [route.params?.nearbyEntryAt]);
+
+  // First entry after the onboarding: nearby sparrings as a list around the
+  // search location chosen there (map stays one tap away).
+  useEffect(() => {
+    if (route.params?.listEntryAt === undefined) return;
+    setMapMode('sparrings');
+    setTimeFilter('all');
+    setPlaceJump(null);
+    changeView('list');
+    navigation.setParams({ listEntryAt: undefined });
+  }, [route.params?.listEntryAt]);
 
   // Home "UFC gucken": event map, watch parties for that fight night. The search
   // location is shared; sparring filters (radius, time window) do not carry over.
@@ -868,6 +925,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             onPickLocation={() => setLocationPickerVisible(true)}
             onWiden={widen}
             onCreate={() => { if (requireVerified() && requireCreator()) openCreateFlow(); }}
+            onAdjust={() => setSearchOpen(true)}
           />
         </View>
       )}
@@ -897,6 +955,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             </TouchableOpacity>
           )}
           {mapMode === 'sparrings' && (
+            <View ref={tourSearch.ref} onLayout={tourSearch.onLayout} collapsable={false}>
             <SparringSearchBar
               view={view}
               onViewChange={changeView}
@@ -909,6 +968,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
               onPlaceFound={handlePlaceFound}
               notice={searchNotice}
             />
+            </View>
           )}
           {showTimeFilter && (
             <MapTimeFilter
@@ -981,6 +1041,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           setCancelAskVisible(false);
           joinFlow.reset();
           setSelected(null);
+          tour.detailClosed();
         }}
         onJoin={handleJoinSparring}
         onConfirm={() => { void handleConfirmSparring(); }}
@@ -1077,7 +1138,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         visible={creatorInvite !== null}
         figure={COACH_INVITING}
         bottomInset={bottomSafe}
-        title={t('map.screen.creatorInviteLead')}
+        title={t('map.screen.creatorInviteTitle')}
         body={t('map.screen.creatorInviteBody')}
         primaryLabel={t('map.screen.creatorInvitePrimary')}
         laterLabel={t('map.screen.creatorInviteLater')}

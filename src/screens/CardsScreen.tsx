@@ -16,6 +16,7 @@ import CardGameInvite from '../components/challenge/CardGameInvite';
 import { useCardsIntroSeen } from '../hooks/useCardsIntroSeen';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 import { useTranslation } from 'react-i18next';
+import { useTour } from '../context/TourContext';
 
 export default function CardsScreen(): React.ReactElement {
   const { t } = useTranslation();
@@ -36,6 +37,9 @@ export default function CardsScreen(): React.ReactElement {
   // It covers this screen instead of being a route, so leaving it cannot loop.
   const { seen: introSeen, markSeen } = useCardsIntroSeen();
   const [introReopened, setIntroReopened] = useState(false);
+  // Coach tour station 2 shows its own static example card above this tab.
+  // While the tour runs, the tab's own intro and the coach invite stay away.
+  const tour = useTour();
 
   // Android back closes an intro that was opened on purpose, like its own button.
   useFocusEffect(useCallback(() => {
@@ -138,7 +142,7 @@ export default function CardsScreen(): React.ReactElement {
         )}
         <TabBarSpacer />
       </ScrollView>
-      {!introSeen || introReopened ? (
+      {!tour.active && (!introSeen || introReopened) ? (
         // Laid over the cards area, which stays mounted — closing returns to the exact
         // scroll position it was opened from.
         <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
@@ -149,7 +153,7 @@ export default function CardsScreen(): React.ReactElement {
           )}
         </View>
       ) : null}
-      <CardGameInvite visible={inviteVisible} onUnlock={openPaywallFromInvite} onClose={() => setInviteVisible(false)} />
+      <CardGameInvite visible={inviteVisible && !tour.active} onUnlock={openPaywallFromInvite} onClose={() => setInviteVisible(false)} />
     </SafeAreaView>
   );
 }
