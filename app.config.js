@@ -79,6 +79,9 @@ module.exports = {
         monochromeImage: "./assets/android-icon-monochrome.png",
       },
       predictiveBackGestureEnabled: false,
+      // expo-camera's library manifest and expo-image-picker both declare RECORD_AUDIO;
+      // the app never records audio, so strip it from the merged manifest
+      blockedPermissions: ["android.permission.RECORD_AUDIO"],
       intentFilters: [
         {
           action: "VIEW",
@@ -107,7 +110,15 @@ module.exports = {
         },
       ],
       "@sentry/react-native",
-      ["expo-camera", { cameraPermission: "Sparr nutzt die Kamera, um QR-Codes von Kämpferprofilen und Sparring-Check-ins zu scannen." }],
+      [
+        "expo-camera",
+        {
+          cameraPermission: "Sparr nutzt die Kamera, um QR-Codes von Kämpferprofilen und Sparring-Check-ins zu scannen.",
+          // QR scanning only: no microphone (iOS usage string + Android RECORD_AUDIO)
+          microphonePermission: false,
+          recordAudioAndroid: false,
+        },
+      ],
       "expo-apple-authentication",
       ...googleSignInPlugin,
     ],
