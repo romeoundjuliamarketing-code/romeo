@@ -53,6 +53,44 @@ export function visibleRadiusKm(region: {
 
 const KM_PER_DEG_LAT = 111.32;
 
+// Beyond this a visible map counts as "Überall" (whole DACH box instead of a circle).
+const VIEWPORT_MAX_RADIUS_KM = 400;
+// Radius steps for the viewport search, so small pans reuse cached results.
+const VIEWPORT_RADIUS_STEP_KM = 5;
+
+export interface ViewportSearch {
+  center:   GeoPoint;
+  radiusKm: SearchRadius;
+}
+
+// Search circle that covers the whole visible map: centered on the view, radius
+// half the diagonal (rounded up to whole steps). Very wide views become "Überall".
+// Center rounded to ~1 km so a tiny nudge does not start a new request.
+export function viewportSearch(region: {
+  latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number;
+}): ViewportSearch {
+  const cosLat   = Math.max(0.01, Math.cos((region.latitude * Math.PI) / 180));
+  const heightKm = region.latitudeDelta * KM_PER_DEG_LAT;
+  const widthKm  = region.longitudeDelta * KM_PER_DEG_LAT * cosLat;
+  const halfDiag = Math.sqrt(heightKm * heightKm + widthKm * widthKm) / 2;
+  const radiusKm = halfDiag > VIEWPORT_MAX_RADIUS_KM
+    ? null
+    : Math.max(VIEWPORT_RADIUS_STEP_KM, Math.ceil(halfDiag / VIEWPORT_RADIUS_STEP_KM) * VIEWPORT_RADIUS_STEP_KM);
+  return {
+    center: { lat: Math.round(region.latitude * 100) / 100, lng: Math.round(region.longitude * 100) / 100 },
+    radiusKm,
+  };
+}
+
+// Whether the viewport circle lies completely inside the search circle, so the
+// search result already holds every sparring the map can show.
+export function viewportInsideSearch(view: ViewportSearch, searchCenter: GeoPoint, searchRadiusKm: SearchRadius): boolean {
+  if (searchRadiusKm === null) return true;
+  if (view.radiusKm === null) return false;
+  const d = haversineKm(view.center.lat, view.center.lng, searchCenter.lat, searchCenter.lng);
+  return d + view.radiusKm <= searchRadiusKm;
+}
+
 export interface BoundingBox {
   minLat: number;
   maxLat: number;

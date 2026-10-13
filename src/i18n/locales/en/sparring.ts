@@ -245,6 +245,7 @@ const sparring: LocaleShape<typeof de> = {
     discipline: 'Discipline',
     slots: 'Spots for participants',
     slotsHint: 'You as the host do not count.',
+    scrollMore: 'More below',
     slotLess: 'One spot fewer',
     slotMore: 'One spot more',
     slotsValue_one: '{{count}} spot',

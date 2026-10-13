@@ -26,6 +26,7 @@ import ReachIntroContent from '../trust/ReachIntroContent';
 import FlowHeader from './FlowHeader';
 import FlowOverlay from './FlowOverlay';
 import StepWhat from './StepWhat';
+import ScrollMoreHint from './ScrollMoreHint';
 import WhenPicker from './WhenPicker';
 import DurationChips from './DurationChips';
 import PlaceSection, { type PlaceActions, type SearchPrefill } from './PlaceSection';
@@ -84,6 +85,13 @@ export default function CreateSparringFlow({
   const { blocker, placeNotice } = useCreateFlowChecks(visible, draft.place);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  // "More below" hint: heights in refs, only the boolean triggers a render.
+  const scrollMetrics = useRef({ viewport: 0, content: 0, offset: 0 });
+  const [moreBelow, setMoreBelow] = useState(false);
+  const updateMoreBelow = useCallback(() => {
+    const m = scrollMetrics.current;
+    setMoreBelow(m.content - m.viewport - m.offset > 24);
+  }, []);
 
   const reset = useCallback((next: SparringDraft) => {
     initialRef.current = next;
@@ -324,9 +332,14 @@ export default function CreateSparringFlow({
       <View style={styles.root}>
         <FlowHeader step={step} onBack={handleBack} disabled={publishing} />
 
+        <View style={styles.scroll}>
         <ScrollView
           ref={scrollRef}
           style={styles.scroll}
+          onLayout={(e) => { scrollMetrics.current.viewport = e.nativeEvent.layout.height; updateMoreBelow(); }}
+          onContentSizeChange={(_w, h) => { scrollMetrics.current.content = h; updateMoreBelow(); }}
+          onScroll={(e) => { scrollMetrics.current.offset = e.nativeEvent.contentOffset.y; updateMoreBelow(); }}
+          scrollEventThrottle={32}
           contentContainerStyle={[
             styles.content,
             Platform.OS === 'android' && keyboardOpen ? { paddingBottom: keyboardHeight + 24 } : null,
@@ -412,6 +425,10 @@ export default function CreateSparringFlow({
             )}
           </StepTransition>
         </ScrollView>
+        {step === 1 && moreBelow && !keyboardOpen && (
+          <ScrollMoreHint onPress={() => scrollRef.current?.scrollToEnd({ animated: true })} />
+        )}
+        </View>
 
         {!keyboardOpen && (
           <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>

@@ -6,6 +6,8 @@ import {
   radiusForZoom,
   radiusLabel,
   visibleRadiusKm,
+  viewportInsideSearch,
+  viewportSearch,
   widerRadius,
 } from './sparringSearch';
 import { haversineKm } from './geoUtils';
@@ -157,5 +159,41 @@ describe('visibleRadiusKm', () => {
     // 1 degree latitude ~ 111 km high; at 53 degrees 2 degrees longitude ~ 134 km wide
     const km = visibleRadiusKm({ latitude: 53, latitudeDelta: 1, longitudeDelta: 2 });
     expect(km).toBeCloseTo(111.32 / 2, 0);
+  });
+});
+
+describe('viewportSearch', () => {
+  it('covers the visible corners with the circle', () => {
+    const region = { latitude: 53.08, longitude: 8.80, latitudeDelta: 0.5, longitudeDelta: 0.8 };
+    const v = viewportSearch(region);
+    const corner = haversineKm(53.08, 8.80, 53.08 + 0.25, 8.80 + 0.4);
+    expect(v.radiusKm).not.toBeNull();
+    expect(v.radiusKm as number).toBeGreaterThanOrEqual(corner);
+    expect((v.radiusKm as number) % 5).toBe(0);
+  });
+
+  it('becomes "Überall" for very wide views', () => {
+    expect(viewportSearch({ latitude: 51, longitude: 10, latitudeDelta: 12, longitudeDelta: 14 }).radiusKm).toBeNull();
+  });
+
+  it('rounds the center so tiny pans share a search', () => {
+    const a = viewportSearch({ latitude: 53.0801, longitude: 8.8002, latitudeDelta: 0.5, longitudeDelta: 0.5 });
+    const b = viewportSearch({ latitude: 53.0812, longitude: 8.8013, latitudeDelta: 0.5, longitudeDelta: 0.5 });
+    expect(a).toEqual(b);
+  });
+});
+
+describe('viewportInsideSearch', () => {
+  it('is true when the view lies inside the search circle', () => {
+    expect(viewportInsideSearch({ center: BREMEN, radiusKm: 10 }, BREMEN, 30)).toBe(true);
+  });
+
+  it('is false when the view reaches past the search circle', () => {
+    expect(viewportInsideSearch({ center: { lat: 53.5, lng: 8.8 }, radiusKm: 10 }, BREMEN, 30)).toBe(false);
+  });
+
+  it('handles "Überall" on either side', () => {
+    expect(viewportInsideSearch({ center: BREMEN, radiusKm: null }, BREMEN, null)).toBe(true);
+    expect(viewportInsideSearch({ center: BREMEN, radiusKm: null }, BREMEN, 100)).toBe(false);
   });
 });

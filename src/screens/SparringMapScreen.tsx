@@ -28,6 +28,7 @@ import { useOpenEvents } from '../hooks/useOpenEvents';
 import { useEventActions } from '../hooks/useEventActions';
 import SparringDetailSheet from '../components/sparring/SparringDetailSheet';
 import SparringMapPreview, { SparringMapEmptyCard } from '../components/sparring/SparringMapPreview';
+import SwipeDownDismiss from '../components/common/SwipeDownDismiss';
 import SparringMapHeader from '../components/sparring/SparringMapHeader';
 import MapBottomControls from '../components/sparring/MapBottomControls';
 import SparringSearchBar from '../components/sparring/SparringSearchBar';
@@ -36,8 +37,12 @@ import LocationPickerModal from '../components/sparring/LocationPickerModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OVERVIEW_REGION, regionAround } from '../utils/mapStartRegion';
 import type { GeoPoint, MapRegion } from '../utils/mapStartRegion';
-import { HOME_RADIUS_KM, radiusForZoom, visibleRadiusKm, widerRadius } from '../utils/sparringSearch';
-import type { SearchRadius } from '../utils/sparringSearch';
+import {
+  HOME_RADIUS_KM, radiusForZoom, viewportInsideSearch, viewportSearch, visibleRadiusKm, widerRadius,
+} from '../utils/sparringSearch';
+import type { SearchRadius, ViewportSearch } from '../utils/sparringSearch';
+import { haversineKm } from '../utils/geoUtils';
+import { useDevicePosition } from '../hooks/useDevicePosition';
 import { useMapStartRegion } from '../hooks/useMapStartRegion';
 import { changedSparringFields, isMaterialEdit, editNotifyMessage } from '../utils/sparringEdit';
 import type { SparringEditFields } from '../utils/sparringEdit';
@@ -67,7 +72,7 @@ import { isIntroCandidate, searchArrivalHint } from '../utils/intro';
 import { isIntroHintSeen, markIntroHintSeen } from '../lib/introHint';
 import IntroArrivalHint from '../components/intro/IntroArrivalHint';
 import { watchPartyMatches } from '../utils/fightEvents';
-import { SHOW_EVENTS } from '../data/sparringConfig';
+import { SHOW_EVENTS, SPARRING_TRUST } from '../data/sparringConfig';
 import type { FightPromotion } from '../utils/fightEvents';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../i18n/language';
@@ -116,8 +121,38 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // Place search ("Berlin"): a temporary view only. Sparrings load around the
   // found place, but the search location is never changed or stored.
   const [placeJump, setPlaceJump] = useState<(GeoPoint & { label: string }) | null>(null);
-  const { status: nearbyStatus, sparrings, refetch: refetchNearby } = useNearbySparrings(placeJump ?? searchLocation, radiusKm);
+  const searchCenter = placeJump ?? searchLocation;
+  const { status: nearbyStatus, sparrings: searchSparrings, refetch: refetchNearby } = useNearbySparrings(searchCenter, radiusKm);
   useFocusRefetch(refetchNearby);
+  // Visible map area after the user moved the map. Its sparrings are added as
+  // markers, so panning shows sparrings without zooming out first. The list,
+  // preview pick and counts stay with the search above.
+  const [viewport, setViewport] = useState<ViewportSearch | null>(null);
+  const viewportNeeded = viewport !== null && searchCenter !== null
+    && !viewportInsideSearch(viewport, searchCenter, radiusKm);
+  const { status: viewportStatus, sparrings: loadedViewportSparrings, refetch: refetchViewport } = useNearbySparrings(
+    viewportNeeded ? viewport.center : null,
+    viewport?.radiusKm ?? null,
+  );
+  useFocusRefetch(refetchViewport);
+  // While a new viewport loads, the last loaded one stays on the map, so
+  // markers do not blink out on every pan.
+  const [viewportSparrings, setViewportSparrings] = useState<NearbySparring[]>([]);
+  useEffect(() => {
+    if (!viewportNeeded) setViewportSparrings([]);
+    else if (viewportStatus === 'ready') setViewportSparrings(loadedViewportSparrings);
+  }, [viewportNeeded, viewportStatus, loadedViewportSparrings]);
+  // Search hits first (nearest first), then the extra viewport hits with their
+  // distance measured from the search center like all others.
+  const sparrings = useMemo((): NearbySparring[] => {
+    if (!viewportNeeded || searchCenter === null || viewportSparrings.length === 0) return searchSparrings;
+    const known = new Set(searchSparrings.map((s) => s.id));
+    const extra = viewportSparrings
+      .filter((s) => !known.has(s.id))
+      .map((s) => ({ ...s, distance_km: haversineKm(searchCenter.lat, searchCenter.lng, s.lat as number, s.lng as number) }));
+    return extra.length === 0 ? searchSparrings : [...searchSparrings, ...extra];
+  }, [searchSparrings, viewportSparrings, viewportNeeded, searchCenter]);
+  const searchIds = useMemo(() => new Set(searchSparrings.map((s) => s.id)), [searchSparrings]);
   const {
     cancelSignup, confirmSparring, deactivateSparring, updateSparring, countEditAffected, setSparringGym,
   } = useSparringActions();
@@ -125,6 +160,15 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // Server-side reach status (radius, planned slot, intro state).
   const reach = useSparringReach();
   useFocusRefetch(reach.refetch);
+  // Join reach drawn around the real device position (the server measures from
+  // there), never around a hand-picked search place.
+  const devicePosition = useDevicePosition();
+  const reachCenter = searchLocation?.source === 'device' ? searchLocation : devicePosition;
+  const reachRadiusKm = reach.status?.radius_km ?? SPARRING_TRUST.radiusBaseKm;
+  const reachCircle = useMemo(
+    () => (reachCenter !== null ? { center: { lat: reachCenter.lat, lng: reachCenter.lng }, radiusKm: reachRadiusKm } : null),
+    [reachCenter?.lat, reachCenter?.lng, reachRadiusKm],
+  );
 
   // ── Event data ────────────────────────────────────────────────────────────
   const { events, refetch: refetchEvents } = useOpenEvents(0, SHOW_EVENTS);
@@ -252,15 +296,20 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       : sparringsWithCoords.filter((s) => getTimeWindow(s.scheduled_at) === timeFilter),
     [sparringsWithCoords, timeFilter],
   );
+  // List, automatic preview and counts: search hits only (no viewport extras).
+  const searchFilteredSparrings = useMemo(
+    () => filteredSparrings.filter((s) => searchIds.has(s.id)),
+    [filteredSparrings, searchIds],
+  );
 
   const sparringTabCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const s of sparringsWithCoords) {
+    for (const s of searchSparrings) {
       const w = getTimeWindow(s.scheduled_at);
       counts[w] = (counts[w] ?? 0) + 1;
     }
     return counts;
-  }, [sparringsWithCoords]);
+  }, [searchSparrings]);
 
   // ── Derived: events ───────────────────────────────────────────────────────
   const eventsWithCoords = useMemo(
@@ -324,15 +373,18 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const handleUserRegionChange = useCallback((region: MapRegion): void => {
     if (mapModeRef.current !== 'sparrings') return;
     setRadiusKm((prev) => radiusForZoom(prev, visibleRadiusKm(region)));
+    setViewport(viewportSearch(region));
   }, []);
-  // A new search region (location or radius chosen) ends the place view.
-  useEffect(() => { setPlaceJump(null); }, [searchRegion]);
+  // A new search region (location or radius chosen) ends the place view; the
+  // map moves there, so an earlier panned viewport no longer applies.
+  useEffect(() => { setPlaceJump(null); setViewport(null); }, [searchRegion]);
   const placeJumpRegion = useMemo(
     (): MapRegion | null => (placeJump !== null ? regionAround(placeJump, PLACE_JUMP_RADIUS_KM) : null),
     [placeJump],
   );
   function handlePlaceFound(lat: number, lng: number, label: string): void {
     setPlaceJump({ lat, lng, label });
+    setViewport(null);
     changeView('map');
   }
   const startRegion = placeJumpRegion ?? searchRegion ?? fallbackRegion;
@@ -599,7 +651,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const tappedPreview = previewId !== null ? filteredSparrings.find((s) => s.id === previewId) ?? null : null;
   // Search results come nearest first.
   const searchKey = `${radiusKm ?? 'all'}:${searchLat ?? ''}:${searchLng ?? ''}`;
-  const preview = tappedPreview ?? (autoClosedFor === searchKey ? null : filteredSparrings[0] ?? null);
+  const preview = tappedPreview ?? (autoClosedFor === searchKey ? null : searchFilteredSparrings[0] ?? null);
 
   function closePreview(): void {
     setPreviewId(null);
@@ -860,7 +912,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
   // ── Search presentation ───────────────────────────────────────────────────
   const showList = mapMode === 'sparrings' && view === 'list';
-  const searchHintVariant = arrival === 'search' ? searchArrivalHint(nearbyStatus, locationStatus, filteredSparrings.length) : null;
+  const searchHintVariant = arrival === 'search' ? searchArrivalHint(nearbyStatus, locationStatus, searchFilteredSparrings.length) : null;
   const searchHint = searchHintVariant !== null
     ? <IntroArrivalHint variant={searchHintVariant} onDismiss={dismissArrival} onShown={arrivalShown} />
     : null;
@@ -914,13 +966,14 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         overlayTop={mapTopHeight}
         overlayBottom={bottomHeight + 8}
         onUserRegionChange={handleUserRegionChange}
+        reachCircle={mapMode === 'sparrings' ? reachCircle : null}
       />
 
       {/* ── List view: same hits as the markers, over the (still mounted) map ── */}
       {showList && (
         <View style={StyleSheet.absoluteFill}>
           <SparringListView
-            sparrings={filteredSparrings}
+            sparrings={searchFilteredSparrings}
             status={nearbyStatus}
             locationStatus={locationStatus}
             radiusKm={radiusKm}
@@ -997,12 +1050,15 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             neither the search panel nor the tab bar. */}
         {!showList && mapMode === 'sparrings' && searchHint}
         {showSparringCards && preview !== null && (
-          <SparringMapPreview
-            sparring={preview}
-            caption={tappedPreview === null ? t('map.screen.nearest') : null}
-            onOpenDetails={() => { setArrival(null); setSelected(preview); }}
-            onClose={closePreview}
-          />
+          // Keyed per sparring so a new card never starts in a swiped-away state.
+          <SwipeDownDismiss key={preview.id} onDismiss={closePreview}>
+            <SparringMapPreview
+              sparring={preview}
+              caption={tappedPreview === null ? t('map.screen.nearest') : null}
+              onOpenDetails={() => { setArrival(null); setSelected(preview); }}
+              onClose={closePreview}
+            />
+          </SwipeDownDismiss>
         )}
         {showEmptyCard && (
           <SparringMapEmptyCard

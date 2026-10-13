@@ -2,7 +2,7 @@ import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import type { StudioMapMarker } from '../../hooks/useStudioMapMarkers';
 import type { EventWithMeta } from '../../hooks/useOpenEvents';
 import type { VenueMapMarker } from '../../hooks/useVenueMapMarkers';
-import type { MapRegion } from '../../utils/mapStartRegion';
+import type { GeoPoint, MapRegion } from '../../utils/mapStartRegion';
 
 export interface SparringMapViewProps {
   sparrings:           SparringWithMeta[];
@@ -23,4 +23,6 @@ export interface SparringMapViewProps {
   overlayBottom:       number;
   /** The user finished moving the map by gesture; never called for the map's own camera moves. */
   onUserRegionChange?: (region: MapRegion) => void;
+  /** Join reach around the device position (150 km, 300 km once unlocked); null hides it. */
+  reachCircle?:        { center: GeoPoint; radiusKm: number } | null;
 }

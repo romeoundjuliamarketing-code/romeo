@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import MapView, { Circle, Marker, PROVIDER_DEFAULT } from 'react-native-maps';
+import { colors } from '../../theme/colors';
 import { sparringMarkerLabel } from '../../utils/sparringMarkerLabel';
 import { OVERVIEW_REGION } from '../../utils/mapStartRegion';
 import type { MapRegion } from '../../utils/mapStartRegion';
@@ -23,6 +24,7 @@ export default function SparringMapView({
   overlayTop,
   overlayBottom,
   onUserRegionChange,
+  reachCircle = null,
 }: SparringMapViewProps) {
   const mapRef         = useRef<MapView>(null);
   // Once the user touched the map, a late start region must not yank it away.
@@ -89,6 +91,16 @@ export default function SparringMapView({
         showsPointsOfInterests={false}
         showsUserLocation
       >
+        {reachCircle !== null && (
+          <Circle
+            center={{ latitude: reachCircle.center.lat, longitude: reachCircle.center.lng }}
+            radius={reachCircle.radiusKm * 1000}
+            fillColor={colors.reachCircleFill}
+            strokeColor={colors.reachCircleStroke}
+            strokeWidth={2}
+          />
+        )}
+
         {sortedSparrings.map((s) => (
           <Marker
             key={s.id}

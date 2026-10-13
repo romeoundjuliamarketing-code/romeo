@@ -242,6 +242,7 @@ const sparring = {
     discipline: 'Disziplin',
     slots: 'Plätze für Mitmachende',
     slotsHint: 'Du als Gastgeber zählst nicht mit.',
+    scrollMore: 'Weiter unten',
     slotLess: 'Einen Platz weniger',
     slotMore: 'Einen Platz mehr',
     slotsValue_one: '{{count}} Platz',

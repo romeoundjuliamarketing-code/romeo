@@ -5,8 +5,12 @@ import {
   Camera,
   Marker,
   UserLocation,
+  GeoJSONSource,
+  Layer,
   type CameraRef,
 } from '@maplibre/maplibre-react-native';
+import { circlePolygon } from '../../utils/geoCircle';
+import { colors } from '../../theme/colors';
 import { sparringMarkerLabel } from '../../utils/sparringMarkerLabel';
 import { OVERVIEW_REGION } from '../../utils/mapStartRegion';
 import type { MapRegion } from '../../utils/mapStartRegion';
@@ -35,6 +39,7 @@ export default function SparringMapView({
   overlayTop,
   overlayBottom,
   onUserRegionChange,
+  reachCircle = null,
 }: SparringMapViewProps) {
   const cameraRef      = useRef<CameraRef>(null);
   // Once the user touched the map, a late start region must not yank it away.
@@ -71,6 +76,17 @@ export default function SparringMapView({
   const attributionPosition = useMemo(() => ({ bottom: overlayBottom + 8, right: 8 }), [overlayBottom]);
   const logoPosition        = useMemo(() => ({ bottom: overlayBottom + 8, left: 8 }), [overlayBottom]);
 
+  // MapLibre has no circle shape: the reach is drawn as a polygon.
+  const reachLat = reachCircle?.center.lat ?? null;
+  const reachLng = reachCircle?.center.lng ?? null;
+  const reachKm  = reachCircle?.radiusKm ?? null;
+  const reachShape = useMemo(
+    () => (reachLat !== null && reachLng !== null && reachKm !== null
+      ? circlePolygon({ lat: reachLat, lng: reachLng }, reachKm)
+      : null),
+    [reachLat, reachLng, reachKm],
+  );
+
   const sortedSparrings = useMemo(
     () => [...sparrings].sort((a, b) => Number(a.is_featured) - Number(b.is_featured)),
     [sparrings],
@@ -101,6 +117,13 @@ export default function SparringMapView({
           initialViewState={{ center: INITIAL_CENTER, zoom: INITIAL_ZOOM }}
         />
         <UserLocation />
+
+        {reachShape !== null && (
+          <GeoJSONSource id="reach-circle" data={reachShape}>
+            <Layer id="reach-circle-fill" type="fill" paint={{ 'fill-color': colors.reachCircleFill }} />
+            <Layer id="reach-circle-line" type="line" paint={{ 'line-color': colors.reachCircleStroke, 'line-width': 2 }} />
+          </GeoJSONSource>
+        )}
 
         {sortedSparrings.map((s) => (
           <Marker

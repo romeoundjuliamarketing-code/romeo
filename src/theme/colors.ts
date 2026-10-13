@@ -22,6 +22,8 @@ export const colors = {
   accentBluePressed: '#3A78BB', // primary button while held down
   accentBlueText:  '#2F6CAD', // blue for text/links on light surfaces (>= 4.5:1)
   accentBlueTint:  '#E3ECF7', // light brand-blue surface (login / intro backdrop)
+  reachCircleFill:   'rgba(74,144,217,0.08)', // sparring map: join reach area
+  reachCircleStroke: 'rgba(74,144,217,0.85)', // sparring map: join reach outline
 
   // ── Borders ───────────────────────────────────────────────────────────────
   border:       'rgba(20,20,20,0.08)',
