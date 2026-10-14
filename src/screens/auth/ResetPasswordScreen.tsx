@@ -39,12 +39,17 @@ export default function ResetPasswordScreen({ onDone }: { onDone: () => void }) 
     setError(null);
     setLoading(true);
     const { error: updateError } = await supabase.auth.updateUser({ password });
-    setLoading(false);
 
     if (updateError !== null) {
+      setLoading(false);
       setError(t('auth.reset.errorFailed'));
       return;
     }
+
+    // End every other session: whoever knew the old password is logged out.
+    // Best effort — the new password is already set either way.
+    await supabase.auth.signOut({ scope: 'others' });
+    setLoading(false);
 
     Alert.alert(
       t('auth.reset.successTitle'),
