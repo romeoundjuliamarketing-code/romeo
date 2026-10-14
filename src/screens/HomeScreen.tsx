@@ -10,6 +10,7 @@ import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 import HomeHeader from '../components/home/HomeHeader';
 import HomeNextSparring, { HomeNextSparringPlaceholder } from '../components/home/HomeNextSparring';
 import HomeCardDeckEntry from '../components/home/HomeCardDeckEntry';
+import HomeSparringHero from '../components/home/HomeSparringHero';
 import HomeFightNight from '../components/home/HomeFightNight';
 import { AnnouncementNotice } from '../components/home/HomeNotices';
 import NearbySparringsCard from '../components/home/NearbySparringsCard';
@@ -29,7 +30,7 @@ import { useSearchLocation } from '../hooks/useSearchLocation';
 import { useNearbySparrings } from '../hooks/useNearbySparrings';
 import { useHomeNow, useHomeSparring } from '../hooks/useHomeSparring';
 import { useCommunityMemberCount } from '../hooks/useCommunityMemberCount';
-import { freePreviewChallenge } from '../utils/challengeAvailability';
+import { homePreviewChallenges } from '../utils/challengeAvailability';
 import { useFightEvents } from '../hooks/useFightEvents';
 import { HOME_RADIUS_KM, RADIUS_OPTIONS_KM } from '../utils/sparringSearch';
 import { fightEventStart } from '../utils/fightEvents';
@@ -64,7 +65,7 @@ export default function HomeScreen() {
   const { unreadCount: unreadNotificationCount } = useNotificationsContext();
   const home = useHomeSparring(user?.id ?? null, now, focusTrigger);
   const communityCount = useCommunityMemberCount(user !== null);
-  const cardPreview = freePreviewChallenge();
+  const cardPreviews = homePreviewChallenges();
   // Paused with SHOW_EVENTS: no request while the block is hidden.
   const fight = useFightEvents(SHOW_EVENTS && user !== null, focusTrigger);
   // "Sparrings in meiner Nähe": fixed 30 km, same search as the map/list.
@@ -114,6 +115,13 @@ export default function HomeScreen() {
   }
 
   const featured = home.featured;
+  const reachStatus = reach.status;
+  // Start scene instead of the old starter/unlocked reach module, only while no
+  // upcoming commitment leads (and never during a first sparring or an open
+  // meeting answer — those keep their own reach module).
+  const showHero = reachStatus !== null && home.status === 'ready' && featured === null
+    && (reachStatus.unlocked || (reachStatus.active_sparring_id === null && feedbackDue === null));
+  const findSparring = (): void => navigation.navigate('Tabs', { screen: 'Sparring', params: {} });
 
   const nearby = (
     <NearbySparringsCard
@@ -133,7 +141,7 @@ export default function HomeScreen() {
     />
   );
 
-  const cardEntry = <HomeCardDeckEntry preview={cardPreview} onDraw={() => navigation.navigate('Tabs', { screen: 'Karten' })} />;
+  const cardEntry = <HomeCardDeckEntry previews={cardPreviews} onDraw={() => navigation.navigate('Tabs', { screen: 'Karten' })} />;
 
   const fightNight = (
     <HomeFightNight events={fight.events} status={fight.status} now={now} onWatch={openWatchParties} />
@@ -158,7 +166,7 @@ export default function HomeScreen() {
                   nearby section carries the "none yet" note. A load error is
                   never shown as "no commitment". Ticket and reach module form
                   one tighter group, so the Sparr Cards move up. */}
-              {(home.status === 'loading' || featured !== null || reach.status !== null || feedbackDue !== null) && (
+              {(home.status === 'loading' || featured !== null || reachStatus !== null || feedbackDue !== null) && (
                 <View style={styles.group}>
                   {home.status === 'loading' && <HomeNextSparringPlaceholder />}
                   {featured !== null && (
@@ -181,13 +189,21 @@ export default function HomeScreen() {
                     <UnlockNoticeCard onAck={() => { void reach.ackUnlock(); }} />
                   )}
                   {feedbackDue !== null && <FeedbackDueCard due={feedbackDue} onOpen={openSparring} />}
-                  {reach.status !== null && (
+                  {showHero && (
+                    <HomeSparringHero
+                      unlocked={reachStatus.unlocked}
+                      baseKm={reachStatus.base_radius_km}
+                      unlockedKm={reachStatus.unlocked_radius_km}
+                      onFind={findSparring}
+                    />
+                  )}
+                  {reachStatus !== null && !showHero && (
                     <ReachStatusCard
-                      status={reach.status}
+                      status={reachStatus}
                       refetchTrigger={focusTrigger}
                       feedbackPending={feedbackDue !== null}
                       onOpenSparring={openSparring}
-                      onFind={() => navigation.navigate('Tabs', { screen: 'Sparring', params: {} })}
+                      onFind={findSparring}
                     />
                   )}
                 </View>

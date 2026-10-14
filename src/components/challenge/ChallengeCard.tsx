@@ -33,6 +33,9 @@ interface Props {
   preview?:      boolean;
   previewLabel?: string;
   badge?:        string;
+  // Home teaser fan only: the band names just the discipline (the focus
+  // category would be ellipsized on the narrower fan card). Game unaffected.
+  areaOnly?:     boolean;
 }
 
 // Narrow cards (thumbnails in the feedback step) get a smaller type scale so the
@@ -59,13 +62,14 @@ export default function ChallengeCard({
   preview = false,
   previewLabel,
   badge,
+  areaOnly = false,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const tx = useLocalized();
   const compact = !preview && size.width < COMPACT_WIDTH;
   const level   = DIFFICULTY_LEVEL[challenge.difficulty];
   const focus   = tx(challenge.focus);
-  const meta    = focus.length > 0
+  const meta    = focus.length > 0 && !areaOnly
     ? `${t(`challenge.areas.${challenge.area}`)} · ${focus}`
     : t(`challenge.areas.${challenge.area}`);
 

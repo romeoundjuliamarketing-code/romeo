@@ -49,6 +49,11 @@ export const colors = {
   cardBackKeyline: 'rgba(255,255,255,0.30)', // fine inset contour on the back
   cardBackPattern: 'rgba(255,255,255,0.10)', // ring-corner ropes on the back
 
+  // ── Example card preview (Karten tab) ───────────────────────────────────
+  cardFaceHeader:  '#3A78BB', // blue head band of the example card (white text >= 4.5:1)
+  cardFaceMotif:   '#EEF3F9', // light area behind the category motif
+  cardBackDeep:    '#173F68', // dark blue back peeking out behind the example card
+
   // ── Card game screen (SparringChallengeScreen only) ───────────────────────
   gameBackground:  '#101318', // anthracite behind the deck
   gameSurface:     '#1C2129', // secondary button after the reveal

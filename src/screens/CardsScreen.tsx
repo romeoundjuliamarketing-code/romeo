@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -7,13 +7,11 @@ import Purchases from 'react-native-purchases';
 import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
 import { useEntitlement } from '../hooks/useEntitlement';
-import { freePreviewChallenge, previewChallenges } from '../utils/challengeAvailability';
+import { previewChallenges } from '../utils/challengeAvailability';
 import { planForProduct } from '../utils/subscriptionPlans';
-import { CardsBenefits, CardsHero, CardsOffer, CardsStart } from '../components/challenge/CardsLanding';
-import CardsShowcase from '../components/challenge/CardsShowcase';
-import CardsIntro from '../components/challenge/CardsIntro';
+import { CardsCta, CardsFocusPanel, CardsHero, CardsSafetyNote, CardsSteps } from '../components/challenge/CardsLanding';
+import CardsPreviewDeck from '../components/challenge/CardsPreviewDeck';
 import CardGameInvite from '../components/challenge/CardGameInvite';
-import { useCardsIntroSeen } from '../hooks/useCardsIntroSeen';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
 import { useTranslation } from 'react-i18next';
 
@@ -28,24 +26,8 @@ export default function CardsScreen(): React.ReactElement {
   const [inviteVisible, setInviteVisible] = useState(false);
   const paywallFromInviteRef = useRef(false);
   const [price, setPrice] = useState<string | null>(null);
-  const [offerLoading, setOfferLoading] = useState(true);
-  const exampleCard = freePreviewChallenge();
   // Released examples only; computed once, the list is static.
-  const [showcaseCards] = useState(previewChallenges);
-  // The one place that decides about the intro: home teaser and tab both land here.
-  // It covers this screen instead of being a route, so leaving it cannot loop.
-  const { seen: introSeen, markSeen } = useCardsIntroSeen();
-  const [introReopened, setIntroReopened] = useState(false);
-
-  // Android back closes an intro that was opened on purpose, like its own button.
-  useFocusEffect(useCallback(() => {
-    if (!introReopened) return undefined;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setIntroReopened(false);
-      return true;
-    });
-    return () => sub.remove();
-  }, [introReopened]));
+  const [previewCards] = useState(previewChallenges);
 
   useFocusEffect(useCallback(() => {
     if (firstFocus.current) {
@@ -88,15 +70,13 @@ export default function CardsScreen(): React.ReactElement {
         if (active) setPrice(cardsPkg !== undefined ? cardsPkg.product.priceString : null);
       } catch {
         if (active) setPrice(null);
-      } finally {
-        if (active) setOfferLoading(false);
       }
     }
     void loadPrice();
     return () => { active = false; };
   }, []);
 
-  if (loading || checking || introSeen === null) {
+  if (loading || checking) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.loading} accessibilityLabel={t('challenge.intro.checkingAccess')}>
@@ -124,31 +104,20 @@ export default function CardsScreen(): React.ReactElement {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <CardsHero />
-        <CardsShowcase cards={showcaseCards} />
+        <CardsPreviewDeck cards={previewCards} />
         {/* The game route still checks access itself (deep links, failed checks). */}
-        <CardsStart
+        <CardsCta
           onStart={startGame}
-          onHowItWorks={() => setIntroReopened(true)}
+          needsSubscription={!entitlement.hasAccess}
+          price={price !== null ? t('challenge.intro.pricePerMonth', { price }) : null}
         />
-        {entitlement.hasAccess ? null : (
-          <>
-            <CardsBenefits />
-            <CardsOffer price={price !== null ? t('challenge.intro.pricePerMonth', { price }) : null} loading={offerLoading} onOpen={() => navigation.navigate('Paywall', { focus: 'cards' })} />
-          </>
-        )}
+        <View style={styles.explain}>
+          <CardsSteps />
+          <CardsFocusPanel />
+          <CardsSafetyNote />
+        </View>
         <TabBarSpacer />
       </ScrollView>
-      {!introSeen || introReopened ? (
-        // Laid over the cards area, which stays mounted — closing returns to the exact
-        // scroll position it was opened from.
-        <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
-          {introReopened ? (
-            <CardsIntro card={exampleCard} primaryLabel={t('challenge.intro.backToGame')} onPrimary={() => setIntroReopened(false)} />
-          ) : (
-            <CardsIntro card={exampleCard} primaryLabel={t('challenge.intro.letsGo')} onPrimary={markSeen} onSkip={markSeen} />
-          )}
-        </View>
-      ) : null}
       <CardGameInvite visible={inviteVisible} onUnlock={openPaywallFromInvite} onClose={() => setInviteVisible(false)} />
     </SafeAreaView>
   );
@@ -157,7 +126,9 @@ export default function CardsScreen(): React.ReactElement {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1 },
-  content: { alignSelf: 'center', width: '100%', maxWidth: 640, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48, gap: 32 },
+  content: { alignSelf: 'center', width: '100%', maxWidth: 640, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 16 },
+  // Explanation follows the main action with a clear break.
+  explain: { marginTop: 24, gap: 24 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   loadingText: { color: colors.textMuted, fontFamily: 'Inter_400Regular', fontSize: 15 },
   retryButton: { minHeight: 48, paddingHorizontal: 16, borderRadius: 12, backgroundColor: colors.accentBlue, alignItems: 'center', justifyContent: 'center' },
