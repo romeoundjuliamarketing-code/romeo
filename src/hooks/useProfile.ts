@@ -6,12 +6,17 @@ import { useAuth } from '../context/AuthContext';
 import { reportNetworkError, reportNetworkSuccess } from '../lib/networkStatus';
 import i18n from '../i18n';
 import { getCached, setCached } from '../lib/queryCache';
-import type { Profile, ProfileUpdate } from '../types/database.types';
+import type { OwnProfile, ProfileUpdate } from '../types/database.types';
 
-type ProfileSnapshot = { profile: Profile | null };
+// Explicit column list instead of '*': private columns (email, phone, address*,
+// expo_push_token) are never read, so their read grants can be withdrawn.
+// One string literal: supabase-js infers the row type from it.
+const OWN_PROFILE_COLUMNS = 'id, name, nickname, avatar_url, bio, created_at, credits, disciplines, gender, age_years, height_cm, arm_span_cm, weight_kg, weight_class, hometown, nationality, country_code, instagram_url, is_coach, is_professional, language, last_training_date, membership_type, onboarding_completed, show_fitness_in_group, show_points_in_group, show_weight_in_group, show_fight_record, show_stats, streak_days, total_points, card_frame, motto, favorite_move, training_focus, stance, studio_id, training_frequency, training_since, profile_code, cover_url, cover_focus_x, cover_focus_y, home_gym_id';
+
+type ProfileSnapshot = { profile: OwnProfile | null };
 
 interface UseProfileResult {
-  profile: Profile | null;
+  profile: OwnProfile | null;
   loading: boolean;
   error: string | null;
   updateProfile: (updates: ProfileUpdate) => Promise<{ error: string | null }>;
@@ -24,7 +29,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
   const { user } = useAuth();
   const cacheKey = user ? `useProfile:${user.id}` : null;
   const cached = cacheKey ? getCached<ProfileSnapshot>(cacheKey) : undefined;
-  const [profile, setProfile] = useState<Profile | null>(() => cached?.profile ?? null);
+  const [profile, setProfile] = useState<OwnProfile | null>(() => cached?.profile ?? null);
   const [loading, setLoading] = useState(cached === undefined);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +44,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
 
     supabase
       .from('profiles')
-      .select('*')
+      .select(OWN_PROFILE_COLUMNS)
       .eq('id', user.id)
       .single()
       .then(({ data, error: err }) => {
@@ -63,7 +68,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
       .from('profiles')
       .update(updates)
       .eq('id', user.id)
-      .select()
+      .select(OWN_PROFILE_COLUMNS)
       .single();
 
     if (err !== null) {
@@ -110,7 +115,7 @@ export function useProfile(refetchTrigger = 0): UseProfileResult {
         .from('profiles')
         .update({ avatar_url: publicUrl })
         .eq('id', user.id)
-        .select()
+        .select(OWN_PROFILE_COLUMNS)
         .single();
 
       if (updateError !== null) {

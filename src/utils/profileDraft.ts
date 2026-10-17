@@ -2,7 +2,7 @@
 // profile keeps its existing column types. Only changed fields are written,
 // empty optional fields become null (never 0 or ""), placeholders are never
 // values. Validation ranges are unchanged from the previous form.
-import type { Profile, ProfileUpdate } from '../types/database.types';
+import type { OwnProfile, ProfileUpdate } from '../types/database.types';
 import type { Stance } from './stance';
 import i18n from '../i18n';
 
@@ -54,7 +54,7 @@ export function instagramProfileUrl(stored: string): string | null {
 
 const numText = (v: number | null): string => (v !== null ? String(v).replace('.', ',') : '');
 
-export function toDraft(p: Profile): ProfileDraft {
+export function toDraft(p: OwnProfile): ProfileDraft {
   return {
     name:          p.name ?? '',
     nickname:      p.nickname ?? '',
@@ -134,7 +134,7 @@ export function draftToUpdate(d: ProfileDraft): { update: ProfileUpdate; errors:
 }
 
 // Only the columns whose value actually changed — no write without changes.
-export function changedFields(update: ProfileUpdate, original: Profile): ProfileUpdate {
+export function changedFields(update: ProfileUpdate, original: OwnProfile): ProfileUpdate {
   const out: Record<string, unknown> = {};
   const orig = original as unknown as Record<string, unknown>;
   for (const [key, value] of Object.entries(update)) {

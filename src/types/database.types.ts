@@ -2540,6 +2540,12 @@ export type Database = {
 
 // Convenience types
 export type Profile = Database['public']['Tables']['profiles']['Row']
+// Columns other users must not read; the app never selects them (read grants
+// are withdrawn server-side once old builds are gone).
+export type PrivateProfileField = 'email' | 'phone' | 'address' | 'address_lat' | 'address_lng' | 'expo_push_token'
+// Verification leftovers, dropped after the verification removal; not loaded.
+type RetiredProfileField = 'phone_verified_at' | 'coach_verified_at' | 'coach_verified_by'
+export type OwnProfile = Omit<Profile, PrivateProfileField | RetiredProfileField>
 export type WorkoutLog = Database['public']['Tables']['workout_logs']['Row']
 export type Studio = Database['public']['Tables']['studios']['Row']
 export type StudioSchedule = Database['public']['Tables']['studio_schedule']['Row']
