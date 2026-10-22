@@ -73,7 +73,7 @@ module.exports = {
     android: {
       package: "com.kombat.app",
       adaptiveIcon: {
-        backgroundColor: "#000E26",
+        backgroundColor: "#007AFD",
         foregroundImage: "./assets/android-icon-foreground.png",
         backgroundImage: "./assets/android-icon-background.png",
         monochromeImage: "./assets/android-icon-monochrome.png",
