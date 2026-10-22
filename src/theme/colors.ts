@@ -51,7 +51,6 @@ export const colors = {
 
   // ── Example card preview (Karten tab) ───────────────────────────────────
   cardFaceHeader:  '#3A78BB', // blue head band of the example card (white text >= 4.5:1)
-  cardFaceMotif:   '#EEF3F9', // light area behind the category motif
   cardBackDeep:    '#173F68', // dark blue back peeking out behind the example card
 
   // ── Card game screen (SparringChallengeScreen only) ───────────────────────

@@ -9,7 +9,8 @@ import type { RootStackParamList } from '../navigation/types';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { previewChallenges } from '../utils/challengeAvailability';
 import { planForProduct } from '../utils/subscriptionPlans';
-import { CardsCta, CardsFocusPanel, CardsHero, CardsSafetyNote, CardsSteps } from '../components/challenge/CardsLanding';
+import { CardsBenefitEntry, CardsCta, CardsHero, CardsSteps } from '../components/challenge/CardsLanding';
+import { CardsBenefits, CardsClosingTitle, CardsHonestNote, CardsRoundExample, CardsWhy } from '../components/challenge/CardsStory';
 import CardsPreviewDeck from '../components/challenge/CardsPreviewDeck';
 import CardGameInvite from '../components/challenge/CardGameInvite';
 import { TabBarSpacer } from '../components/navigation/SparrTabBar';
@@ -25,9 +26,12 @@ export default function CardsScreen(): React.ReactElement {
   // so returning with access starts the game right away.
   const [inviteVisible, setInviteVisible] = useState(false);
   const paywallFromInviteRef = useRef(false);
-  const [price, setPrice] = useState<string | null>(null);
+  const [product, setProduct] = useState<{ price: string; period: string | null } | null>(null);
   // Released examples only; computed once, the list is static.
   const [previewCards] = useState(previewChallenges);
+  // Target of the coach entry ("what's in it for your sparring").
+  const scrollRef = useRef<ScrollView>(null);
+  const explainY = useRef(0);
 
   useFocusEffect(useCallback(() => {
     if (firstFocus.current) {
@@ -67,14 +71,24 @@ export default function CardsScreen(): React.ReactElement {
         const offerings = await Purchases.getOfferings();
         const source = offerings.current ?? Object.values(offerings.all)[0];
         const cardsPkg = source?.availablePackages.find((pkg) => planForProduct(pkg.product.identifier) === 'cards');
-        if (active) setPrice(cardsPkg !== undefined ? cardsPkg.product.priceString : null);
+        if (active) setProduct(cardsPkg !== undefined ? { price: cardsPkg.product.priceString, period: cardsPkg.product.subscriptionPeriod } : null);
       } catch {
-        if (active) setPrice(null);
+        if (active) setProduct(null);
       }
     }
     void loadPrice();
     return () => { active = false; };
   }, []);
+
+  // Billing period from the store product (ISO 8601); unknown periods show the bare price.
+  const price = product === null ? null
+    : product.period === 'P1M' ? t('challenge.intro.pricePerMonth', { price: product.price })
+    : product.period === 'P1Y' ? t('challenge.landing.pricePerYear', { price: product.price })
+    : product.price;
+
+  function scrollToExplanation(): void {
+    scrollRef.current?.scrollTo({ y: Math.max(0, explainY.current - 16), animated: true });
+  }
 
   if (loading || checking) {
     return (
@@ -102,19 +116,35 @@ export default function CardsScreen(): React.ReactElement {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <CardsHero />
         <CardsPreviewDeck cards={previewCards} />
-        {/* The game route still checks access itself (deep links, failed checks). */}
-        <CardsCta
-          onStart={startGame}
-          needsSubscription={!entitlement.hasAccess}
-          price={price !== null ? t('challenge.intro.pricePerMonth', { price }) : null}
-        />
-        <View style={styles.explain}>
+        {/* Without access the benefit comes first, with access the game start. The
+            order is fixed once the status is known (loading shows the spinner above).
+            Both start buttons use one entry; the game route still checks access itself. */}
+        <View style={styles.actions}>
+          {entitlement.hasAccess ? (
+            <>
+              <CardsCta onStart={startGame} needsSubscription={false} price={price} />
+              <CardsBenefitEntry onPress={scrollToExplanation} />
+            </>
+          ) : (
+            <>
+              <CardsBenefitEntry onPress={scrollToExplanation} />
+              <CardsCta onStart={startGame} needsSubscription price={price} />
+            </>
+          )}
+        </View>
+        <View style={styles.explain} onLayout={(e) => { explainY.current = e.nativeEvent.layout.y; }}>
+          <CardsWhy />
           <CardsSteps />
-          <CardsFocusPanel />
-          <CardsSafetyNote />
+          <CardsRoundExample />
+          <CardsBenefits />
+          <CardsHonestNote />
+        </View>
+        <View style={styles.closing}>
+          <CardsClosingTitle />
+          <CardsCta onStart={startGame} needsSubscription={!entitlement.hasAccess} price={price} />
         </View>
         <TabBarSpacer />
       </ScrollView>
@@ -126,9 +156,15 @@ export default function CardsScreen(): React.ReactElement {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   scroll: { flex: 1 },
-  content: { alignSelf: 'center', width: '100%', maxWidth: 640, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24, gap: 16 },
-  // Explanation follows the main action with a clear break.
-  explain: { marginTop: 24, gap: 24 },
+  // Tight first screen: deck, benefit entry and start button fit above the tab bar
+  // on common phones at normal text size; everything else scrolls regularly.
+  content: { alignSelf: 'center', width: '100%', maxWidth: 640, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  // The deck stage carries its own room for the tilted backs, so header, deck
+  // and switch row follow without extra gaps.
+  actions: { marginTop: 16, gap: 16 },
+  // Explanation follows the actions with a clear break; sections read like a short article.
+  explain: { marginTop: 48, gap: 48 },
+  closing: { marginTop: 48, gap: 24 },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   loadingText: { color: colors.textMuted, fontFamily: 'Inter_400Regular', fontSize: 15 },
   retryButton: { minHeight: 48, paddingHorizontal: 16, borderRadius: 12, backgroundColor: colors.accentBlue, alignItems: 'center', justifyContent: 'center' },

@@ -6,10 +6,7 @@ import type { SparringChallenge } from '../../data/sparringChallenges';
 import { colors } from '../../theme/colors';
 import { useLocalized } from '../../i18n/language';
 import SparrLogo from '../common/SparrLogo';
-import CardMotif from './CardMotif';
 import { CARD_RADIUS } from './cardLayout';
-
-const MOTIF_HEIGHT = 72;
 
 interface Props {
   card:      SparringChallenge;
@@ -20,8 +17,8 @@ interface Props {
 }
 
 // Front of an example card on the Karten tab, built like a playing card: blue head
-// band with category and difficulty, a motif for the category, then title and task
-// on the light face and a small footer. Every text wraps; long content makes the
+// band with category and difficulty, then title and task as the main content on the
+// light face (a short accent rule above the title) and a small footer. Every text wraps; long content makes the
 // card taller instead of being cut or shrunk.
 export default function CardPreviewFace({ card, width, height, onLayout }: Props): React.ReactElement {
   const { t } = useTranslation();
@@ -38,10 +35,8 @@ export default function CardPreviewFace({ card, width, height, onLayout }: Props
             <Text style={styles.levelText}>{t(`challenge.difficulty.${card.difficulty}`)}</Text>
           </View>
         </View>
-        <View style={styles.motif}>
-          <CardMotif focusDe={card.focus.de} height={MOTIF_HEIGHT} />
-        </View>
         <View style={styles.body}>
+          <View style={styles.accent} />
           <Text style={styles.title}>{tx(card.title)}</Text>
           <Text style={styles.task}>{tx(card.instruction)}</Text>
         </View>
@@ -84,7 +79,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.cardFaceHeader,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   category: {
     flexShrink: 1,
@@ -110,21 +105,23 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
-  motif: {
-    backgroundColor: colors.cardFaceMotif,
-    paddingVertical: 8,
-  },
   body: {
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
     gap: 8,
   },
+  accent: {
+    width: 24,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.accentBlue,
+  },
   title: {
     color: colors.text,
     fontFamily: 'Inter_700Bold',
     fontSize: 22,
-    lineHeight: 28,
+    lineHeight: 26,
   },
   task: {
     color: colors.text,
@@ -138,8 +135,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   footerText: {
     flexShrink: 1,

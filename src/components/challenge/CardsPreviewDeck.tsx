@@ -23,7 +23,7 @@ import { CARD_RADIUS } from './cardLayout';
 const OUT_MS = 160;
 const IN_MS  = 140;
 const MAX_CARD_WIDTH = 300;
-const MIN_CARD_HEIGHT = 300;
+const MIN_CARD_HEIGHT = 200;
 // Tilt and sideways shift of the two backs: only narrow strips show.
 const LEFT_TILT  = -5;
 const RIGHT_TILT = 6;
@@ -220,6 +220,7 @@ export default function CardsPreviewDeck({ cards }: Props): React.ReactElement |
           <Pressable
             style={({ pressed }) => [styles.nextButton, pressed && styles.nextButtonPressed]}
             onPress={next}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityHint={t('challenge.landing.deckA11yHint')}
           >
@@ -271,8 +272,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     columnGap: 16,
   },
+  // Compact row; hitSlop keeps the touch target at 48.
   nextButton: {
-    minHeight: 44,
+    minHeight: 32,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
