@@ -22,7 +22,6 @@ import { COACH_INVITING } from '../components/coach/coachFigures';
 import { useMountedOnce } from '../components/common/SheetShell';
 import { useStudio } from '../hooks/useStudio';
 import { useStudioAddress } from '../hooks/useStudioAddress';
-import { useVerification } from '../hooks/useVerification';
 import { useSparringChatList } from '../hooks/useSparringChatList';
 import { useOpenEvents } from '../hooks/useOpenEvents';
 import { useEventActions } from '../hooks/useEventActions';
@@ -58,7 +57,6 @@ import MapTimeFilter from '../components/sparring/MapTimeFilter';
 import SparringMapView from '../components/sparring/SparringMapView';
 import { useGym } from '../hooks/useGyms';
 import { getTimeWindow } from '../utils/sparringTimeWindow';
-import { canJoinSparring } from '../utils/sparringAccess';
 import { resolveCommitmentCta } from '../utils/sparringCommitment';
 import { nearbyRadiusWithin } from '../utils/joinGate';
 import type { SparringWithMeta } from '../hooks/useOpenSparrings';
@@ -174,15 +172,11 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const { events, refetch: refetchEvents } = useOpenEvents(0, SHOW_EVENTS);
   const { createEvent, signUp: signUpEvent, cancelSignup: cancelSignupEvent, deactivateEvent } = useEventActions();
 
-  // ── Studio / verification ─────────────────────────────────────────────────
+  // ── Studio ────────────────────────────────────────────────────────────────
   const { currentStudio } = useStudio();
   const { address: studioAddress, lat: studioLat, lng: studioLng } = useStudioAddress(
     currentStudio?.id ?? '',
   );
-  const { tier, refetch: refetchVerification } = useVerification();
-
-  // Keep verification tier fresh when returning to the map.
-  useFocusRefetch(refetchVerification);
   // Read markers are written inside the chat screen; refresh the badge on return.
   useFocusRefetch(() => { void refetchChatList(); });
   const {
@@ -483,20 +477,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     setSelected(s);
   }, []);
 
-  // ── Guard: require verified user before interacting ───────────────────────
-  function requireVerified(): boolean {
-    if (tier === 'verified') return true;
-    Alert.alert(
-      t('map.screen.verifyTitle'),
-      t('map.screen.verifyMessage'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('map.screen.verifyNow'), onPress: () => navigation.navigate('Verification') },
-      ],
-    );
-    return false;
-  }
-
   // Private sparrings need the creator subscription (see creatorGateAllows).
   // Without it the coach invite comes first, the paywall only on request.
   function requireCreator(gymId: string | null = null): boolean {
@@ -569,7 +549,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (route.params?.openCreate !== true) return;
     const gymId = route.params?.createAtGymId ?? null;
     navigation.setParams({ openCreate: undefined, createAtGymId: undefined });
-    if (requireVerified() && requireCreator(gymId)) {
+    if (requireCreator(gymId)) {
       setCreateGymId(gymId);
       openCreateFlow();
     }
@@ -651,7 +631,10 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   const tappedPreview = previewId !== null ? filteredSparrings.find((s) => s.id === previewId) ?? null : null;
   // Search results come nearest first.
   const searchKey = `${radiusKm ?? 'all'}:${searchLat ?? ''}:${searchLng ?? ''}`;
-  const preview = tappedPreview ?? (autoClosedFor === searchKey ? null : searchFilteredSparrings[0] ?? null);
+  // No automatic pick while the radius only grew from zooming out: zooming is
+  // browsing, a card popping up there gets in the way.
+  const autoPickAllowed = autoClosedFor !== searchKey && radiusKm === fitRadiusKm;
+  const preview = tappedPreview ?? (autoPickAllowed ? searchFilteredSparrings[0] ?? null : null);
 
   function closePreview(): void {
     setPreviewId(null);
@@ -687,7 +670,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     now:           new Date(),
     isFull:        selected.max_slots - selected.signup_count <= 0,
     isCreator:     selected.created_by === user?.id,
-    verifiedBlock: !canJoinSparring(selected.verified_only, tier),
   }).type === 'join';
   const joinFlow = useSparringJoinFlow({
     sparringId:     selected?.id ?? null,
@@ -709,10 +691,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
 
   function handleJoinSparring(): void {
     if (selected === null) return;
-    if (!canJoinSparring(selected.verified_only, tier)) {
-      requireVerified();
-      return;
-    }
     joinFlow.start();
   }
 
@@ -984,7 +962,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             onRetry={refetchNearby}
             onPickLocation={() => setLocationPickerVisible(true)}
             onWiden={widen}
-            onCreate={() => { if (requireVerified() && requireCreator()) openCreateFlow(); }}
+            onCreate={() => { if (requireCreator()) openCreateFlow(); }}
             onAdjust={() => setSearchOpen(true)}
             header={searchHint}
           />
@@ -1076,7 +1054,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
             onClose={() => setWatchEmptyClosed(true)}
             action={{
               label: t('map.screen.offerWatchEvent'),
-              onPress: () => { if (requireVerified()) setCreateEventVisible(true); },
+              onPress: () => setCreateEventVisible(true),
             }}
           />
         )}
@@ -1085,7 +1063,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           totalUnread={totalUnread}
           primaryLabel={mapMode === 'sparrings' ? t('map.screen.createSparring') : t('map.screen.createEvent')}
           onPrimary={() => {
-            if (!requireVerified()) return;
             if (mapMode === 'sparrings') {
               if (requireCreator()) openCreateFlow();
             } else {
@@ -1099,7 +1076,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
       <SparringDetailSheet
         sparring={selected}
         currentUserId={user?.id ?? null}
-        userTier={tier}
         onClose={() => {
           setConsentVisible(false);
           setCommitmentResult(null);

@@ -14,7 +14,6 @@ const common: LocaleShape<typeof de> = {
   later: 'Later',
   retry: 'Try again',
   close: 'Close',
-  verified: 'Verified',
   logout: 'Log out',
   // Server (RAISE EXCEPTION) messages, German exactly as the server sends them;
   // English for the German server messages (src/utils/serverErrorText.ts).

@@ -75,7 +75,6 @@ interface PublicProfile {
   gender:            string | null;
   disciplines:       string[];
   show_fight_record: boolean;
-  coach_verified_at: string | null;
   studio_id:         string | null;
   nickname:          string | null;
   weight_class:      string | null;
@@ -102,11 +101,6 @@ interface PublicProfile {
   home_gym_id:       string | null;
 }
 
-interface CurrentUserCoachInfo {
-  is_coach:  boolean;
-  studio_id: string | null;
-}
-
 // ── component ──────────────────────────────────────────────────────────────────
 
 type NavProp    = NativeStackNavigationProp<RootStackParamList, 'PublicProfile'>;
@@ -125,11 +119,6 @@ export default function PublicProfileScreen(): React.ReactElement {
   const [profileLoading, setProfileLoading] = useState(true);
   // "Profil teilen": preview of the collectible fighter card
   const [shareVisible,   setShareVisible]   = useState(false);
-
-  const [currentUserCoach, setCurrentUserCoach] = useState<CurrentUserCoachInfo | null>(null);
-
-  const [vouching, setVouching] = useState(false);
-  const [vouched,  setVouched]  = useState(false);
 
   const [ratingTrigger, setRatingTrigger] = useState(0);
   const { averageStars, ratingCount, existingRating, submitRating, canRate } =
@@ -161,7 +150,7 @@ export default function PublicProfileScreen(): React.ReactElement {
     setProfileLoading(true);
     void supabase
       .from('profiles')
-      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, coach_verified_at, studio_id, nickname, weight_class, weight_kg, height_cm, arm_span_cm, nationality, country_code, hometown, bio, instagram_url, profile_code, stance, training_since, training_frequency, is_professional, card_frame, motto, favorite_move, training_focus, cover_url, cover_focus_x, cover_focus_y, home_gym_id')
+      .select('name, age_years, avatar_url, gender, disciplines, show_fight_record, studio_id, nickname, weight_class, weight_kg, height_cm, arm_span_cm, nationality, country_code, hometown, bio, instagram_url, profile_code, stance, training_since, training_frequency, is_professional, card_frame, motto, favorite_move, training_focus, cover_url, cover_focus_x, cover_focus_y, home_gym_id')
       .eq('id', userId)
       .single()
       .then(({ data }) => {
@@ -174,7 +163,6 @@ export default function PublicProfileScreen(): React.ReactElement {
             gender:            data.gender ?? null,
             disciplines:       (data.disciplines as string[]) ?? [],
             show_fight_record: (data.show_fight_record as boolean) ?? true,
-            coach_verified_at: data.coach_verified_at ?? null,
             studio_id:         data.studio_id ?? null,
             nickname:          data.nickname ?? null,
             weight_class:      data.weight_class ?? null,
@@ -228,30 +216,7 @@ export default function PublicProfileScreen(): React.ReactElement {
     return () => { cancelled = true; };
   }, [userId]);
 
-  // Load current user's coach info for vouch visibility
-  useEffect(() => {
-    if (currentUserId === null || currentUserId === userId) return;
-    let cancelled = false;
-    void supabase
-      .from('profiles')
-      .select('is_coach, studio_id')
-      .eq('id', currentUserId)
-      .single()
-      .then(({ data }) => {
-        if (cancelled || data === null) return;
-        setCurrentUserCoach({ is_coach: data.is_coach, studio_id: data.studio_id ?? null });
-      });
-    return () => { cancelled = true; };
-  }, [currentUserId, userId]);
-
   // ── handlers ──────────────────────────────────────────────────────────────────
-
-  const handleVouch = useCallback(async () => {
-    setVouching(true);
-    const { error } = await supabase.rpc('verify_member', { p_user_id: userId });
-    setVouching(false);
-    if (error === null) setVouched(true);
-  }, [userId]);
 
 
   const handleSubmitRating = useCallback(async () => {
@@ -287,16 +252,6 @@ export default function PublicProfileScreen(): React.ReactElement {
     canRate(sparringScheduledAt) &&
     existingRating === null;
 
-  const canVouch =
-    currentUserCoach !== null &&
-    currentUserCoach.is_coach === true &&
-    currentUserCoach.studio_id !== null &&
-    currentUserCoach.studio_id === profile?.studio_id &&
-    currentUserId !== userId &&
-    profile?.coach_verified_at == null;
-
-  // Existing meaning: confirmed by a coach of the studio (or just vouched).
-  const isVerified = profile?.coach_verified_at != null || vouched;
   const bio        = profile?.bio?.trim() ?? '';
 
   // ── render ────────────────────────────────────────────────────────────────────
@@ -313,7 +268,6 @@ export default function PublicProfileScreen(): React.ReactElement {
     name:          profile?.name ?? null,
     nickname:      profile?.nickname ?? null,
     avatarUrl:     profile?.avatar_url ?? null,
-    isVerified,
     disciplines:   profile?.disciplines ?? [],
     weightKg:      profile?.weight_kg ?? null,
     heightCm:      profile?.height_cm ?? null,
@@ -388,14 +342,6 @@ export default function PublicProfileScreen(): React.ReactElement {
           actions={(
             <View style={styles.cardActions}>
               {/* Main action: only what this viewer can actually do here */}
-              {canVouch && !vouched && (
-                <PrimaryButton
-                  icon="shield-checkmark-outline"
-                  label={t('profile.public.vouch')}
-                  loading={vouching}
-                  onPress={() => { void handleVouch(); }}
-                />
-              )}
               {canRateNow && (
                 <PrimaryButton icon="star-outline" label={t('profile.public.rateNow')} onPress={() => setRatingModalVisible(true)} />
               )}

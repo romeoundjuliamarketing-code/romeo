@@ -25,7 +25,7 @@ interface Props {
   onPickLocation: () => void;
   onRetry:        () => void;
   onWiden:        () => void;
-  /** Opens the existing create flow (sparring map, verification applies there). */
+  /** Opens the existing create flow (sparring map). */
   onCreate:       () => void;
   /** The user has an upcoming commitment (shown above): the empty state then
    *  never says the user's own round is missing. */

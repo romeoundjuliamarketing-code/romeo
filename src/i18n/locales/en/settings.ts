@@ -74,19 +74,6 @@ const settings: LocaleShape<typeof de> = {
     hint: 'You will no longer see chat messages from blocked people. They are not notified about it.',
     empty: 'You have not blocked anyone.',
   },
-  verification: {
-    title: 'Verification',
-    verifiedTitle: 'You are verified',
-    verifiedSubtitle: 'You can join sparring sessions and create your own.',
-    intro: 'So your sparring partners know you are a real, verified person. Only verified members can join sparring sessions and create their own.',
-    step1: 'Step 1 – Email confirmed',
-    confirmed: 'Confirmed',
-    notConfirmed: 'Not confirmed yet',
-    step2: 'Step 2 – Proof of authenticity',
-    step2Hint: 'Enter your address – or join a gym or get confirmed by a coach.',
-    addressPlaceholder: 'Street, postcode, city',
-    save: 'Save',
-  },
 };
 
 export default settings;

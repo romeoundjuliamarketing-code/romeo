@@ -70,10 +70,6 @@ export default function SparringCommitmentActions({
     );
   }
 
-  if (cta.type === 'verified_required') {
-    return <Status title={t('sparring.commitment.verifiedOnlyTitle')} sub={t('sparring.commitment.verifiedOnlyBody')} />;
-  }
-
   if (cta.type === 'waitlisted') {
     return (
       <Status

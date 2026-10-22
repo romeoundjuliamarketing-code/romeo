@@ -14,7 +14,6 @@ interface Props {
   scheduledAt:   string;
   durationMin:   number;
   isFeatured:    boolean;
-  verifiedOnly:  boolean;
   isCreator:     boolean;
   /** Organizer changed the sparring after publishing it */
   edited:        boolean;
@@ -32,7 +31,7 @@ const BAND_TILT = '-1.5deg';
 // strong accent) and where (children, directly below the band). Dates in
 // device-local time like everywhere else.
 export default function SparringDetailHeader({
-  title, discipline, scheduledAt, durationMin, isFeatured, verifiedOnly, isCreator, edited, hostLine, children,
+  title, discipline, scheduledAt, durationMin, isFeatured, isCreator, edited, hostLine, children,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -44,7 +43,6 @@ export default function SparringDetailHeader({
   const meta = [
     discipline === 'Sonstiges' ? null : disciplineLabel(discipline, language),
     isCreator ? t('sparring.detailHeader.yours') : null,
-    verifiedOnly ? t('sparring.detailHeader.verifiedOnly') : null,
     isFeatured ? 'Sparr Pick' : null,
   ].filter((v): v is string => v !== null);
 

@@ -120,7 +120,7 @@ export default function ProfileHeader({
             minimumFontScale={0.55}
             maxFontSizeMultiplier={1.2}
             accessibilityRole="header"
-            accessibilityLabel={data.isVerified ? t('profile.header.verifiedName', { name: displayName }) : displayName}
+            accessibilityLabel={displayName}
           >
             {displayName}
           </Text>
@@ -133,11 +133,6 @@ export default function ProfileHeader({
 
         <View style={styles.avatar}>
           <ZoomableProfilePhoto uri={data.avatarUrl} name={data.name} size={AVATAR} />
-          {data.isVerified && (
-            <View style={styles.verified} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-              <Ionicons name="checkmark-circle" size={24} color={colors.accentBlue} />
-            </View>
-          )}
         </View>
       </View>
 
@@ -254,13 +249,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right:    SIDE,
     bottom:   -AVATAR_OVERLAP,
-  },
-  verified: {
-    position:        'absolute',
-    right:           -8,
-    bottom:          -8,
-    borderRadius:    16,
-    backgroundColor: colors.card,
   },
   below: {
     paddingHorizontal: SIDE,

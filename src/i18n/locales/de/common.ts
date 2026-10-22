@@ -11,7 +11,6 @@ const common = {
   later: 'Später',
   retry: 'Erneut versuchen',
   close: 'Schließen',
-  verified: 'Verifiziert',
   logout: 'Abmelden',
   // Server (RAISE EXCEPTION) messages, German exactly as the server sends them;
   // matched by src/utils/serverErrorText.ts.

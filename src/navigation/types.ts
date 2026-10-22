@@ -80,5 +80,4 @@ export type RootStackParamList = {
   Notifications: undefined;
   SparringChallenge: undefined;
   EditProfile: undefined;
-  Verification: undefined;
 };

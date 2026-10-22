@@ -21,7 +21,6 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import SparringChallengeScreen from '../screens/SparringChallengeScreen';
 import CardGameGate from '../components/challenge/CardGameGate';
 import EditProfileScreen from '../screens/EditProfileScreen';
-import VerificationScreen from '../screens/VerificationScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
@@ -80,11 +79,6 @@ function AppNavigator({ entry }: { entry: IntroExit | null }) {
       <AppStack.Screen name="BlockedUsers" component={BlockedUsersScreen} />
       {/* Regular push: editing is part of the profile flow, not a stacked sheet */}
       <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
-      <AppStack.Screen
-        name="Verification"
-        component={VerificationScreen}
-        options={{ presentation: 'modal' }}
-      />
       <AppStack.Screen name="Paywall" component={PaywallScreen} />
       <AppStack.Screen
         name="SparringMap"

@@ -100,7 +100,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(48),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'join', full: false });
   });
@@ -112,21 +111,8 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(48),
       isFull: true,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'join', full: true });
-  });
-
-  it('nicht angemeldet, verified_only blockiert -> verified_required', () => {
-    const cta = resolveCommitmentCta({
-      myStatus: null,
-      scheduledAt: SCHEDULED_AT,
-      now: hoursBefore(48),
-      isFull: false,
-      isCreator: false,
-      verifiedBlock: true,
-    });
-    expect(cta).toEqual({ type: 'verified_required' });
   });
 
   it('cancelled/expired verhalten sich wie nicht angemeldet', () => {
@@ -136,7 +122,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(48),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     const expired = resolveCommitmentCta({
       myStatus: 'expired' as const,
@@ -144,7 +129,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(48),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cancelled).toEqual({ type: 'join', full: false });
     expect(expired).toEqual({ type: 'join', full: false });
@@ -157,7 +141,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(48),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'pending', confirmUrgent: false, cancelIsFree: true });
   });
@@ -169,7 +152,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(12),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'pending', confirmUrgent: true, cancelIsFree: true });
   });
@@ -181,7 +163,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(3),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'pending', confirmUrgent: true, cancelIsFree: false });
   });
@@ -193,7 +174,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(48),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     const late = resolveCommitmentCta({
       myStatus: 'confirmed' as const,
@@ -201,7 +181,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(1),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(early).toEqual({ type: 'confirmed', cancelIsFree: true });
     expect(late).toEqual({ type: 'confirmed', cancelIsFree: false });
@@ -214,7 +193,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursBefore(1),
       isFull: true,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'waitlisted' });
   });
@@ -226,7 +204,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursAfter(1),
       isFull: false,
       isCreator: false,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'none' });
   });
@@ -238,7 +215,6 @@ describe('resolveCommitmentCta', () => {
       now: hoursAfter(1),
       isFull: false,
       isCreator: true,
-      verifiedBlock: false,
     });
     expect(cta).toEqual({ type: 'started_organizer' });
   });

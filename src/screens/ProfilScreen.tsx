@@ -39,7 +39,6 @@ import { useStudio } from '../hooks/useStudio';
 import { useMyStudioRequests } from '../hooks/useMyStudioRequests';
 import { useProfile } from '../hooks/useProfile';
 import { useStudioInvite } from '../hooks/useStudioInvite';
-import { useVerification } from '../hooks/useVerification';
 import { useMyVenue } from '../hooks/useMyVenue';
 import { supabase } from '../lib/supabase';
 import QRScannerModal from '../components/profil/QRScannerModal';
@@ -63,7 +62,6 @@ export default function ProfilScreen(): React.ReactElement {
   const { profile, updateProfile } = useProfile(focusTrigger);
   const { acceptInvite } = useStudioInvite();
   const { fights, loading: fightsLoading, addFight, deleteFight } = useFightRecord(focusTrigger);
-  const { tier } = useVerification(focusTrigger);
   const { venueId } = useMyVenue(focusTrigger);
   const { gym: homeGym } = useGym(profile?.home_gym_id ?? null, focusTrigger);
 
@@ -151,7 +149,6 @@ export default function ProfilScreen(): React.ReactElement {
     name:          profile?.name ?? null,
     nickname:      profile?.nickname ?? null,
     avatarUrl:     profile?.avatar_url ?? null,
-    isVerified:    tier === 'verified',
     disciplines:   profile?.disciplines ?? [],
     weightKg:      profile?.weight_kg ?? null,
     heightCm:      profile?.height_cm ?? null,
@@ -245,16 +242,6 @@ export default function ProfilScreen(): React.ReactElement {
 
           {/* Account matters, kept quiet at the end */}
           <View style={styles.manage}>
-            {tier !== 'verified' && (
-              <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('Verification')} accessibilityRole="button">
-                <Ionicons name="shield-checkmark-outline" size={22} color={colors.accentBlue} />
-                <View style={styles.flex}>
-                  <Text style={styles.linkTitle}>{t('profile.screen.verification')}</Text>
-                  <Text style={styles.linkSub}>{tier === 'basic' ? t('profile.screen.verificationAlmost') : t('profile.screen.notVerified')}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            )}
             {venueId !== null && (
               <TouchableOpacity style={styles.linkRow} onPress={() => navigation.navigate('VenueDetail', { venueId })} accessibilityRole="button">
                 <Ionicons name="business-outline" size={22} color={colors.accentBlue} />

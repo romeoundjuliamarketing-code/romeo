@@ -25,8 +25,6 @@ export interface FighterCardData {
   name:          string | null;
   nickname:      string | null;
   avatarUrl:     string | null;
-  /** Keeps its existing meaning per screen (own: tier 'verified'; foreign: coach-confirmed). */
-  isVerified:    boolean;
   disciplines:   string[];
   weightKg:      number | null;
   heightCm:      number | null;
@@ -153,12 +151,6 @@ export function CardFront({ data, frame, photoHeight = 240 }: {
         <View style={styles.markChip}>
           <SparrLogo size={20} />
         </View>
-        {data.isVerified && (
-          <View style={styles.verifiedChip} accessible accessibilityLabel={t('profile.card.verified')}>
-            <Ionicons name="checkmark-circle" size={16} color={colors.accentBlue} />
-            <Text style={styles.verifiedText}>{t('profile.card.verified')}</Text>
-          </View>
-        )}
       </View>
 
       <View style={[styles.band, { backgroundColor: frame.band }]}>
@@ -314,23 +306,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     alignItems:      'center',
     justifyContent:  'center',
-  },
-  verifiedChip: {
-    position:          'absolute',
-    top:               16,
-    right:             16,
-    flexDirection:     'row',
-    alignItems:        'center',
-    gap:               4,
-    paddingHorizontal: 8,
-    minHeight:         32,
-    borderRadius:      12,
-    backgroundColor:   colors.card,
-  },
-  verifiedText: {
-    fontSize:   12,
-    fontWeight: '700',
-    color:      colors.text,
   },
   band: {
     paddingHorizontal: 16,

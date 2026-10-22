@@ -54,7 +54,6 @@ export function isSparringChatMember(isCreator: boolean, myStatus: SparringSignu
 // status + time delta imply.
 export type CommitmentCta =
   | { type: 'join'; full: boolean }
-  | { type: 'verified_required' }
   | { type: 'pending'; confirmUrgent: boolean; cancelIsFree: boolean }
   | { type: 'confirmed'; cancelIsFree: boolean }
   | { type: 'waitlisted' }
@@ -67,11 +66,10 @@ export interface ResolveCommitmentCtaParams {
   now:           Date;
   isFull:        boolean;
   isCreator:     boolean;
-  verifiedBlock: boolean;
 }
 
 export function resolveCommitmentCta({
-  myStatus, scheduledAt, now, isFull, isCreator, verifiedBlock,
+  myStatus, scheduledAt, now, isFull, isCreator,
 }: ResolveCommitmentCtaParams): CommitmentCta {
   // After the start there is no more join/confirm/cancel CTA. The organizer
   // gets a distinct state so the sheet knows to point at the attendance UI.
@@ -95,8 +93,5 @@ export function resolveCommitmentCta({
 
   // Not joined, or a past commitment ended (cancelled / cancelled_late /
   // expired) — free to join again, possibly onto the waitlist.
-  if (verifiedBlock) {
-    return { type: 'verified_required' };
-  }
   return { type: 'join', full: isFull };
 }

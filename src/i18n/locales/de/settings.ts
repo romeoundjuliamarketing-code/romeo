@@ -71,19 +71,6 @@ const settings = {
     hint: 'Von blockierten Personen siehst du keine Chat-Nachrichten mehr. Sie werden darüber nicht benachrichtigt.',
     empty: 'Du hast niemanden blockiert.',
   },
-  verification: {
-    title: 'Verifizierung',
-    verifiedTitle: 'Du bist verifiziert',
-    verifiedSubtitle: 'Du kannst an Sparrings teilnehmen und eigene erstellen.',
-    intro: 'Damit deine Sparringspartner wissen, dass du eine echte, überprüfte Person bist. Nur verifizierte Mitglieder können an Sparrings teilnehmen und eigene erstellen.',
-    step1: 'Schritt 1 – E-Mail bestätigt',
-    confirmed: 'Bestätigt',
-    notConfirmed: 'Noch nicht bestätigt',
-    step2: 'Schritt 2 – Echtheits-Nachweis',
-    step2Hint: 'Gib deine Adresse ein – oder tritt einem Studio bei bzw. lass dich von einem Coach bestätigen.',
-    addressPlaceholder: 'Strasse, PLZ, Ort',
-    save: 'Speichern',
-  },
 } as const;
 
 export default settings;

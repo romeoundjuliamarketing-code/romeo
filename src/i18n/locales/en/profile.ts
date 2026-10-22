@@ -36,7 +36,6 @@ const profile: LocaleShape<typeof de> = {
     weight: 'Weight',
     height: 'Height',
     stance: 'Stance',
-    verified: 'Verified',
     backTitle: 'Fighter card',
     motto: 'Motto',
     favoriteMove: 'Favourite move',
@@ -114,7 +113,6 @@ const profile: LocaleShape<typeof de> = {
     experience: '{{label}} · {{sub}} experience',
   },
   header: {
-    verifiedName: '{{name}}, verified',
     flag: 'Flag: {{country}}',
   },
   addFight: {
@@ -285,7 +283,6 @@ const profile: LocaleShape<typeof de> = {
     unblock: 'Unblock',
     qrLabel: 'QR code and profile ID',
     report: 'Report profile',
-    vouch: 'Confirm as member',
     rateNow: 'Rate now',
     share: 'Share',
     blockedHint: 'You have blocked this person. You will not see their chat messages.',
@@ -345,9 +342,6 @@ const profile: LocaleShape<typeof de> = {
     settings: 'Settings',
     edit: 'Edit',
     share: 'Share',
-    verification: 'Verification',
-    verificationAlmost: 'Almost there – one proof is missing',
-    notVerified: 'Not verified',
     myLocation: 'My location',
     studioCreateFailed: 'The studio could not be created.',
     enterProfileCode: 'Enter profile code',

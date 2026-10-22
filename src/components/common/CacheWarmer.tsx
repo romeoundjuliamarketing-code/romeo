@@ -5,7 +5,6 @@ import { useFightRecord } from '../../hooks/useFightRecord';
 import { useStudio } from '../../hooks/useStudio';
 import { useProfile } from '../../hooks/useProfile';
 import { useEntitlement } from '../../hooks/useEntitlement';
-import { useVerification } from '../../hooks/useVerification';
 
 // Hooks deliberately excluded:
 // - Sparring-map hooks: excluded per spec (too heavy).
@@ -16,7 +15,6 @@ export default function CacheWarmer(): null {
   useStudio(0);
   useProfile(0);
   useEntitlement(0);
-  useVerification(0);
 
   return null;
 }

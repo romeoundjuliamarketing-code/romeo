@@ -33,7 +33,6 @@ const profile = {
     weight: 'Gewicht',
     height: 'Größe',
     stance: 'Auslage',
-    verified: 'Verifiziert',
     backTitle: 'Kämpferkarte',
     motto: 'Motto',
     favoriteMove: 'Lieblingsmove',
@@ -111,7 +110,6 @@ const profile = {
     experience: '{{label}} · {{sub}} Erfahrung',
   },
   header: {
-    verifiedName: '{{name}}, verifiziert',
     flag: 'Flagge: {{country}}',
   },
   addFight: {
@@ -282,7 +280,6 @@ const profile = {
     unblock: 'Blockierung aufheben',
     qrLabel: 'QR-Code und Profil-ID',
     report: 'Profil melden',
-    vouch: 'Als Mitglied bestätigen',
     rateNow: 'Jetzt bewerten',
     share: 'Teilen',
     blockedHint: 'Du hast diese Person blockiert. Ihre Chat-Nachrichten siehst du nicht.',
@@ -342,9 +339,6 @@ const profile = {
     settings: 'Einstellungen',
     edit: 'Bearbeiten',
     share: 'Teilen',
-    verification: 'Verifizierung',
-    verificationAlmost: 'Fast geschafft – ein Nachweis fehlt',
-    notVerified: 'Nicht verifiziert',
     myLocation: 'Meine Location',
     studioCreateFailed: 'Studio konnte nicht erstellt werden.',
     enterProfileCode: 'Profil-Code eingeben',

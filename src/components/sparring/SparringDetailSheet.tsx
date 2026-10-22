@@ -21,7 +21,6 @@ import { colors } from '../../theme/colors';
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import { useSparringParticipants } from '../../hooks/useSparringParticipants';
 import type { RootStackParamList } from '../../navigation/types';
-import type { VerificationTier } from '../../utils/verificationTier';
 import { buildSparringShareUrl, coarseAreaLabel } from '../../utils/sparringShare';
 import { resolveCommitmentCta, isSparringChatMember, isBeforeCancelDeadline, hasStarted } from '../../utils/sparringCommitment';
 import { sparringLocationLines } from '../../utils/sparringDetail';
@@ -59,7 +58,6 @@ interface Props {
   /** Map/list selections carry the search distance; deep links do not. */
   sparring:          (SparringWithMeta & { distance_km?: number }) | null;
   currentUserId:     string | null;
-  userTier:          VerificationTier;
   onClose:           () => void;
   onJoin:            () => void;
   onConfirm:         () => void;
@@ -105,7 +103,7 @@ function formatDateTime(iso: string, t: TFunction, language: AppLanguage): strin
 }
 
 export default function SparringDetailSheet({
-  sparring, currentUserId, userTier, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onEdit, onOpenChat,
+  sparring, currentUserId, onClose, onJoin, onConfirm, onCancelSignup, onDeactivate, onEdit, onOpenChat,
   consentVisible, onConsentClose, onConsentConfirm, commitmentResult, onCommitmentResultClose,
   cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
   loading, joinFlow, onReachChanged, onFindNearby, arrivalHint = null,
@@ -164,9 +162,6 @@ export default function SparringDetailSheet({
   const slotsLeft    = sparring.max_slots - sparring.signup_count;
   const isFull       = slotsLeft <= 0;
   const isCreator    = currentUserId !== null && sparring.created_by === currentUserId;
-  // Block joining when this sparring requires verification and user is not verified
-  const verifiedBlock =
-    sparring.verified_only && userTier !== 'verified' && !sparring.is_signed_up;
   const started      = hasStarted(sparring.scheduled_at, new Date());
   // The organizer records attendance in the full list once it has started.
   const showFullList = listExpanded || (isCreator && started);
@@ -187,7 +182,6 @@ export default function SparringDetailSheet({
     now:           new Date(),
     isFull,
     isCreator,
-    verifiedBlock,
   });
   const myWaitlistEntry = participants.find((p) => p.user_id === currentUserId);
   const waitlistPosition = myWaitlistEntry?.waitlist_position ?? null;
@@ -325,7 +319,6 @@ export default function SparringDetailSheet({
                 scheduledAt={sparring.scheduled_at}
                 durationMin={sparring.duration_min}
                 isFeatured={sparring.is_featured}
-                verifiedOnly={sparring.verified_only}
                 isCreator={isCreator}
                 edited={sparring.edited_at !== null}
                 hostLine={
