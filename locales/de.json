@@ -2,6 +2,7 @@
   "ios": {
     "NSLocationWhenInUseUsageDescription": "Sparr zeigt dir Sparring-Partner in deiner Nähe und prüft deinen Standort beim Veröffentlichen, Zusagen und Einchecken. Er wird anderen nicht angezeigt.",
     "NSPhotoLibraryUsageDescription": "Sparr verwendet deine Fotos, um Bilder im Sparring-Chat zu senden.",
-    "NSCameraUsageDescription": "Sparr nutzt die Kamera, um QR-Codes von Kämpferprofilen und Sparring-Check-ins zu scannen."
+    "NSCameraUsageDescription": "Sparr nutzt die Kamera, um QR-Codes von Kämpferprofilen und Sparring-Check-ins zu scannen.",
+    "NSUserTrackingUsageDescription": "Sparr nutzt diese Erlaubnis, um zu messen, welche TikTok-Werbung zu Downloads und Abos führt. Deine Sparring-Daten werden dabei nicht geteilt."
   }
 }

@@ -36,6 +36,7 @@ import { NotificationsProvider } from '../context/NotificationsContext';
 import { markWelcomeIntroSeen, useWelcomeIntroSeen } from '../lib/welcomeIntro';
 import { authInitialRoute, isEntryLoading } from '../utils/authEntry';
 import { useOnboardingGate } from '../hooks/useOnboardingGate';
+import { useTikTokTracking } from '../hooks/useTikTokTracking';
 import IntroReplayScreen, { IntroFlow, type IntroExit } from '../screens/IntroScreen';
 import IntroLeaveLayer from '../components/intro/IntroLeaveLayer';
 import { FLOW_TOTAL_STEPS } from '../utils/intro';
@@ -157,6 +158,10 @@ export default function RootNavigator() {
   useEffect(() => {
     if (session !== null && introSeen === false) markWelcomeIntroSeen();
   }, [session, introSeen]);
+
+  // Tracking prompt only once the user is fully inside the app (after
+  // onboarding and intro), never during sign-up.
+  useTikTokTracking(session !== null && onboarding.status === 'ready' && onboarding.route === 'done' && onboarding.intro === null);
 
   if (PREVIEW_ONBOARDING) return <OnboardingPreview />;
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { getCached, setCached } from '../lib/queryCache';
+import { trackTikTokEvent } from '../lib/tiktok';
 import {
   onboardingRoute, onboardingSaveError, parseOnboardingState, routeAfterProfile,
   type OnboardingRoute, type OnboardingSaveError, type OnboardingState,
@@ -128,6 +129,8 @@ export function useOnboardingGate(userId: string | null): {
     try {
       const { error } = await supabase.rpc('complete_onboarding');
       if (error !== null) return false;
+      // Sent once the user allowed tracking (queued until the ATT prompt).
+      trackTikTokEvent('Registration');
       setState({ ...state, onboarding_completed: true, tour_status: 'in_progress', tour_station: 0, tour_version: INTRO_VERSION });
       // The intro follows right away; "done" is cached once it ended.
       setCached<boolean>(cacheKey(userId), false);

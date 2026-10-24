@@ -34,7 +34,7 @@ module.exports = {
     name: "Sparr",
     slug: "sparr",
     scheme: "sparr",
-    version: "1.4.0",
+    version: "1.4.1",
     updates: {
       url: "https://u.expo.dev/9811826e-5835-47ff-9c96-8fb7a14cdab3",
     },
@@ -68,6 +68,9 @@ module.exports = {
           "Sparr zeigt dir Sparring-Partner in deiner Nähe und prüft deinen Standort beim Veröffentlichen, Zusagen und Einchecken. Er wird anderen nicht angezeigt.",
         NSPhotoLibraryUsageDescription:
           "Sparr verwendet deine Fotos, um Bilder im Sparring-Chat zu senden.",
+        // App Tracking Transparency prompt for the TikTok App Events SDK
+        NSUserTrackingUsageDescription:
+          "Sparr nutzt diese Erlaubnis, um zu messen, welche TikTok-Werbung zu Downloads und Abos führt. Deine Sparring-Daten werden dabei nicht geteilt.",
       },
     },
     android: {
@@ -113,8 +116,8 @@ module.exports = {
       [
         "expo-camera",
         {
-          cameraPermission: "Sparr nutzt die Kamera, um QR-Codes von Kämpferprofilen und Sparring-Check-ins zu scannen.",
-          // QR scanning only: no microphone (iOS usage string + Android RECORD_AUDIO)
+          cameraPermission: "Sparr nutzt die Kamera für dein Profilbild und um QR-Codes von Kämpferprofilen und Sparring-Check-ins zu scannen.",
+          // Photos and QR scanning only: no microphone (iOS usage string + Android RECORD_AUDIO)
           microphonePermission: false,
           recordAudioAndroid: false,
         },
