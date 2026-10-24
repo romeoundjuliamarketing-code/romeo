@@ -6,8 +6,9 @@ import TrustOverlay from './TrustOverlay';
 import ReachIntroContent from './ReachIntroContent';
 import LocationPrimerContent from './LocationPrimerContent';
 import ReachLimitContent from './ReachLimitContent';
+import PhotoRequiredContent from './PhotoRequiredContent';
 
-export type JoinOverlay = 'intro' | 'primer' | 'explain' | 'limit';
+export type JoinOverlay = 'intro' | 'photo' | 'primer' | 'explain' | 'limit';
 
 // Everything the detail sheet needs to show the join gate: overlays (inside the
 // open modal) and the problem card.
@@ -20,6 +21,9 @@ export interface JoinFlowView {
   gate: JoinGate;
   onIntroNext: () => void;
   onPrimerAllow: () => void;
+  /** Uploads the profile photo from the photo step. */
+  uploadPhoto: (localUri: string) => Promise<{ error: string | null }>;
+  onPhotoUploaded: () => void;
   /** Closes the current overlay without marking anything as done. */
   onOverlayClose: () => void;
   onProblemAction: (action: TrustAction) => void;
@@ -41,6 +45,9 @@ export default function JoinFlowOverlay({ flow }: { flow: JoinFlowView }): React
       {flow.overlay === 'explain' && <ReachIntroContent mode="explain" onPrimary={flow.onOverlayClose} />}
       {flow.overlay === 'limit' && (
         <ReachLimitContent unlocked={flow.gate.kind === 'tooFar' && flow.gate.unlocked} onClose={flow.onOverlayClose} />
+      )}
+      {flow.overlay === 'photo' && (
+        <PhotoRequiredContent upload={flow.uploadPhoto} onUploaded={flow.onPhotoUploaded} onLater={flow.onOverlayClose} />
       )}
       {flow.overlay === 'primer' && (
         <LocationPrimerContent onAllow={flow.onPrimerAllow} onLater={flow.onOverlayClose} />

@@ -16,6 +16,11 @@ const sparringTrust = {
     allow: 'Check location',
     later: 'Later',
   },
+  photo: {
+    title: 'Show who’s coming',
+    body: 'For sparrings you need a profile photo that shows your face. That way your partner knows who they are meeting.',
+    later: 'Later',
+  },
   status: {
     startTitle: 'Start with your first sparring.',
     startBody: 'You can join and create sparrings up to {{base}} km from your location. After your first confirmed attendance, {{unlocked}} km are unlocked.',
@@ -75,6 +80,7 @@ const sparringTrust = {
     feedbackNotOpen: 'You can confirm the meetup after the planned end.',
     feedbackClosed: 'Feedback for this sparring is closed.',
     suggestionRateLimited: 'You have already suggested several places today. Please try again tomorrow.',
+    photoRequired: 'For sparrings you need a profile photo that shows your face.',
     generic: 'That didn’t work just now. Please try again.',
     network: 'No connection. Nothing was saved – please try again.',
   },
@@ -85,6 +91,7 @@ const sparringTrust = {
     mySparring: 'Go to my sparring',
     retry: 'Try again',
     settings: 'Open settings',
+    addPhoto: 'Add profile photo',
     close: 'Close',
   },
   location: {

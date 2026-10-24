@@ -16,6 +16,7 @@ import { useSearchLocation } from '../hooks/useSearchLocation';
 import { useSparringActions } from '../hooks/useSparringActions';
 import { useSparringReach } from '../hooks/useSparringReach';
 import { useSparringJoinFlow } from '../hooks/useSparringJoinFlow';
+import { useProfile } from '../hooks/useProfile';
 import ReachIntroSheet from '../components/sparring/trust/ReachIntroSheet';
 import CoachDialog from '../components/coach/CoachDialog';
 import { COACH_INVITING } from '../components/coach/coachFigures';
@@ -158,6 +159,11 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // Server-side reach status (radius, planned slot, intro state).
   const reach = useSparringReach();
   useFocusRefetch(reach.refetch);
+  // Own profile photo: required (face-checked) before joining or publishing.
+  const [profileRefresh, setProfileRefresh] = useState(0);
+  const { profile: ownProfile, uploadAvatar } = useProfile(profileRefresh);
+  useFocusRefetch(() => setProfileRefresh((n) => n + 1));
+  const needsPhoto = ownProfile !== null && (ownProfile.avatar_url ?? '').trim() === '';
   // Join reach drawn around the real device position (the server measures from
   // there), never around a hand-picked search place.
   const devicePosition = useDevicePosition();
@@ -675,6 +681,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     sparringId:     selected?.id ?? null,
     checkOnOpen:    joinCheckOnOpen,
     reachStatus:    reach.status,
+    needsPhoto,
+    uploadPhoto:    uploadAvatar,
     ackIntro:       reach.ackIntro,
     refetchReach:   reach.refetch,
     setBusy:        setActionLoading,
@@ -1152,6 +1160,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         visible={createSheetVisible}
         coachStudio={coachStudio}
         initialGym={createGymId !== null ? createGym : null}
+        needsPhoto={needsPhoto}
+        uploadPhoto={uploadAvatar}
         onClose={() => setCreateSheetVisible(false)}
         onPublished={(sparringId) => {
           setCreateSheetVisible(false);

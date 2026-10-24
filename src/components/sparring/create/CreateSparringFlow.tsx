@@ -23,6 +23,7 @@ import GymPickerSheet from '../../gym/GymPickerSheet';
 import TrustNoticeCard, { type TrustProblem } from '../trust/TrustNoticeCard';
 import LocationPrimerContent from '../trust/LocationPrimerContent';
 import ReachIntroContent from '../trust/ReachIntroContent';
+import PhotoRequiredContent from '../trust/PhotoRequiredContent';
 import FlowHeader from './FlowHeader';
 import FlowOverlay from './FlowOverlay';
 import StepWhat from './StepWhat';
@@ -48,6 +49,9 @@ interface Props {
   coachStudio:  DraftStudio | null;
   /** Entry from a gym page: this gym is preselected as the place. */
   initialGym:   Gym | null;
+  /** Own profile has no photo: asked for (face-checked) before publishing. */
+  needsPhoto:   boolean;
+  uploadPhoto:  (localUri: string) => Promise<{ error: string | null }>;
   onClose:      () => void;
   /** Called only after the server confirmed the publication. */
   onPublished:  (sparringId: string) => void;
@@ -62,7 +66,7 @@ interface Props {
 // Full-screen, three-step create flow: what -> when/where -> preview + publish.
 // The draft lives here so going back and forth keeps every input.
 export default function CreateSparringFlow({
-  visible, coachStudio, initialGym, onClose, onPublished, onSubscriptionRequired, onOpenSparring, onShowNearby,
+  visible, coachStudio, initialGym, needsPhoto, uploadPhoto, onClose, onPublished, onSubscriptionRequired, onOpenSparring, onShowNearby,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -76,7 +80,7 @@ export default function CreateSparringFlow({
   const [publishing, setPublishing] = useState(false);
   const publishingRef = useRef(false);
   const [gymPickerVisible, setGymPickerVisible] = useState(false);
-  const [overlay, setOverlay] = useState<'primer' | 'rules' | null>(null);
+  const [overlay, setOverlay] = useState<'photo' | 'primer' | 'rules' | null>(null);
   const [problem, setProblem] = useState<TrustProblem | null>(null);
   const [permissionMissing, setPermissionMissing] = useState(false);
   const [prefill, setPrefill] = useState<SearchPrefill | null>(null);
@@ -218,7 +222,9 @@ export default function CreateSparringFlow({
     goTo((step + 1) as FlowStep);
   }
 
-  async function handlePublish(): Promise<void> {
+  // skipPhotoCheck: the photo was just uploaded (needsPhoto still has the
+  // value from before the upload in this render).
+  async function handlePublish(skipPhotoCheck = false): Promise<void> {
     if (publishingRef.current) return;
     Keyboard.dismiss();
     const all: FlowErrors = { ...validateStep(3, draft, new Date()), ...filterErrors(draft) };
@@ -234,6 +240,10 @@ export default function CreateSparringFlow({
       return;
     }
     if (buildPublishInput(draft, coachStudio?.id ?? null) === null) return;
+    if (needsPhoto && !skipPhotoCheck) {
+      setOverlay('photo');
+      return;
+    }
     // Not decided yet, or denied but still askable: explain first, then ask.
     const permission = await getLocationPermissionState();
     if (permission === 'undetermined' || permission === 'denied') {
@@ -280,6 +290,7 @@ export default function CreateSparringFlow({
         break;
       }
       case 'howItWorks': setOverlay('rules'); break;
+      case 'addPhoto': setOverlay('photo'); break;
       case 'settings': openLocationSettings(); break;
       case 'retry': void handlePublish(); break;
     }
@@ -467,6 +478,15 @@ export default function CreateSparringFlow({
           }}
         />
 
+        {overlay === 'photo' && (
+          <FlowOverlay>
+            <PhotoRequiredContent
+              upload={uploadPhoto}
+              onUploaded={() => { setOverlay(null); setProblem(null); void handlePublish(true); }}
+              onLater={() => setOverlay(null)}
+            />
+          </FlowOverlay>
+        )}
         {overlay === 'primer' && (
           <FlowOverlay>
             <LocationPrimerContent

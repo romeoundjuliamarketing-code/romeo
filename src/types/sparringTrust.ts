@@ -28,6 +28,7 @@ export type TrustReason =
   | 'sparring_cancelled'
   | 'own_sparring'
   | 'verified_only'
+  | 'photo_required'
   | 'rules_required'
   | 'join_failed'
   | 'not_organizer'

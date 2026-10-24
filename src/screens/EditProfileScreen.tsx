@@ -244,7 +244,7 @@ export default function EditProfileScreen(): React.ReactElement {
             <View style={styles.intro}>
               <View>
                 <ProfilePhoto uri={avatar.localUri ?? profile?.avatar_url ?? null} name={draft.name} size={88} />
-                {avatar.uploading && (
+                {(avatar.uploading || avatar.checking) && (
                   <View style={styles.uploadOverlay}>
                     <ActivityIndicator color={colors.card} />
                   </View>
@@ -254,7 +254,7 @@ export default function EditProfileScreen(): React.ReactElement {
                 <Text style={styles.introTitle}>{t('profile.editScreen.yourPresence')}</Text>
                 <SecondaryButton
                   icon="camera-outline"
-                  label={avatar.uploading ? t('profile.editScreen.uploading') : t('profile.editScreen.changePhoto')}
+                  label={avatar.checking ? t('profile.photo.checking') : avatar.uploading ? t('profile.editScreen.uploading') : t('profile.editScreen.changePhoto')}
                   onPress={() => { void avatar.pick(); }}
                 />
                 <Text style={styles.introHint}>{t('profile.editScreen.seenBy')}</Text>

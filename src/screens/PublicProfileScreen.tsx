@@ -63,6 +63,7 @@ const REPORT_OPTIONS = [
   { value: 'unsportliches_verhalten', labelKey: 'profile.public.reportUnsporting'  },
   { value: 'gefaehrliches_verhalten', labelKey: 'profile.public.reportDangerous'   },
   { value: 'beleidigung',             labelKey: 'profile.public.reportHarassment' },
+  { value: 'fake_profilbild',         labelKey: 'profile.public.reportFakePhoto'  },
 ] as const satisfies readonly { value: ReportReason; labelKey: string }[];
 
 // ── types ──────────────────────────────────────────────────────────────────────

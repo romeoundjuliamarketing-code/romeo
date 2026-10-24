@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'expo.modules.sparrfacedetector'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.sparrfacedetector"
+  defaultConfig {
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  // Bundled model: works without Google Play Services and without a first-use download.
+  implementation 'com.google.mlkit:face-detection:16.1.7'
+}

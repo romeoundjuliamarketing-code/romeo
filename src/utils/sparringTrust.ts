@@ -52,7 +52,7 @@ export function formatTooFarKm(distanceM: number | undefined | null, radiusKm: n
   return Math.round(km).toLocaleString(locale);
 }
 
-export type TrustAction = 'nearby' | 'howItWorks' | 'limit' | 'mySparring' | 'retry' | 'settings';
+export type TrustAction = 'nearby' | 'howItWorks' | 'limit' | 'mySparring' | 'retry' | 'settings' | 'addPhoto';
 
 export interface TrustNotice {
   // i18n key below sparringTrust.notice.*
@@ -95,6 +95,8 @@ export function trustNoticeFor(reason: TrustReason): TrustNotice {
       return { key: 'sparringStarted', actions: [] };
     case 'verified_only':
       return { key: 'verifiedOnly', actions: [] };
+    case 'photo_required':
+      return { key: 'photoRequired', actions: ['addPhoto'] };
     case 'time_invalid':
       return { key: 'timeInvalid', actions: [] };
     case 'duration_invalid':

@@ -16,6 +16,11 @@ const sparringTrust = {
     allow: 'Standort prüfen',
     later: 'Später',
   },
+  photo: {
+    title: 'Zeig, wer kommt',
+    body: 'Für Sparrings brauchst du ein Profilbild, auf dem man dein Gesicht erkennt. So weiß dein Partner, wen er trifft.',
+    later: 'Später',
+  },
   status: {
     startTitle: 'Starte mit deinem ersten Sparring.',
     startBody: 'Du kannst Sparrings bis zu {{base}} km von deinem Standort entfernt zusagen und erstellen. Nach deiner ersten bestätigten Teilnahme werden {{unlocked}} km freigeschaltet.',
@@ -75,6 +80,7 @@ const sparringTrust = {
     feedbackNotOpen: 'Du kannst das Treffen nach dem geplanten Ende bestätigen.',
     feedbackClosed: 'Die Rückmeldung für dieses Sparring ist geschlossen.',
     suggestionRateLimited: 'Du hast heute schon mehrere Orte vorgeschlagen. Bitte versuche es morgen erneut.',
+    photoRequired: 'Für Sparrings brauchst du ein Profilbild, auf dem man dein Gesicht erkennt.',
     generic: 'Das hat gerade nicht geklappt. Bitte versuche es erneut.',
     network: 'Keine Verbindung. Es wurde nichts gespeichert – bitte versuche es erneut.',
   },
@@ -85,6 +91,7 @@ const sparringTrust = {
     mySparring: 'Zu meinem Sparring',
     retry: 'Erneut versuchen',
     settings: 'Einstellungen öffnen',
+    addPhoto: 'Profilbild hinzufügen',
     close: 'Schließen',
   },
   location: {

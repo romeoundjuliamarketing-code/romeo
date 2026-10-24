@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["SparrFaceDetectorModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.sparrfacedetector.SparrFaceDetectorModule"]
+  }
+}

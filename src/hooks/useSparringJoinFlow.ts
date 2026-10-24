@@ -16,7 +16,8 @@ function problemOf(out: Exclude<TrustOutcome<unknown>, { kind: 'ok' }>): TrustPr
   return { kind: 'network' };
 }
 
-// Order of the binding join: intro (once per account) -> location primer
+// Order of the binding join: intro (once per account) -> profile photo (while
+// the profile has none; face-checked on the device) -> location primer
 // (while the permission can still be asked) -> measure position -> server
 // eligibility WITH position (radius, slot, state) -> rules consent (owned by
 // the screen) -> join. A known radius refusal stops before the rules and
@@ -28,6 +29,9 @@ export function useSparringJoinFlow(args: {
   /** Check eligibility as soon as the details open (normal join CTA would show). */
   checkOnOpen: boolean;
   reachStatus: SparringReachStatus | null;
+  /** Own profile loaded and without a photo: the photo step comes first. */
+  needsPhoto: boolean;
+  uploadPhoto: (localUri: string) => Promise<{ error: string | null }>;
   ackIntro: () => Promise<boolean>;
   refetchReach: () => void;
   setBusy: (busy: boolean) => void;
@@ -120,6 +124,15 @@ export function useSparringJoinFlow(args: {
     await measureAndCheck();
   }, [measureAndCheck]);
 
+  // Profile photo first (required for sparrings), then the location checks.
+  const proceed = useCallback((): void => {
+    if (argsRef.current.needsPhoto) {
+      setOverlay('photo');
+      return;
+    }
+    void runChecks();
+  }, [runChecks]);
+
   const doJoin = useCallback(async (rulesVersion: number): Promise<void> => {
     const a = argsRef.current;
     if (a.sparringId === null) return;
@@ -151,8 +164,8 @@ export function useSparringJoinFlow(args: {
       setOverlay('intro');
       return;
     }
-    void runChecks();
-  }, [runChecks, gate.kind]);
+    proceed();
+  }, [proceed, gate.kind]);
 
   const confirm = useCallback(async (rulesVersion: number): Promise<void> => {
     lastRulesRef.current = rulesVersion;
@@ -170,14 +183,26 @@ export function useSparringJoinFlow(args: {
         return;
       }
       setOverlay(null);
-      void runChecks();
+      proceed();
     })();
-  }, [runChecks, t]);
+  }, [proceed, t]);
 
   const onPrimerAllow = useCallback((): void => {
     setOverlay(null);
     void measureAndCheck();
   }, [measureAndCheck]);
+
+  // Photo uploaded: continue where the flow stopped (after the rules consent
+  // the join is repeated with the accepted version).
+  const onPhotoUploaded = useCallback((): void => {
+    setOverlay(null);
+    setProblem(null);
+    if (lastRulesRef.current !== null) {
+      void doJoin(lastRulesRef.current);
+    } else {
+      void runChecks();
+    }
+  }, [doJoin, runChecks]);
 
   const onOverlayClose = useCallback((): void => {
     if (introBusy) return;
@@ -192,6 +217,8 @@ export function useSparringJoinFlow(args: {
       setOverlay('limit');
     } else if (action === 'howItWorks') {
       setOverlay('explain');
+    } else if (action === 'addPhoto') {
+      setOverlay('photo');
     } else if (action === 'nearby') {
       a.onShowNearby();
     } else if (action === 'mySparring') {
@@ -208,7 +235,10 @@ export function useSparringJoinFlow(args: {
   }, [problem, doJoin, runChecks]);
 
   return {
-    view: { overlay, introBusy, introError, problem, gate, onIntroNext, onPrimerAllow, onOverlayClose, onProblemAction },
+    view: {
+      overlay, introBusy, introError, problem, gate, onIntroNext, onPrimerAllow,
+      uploadPhoto: args.uploadPhoto, onPhotoUploaded, onOverlayClose, onProblemAction,
+    },
     start,
     confirm,
     reset,

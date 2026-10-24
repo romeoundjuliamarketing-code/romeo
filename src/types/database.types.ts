@@ -894,7 +894,7 @@ export type Database = {
           reporter_id:      string
           reported_user_id: string
           sparring_id:      string
-          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung' | 'fake_profilbild'
           details:          string | null
           created_at:       string
         }
@@ -903,7 +903,7 @@ export type Database = {
           reporter_id:      string
           reported_user_id: string
           sparring_id:      string
-          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          reason:           'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung' | 'fake_profilbild'
           details?:         string | null
           created_at?:      string
         }
@@ -912,7 +912,7 @@ export type Database = {
           reporter_id?:     string
           reported_user_id?: string
           sparring_id?:     string
-          reason?:          'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+          reason?:          'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung' | 'fake_profilbild'
           details?:         string | null
           created_at?:      string
         }
@@ -2621,7 +2621,7 @@ export type SparringRating = Database['public']['Tables']['sparring_ratings']['R
 export type SparringRatingInsert = Database['public']['Tables']['sparring_ratings']['Insert']
 export type UserReport = Database['public']['Tables']['user_reports']['Row']
 export type UserReportInsert = Database['public']['Tables']['user_reports']['Insert']
-export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung'
+export type ReportReason = 'unsportliches_verhalten' | 'gefaehrliches_verhalten' | 'beleidigung' | 'fake_profilbild'
 export type UserBlock = Database['public']['Tables']['user_blocks']['Row']
 export type SparringMessage = Database['public']['Tables']['sparring_messages']['Row']
 export type SparringMessageInsert = Database['public']['Tables']['sparring_messages']['Insert']
