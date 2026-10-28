@@ -15,13 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import SparringGymRow from './SparringGymRow';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import ViewShot from 'react-native-view-shot';
-import Share from 'react-native-share';
 import { colors } from '../../theme/colors';
 import type { SparringWithMeta } from '../../hooks/useOpenSparrings';
 import { useSparringParticipants } from '../../hooks/useSparringParticipants';
 import type { RootStackParamList } from '../../navigation/types';
-import { buildSparringShareUrl, coarseAreaLabel } from '../../utils/sparringShare';
+import { coarseAreaLabel } from '../../utils/sparringShare';
 import { resolveCommitmentCta, isSparringChatMember, isBeforeCancelDeadline, hasStarted } from '../../utils/sparringCommitment';
 import { sparringLocationLines } from '../../utils/sparringDetail';
 import { formatDistanceKm } from '../../utils/sparringSearch';
@@ -36,7 +34,8 @@ import SparringRulesConsentSheet from './SparringRulesConsentSheet';
 import SparringCommitmentResultCard from './SparringCommitmentResultCard';
 import type { SparringCommitmentResult } from './SparringCommitmentResultCard';
 import SparringCancelConfirmCard from './SparringCancelConfirmCard';
-import SparringStoryCard from './SparringStoryCard';
+import SparringShareSheet from './SparringShareSheet';
+import type { SparringShareVariant } from './SparringShareSheet';
 import { useSheetSlide } from './useSheetSlide';
 import SparringOrganizerRow from './SparringOrganizerRow';
 import SparringStatusNote from './SparringStatusNote';
@@ -86,6 +85,10 @@ interface Props {
   onFindNearby:      () => void;
   /** Coach hint after the intro, in the flow right under the meetup data. */
   arrivalHint?:      React.ReactNode;
+  /** Just published: open the share prompt once (with success confirmation). */
+  sharePrompt?:      boolean;
+  /** The share prompt was dismissed; the caller clears `sharePrompt`. */
+  onSharePromptDone?: () => void;
 }
 
 // Near full-screen bottom sheet: a little of the dimmed map stays visible.
@@ -107,6 +110,7 @@ export default function SparringDetailSheet({
   consentVisible, onConsentClose, onConsentConfirm, commitmentResult, onCommitmentResultClose,
   cancelAskVisible, onCancelAskClose, onCancelAskConfirm,
   loading, joinFlow, onReachChanged, onFindNearby, arrivalHint = null,
+  sharePrompt = false, onSharePromptDone,
 }: Props) {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -146,7 +150,15 @@ export default function SparringDetailSheet({
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const insets = useSafeAreaInsets();
   const { height: screenHeight, fontScale } = useWindowDimensions();
-  const storyShotRef = useRef<ViewShot>(null);
+  // Share sheet (same component for the post-create prompt and re-sharing).
+  const [shareVariant, setShareVariant] = useState<SparringShareVariant | null>(null);
+  useEffect(() => {
+    setShareVariant(sharePrompt ? 'created' : null);
+  }, [sparring?.id, sharePrompt]);
+  function closeShare(): void {
+    if (shareVariant === 'created') onSharePromptDone?.();
+    setShareVariant(null);
+  }
   const sheetHeight = screenHeight - insets.top - SHEET_TOP_GAP;
 
   // Slides up whenever a (new) sparring is selected; close() slides out first.
@@ -205,23 +217,8 @@ export default function SparringDetailSheet({
     });
   }
 
-  async function handleShare(): Promise<void> {
-    const url = buildSparringShareUrl(s.id);
-    try {
-      const uri = await storyShotRef.current?.capture?.();
-      if (uri) {
-        await Share.open({
-          url: uri,
-          type: 'image/png',
-          message: t('sparring.detailSheet.shareMessage', { title: s.title, url }),
-          failOnCancel: false,
-        });
-        return;
-      }
-    } catch {
-      // fall through to link-only sharing
-    }
-    await Share.open({ message: t('sparring.detailSheet.shareMessage', { title: s.title, url }), failOnCancel: false });
+  function handleShare(): void {
+    setShareVariant('reshare');
   }
 
   const largeText = fontScale > LARGE_TEXT_SCALE;
@@ -265,7 +262,7 @@ export default function SparringDetailSheet({
       mode={largeText ? 'fixed' : 'overlay'}
       summary={summary}
       scrollY={scrollY}
-      onShare={() => { void handleShare(); }}
+      onShare={handleShare}
       onClose={dismiss}
     />
   );
@@ -279,7 +276,8 @@ export default function SparringDetailSheet({
       navigationBarTranslucent
       // Android back closes an open card first, then the sheet.
       onRequestClose={
-        commitmentResult !== null ? onCommitmentResultClose
+        shareVariant !== null ? closeShare
+          : commitmentResult !== null ? onCommitmentResultClose
           : cancelAskVisible ? onCancelAskClose
           : joinFlow.overlay !== null ? joinFlow.onOverlayClose
           : trustPanel.overlay !== null ? trustPanel.closeOverlay
@@ -450,19 +448,6 @@ export default function SparringDetailSheet({
             </View>
           </Animated.View>
 
-          <View style={styles.storyCapture} pointerEvents="none">
-            <ViewShot ref={storyShotRef} options={{ format: 'png', quality: 1, result: 'tmpfile' }}>
-              <SparringStoryCard
-                title={s.title}
-                discipline={s.discipline}
-                areaLabel={coarseAreaLabel({ studioName: s.studio_name, address: s.address })}
-                scheduledAt={s.scheduled_at}
-                durationMin={s.duration_min}
-                slotsLeftLabel={isFull ? t('sparring.detailHeader.soldOut') : t('sparring.detailHeader.slotsFree', { count: slotsLeft })}
-              />
-            </ViewShot>
-          </View>
-
           {/* Must be a child of this Modal: iOS cannot present a second
               Modal from the map screen while this one is presented — a
               sibling Modal never shows and leaves an invisible host view
@@ -495,6 +480,22 @@ export default function SparringDetailSheet({
               sparringTitle={sparring.title}
               dateTimeLabel={formatDateTime(sparring.scheduled_at, t, language)}
               onClose={onCommitmentResultClose}
+            />
+          )}
+
+          {shareVariant !== null && (
+            <SparringShareSheet
+              variant={shareVariant}
+              sparringId={sparring.id}
+              card={{
+                title:          sparring.title,
+                discipline:     sparring.discipline,
+                areaLabel:      coarseAreaLabel({ studioName: sparring.studio_name, address: sparring.address }),
+                scheduledAt:    sparring.scheduled_at,
+                durationMin:    sparring.duration_min,
+                slotsLeftLabel: isFull ? t('sparring.detailHeader.soldOut') : t('sparring.detailHeader.slotsFree', { count: slotsLeft }),
+              }}
+              onClose={closeShare}
             />
           )}
         </View>
@@ -677,12 +678,5 @@ const styles = StyleSheet.create({
   },
   footerInner: {
     gap: 16,
-  },
-  storyCapture: {
-    position: 'absolute',
-    left:     -10000, // off-screen, still rendered for capture
-    top:      0,
-    width:    1080,
-    height:   1920,
   },
 });

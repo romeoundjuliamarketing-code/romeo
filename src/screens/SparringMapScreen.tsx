@@ -234,6 +234,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // Branded "really cancel?" card (inside the detail sheet)
   const [cancelAskVisible, setCancelAskVisible] = useState(false);
   const [createSheetVisible, setCreateSheetVisible] = useState(false);
+  // Just published: its detail opens with the share prompt, once.
+  const [sharePromptId, setSharePromptId] = useState<string | null>(null);
   // One-time intro before the first create (own sheet: no other modal is open then).
   const [createIntroVisible, setCreateIntroVisible] = useState(false);
   const [createIntroBusy, setCreateIntroBusy] = useState(false);
@@ -1090,8 +1092,11 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           setCancelAskVisible(false);
           joinFlow.reset();
           setSelected(null);
+          setSharePromptId(null);
           setArrival((a) => (a === 'detail' ? null : a));
         }}
+        sharePrompt={selected !== null && selected.id === sharePromptId}
+        onSharePromptDone={() => setSharePromptId(null)}
         onJoin={() => { setArrival(null); handleJoinSparring(); }}
         arrivalHint={arrival === 'detail' && selected !== null && selected.id === arrivalSparringRef.current
           ? <IntroArrivalHint variant="detail" onDismiss={dismissArrival} onShown={arrivalShown} />
@@ -1165,6 +1170,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         onClose={() => setCreateSheetVisible(false)}
         onPublished={(sparringId) => {
           setCreateSheetVisible(false);
+          setSharePromptId(sparringId);
           refetchSparrings();
           reach.refetch();
           navigation.setParams({ focusSparringId: sparringId });
