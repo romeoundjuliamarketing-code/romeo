@@ -8,7 +8,7 @@ import { colors } from '../theme/colors';
 import type { RootStackParamList } from '../navigation/types';
 import { useEntitlement } from '../hooks/useEntitlement';
 import { previewChallenges } from '../utils/challengeAvailability';
-import { planForProduct } from '../utils/subscriptionPlans';
+import { planForProduct, PREMIUM_PLAN } from '../utils/subscriptionPlans';
 import { CardsBenefitEntry, CardsCta, CardsHero, CardsSteps } from '../components/challenge/CardsLanding';
 import { CardsBenefits, CardsClosingTitle, CardsHonestNote, CardsRoundExample, CardsWhy } from '../components/challenge/CardsStory';
 import CardsPreviewDeck from '../components/challenge/CardsPreviewDeck';
@@ -61,7 +61,7 @@ export default function CardsScreen(): React.ReactElement {
   function openPaywallFromInvite(): void {
     paywallFromInviteRef.current = true;
     setInviteVisible(false);
-    navigation.navigate('Paywall', { focus: 'cards' });
+    navigation.navigate('Paywall');
   }
 
   useEffect(() => {
@@ -70,8 +70,8 @@ export default function CardsScreen(): React.ReactElement {
       try {
         const offerings = await Purchases.getOfferings();
         const source = offerings.current ?? Object.values(offerings.all)[0];
-        const cardsPkg = source?.availablePackages.find((pkg) => planForProduct(pkg.product.identifier) === 'cards');
-        if (active) setProduct(cardsPkg !== undefined ? { price: cardsPkg.product.priceString, period: cardsPkg.product.subscriptionPeriod } : null);
+        const premiumPkg = source?.availablePackages.find((pkg) => planForProduct(pkg.product.identifier) === PREMIUM_PLAN);
+        if (active) setProduct(premiumPkg !== undefined ? { price: premiumPkg.product.priceString, period: premiumPkg.product.subscriptionPeriod } : null);
       } catch {
         if (active) setProduct(null);
       }

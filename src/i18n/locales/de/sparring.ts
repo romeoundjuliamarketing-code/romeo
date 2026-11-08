@@ -59,7 +59,7 @@ const sparring = {
     rulesRequired: 'Bitte stimme zuerst den Sparr-Grundregeln zu.',
     gymNotFound: 'Studio nicht gefunden.',
     gymNoAddress: 'Das Studio hat noch keine Adresse hinterlegt. Bitte zuerst die Studio-Adresse setzen.',
-    subscriptionRequired: 'Zum Erstellen eines Sparrings brauchst du das Ersteller-Abo.',
+    subscriptionRequired: 'Zum Erstellen eines Sparrings brauchst du die Sparr Premium Membership.',
     createFailed: 'Sparring konnte nicht erstellt werden.',
     gymSaveFailed: 'Der Gym-Ort konnte nicht gespeichert werden. Bitte versuche es erneut.',
     contentBlocked: 'Titel oder Beschreibung enthalten unzulässige Wörter.',

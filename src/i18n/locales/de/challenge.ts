@@ -2,13 +2,13 @@ const challenge = {
   gate: {
     checkFailed: 'Dein Zugang konnte gerade nicht geprüft werden.',
     title: 'Kartenspiel freischalten',
-    body: 'Die Karten für Kickboxen / K1 sind im Sparr Abo enthalten.',
-    offers: 'Abo-Angebote ansehen',
+    body: 'Die Karten für Kickboxen / K1 sind in Sparr Premium enthalten.',
+    offers: 'Sparr Premium ansehen',
     backToCards: 'Zurück zu Karten',
   },
   invite: {
     lead: 'Bereit für die nächste Karte?',
-    body: 'Mit einem Abo spielst du alle Sparr-Karten. Zieh die erste und leg los!',
+    body: 'Mit Sparr Premium spielst du alle Sparr-Karten. Zieh die erste und leg los!',
     primary: 'Spiel freischalten',
     later: 'Jetzt nicht',
   },
@@ -76,8 +76,8 @@ const challenge = {
     honestBody: 'Die Karten geben dir Trainingsideen, keine vollständige Technikanleitung. Nutze Aufgaben, deren Techniken du sicher beherrschst und die zu euren vereinbarten Regeln passen. Dein Trainer hilft dir bei Ausführung und Korrektur.',
     closingTitle: 'Welchen Schwerpunkt hat deine nächste Runde?',
     start: 'Mit Karten trainieren',
-    subscriptionNeeded: 'Zum Spielen benötigst du das Cards-Abo.',
-    subscriptionNote: 'Cards-Abo · {{price}}',
+    subscriptionNeeded: 'Zum Spielen benötigst du Sparr Premium.',
+    subscriptionNote: 'Sparr Premium · {{price}}',
     pricePerYear: '{{price}} / Jahr',
   },
   clarity: {

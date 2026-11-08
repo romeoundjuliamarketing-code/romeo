@@ -38,7 +38,7 @@ export default function CardGameGate({ children }: { children: React.ReactNode }
       <View style={styles.center}>
         <Text style={styles.title}>{t('challenge.gate.title')}</Text>
         <Text style={styles.body}>{t('challenge.gate.body')}</Text>
-        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Paywall', { focus: 'cards' })} accessibilityRole="button">
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Paywall')} accessibilityRole="button">
           <Text style={styles.buttonText}>{t('challenge.gate.offers')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()} accessibilityRole="button">

@@ -5,13 +5,13 @@ const challenge: LocaleShape<typeof de> = {
   gate: {
     checkFailed: 'We could not check your access right now.',
     title: 'Unlock the card game',
-    body: 'The cards for kickboxing / K1 are included in the Sparr subscription.',
-    offers: 'View subscription options',
+    body: 'The cards for kickboxing / K1 are included in Sparr Premium.',
+    offers: 'View Sparr Premium',
     backToCards: 'Back to cards',
   },
   invite: {
     lead: 'Ready for the next card?',
-    body: 'With a subscription you can play every Sparr card. Draw the first one and get going!',
+    body: 'With Sparr Premium you can play every Sparr card. Draw the first one and get going!',
     primary: 'Unlock the game',
     later: 'Not now',
   },
@@ -79,8 +79,8 @@ const challenge: LocaleShape<typeof de> = {
     honestBody: 'The cards give you training ideas, not complete technique instructions. Use tasks whose techniques you master safely and that fit the rules you agreed on. Your coach helps you with execution and correction.',
     closingTitle: 'What will your next round focus on?',
     start: 'Train with cards',
-    subscriptionNeeded: 'You need the Cards subscription to play.',
-    subscriptionNote: 'Cards subscription · {{price}}',
+    subscriptionNeeded: 'You need Sparr Premium to play.',
+    subscriptionNote: 'Sparr Premium · {{price}}',
     pricePerYear: '{{price}} / year',
   },
   clarity: {

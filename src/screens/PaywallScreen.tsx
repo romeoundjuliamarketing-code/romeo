@@ -13,22 +13,17 @@ import { useAuth } from '../context/AuthContext';
 import { loginRevenueCat } from '../lib/revenuecat';
 import { restorePurchases } from '../lib/restorePurchases';
 import { useTranslation } from 'react-i18next';
-import {
-  activePlan, bundleSavings, defaultSelection, formatSavings, orderPlans, planForProduct, planSwitchNotice, replacedProductId,
-  type PlanKey,
-} from '../utils/subscriptionPlans';
+import { activePlan, planForProduct, PREMIUM_PLAN, replacedProductId } from '../utils/subscriptionPlans';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
-export default function PaywallScreen({ navigation, route }: Props): React.ReactElement {
-  const focus = route.params?.focus;
+export default function PaywallScreen({ navigation }: Props): React.ReactElement {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { entitlements, refetch } = useStoreEntitlements();
-  const [packages, setPackages] = useState<Partial<Record<PlanKey, PurchasesPackage>>>({});
-  const [pendingPlan, setPendingPlan] = useState<PlanKey | null>(null);
+  const [premiumPkg, setPremiumPkg] = useState<PurchasesPackage | undefined>(undefined);
+  const [purchasing, setPurchasing] = useState(false);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
-  const [picked, setPicked] = useState<PlanKey | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -36,12 +31,9 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
       try {
         const offerings = await Purchases.getOfferings();
         const source = offerings.current ?? Object.values(offerings.all)[0];
-        const map: Partial<Record<PlanKey, PurchasesPackage>> = {};
-        for (const pkg of source?.availablePackages ?? []) {
-          const plan = planForProduct(pkg.product.identifier);
-          if (plan !== null && map[plan] === undefined) map[plan] = pkg;
-        }
-        if (active) setPackages(map);
+        // Legacy single plans may still sit in the offering: only Premium is sold.
+        const pkg = (source?.availablePackages ?? []).find((p) => planForProduct(p.product.identifier) === PREMIUM_PLAN);
+        if (active) setPremiumPkg(pkg);
       } catch {
         // Offerings unavailable (e.g. simulator without StoreKit config): cards show "not available".
       } finally {
@@ -52,26 +44,14 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
     return () => { active = false; };
   }, []);
 
-  function handlePurchase(plan: PlanKey): void {
-    const notice = planSwitchNotice(activePlan(entitlements.creatorActive, entitlements.cardsActive), plan);
-    if (notice === null) {
-      void buy(plan);
-      return;
-    }
-    Alert.alert(t('paywall.switchTitle'), notice, [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('paywall.switchConfirm'), onPress: () => { void buy(plan); } },
-    ]);
-  }
-
-  async function buy(plan: PlanKey): Promise<void> {
-    const pkg = packages[plan];
+  async function buy(): Promise<void> {
+    const pkg = premiumPkg;
     if (pkg === undefined || user === null) return;
-    setPendingPlan(plan);
+    setPurchasing(true);
     try {
       // Never buy anonymously: the webhook could not attach it to this account.
       await loginRevenueCat(user.id);
-      // Play has no subscription groups: name the plan being replaced (without base plan).
+      // Play has no subscription groups: name the legacy plan being upgraded (without base plan).
       const info = Platform.OS === 'android' ? await Purchases.getCustomerInfo() : null;
       const oldProduct = info !== null ? replacedProductId(info.activeSubscriptions) : null;
       await Purchases.purchasePackage(
@@ -89,7 +69,7 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
         Alert.alert(t('paywall.purchaseFailed'), err instanceof Error ? err.message : t('paywall.tryAgain'));
       }
     } finally {
-      setPendingPlan(null);
+      setPurchasing(false);
     }
   }
 
@@ -108,53 +88,36 @@ export default function PaywallScreen({ navigation, route }: Props): React.React
   }
 
   const current = activePlan(entitlements.creatorActive, entitlements.cardsActive);
-  const order = orderPlans(focus);
-  // Entitlements may load after the user picked: never keep the now-active plan selected.
-  const selected = picked !== null && picked !== current
-    ? picked
-    : defaultSelection(order, (plan) => packages[plan] !== undefined, current);
-  const selectedPkg = selected !== null ? packages[selected] : undefined;
-  const ctaLabel = current === 'bundle'
+  const premiumActive = current === PREMIUM_PLAN;
+  const ctaLabel = premiumActive
     ? t('paywall.cta.active')
-    : selectedPkg !== undefined ? t('paywall.cta.continue', { price: selectedPkg.product.priceString }) : t('paywall.cta.unavailable');
-  const saving = bundleSavings(
-    packages.creator?.product.price ?? null,
-    packages.cards?.product.price ?? null,
-    packages.bundle?.product.price ?? null,
-  );
-  const bundleBadge = saving !== null && packages.bundle !== undefined
-    ? t('paywall.savings', { amount: formatSavings(saving, packages.bundle.product.currencyCode) })
-    : undefined;
+    : premiumPkg !== undefined ? t('paywall.cta.continue', { price: premiumPkg.product.priceString }) : t('paywall.cta.unavailable');
 
   return (
     <View style={styles.root}>
       <FocusedStatusBar style="light" />
       <ScrollView style={styles.scroll} bounces={false} showsVerticalScrollIndicator={false}>
-        <PaywallHero plan={selected ?? 'bundle'} onClose={() => navigation.goBack()} />
+        <PaywallHero onClose={() => navigation.goBack()} />
         <View style={styles.plans}>
           {offeringsLoading ? (
-            <ActivityIndicator style={styles.loadingIndicator} color={colors.accentBlue} />
+            <ActivityIndicator style={styles.loadingIndicator} color={colors.gold} />
           ) : (
-            order.map((plan) => (
-              <PlanOption
-                key={plan}
-                title={t(`paywall.plans.${plan}.title`)}
-                subtitle={t(`paywall.plans.${plan}.subtitle`)}
-                price={packages[plan]?.product.priceString}
-                badge={plan === 'bundle' ? bundleBadge : undefined}
-                selected={selected === plan}
-                active={current === plan}
-                onPress={() => setPicked(plan)}
-              />
-            ))
+            <PlanOption
+              title={t('paywall.premium.title')}
+              subtitle={t('paywall.premium.subtitle')}
+              price={premiumPkg?.product.priceString}
+              selected={!premiumActive && premiumPkg !== undefined}
+              active={premiumActive}
+              onPress={() => undefined}
+            />
           )}
         </View>
       </ScrollView>
       <PaywallFooter
         label={ctaLabel}
-        enabled={!offeringsLoading && selectedPkg !== undefined}
-        loading={pendingPlan !== null}
-        onPurchase={() => { if (selected !== null) handlePurchase(selected); }}
+        enabled={!offeringsLoading && !premiumActive && premiumPkg !== undefined}
+        loading={purchasing}
+        onPurchase={() => { void buy(); }}
         onRestore={() => { void handleRestorePurchases(); }}
       />
     </View>

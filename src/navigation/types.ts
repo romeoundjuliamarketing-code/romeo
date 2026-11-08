@@ -49,7 +49,7 @@ export type RootStackParamList = {
   Impressum: undefined;
   SparringRules: undefined;
   BlockedUsers: undefined;
-  Paywall: { focus?: 'creator' | 'cards' } | undefined;
+  Paywall: undefined;
   SparringMap: SparringMapParams;
   PublicProfile: {
     userId:               string;

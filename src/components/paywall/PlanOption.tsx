@@ -22,7 +22,7 @@ export default function PlanOption({
   const disabled = active || price === undefined;
   return (
     <TouchableOpacity
-      style={[styles.row, selected && styles.rowSelected, disabled && styles.rowDisabled]}
+      style={[styles.row, disabled && styles.rowDisabled]}
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.8}
@@ -32,7 +32,7 @@ export default function PlanOption({
       <MaterialCommunityIcons
         name={selected ? 'radiobox-marked' : 'radiobox-blank'}
         size={24}
-        color={selected ? colors.accentBlue : colors.inactive}
+        color={selected ? colors.gold : colors.inactive}
       />
       <View style={styles.texts}>
         {badge !== undefined && <Text style={styles.badge}>{badge}</Text>}
@@ -63,11 +63,8 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: colors.border,
+    borderColor: colors.gold,
     backgroundColor: colors.card,
-  },
-  rowSelected: {
-    borderColor: colors.accentBlue,
   },
   rowDisabled: {
     opacity: 0.6,
@@ -104,7 +101,7 @@ const styles = StyleSheet.create({
   price: {
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
-    color: colors.text,
+    color: colors.goldText,
   },
   period: {
     fontFamily: 'Inter_400Regular',
@@ -114,7 +111,7 @@ const styles = StyleSheet.create({
   activeTag: {
     fontFamily: 'Inter_700Bold',
     fontSize: 13,
-    color: colors.accentBlueText,
+    color: colors.goldText,
   },
   unavailable: {
     fontFamily: 'Inter_400Regular',

@@ -56,7 +56,7 @@ const onboarding = {
       revealHint: 'Doppeltippen, um die Beispielkarte aufzudecken',
       revealedA11y: 'Beispielkarte: {{title}}. {{instruction}}',
       after: 'Versuche, die Aufgabe während eurer Runde umzusetzen.',
-      subscription: 'Das vollständige Kartenspiel ist im Karten-Abo enthalten.',
+      subscription: 'Das vollständige Kartenspiel ist in Sparr Premium enthalten.',
       next: 'Weiter zu den Sparrings',
     },
     sparring: {
@@ -78,7 +78,7 @@ const onboarding = {
       exampleSubtitle: 'Kontrollierte Runden, gemeinsam trainieren.',
       examplePlace: 'Beispiel-Gym',
       free: 'Sparrings finden und teilnehmen ist kostenlos.',
-      creator: 'Du kannst auch selbst ein Treffen anbieten. Dafür brauchst du das Ersteller-Abo.',
+      creator: 'Du kannst auch selbst ein Treffen anbieten. Dafür brauchst du Sparr Premium.',
       goneTitle: 'Nicht mehr verfügbar',
       goneMessage: 'Dieses Sparring ist inzwischen voll oder abgesagt. Hier siehst du weitere Sparrings in deiner Nähe.',
     },

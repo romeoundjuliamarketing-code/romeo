@@ -62,7 +62,7 @@ const sparring: LocaleShape<typeof de> = {
     rulesRequired: 'Please agree to the Sparr ground rules first.',
     gymNotFound: 'Gym not found.',
     gymNoAddress: 'The gym has no address yet. Please set the gym address first.',
-    subscriptionRequired: 'You need the creator subscription to create a sparring session.',
+    subscriptionRequired: 'You need the Sparr Premium Membership to create a sparring session.',
     createFailed: 'The sparring session could not be created.',
     gymSaveFailed: 'The gym location could not be saved. Please try again.',
     contentBlocked: 'The title or description contains disallowed words.',

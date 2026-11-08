@@ -77,6 +77,9 @@ export const colors = {
   sparringsOrange:  '#F5820A', // Demnächst-Marker auf der Sparring-Karte
   studioGreen:      '#22C55E', // Am-Studio-Marker auf der Sparring-Karte
   studioGold:       '#D4B942', // Studio-Marker auf der Sparring-Karte
+  gold:             '#D4AF37', // premium membership accent (paywall)
+  goldMuted:        'rgba(212,175,55,0.35)', // disabled premium button
+  goldText:         '#8A6A12', // gold for text on light surfaces (>= 4.5:1)
   mobilityOrange:   '#E07B5A', // DailyMobilityCard + DailyStretchCard Akzentfarbe
 
   // ── Donut chart segments ───────────────────────────────────────────────────

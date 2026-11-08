@@ -67,7 +67,7 @@ const sparringTrust = {
     timeInvalid: 'Please choose a time in the future.',
     durationInvalid: 'Please choose a duration.',
     contentBlocked: 'Title or description contain words that are not allowed.',
-    subscriptionRequired: 'You need the matching subscription to publish.',
+    subscriptionRequired: 'You need Sparr Premium to publish.',
     notCoach: 'Only coaches of this studio can publish a studio sparring here.',
     checkinNotOpen: 'Check-in opens on {{time}}.',
     checkinClosed: 'Check-in for this sparring has ended.',

@@ -502,7 +502,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
     if (creatorInvite === null) return;
     paywallFromInviteRef.current = creatorInvite;
     setCreatorInvite(null);
-    navigation.navigate('Paywall', { focus: 'creator' });
+    navigation.navigate('Paywall');
   }
 
   // Opens the create flow; before the very first create (per account, stored
@@ -1186,7 +1186,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
           }
           Alert.alert(t('map.screen.creatorRequiredTitle'), t('map.screen.creatorRequiredMessage'), [
             { text: t('common.cancel'), style: 'cancel' },
-            { text: t('map.screen.viewSubscriptions'), onPress: () => navigation.navigate('Paywall', { focus: 'creator' }) },
+            { text: t('map.screen.viewSubscriptions'), onPress: () => navigation.navigate('Paywall') },
           ]);
         }}
         onOpenSparring={focusSparring}

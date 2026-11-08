@@ -1,28 +1,11 @@
 const paywall = {
-  plans: {
-    creator: { title: 'Ersteller', subtitle: 'Eigene Sparrings erstellen' },
-    cards: { title: 'Karten', subtitle: 'Kartenspiel für Kickboxen / K1' },
-    bundle: { title: 'Ersteller + Karten', subtitle: 'Beides in einem Abo' },
-  },
+  premium: { title: 'Sparr Premium Membership', subtitle: 'Sparrings erstellen und Kartenspiel' },
   planLabel: {
-    bundle: 'Ersteller + Karten',
-    creator: 'Ersteller',
-    cards: 'Karten',
+    premium: 'Sparr Premium',
+    creator: 'Ersteller (altes Abo)',
+    cards: 'Karten (altes Abo)',
     none: 'Kein aktives Abo',
   },
-  planName: {
-    creator: 'Ersteller-Abo',
-    cards: 'Karten-Abo',
-    bundle: 'Paket',
-  },
-  switchNotice: {
-    fromBundle: 'Das {{target}} ersetzt dein Paket. {{lost}} dann nicht mehr enthalten.',
-    lostCreate: 'Sparrings erstellen ist',
-    lostCards: 'Das Kartenspiel ist',
-    other: 'Das {{target}} ersetzt dein {{current}}. Für beides nimm das Paket.',
-  },
-  switchTitle: 'Abo wechseln?',
-  switchConfirm: 'Wechseln',
   purchaseFailed: 'Kauf fehlgeschlagen',
   tryAgain: 'Bitte versuche es erneut.',
   restore: {
@@ -37,22 +20,11 @@ const paywall = {
     continue: 'Weiter – {{price}} / Monat',
     unavailable: 'Derzeit nicht verfügbar',
   },
-  savings: 'Du sparst {{amount}}',
   hero: {
     close: 'Schließen',
-    creator: {
-      title: 'Eigene Sparrings erstellen',
-      benefit1: 'Sparrings anlegen und auf der Karte zeigen',
-      benefit2: 'Beitreten bleibt für alle kostenlos',
-    },
-    cards: {
-      title: 'Das komplette Kartenspiel',
-      benefit1: 'Alle verfügbaren Karten für Kickboxen / K1',
-      benefit2: 'Karten ziehen und im Sparring umsetzen',
-    },
-    bundle: {
-      title: 'Ersteller + Karten',
-      benefit1: 'Sparrings anlegen und auf der Karte zeigen',
+    premium: {
+      title: 'Sparr Premium Membership',
+      benefit1: 'Eigene Sparrings anlegen und auf der Karte zeigen',
       benefit2: 'Komplettes Kartenspiel für Kickboxen / K1',
     },
   },

@@ -27,7 +27,7 @@ export default function PaywallFooter({ label, enabled, loading, onPurchase, onR
         activeOpacity={0.8}
         accessibilityRole="button"
       >
-        {loading ? <ActivityIndicator size="small" color={colors.card} /> : <Text style={styles.ctaLabel}>{label}</Text>}
+        {loading ? <ActivityIndicator size="small" color={colors.dark} /> : <Text style={styles.ctaLabel}>{label}</Text>}
       </TouchableOpacity>
 
       <Text style={styles.legalNote}>
@@ -65,15 +65,15 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accentBlue,
+    backgroundColor: colors.gold,
   },
   ctaDisabled: {
-    backgroundColor: colors.accentBlueMuted,
+    backgroundColor: colors.goldMuted,
   },
   ctaLabel: {
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
-    color: colors.card,
+    color: colors.dark,
   },
   legalNote: {
     fontFamily: 'Inter_400Regular',

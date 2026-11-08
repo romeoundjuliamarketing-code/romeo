@@ -59,7 +59,7 @@ const onboarding: LocaleShape<typeof de> = {
       revealHint: 'Double tap to reveal the example card',
       revealedA11y: 'Example card: {{title}}. {{instruction}}',
       after: 'Try to put the task into practice during your round.',
-      subscription: 'The full card game is included in the card subscription.',
+      subscription: 'The full card game is included in Sparr Premium.',
       next: 'On to the sparrings',
     },
     sparring: {
@@ -81,7 +81,7 @@ const onboarding: LocaleShape<typeof de> = {
       exampleSubtitle: 'Controlled rounds, training together.',
       examplePlace: 'Example gym',
       free: 'Finding and joining sparrings is free.',
-      creator: 'You can also offer a meetup yourself. For that you need the creator subscription.',
+      creator: 'You can also offer a meetup yourself. For that you need Sparr Premium.',
       goneTitle: 'No longer available',
       goneMessage: 'This sparring is now full or cancelled. Here are more sparrings near you.',
     },

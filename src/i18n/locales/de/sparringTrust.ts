@@ -67,7 +67,7 @@ const sparringTrust = {
     timeInvalid: 'Bitte wähle einen Zeitpunkt in der Zukunft.',
     durationInvalid: 'Bitte wähle eine Dauer.',
     contentBlocked: 'Titel oder Beschreibung enthalten unzulässige Begriffe.',
-    subscriptionRequired: 'Zum Veröffentlichen brauchst du das passende Abo.',
+    subscriptionRequired: 'Zum Veröffentlichen brauchst du Sparr Premium.',
     notCoach: 'Nur Coaches dieses Studios können hier ein Studio-Sparring veröffentlichen.',
     checkinNotOpen: 'Der Check-in öffnet am {{time}}.',
     checkinClosed: 'Der Check-in für dieses Sparring ist beendet.',

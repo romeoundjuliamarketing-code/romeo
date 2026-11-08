@@ -1,6 +1,5 @@
 import {
-  activePlan, bundleSavings, creatorGateAllows, defaultSelection, formatSavings, orderPlans, planForProduct, planLabel,
-  planSwitchNotice, replacedProductId, subscriptionRejection,
+  activePlan, creatorGateAllows, planForProduct, planLabel, replacedProductId, subscriptionRejection,
 } from './subscriptionPlans';
 
 describe('planForProduct', () => {
@@ -24,30 +23,6 @@ describe('planForProduct', () => {
   });
 });
 
-describe('orderPlans', () => {
-  it('puts the bundle first and the focused plan second', () => {
-    expect(orderPlans('cards')).toEqual(['bundle', 'cards', 'creator']);
-    expect(orderPlans('creator')).toEqual(['bundle', 'creator', 'cards']);
-    expect(orderPlans(undefined)).toEqual(['bundle', 'creator', 'cards']);
-  });
-});
-
-describe('defaultSelection', () => {
-  const all = (): boolean => true;
-  it('preselects the first available plan in order', () => {
-    expect(defaultSelection(['bundle', 'cards', 'creator'], all, null)).toBe('bundle');
-    expect(defaultSelection(['bundle', 'cards', 'creator'], (p) => p !== 'bundle', null)).toBe('cards');
-  });
-  it('skips the active plan and offers the upgrade', () => {
-    expect(defaultSelection(['bundle', 'cards', 'creator'], all, 'cards')).toBe('bundle');
-    expect(defaultSelection(['bundle', 'creator', 'cards'], (p) => p !== 'bundle', 'creator')).toBe('cards');
-  });
-  it('selects nothing when the bundle is active or nothing is available', () => {
-    expect(defaultSelection(['bundle', 'cards', 'creator'], all, 'bundle')).toBeNull();
-    expect(defaultSelection(['bundle', 'cards', 'creator'], () => false, null)).toBeNull();
-  });
-});
-
 describe('activePlan / planLabel', () => {
   it('derives the plan from the two entitlements', () => {
     expect(activePlan(true, true)).toBe('bundle');
@@ -56,24 +31,10 @@ describe('activePlan / planLabel', () => {
     expect(activePlan(false, false)).toBeNull();
   });
   it('labels in German', () => {
-    expect(planLabel(true, true)).toBe('Ersteller + Karten');
-    expect(planLabel(true, false)).toBe('Ersteller');
-    expect(planLabel(false, true)).toBe('Karten');
+    expect(planLabel(true, true)).toBe('Sparr Premium');
+    expect(planLabel(true, false)).toBe('Ersteller (altes Abo)');
+    expect(planLabel(false, true)).toBe('Karten (altes Abo)');
     expect(planLabel(false, false)).toBe('Kein aktives Abo');
-  });
-});
-
-describe('bundleSavings / formatSavings', () => {
-  it('computes the saving from live prices', () => {
-    expect(bundleSavings(3.99, 2.99, 5.99)).toBe(0.99);
-  });
-  it('is null when a price is missing or there is no saving', () => {
-    expect(bundleSavings(null, 2.99, 5.99)).toBeNull();
-    expect(bundleSavings(3.99, 2.99, null)).toBeNull();
-    expect(bundleSavings(2.99, 2.99, 5.99)).toBeNull();
-  });
-  it('formats as currency', () => {
-    expect(formatSavings(0.99, 'EUR')).toMatch(/^0,99\s€$/);
   });
 });
 
@@ -92,22 +53,6 @@ describe('subscriptionRejection', () => {
   it('tells paying users to retry instead of buying again', () => {
     expect(subscriptionRejection(true)).toBe('activating');
     expect(subscriptionRejection(false)).toBe('purchase');
-  });
-});
-
-describe('planSwitchNotice', () => {
-  it('warns when a single plan would replace the other one', () => {
-    expect(planSwitchNotice('creator', 'cards')).toBe('Das Karten-Abo ersetzt dein Ersteller-Abo. Für beides nimm das Paket.');
-    expect(planSwitchNotice('cards', 'creator')).toBe('Das Ersteller-Abo ersetzt dein Karten-Abo. Für beides nimm das Paket.');
-  });
-  it('warns when leaving the bundle', () => {
-    expect(planSwitchNotice('bundle', 'cards')).toBe('Das Karten-Abo ersetzt dein Paket. Sparrings erstellen ist dann nicht mehr enthalten.');
-    expect(planSwitchNotice('bundle', 'creator')).toBe('Das Ersteller-Abo ersetzt dein Paket. Das Kartenspiel ist dann nicht mehr enthalten.');
-  });
-  it('stays silent for new subscriptions and upgrades to the bundle', () => {
-    expect(planSwitchNotice(null, 'creator')).toBeNull();
-    expect(planSwitchNotice('cards', 'bundle')).toBeNull();
-    expect(planSwitchNotice('creator', 'bundle')).toBeNull();
   });
 });
 
