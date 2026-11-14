@@ -11,9 +11,11 @@ export interface StoreEntitlements {
   canCreateSparring: boolean;
   creatorActive: boolean;
   cardsActive: boolean;
+  /** Creator access ends at this ISO time and will not renew (e.g. trial cancelled); null = renews or no subscription. */
+  creatorEndsAt: string | null;
 }
 
-const NONE: StoreEntitlements = { canCreateSparring: false, creatorActive: false, cardsActive: false };
+const NONE: StoreEntitlements = { canCreateSparring: false, creatorActive: false, cardsActive: false, creatorEndsAt: null };
 
 // RevenueCat is right immediately after a purchase; the server knows the
 // switch and what the webhook recorded. Either one granting is enough here —
@@ -41,7 +43,8 @@ export function useStoreEntitlements(refetchTrigger = 0): {
       Purchases.getCustomerInfo().catch(() => null),
       supabase.rpc('get_my_store_entitlements'),
     ]);
-    const rcCreator = rcInfo !== null && rcInfo.entitlements.active[RC_ENTITLEMENT_CREATOR] !== undefined;
+    const rcCreatorInfo = rcInfo?.entitlements.active[RC_ENTITLEMENT_CREATOR];
+    const rcCreator = rcCreatorInfo !== undefined;
     const rcCards = rcInfo !== null && rcInfo.entitlements.active[RC_ENTITLEMENT_CARDS] !== undefined;
 
     if (dbResult.error !== null) reportNetworkError(dbResult.error);
@@ -53,6 +56,7 @@ export function useStoreEntitlements(refetchTrigger = 0): {
       canCreateSparring: rcCreator || (row !== undefined ? row.can_create_sparring : true),
       creatorActive: rcCreator || row?.creator_active === true,
       cardsActive: rcCards || row?.cards_active === true,
+      creatorEndsAt: rcCreatorInfo !== undefined && !rcCreatorInfo.willRenew ? (rcCreatorInfo.expirationDate ?? null) : null,
     };
     setEntitlements(next);
     if (cacheKey && row !== undefined) setCached<StoreEntitlements>(cacheKey, next);

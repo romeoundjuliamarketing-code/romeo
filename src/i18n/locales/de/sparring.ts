@@ -278,6 +278,7 @@ const sparring = {
     keepEditing: 'Weiter bearbeiten',
     discard: 'Verwerfen',
     whenWhere: 'Wann und wo?',
+    subscriptionEnds: 'Dein Abo endet am {{date}}. Ohne Verlängerung wird dieses Sparring dann abgesagt.',
     date: 'Termin',
     place: 'Ort',
     placeHint: 'Ein Gym oder ein eigener Treffpunkt.',

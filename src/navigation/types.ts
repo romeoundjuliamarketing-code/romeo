@@ -50,6 +50,8 @@ export type RootStackParamList = {
   SparringRules: undefined;
   BlockedUsers: undefined;
   Paywall: undefined;
+  /** Free-trial offer that opens by itself after app start (max. twice). */
+  TrialOffer: undefined;
   SparringMap: SparringMapParams;
   PublicProfile: {
     userId:               string;

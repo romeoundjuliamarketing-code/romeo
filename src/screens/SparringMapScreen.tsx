@@ -1167,6 +1167,7 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         initialGym={createGymId !== null ? createGym : null}
         needsPhoto={needsPhoto}
         uploadPhoto={uploadAvatar}
+        subscriptionEndsAt={storeEntitlements.creatorEndsAt}
         onClose={() => setCreateSheetVisible(false)}
         onPublished={(sparringId) => {
           setCreateSheetVisible(false);

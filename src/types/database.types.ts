@@ -550,6 +550,8 @@ export type Database = {
           permission_confirmed_at: string | null
           deactivated_at: string | null
           meeting_conflict_at: string | null
+          subscription_gated: boolean
+          suspended_for_subscription_at: string | null
         }
         Insert: {
           id?: string

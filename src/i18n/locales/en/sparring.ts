@@ -281,6 +281,7 @@ const sparring: LocaleShape<typeof de> = {
     keepEditing: 'Keep editing',
     discard: 'Discard',
     whenWhere: 'When and where?',
+    subscriptionEnds: 'Your subscription ends on {{date}}. Unless you renew, this sparring will be cancelled then.',
     date: 'Date',
     place: 'Place',
     placeHint: 'A gym or your own meeting point.',

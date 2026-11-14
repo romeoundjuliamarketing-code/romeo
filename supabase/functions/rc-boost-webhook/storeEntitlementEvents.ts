@@ -18,6 +18,8 @@ export type StoreEntitlementChange =
   | { kind: 'grant'; entitlements: StoreEntitlement[]; productId: string; expiresAt: string }
   | { kind: 'expire'; entitlements: StoreEntitlement[]; productId: string }
   | { kind: 'transfer'; fromUserIds: string[]; toUserId: string }
+  // Auto-renew switched off: access runs until expiresAt, then private sparrings are cancelled.
+  | { kind: 'ending'; productId: string; expiresAt: string }
   | { kind: 'ignore' };
 
 const ENTITLEMENTS_BY_KEY: Record<string, StoreEntitlement[]> = {
@@ -59,6 +61,13 @@ export function subscriptionChange(event: RcSubscriptionEvent): StoreEntitlement
     const entitlements = entitlementsForProduct(event.product_id);
     return entitlements.length > 0
       ? { kind: 'expire', entitlements, productId: event.product_id }
+      : { kind: 'ignore' };
+  }
+  if (event.type === 'CANCELLATION') {
+    const ends = entitlementsForProduct(event.product_id).includes('creator')
+      && event.expiration_at_ms !== undefined && event.expiration_at_ms !== null;
+    return ends
+      ? { kind: 'ending', productId: event.product_id, expiresAt: new Date(event.expiration_at_ms as number).toISOString() }
       : { kind: 'ignore' };
   }
   if (!GRANT_TYPES.has(event.type)) return { kind: 'ignore' };

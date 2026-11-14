@@ -36,6 +36,8 @@ import InvitationPreview from './InvitationPreview';
 import { StepTitle, SectionLabel, StepTransition } from './FlowParts';
 import { useCreateDraftStore } from './useCreateDraftStore';
 import { useCreateFlowChecks } from './useCreateFlowChecks';
+import SubscriptionEndNotice from './SubscriptionEndNotice';
+import { sparringOutlivesSubscription } from '../../../utils/subscriptionPlans';
 
 type FlowErrors = DraftErrors & { title?: string; notes?: string };
 
@@ -55,6 +57,8 @@ interface Props {
   onClose:      () => void;
   /** Called only after the server confirmed the publication. */
   onPublished:  (sparringId: string) => void;
+  /** Creator subscription ends at this ISO time without renewal; later private sparrings get cancelled then. */
+  subscriptionEndsAt: string | null;
   /** Server: creator subscription missing. Caller closes the flow and shows the paywall alert; the draft stays stored. */
   onSubscriptionRequired: () => void;
   /** "Zu meinem Sparring" in the slot notice. Caller closes the flow and opens that sparring. */
@@ -67,6 +71,7 @@ interface Props {
 // The draft lives here so going back and forth keeps every input.
 export default function CreateSparringFlow({
   visible, coachStudio, initialGym, needsPhoto, uploadPhoto, onClose, onPublished, onSubscriptionRequired, onOpenSparring, onShowNearby,
+  subscriptionEndsAt,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -379,6 +384,9 @@ export default function CreateSparringFlow({
                 <StepTitle text={t('sparring.flow.whenWhere')} />
                 <SectionLabel text={t('sparring.flow.date')} />
                 <WhenPicker value={draft.scheduledAt} error={errors.scheduledAt} onChange={onWhen} />
+                {sparringOutlivesSubscription(draft.scheduledAt, subscriptionEndsAt, draft.atStudio) && subscriptionEndsAt !== null && (
+                  <SubscriptionEndNotice endsAt={subscriptionEndsAt} />
+                )}
                 <View style={styles.gap} />
                 <SectionLabel text={t('sparringTrust.create.duration')} />
                 <DurationChips value={draft.durationMin} onChange={onDuration} />

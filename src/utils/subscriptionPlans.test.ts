@@ -1,5 +1,6 @@
 import {
-  activePlan, creatorGateAllows, planForProduct, planLabel, replacedProductId, subscriptionRejection,
+  activePlan, creatorGateAllows, planForProduct, planLabel, replacedProductId, sparringOutlivesSubscription,
+  subscriptionRejection,
 } from './subscriptionPlans';
 
 describe('planForProduct', () => {
@@ -63,5 +64,18 @@ describe('replacedProductId', () => {
   it('is null without an active plan', () => {
     expect(replacedProductId([])).toBeNull();
     expect(replacedProductId(['com.deinebundle.sparr.mapbadge_30d'])).toBeNull();
+  });
+});
+
+describe('sparringOutlivesSubscription', () => {
+  const ends = '2026-11-19T10:00:00.000Z';
+  it('warns for a private sparring after the end of a non-renewing subscription', () => {
+    expect(sparringOutlivesSubscription(new Date('2026-11-20T18:00:00Z'), ends, false)).toBe(true);
+  });
+  it('stays quiet before the end, at the studio, when renewing or on a broken date', () => {
+    expect(sparringOutlivesSubscription(new Date('2026-11-18T18:00:00Z'), ends, false)).toBe(false);
+    expect(sparringOutlivesSubscription(new Date('2026-11-20T18:00:00Z'), ends, true)).toBe(false);
+    expect(sparringOutlivesSubscription(new Date('2026-11-20T18:00:00Z'), null, false)).toBe(false);
+    expect(sparringOutlivesSubscription(new Date('2026-11-20T18:00:00Z'), 'kaputt', false)).toBe(false);
   });
 });
