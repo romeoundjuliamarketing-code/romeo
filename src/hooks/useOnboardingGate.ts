@@ -7,6 +7,7 @@ import {
   type OnboardingRoute, type OnboardingSaveError, type OnboardingState,
 } from '../utils/onboarding';
 import { INTRO_VERSION, introStartStep, needsIntroUpgrade, type IntroStep } from '../utils/intro';
+import type { Gender } from '../utils/gender';
 
 // "Done" (setup finished, no intro pending) is cached per account (queryCache
 // is cleared on sign-out / account switch), so returning users enter the app
@@ -45,7 +46,7 @@ export function useOnboardingGate(userId: string | null): {
   /** Back from the intro's first step to step 2 (only right after the setup). */
   backToLocation: () => void;
   retry:       () => void;
-  saveProfile: (name: string, birthDateIso: string) => Promise<SaveProfileResult>;
+  saveProfile: (name: string, birthDateIso: string, gender: Gender | null) => Promise<SaveProfileResult>;
   complete:    () => Promise<boolean>;
   /** Back from step 2 to step 1 (entered data stays in the step's own state). */
   backToProfile: () => void;
@@ -103,12 +104,19 @@ export function useOnboardingGate(userId: string | null): {
 
   const retry = useCallback((): void => setAttempt((a) => a + 1), []);
 
-  const saveProfile = useCallback(async (name: string, birthDateIso: string): Promise<SaveProfileResult> => {
+  const saveProfile = useCallback(async (name: string, birthDateIso: string, gender: Gender | null): Promise<SaveProfileResult> => {
     if (busyRef.current || userId === null || state === null) return { ok: false, error: 'network' };
     busyRef.current = true;
     try {
       const { error } = await supabase.rpc('set_my_profile_basics', { p_name: name, p_birth_date: birthDateIso });
       if (error !== null) return { ok: false, error: onboardingSaveError(error.message) };
+      // Gender is set once (the server locks it afterwards); only written while
+      // still empty, so a repeat of step 1 never trips the lock.
+      if (gender !== null) {
+        const { error: genderError } = await supabase
+          .from('profiles').update({ gender }).eq('id', userId).is('gender', null);
+        if (genderError !== null) return { ok: false, error: 'network' };
+      }
       const saved: OnboardingState = { ...state, name, has_birth_date: true };
       // Back from the intro to step 1 of this session: on through step 2 again.
       const next = finishedAt !== null ? 'location' : routeAfterProfile(saved);

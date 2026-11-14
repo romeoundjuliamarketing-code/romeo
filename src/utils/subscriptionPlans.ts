@@ -64,3 +64,12 @@ export function subscriptionRejection(creatorActive: boolean): 'activating' | 'p
 export function replacedProductId(activeSubscriptions: string[]): string | null {
   return activeSubscriptions.find((id) => planForProduct(id) !== null) ?? null;
 }
+
+// Private sparring scheduled after the creator subscription runs out (auto-renew
+// off): the server cancels it at that point, so the create flow warns first.
+// Studio sparrings are free and never affected.
+export function sparringOutlivesSubscription(scheduledAt: Date, subscriptionEndsAt: string | null, atStudio: boolean): boolean {
+  if (atStudio || subscriptionEndsAt === null) return false;
+  const endsAt = new Date(subscriptionEndsAt).getTime();
+  return Number.isFinite(endsAt) && scheduledAt.getTime() > endsAt;
+}

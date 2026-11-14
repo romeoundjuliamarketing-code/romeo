@@ -129,7 +129,8 @@ const SparringListRow = React.memo(function SparringListRow({
       onPress={() => onPress(sparring)}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={t('map.list.rowA11y', { discipline: disciplineLabel(sparring.discipline, language), date: compactDateLabel(sparring.scheduled_at), place: location.primary, distance, slots: slotsLabel })}
+      accessibilityLabel={t('map.list.rowA11y', { discipline: disciplineLabel(sparring.discipline, language), date: compactDateLabel(sparring.scheduled_at), place: location.primary, distance, slots: slotsLabel })
+        + (sparring.women_only ? `, ${t('sparring.women.badge')}` : '')}
     >
       <View style={styles.rowTop}>
         <Text style={styles.date} numberOfLines={1}>{compactDateLabel(sparring.scheduled_at)}</Text>
@@ -153,6 +154,7 @@ const SparringListRow = React.memo(function SparringListRow({
           )}
         </View>
         <View style={styles.tags}>
+          {sparring.women_only && <Text style={[styles.tag, styles.tagAccent]}>{t('sparring.women.badge')}</Text>}
           {ownStatus !== null && <Text style={[styles.tag, styles.tagAccent]}>{ownStatus}</Text>}
           <Text style={[styles.tag, full && styles.tagMuted]}>{slotsLabel}</Text>
         </View>

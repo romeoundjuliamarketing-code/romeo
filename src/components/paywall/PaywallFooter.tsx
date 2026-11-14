@@ -4,18 +4,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { colors } from '../../theme/colors';
 
-const PRIVACY_URL = 'https://sparrapp.com/datenschutz.html';
-const TERMS_URL = 'https://sparrapp.com/agb.html';
+export const PRIVACY_URL = 'https://sparrapp.com/datenschutz.html';
+export const TERMS_URL = 'https://sparrapp.com/agb.html';
 
 interface Props {
   label: string;
+  /** Price after the free trial; shown right under the button. */
+  note?: string | null;
   enabled: boolean;
   loading: boolean;
   onPurchase: () => void;
   onRestore: () => void;
 }
 
-export default function PaywallFooter({ label, enabled, loading, onPurchase, onRestore }: Props): React.ReactElement {
+export default function PaywallFooter({ label, note = null, enabled, loading, onPurchase, onRestore }: Props): React.ReactElement {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation();
   return (
@@ -29,6 +31,10 @@ export default function PaywallFooter({ label, enabled, loading, onPurchase, onR
       >
         {loading ? <ActivityIndicator size="small" color={colors.dark} /> : <Text style={styles.ctaLabel}>{label}</Text>}
       </TouchableOpacity>
+
+      {note !== null && <Text style={styles.trialNote}>{note}</Text>}
+
+      <Text style={styles.sparringsNote}>{t('paywall.footer.sparringsNote')}</Text>
 
       <Text style={styles.legalNote}>
         {t('paywall.footer.legalNote')}
@@ -74,6 +80,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     fontSize: 16,
     color: colors.dark,
+  },
+  trialNote: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  sparringsNote: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 16,
+    color: colors.text,
+    textAlign: 'center',
   },
   legalNote: {
     fontFamily: 'Inter_400Regular',

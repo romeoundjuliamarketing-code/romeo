@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, Text, Pressable, TouchableOpacity, StyleSheet, type AccessibilityActionEvent } from 'react-native';
+import { View, Text, Pressable, TouchableOpacity, Switch, StyleSheet, type AccessibilityActionEvent } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../../../theme/colors';
 import { fonts } from '../../../theme/typography';
@@ -53,12 +53,16 @@ const DisciplineTile = React.memo(function DisciplineTile({ name, icon, selected
   );
 });
 
-function StepWhat({ discipline, maxSlots, errors, onDiscipline, onMaxSlots }: {
+function StepWhat({ discipline, maxSlots, errors, onDiscipline, onMaxSlots, canWomenOnly, womenOnly, onWomenOnly }: {
   discipline:   string | null;
   maxSlots:     number;
   errors:       DraftErrors;
   onDiscipline: (d: string) => void;
   onMaxSlots:   (n: number) => void;
+  /** Only women may create a Frauen-Sparring (server checks it again). */
+  canWomenOnly: boolean;
+  womenOnly:    boolean;
+  onWomenOnly:  (v: boolean) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const canDecrement = maxSlots > MIN_MAX_SLOTS;
@@ -124,6 +128,25 @@ function StepWhat({ discipline, maxSlots, errors, onDiscipline, onMaxSlots }: {
         </TouchableOpacity>
       </View>
       <FieldError text={errors.maxSlots} />
+
+      {canWomenOnly && (
+        <>
+          <View style={styles.rope} />
+          <View style={styles.womenRow}>
+            <Ionicons name="female" size={24} color={colors.text} />
+            <View style={styles.womenText}>
+              <Text style={styles.womenTitle}>{t('sparring.women.toggle')}</Text>
+              <Text style={styles.womenHint}>{t('sparring.women.toggleHint')}</Text>
+            </View>
+            <Switch
+              value={womenOnly}
+              onValueChange={onWomenOnly}
+              accessibilityLabel={t('sparring.women.toggle')}
+              accessibilityHint={t('sparring.women.toggleHint')}
+            />
+          </View>
+        </>
+      )}
     </View>
   );
 }
@@ -215,6 +238,28 @@ const styles = StyleSheet.create({
     fontSize: 72,
     lineHeight: 76,
     color: colors.text,
+  },
+  womenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: colors.card,
+  },
+  womenText: {
+    flex: 1,
+    gap: 4,
+  },
+  womenTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  womenHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
   },
   counterUnit: {
     fontSize: 14,

@@ -1,4 +1,9 @@
 const sparring = {
+  women: {
+    badge: 'Nur Frauen',
+    toggle: 'Nur für Frauen',
+    toggleHint: 'Nur Frauen sehen dieses Sparring und können beitreten. Lässt sich danach nicht mehr ändern.',
+  },
   private: 'Privat',
   detail: {
     privateMeetingPoint: 'Privater Treffpunkt',
@@ -278,6 +283,7 @@ const sparring = {
     keepEditing: 'Weiter bearbeiten',
     discard: 'Verwerfen',
     whenWhere: 'Wann und wo?',
+    subscriptionEnds: 'Dein Abo endet am {{date}}. Ohne Verlängerung wird dieses Sparring dann abgesagt.',
     date: 'Termin',
     place: 'Ort',
     placeHint: 'Ein Gym oder ein eigener Treffpunkt.',

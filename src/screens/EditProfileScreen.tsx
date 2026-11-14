@@ -39,6 +39,8 @@ import CoverEditorModal from '../components/profil/CoverEditorModal';
 import GymPickerSheet from '../components/gym/GymPickerSheet';
 import CountryPickerSheet from '../components/profil/CountryPickerSheet';
 import CountryFlag from '../components/common/CountryFlag';
+import GenderPicker from '../components/common/GenderPicker';
+import { parseGender, type Gender } from '../utils/gender';
 import { countryByCode, countryName } from '../utils/countries';
 import { useGym } from '../hooks/useGyms';
 import type { Gym } from '../hooks/useGyms';
@@ -126,6 +128,31 @@ export default function EditProfileScreen(): React.ReactElement {
       return false;
     }
     return true;
+  }
+
+  // Gender is saved right away after a confirmation (like the home gym) and is
+  // locked on the server afterwards; changes only via support.
+  const storedGender = parseGender(profile?.gender);
+  const [genderSaving, setGenderSaving] = useState(false);
+  function chooseGender(next: Gender): void {
+    if (storedGender !== null || genderSaving) return;
+    Alert.alert(
+      t('common.gender.confirmTitle'),
+      t('common.gender.confirmText', { gender: t(`common.gender.${next}`) }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.gender.confirm'),
+          onPress: () => {
+            setGenderSaving(true);
+            void updateProfile({ gender: next }).then(({ error }) => {
+              setGenderSaving(false);
+              if (error !== null) Alert.alert(t('profile.editScreen.notSaved'), t('common.gender.saveFailed'));
+            });
+          },
+        },
+      ],
+    );
   }
 
   async function clearHomeGym(): Promise<boolean> {
@@ -317,6 +344,14 @@ export default function EditProfileScreen(): React.ReactElement {
                 placeholder={t('profile.editScreen.nicknamePlaceholder')} maxLength={TEXT_LIMITS.nickname} autoCapitalize="words" />
               <EditField field="bio" label={t('profile.editScreen.bio')} optional value={draft.bio} onChange={onField} multiline
                 placeholder={t('profile.editScreen.bioPlaceholder')} maxLength={TEXT_LIMITS.bio} error={errors.bio} />
+              <GenderPicker
+                value={storedGender}
+                onChange={chooseGender}
+                locked={storedGender !== null}
+                hint={storedGender !== null
+                  ? t('common.gender.lockedSet')
+                  : `${t('common.gender.why')} ${t('common.gender.lockedHint')}`}
+              />
             </Section>
 
             {/* ── Dein Kampfsport ── */}

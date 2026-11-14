@@ -318,6 +318,7 @@ export default function SparringDetailSheet({
                 durationMin={sparring.duration_min}
                 isFeatured={sparring.is_featured}
                 isCreator={isCreator}
+                womenOnly={sparring.women_only}
                 edited={sparring.edited_at !== null}
                 hostLine={
                   <SparringOrganizerRow

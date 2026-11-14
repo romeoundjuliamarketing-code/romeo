@@ -540,6 +540,7 @@ export type Database = {
           is_featured: boolean
           is_at_studio: boolean
           verified_only: boolean
+          women_only: boolean
           created_at: string
           edited_at: string | null
           material_changed_at: string | null
@@ -550,6 +551,8 @@ export type Database = {
           permission_confirmed_at: string | null
           deactivated_at: string | null
           meeting_conflict_at: string | null
+          subscription_gated: boolean
+          suspended_for_subscription_at: string | null
         }
         Insert: {
           id?: string
@@ -568,6 +571,7 @@ export type Database = {
           is_featured?: boolean
           is_at_studio?: boolean
           verified_only?: boolean
+          women_only?: boolean
           created_at?: string
           edited_at?: string | null
           material_changed_at?: string | null
@@ -591,6 +595,7 @@ export type Database = {
           is_featured?: boolean
           is_at_studio?: boolean
           verified_only?: boolean
+          women_only?: boolean
           created_at?: string
           edited_at?: string | null
           material_changed_at?: string | null
@@ -2241,6 +2246,7 @@ export type Database = {
           p_studio_id?:           string | null
           p_access_note?:         string | null
           p_place_label?:         string | null
+          p_women_only?:          boolean
         }
         Returns: PublishResult
       }

@@ -24,6 +24,8 @@ export interface SparringWithMeta {
   is_featured: boolean;
   is_at_studio: boolean;
   verified_only: boolean;
+  /** Frauen-Sparring: only women see (RLS) and join it. */
+  women_only: boolean;
   created_at: string;
   // Set by update_sparring (any edit) — shown as "Bearbeitet".
   edited_at: string | null;
@@ -59,6 +61,8 @@ export type OpenSparringRow = {
   is_featured: boolean | null;
   is_at_studio: boolean | null;
   verified_only: boolean | null;
+  // Absent until the women-only migration is deployed.
+  women_only?: boolean | null;
   created_at: string;
   // Absent until the sparring-edit migration is deployed.
   edited_at?: string | null;
@@ -98,6 +102,7 @@ function mapSparringRow(row: OpenSparringRow, meta: RowMeta): SparringWithMeta {
     is_featured: (row.is_featured ?? false) || meta.isBoosted,
     is_at_studio: row.is_at_studio ?? false,
     verified_only: row.verified_only ?? false,
+    women_only: row.women_only ?? false,
     created_at: row.created_at,
     edited_at: row.edited_at ?? null,
     gym_id: row.gym_id ?? null,

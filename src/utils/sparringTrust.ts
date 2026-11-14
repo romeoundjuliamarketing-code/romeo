@@ -97,6 +97,10 @@ export function trustNoticeFor(reason: TrustReason): TrustNotice {
       return { key: 'verifiedOnly', actions: [] };
     case 'photo_required':
       return { key: 'photoRequired', actions: ['addPhoto'] };
+    case 'women_only':
+      return { key: 'womenOnly', actions: [] };
+    case 'women_only_creator':
+      return { key: 'womenOnlyCreator', actions: [] };
     case 'time_invalid':
       return { key: 'timeInvalid', actions: [] };
     case 'duration_invalid':

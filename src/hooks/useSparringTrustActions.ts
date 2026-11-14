@@ -44,6 +44,8 @@ export interface PublishInput {
   gymId: string | null;
   studioId: string | null;
   accessNote: string | null;
+  /** Frauen-Sparring. Sent only when true, so a server without the parameter keeps working. */
+  womenOnly: boolean;
 }
 
 async function withFix<T>(
@@ -94,6 +96,7 @@ export function useSparringTrustActions() {
         p_studio_id: input.studioId,
         p_access_note: input.accessNote,
         p_place_label: input.placeLabel,
+        ...(input.womenOnly ? { p_women_only: true } : {}),
         ...fixToRpcArgs(fix, Date.now()),
       });
       return settle<PublishResult>(data, error);

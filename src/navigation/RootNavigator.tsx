@@ -7,6 +7,8 @@ import ImpressumScreen from '../screens/ImpressumScreen';
 import SparringRulesScreen from '../screens/SparringRulesScreen';
 import BlockedUsersScreen from '../screens/BlockedUsersScreen';
 import PaywallScreen from '../screens/PaywallScreen';
+import TrialOfferScreen from '../screens/TrialOfferScreen';
+import { useTrialOfferPrompt } from '../hooks/useTrialOfferPrompt';
 import SparringMapScreen from '../screens/SparringMapScreen';
 import PublicProfileScreen from '../screens/PublicProfileScreen';
 import SparringChatListScreen  from '../screens/SparringChatListScreen';
@@ -81,6 +83,11 @@ function AppNavigator({ entry }: { entry: IntroExit | null }) {
       {/* Regular push: editing is part of the profile flow, not a stacked sheet */}
       <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
       <AppStack.Screen name="Paywall" component={PaywallScreen} />
+      <AppStack.Screen
+        name="TrialOffer"
+        component={TrialOfferScreen}
+        options={{ presentation: 'transparentModal', animation: 'fade' }}
+      />
       <AppStack.Screen
         name="SparringMap"
         component={SparringMapScreen}
@@ -161,7 +168,10 @@ export default function RootNavigator() {
 
   // Tracking prompt only once the user is fully inside the app (after
   // onboarding and intro), never during sign-up.
-  useTikTokTracking(session !== null && onboarding.status === 'ready' && onboarding.route === 'done' && onboarding.intro === null);
+  const insideApp = session !== null && onboarding.status === 'ready' && onboarding.route === 'done' && onboarding.intro === null;
+  useTikTokTracking(insideApp);
+  // Free-trial offer shortly after opening, also right after the first intro.
+  useTrialOfferPrompt(insideApp, session?.user.id ?? null);
 
   if (PREVIEW_ONBOARDING) return <OnboardingPreview />;
 

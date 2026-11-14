@@ -66,6 +66,8 @@ export interface SparringDraft {
   accessNote:  string;
   title:       string;
   notes:       string;
+  /** Frauen-Sparring: only women see and join it. Only offered to women. */
+  womenOnly:   boolean;
 }
 
 export type DraftErrorKey = 'discipline' | 'maxSlots' | 'scheduledAt' | 'place';
@@ -92,6 +94,7 @@ export function emptyDraft(now: Date): SparringDraft {
     accessNote:  '',
     title:       '',
     notes:       '',
+    womenOnly:   false,
   };
 }
 
@@ -198,7 +201,8 @@ export function isDraftDirty(draft: SparringDraft, initial: SparringDraft): bool
     draft.permissionConfirmed !== initial.permissionConfirmed ||
     draft.accessNote !== initial.accessNote ||
     draft.title !== initial.title ||
-    draft.notes !== initial.notes
+    draft.notes !== initial.notes ||
+    draft.womenOnly !== initial.womenOnly
   );
 }
 
@@ -233,6 +237,7 @@ export function buildPublishInput(
     gymId:        draft.gym !== null && !atStudio ? draft.gym.id : null,
     studioId:     atStudio ? studioId : null,
     accessNote:   draft.gym !== null && !atStudio && accessNote.length > 0 ? accessNote : null,
+    womenOnly:    draft.womenOnly,
   };
 }
 
@@ -268,6 +273,7 @@ export function restoreDraft(raw: Partial<StoredDraftData> | null | undefined, n
     accessNote:  typeof raw.accessNote === 'string' ? raw.accessNote : '',
     title:       typeof raw.title === 'string' ? raw.title : '',
     notes:       typeof raw.notes === 'string' ? raw.notes : '',
+    womenOnly:   raw.womenOnly === true,
   };
 }
 

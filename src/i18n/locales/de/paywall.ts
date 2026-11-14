@@ -19,6 +19,23 @@ const paywall = {
     active: 'Aktives Abo',
     continue: 'Weiter – {{price}} / Monat',
     unavailable: 'Derzeit nicht verfügbar',
+    trial: '{{duration}} gratis testen',
+    trialNote: 'Danach {{price}} / Monat · jederzeit kündbar',
+  },
+  trial: {
+    day_one: '{{count}} Tag',
+    day_other: '{{count}} Tage',
+    month_one: '{{count}} Monat',
+    month_other: '{{count}} Monate',
+    year_one: '{{count}} Jahr',
+    year_other: '{{count}} Jahre',
+  },
+  offer: {
+    badge: 'Dein Angebot',
+    free: 'gratis',
+    subtitle: 'Sparr Premium testen',
+    cta: 'Gratis starten',
+    later: 'Später',
   },
   hero: {
     close: 'Schließen',
@@ -34,6 +51,7 @@ const paywall = {
     perMonth: 'pro Monat',
   },
   footer: {
+    sparringsNote: 'Endet dein Abo, werden deine geplanten Sparrings abgesagt und ausgeblendet. Mit einem neuen Abo erscheinen sie wieder.',
     legalNote: 'Das Abo verlängert sich automatisch zum angezeigten Preis und Zeitraum, sofern es nicht rechtzeitig über die Abo-Einstellungen deines App-Stores gekündigt wird.',
     restore: 'Käufe wiederherstellen',
     privacy: 'Datenschutz',

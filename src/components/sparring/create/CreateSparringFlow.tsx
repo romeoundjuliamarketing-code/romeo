@@ -36,6 +36,8 @@ import InvitationPreview from './InvitationPreview';
 import { StepTitle, SectionLabel, StepTransition } from './FlowParts';
 import { useCreateDraftStore } from './useCreateDraftStore';
 import { useCreateFlowChecks } from './useCreateFlowChecks';
+import SubscriptionEndNotice from './SubscriptionEndNotice';
+import { sparringOutlivesSubscription } from '../../../utils/subscriptionPlans';
 
 type FlowErrors = DraftErrors & { title?: string; notes?: string };
 
@@ -55,6 +57,10 @@ interface Props {
   onClose:      () => void;
   /** Called only after the server confirmed the publication. */
   onPublished:  (sparringId: string) => void;
+  /** Own profile is female: offers the Frauen-Sparring switch. */
+  canWomenOnly: boolean;
+  /** Creator subscription ends at this ISO time without renewal; later private sparrings get cancelled then. */
+  subscriptionEndsAt: string | null;
   /** Server: creator subscription missing. Caller closes the flow and shows the paywall alert; the draft stays stored. */
   onSubscriptionRequired: () => void;
   /** "Zu meinem Sparring" in the slot notice. Caller closes the flow and opens that sparring. */
@@ -67,6 +73,7 @@ interface Props {
 // The draft lives here so going back and forth keeps every input.
 export default function CreateSparringFlow({
   visible, coachStudio, initialGym, needsPhoto, uploadPhoto, onClose, onPublished, onSubscriptionRequired, onOpenSparring, onShowNearby,
+  canWomenOnly, subscriptionEndsAt,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -133,6 +140,14 @@ export default function CreateSparringFlow({
     reset(applyGym(emptyDraft(new Date()), toDraftGym(initialGym)));
     startPrefill(gymSearchQuery(toDraftGym(initialGym)));
   }, [visible, store.ready, initialGym, reset, startPrefill]);
+
+  // Without a female profile the Frauen-Sparring switch is never on (the
+  // server refuses it), e.g. for a stored draft from another account state.
+  useEffect(() => {
+    if (visible && store.ready && !canWomenOnly && draft.womenOnly) {
+      setDraft((d) => ({ ...d, womenOnly: false }));
+    }
+  }, [visible, store.ready, canWomenOnly, draft.womenOnly]);
 
   // Footer hides while typing; Android also pads the content by the keyboard
   // (iOS adjusts the scroll insets natively).
@@ -316,6 +331,7 @@ export default function CreateSparringFlow({
 
   const onDiscipline = useCallback((d: string) => update((x) => ({ ...x, discipline: d }), ['discipline']), [update]);
   const onMaxSlots = useCallback((n: number) => update((x) => ({ ...x, maxSlots: n }), ['maxSlots']), [update]);
+  const onWomenOnly = useCallback((v: boolean) => update((x) => ({ ...x, womenOnly: v }), []), [update]);
   const onDuration = useCallback((m: number) => update((x) => ({ ...x, durationMin: m }), []), [update]);
   const onPermission = useCallback((v: boolean) => {
     update((x) => ({ ...x, permissionConfirmed: v }), []);
@@ -371,6 +387,9 @@ export default function CreateSparringFlow({
                 errors={errors}
                 onDiscipline={onDiscipline}
                 onMaxSlots={onMaxSlots}
+                canWomenOnly={canWomenOnly}
+                womenOnly={draft.womenOnly}
+                onWomenOnly={onWomenOnly}
               />
               </View>
             )}
@@ -379,6 +398,9 @@ export default function CreateSparringFlow({
                 <StepTitle text={t('sparring.flow.whenWhere')} />
                 <SectionLabel text={t('sparring.flow.date')} />
                 <WhenPicker value={draft.scheduledAt} error={errors.scheduledAt} onChange={onWhen} />
+                {sparringOutlivesSubscription(draft.scheduledAt, subscriptionEndsAt, draft.atStudio) && subscriptionEndsAt !== null && (
+                  <SubscriptionEndNotice endsAt={subscriptionEndsAt} />
+                )}
                 <View style={styles.gap} />
                 <SectionLabel text={t('sparringTrust.create.duration')} />
                 <DurationChips value={draft.durationMin} onChange={onDuration} />
@@ -403,7 +425,7 @@ export default function CreateSparringFlow({
               <StepPreview
                 preview={
                   <InvitationPreview
-                    badge={t('sparring.flow.badge')}
+                    badge={draft.womenOnly ? `${t('sparring.flow.badge')} · ${t('sparring.women.badge')}` : t('sparring.flow.badge')}
                     discipline={draft.discipline}
                     title={title}
                     scheduledAtMs={draft.scheduledAt.getTime()}

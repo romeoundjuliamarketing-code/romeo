@@ -80,6 +80,8 @@ const sparringTrust = {
     feedbackNotOpen: 'You can confirm the meetup after the planned end.',
     feedbackClosed: 'Feedback for this sparring is closed.',
     suggestionRateLimited: 'You have already suggested several places today. Please try again tomorrow.',
+    womenOnly: 'This sparring is for women only.',
+    womenOnlyCreator: 'Only women can create women-only sparrings. You set your gender in your profile.',
     photoRequired: 'For sparrings you need a profile photo that shows your face.',
     generic: 'That didn’t work just now. Please try again.',
     network: 'No connection. Nothing was saved – please try again.',

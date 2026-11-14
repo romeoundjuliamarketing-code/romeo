@@ -41,8 +41,13 @@ describe('subscriptionChange', () => {
       kind: 'expire', entitlements: ['creator'], productId: 'sparr_creator_monthly',
     });
   });
-  it('keeps access on a normal cancellation', () => {
+  it('keeps access on a normal cancellation and announces the end for creator plans', () => {
     expect(subscriptionChange({ type: 'CANCELLATION', product_id: 'sparr_creator_monthly', cancel_reason: 'UNSUBSCRIBE' }))
+      .toEqual({ kind: 'ignore' });
+    expect(subscriptionChange({
+      type: 'CANCELLATION', product_id: 'com.deinebundle.sparr.sparr_bundle_monthly', cancel_reason: 'UNSUBSCRIBE', expiration_at_ms: EXP,
+    })).toEqual({ kind: 'ending', productId: 'com.deinebundle.sparr.sparr_bundle_monthly', expiresAt: new Date(EXP).toISOString() });
+    expect(subscriptionChange({ type: 'CANCELLATION', product_id: 'sparr_cards_monthly', cancel_reason: 'UNSUBSCRIBE', expiration_at_ms: EXP }))
       .toEqual({ kind: 'ignore' });
   });
   it('ignores consumables, unknown types and grants without expiry', () => {

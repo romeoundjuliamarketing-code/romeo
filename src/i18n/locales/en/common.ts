@@ -17,6 +17,20 @@ const common: LocaleShape<typeof de> = {
   logout: 'Log out',
   // Server (RAISE EXCEPTION) messages, German exactly as the server sends them;
   // English for the German server messages (src/utils/serverErrorText.ts).
+  gender: {
+    label: 'Gender',
+    female: 'Female',
+    male: 'Male',
+    other: 'Non-binary',
+    why: 'For women-only sparrings: only people who choose “Female” can see and join them.',
+    lockedHint: 'Can’t be changed after saving.',
+    lockedSet: 'To change it, contact support.',
+    confirmTitle: 'Set gender?',
+    confirmText: '“{{gender}}” can’t be changed afterwards.',
+    confirm: 'Set',
+    missing: 'Please choose an option.',
+    saveFailed: 'Couldn’t save. Please try again.',
+  },
   serverErrors: {
     sparringNotEditable: 'Cancelled or started sparrings can no longer be edited.',
     ownerCannotLeave: 'As the studio owner you cannot leave your team.',

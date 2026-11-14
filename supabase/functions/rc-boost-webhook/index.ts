@@ -104,6 +104,23 @@ serve(async (req: Request): Promise<Response> => {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+  if (change.kind === 'ending') {
+    // Heads-up only: a failure is logged, not retried (a retry could push twice).
+    if (isSupabaseUserId(event.app_user_id)) {
+      const endingClient = createClient(supabaseUrl, serviceRoleKey);
+      const { error: endingError } = await endingClient.rpc('notify_subscription_ending', {
+        p_user_id:    event.app_user_id,
+        p_expires_at: change.expiresAt,
+      });
+      if (endingError !== null) {
+        console.error('[rc-boost-webhook] notify_subscription_ending error', endingError.message);
+      }
+    }
+    return new Response(JSON.stringify({ ok: true, change: 'ending' }), {
+      status:  200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   if (change.kind !== 'ignore') {
     if (!isSupabaseUserId(event.app_user_id)) {
       // Anonymous RC user (purchase before login): nothing to attach it to.

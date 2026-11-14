@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Purchases, { PurchasesPackage } from 'react-native-purchases';
+import Purchases, { INTRO_ELIGIBILITY_STATUS, PurchasesPackage } from 'react-native-purchases';
 import type { RootStackParamList } from '../navigation/types';
 import { colors } from '../theme/colors';
 import FocusedStatusBar from '../components/common/FocusedStatusBar';
@@ -14,6 +14,7 @@ import { loginRevenueCat } from '../lib/revenuecat';
 import { restorePurchases } from '../lib/restorePurchases';
 import { useTranslation } from 'react-i18next';
 import { activePlan, planForProduct, PREMIUM_PLAN, replacedProductId } from '../utils/subscriptionPlans';
+import { freeTrialOffer, IntroEligibility, paywallCta } from '../utils/paywallTrial';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Paywall'>;
 
@@ -24,6 +25,7 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
   const [premiumPkg, setPremiumPkg] = useState<PurchasesPackage | undefined>(undefined);
   const [purchasing, setPurchasing] = useState(false);
   const [offeringsLoading, setOfferingsLoading] = useState(true);
+  const [introEligibility, setIntroEligibility] = useState<IntroEligibility>('unknown');
 
   useEffect(() => {
     let active = true;
@@ -34,6 +36,22 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
         // Legacy single plans may still sit in the offering: only Premium is sold.
         const pkg = (source?.availablePackages ?? []).find((p) => planForProduct(p.product.identifier) === PREMIUM_PLAN);
         if (active) setPremiumPkg(pkg);
+        // iOS grants the intro offer once per Apple ID; Android filters offers itself.
+        if (pkg !== undefined && Platform.OS === 'ios') {
+          try {
+            const result = await Purchases.checkTrialOrIntroductoryPriceEligibility([pkg.product.identifier]);
+            const status = result[pkg.product.identifier]?.status;
+            if (active) {
+              setIntroEligibility(
+                status === INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE ? 'eligible'
+                  : status === INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_INELIGIBLE ? 'ineligible'
+                    : 'unknown',
+              );
+            }
+          } catch {
+            // Unknown eligibility: keep the normal CTA.
+          }
+        }
       } catch {
         // Offerings unavailable (e.g. simulator without StoreKit config): cards show "not available".
       } finally {
@@ -89,9 +107,8 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
 
   const current = activePlan(entitlements.creatorActive, entitlements.cardsActive);
   const premiumActive = current === PREMIUM_PLAN;
-  const ctaLabel = premiumActive
-    ? t('paywall.cta.active')
-    : premiumPkg !== undefined ? t('paywall.cta.continue', { price: premiumPkg.product.priceString }) : t('paywall.cta.unavailable');
+  const trial = premiumPkg !== undefined ? freeTrialOffer(premiumPkg.product, Platform.OS, introEligibility) : null;
+  const cta = paywallCta({ premiumActive, price: premiumPkg?.product.priceString, trial });
 
   return (
     <View style={styles.root}>
@@ -114,7 +131,8 @@ export default function PaywallScreen({ navigation }: Props): React.ReactElement
         </View>
       </ScrollView>
       <PaywallFooter
-        label={ctaLabel}
+        label={cta.label}
+        note={cta.note}
         enabled={!offeringsLoading && !premiumActive && premiumPkg !== undefined}
         loading={purchasing}
         onPurchase={() => { void buy(); }}

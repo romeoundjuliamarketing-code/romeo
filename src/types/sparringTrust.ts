@@ -29,6 +29,8 @@ export type TrustReason =
   | 'own_sparring'
   | 'verified_only'
   | 'photo_required'
+  | 'women_only'
+  | 'women_only_creator'
   | 'rules_required'
   | 'join_failed'
   | 'not_organizer'

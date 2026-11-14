@@ -2,6 +2,11 @@ import type de from '../de/sparring';
 import type { LocaleShape } from '../types';
 
 const sparring: LocaleShape<typeof de> = {
+  women: {
+    badge: 'Women only',
+    toggle: 'Women only',
+    toggleHint: 'Only women can see and join this sparring. Can’t be changed afterwards.',
+  },
   private: 'Private',
   detail: {
     privateMeetingPoint: 'Private meeting point',
@@ -281,6 +286,7 @@ const sparring: LocaleShape<typeof de> = {
     keepEditing: 'Keep editing',
     discard: 'Discard',
     whenWhere: 'When and where?',
+    subscriptionEnds: 'Your subscription ends on {{date}}. Unless you renew, this sparring will be cancelled then.',
     date: 'Date',
     place: 'Place',
     placeHint: 'A gym or your own meeting point.',

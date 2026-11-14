@@ -14,6 +14,20 @@ const common = {
   logout: 'Abmelden',
   // Server (RAISE EXCEPTION) messages, German exactly as the server sends them;
   // matched by src/utils/serverErrorText.ts.
+  gender: {
+    label: 'Geschlecht',
+    female: 'Weiblich',
+    male: 'Männlich',
+    other: 'Divers',
+    why: 'Für Frauen-Sparrings: Die kann nur sehen und beitreten, wer „Weiblich“ angibt.',
+    lockedHint: 'Kann nach dem Speichern nicht mehr geändert werden.',
+    lockedSet: 'Änderung nur über den Support.',
+    confirmTitle: 'Geschlecht festlegen?',
+    confirmText: '„{{gender}}“ kann danach nicht mehr geändert werden.',
+    confirm: 'Festlegen',
+    missing: 'Bitte wähle eine Option.',
+    saveFailed: 'Konnte nicht gespeichert werden. Bitte versuch es nochmal.',
+  },
   serverErrors: {
     sparringNotEditable: 'Abgesagte oder begonnene Sparrings können nicht mehr bearbeitet werden.',
     ownerCannotLeave: 'Als Studio-Inhaber kannst du dein Team nicht verlassen.',

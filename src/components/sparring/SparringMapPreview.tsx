@@ -64,7 +64,7 @@ export default function SparringMapPreview({
 
           <Text style={styles.title} numberOfLines={1}>{sparringDisplayTitle(sparring.title, language)}</Text>
           <Text style={styles.meta} numberOfLines={1}>
-            {disciplineLabel(sparring.discipline, language)} · {location.primary} · {formatDistanceKm(sparring.distance_km)}
+            {sparring.women_only ? `${t('sparring.women.badge')} · ` : ''}{disciplineLabel(sparring.discipline, language)} · {location.primary} · {formatDistanceKm(sparring.distance_km)}
           </Text>
 
           <View style={styles.footer}>

@@ -138,6 +138,7 @@ describe('isDraftDirty', () => {
     const initial = emptyDraft(NOW);
     expect(isDraftDirty(initial, initial)).toBe(false);
     expect(isDraftDirty({ ...initial, notes: 'Mundschutz' }, initial)).toBe(true);
+    expect(isDraftDirty({ ...initial, womenOnly: true }, initial)).toBe(true);
     expect(isDraftDirty({ ...initial, scheduledAt: new Date(initial.scheduledAt.getTime() + 60000) }, initial)).toBe(true);
   });
 });
@@ -159,7 +160,12 @@ describe('buildPublishInput', () => {
       gymId: 'gym-1',
       studioId: null,
       accessNote: 'Gäste nach Absprache',
+      womenOnly: false,
     });
+  });
+
+  it('gibt Frauen-Sparring an den Server weiter', () => {
+    expect(buildPublishInput({ ...complete(), womenOnly: true }, null)?.womenOnly).toBe(true);
   });
 
   it('sends the venue name only for address places', () => {
@@ -200,6 +206,8 @@ describe('draft storage', () => {
 
   it('returns null for unusable data', () => {
     expect(restoreDraft(null, NOW)).toBeNull();
+    // Older stored drafts have no womenOnly: never a Frauen-Sparring by accident.
+    expect(restoreDraft({ discipline: 'Boxen' }, NOW)?.womenOnly).toBe(false);
   });
 });
 

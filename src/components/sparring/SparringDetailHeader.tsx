@@ -15,6 +15,8 @@ interface Props {
   durationMin:   number;
   isFeatured:    boolean;
   isCreator:     boolean;
+  /** Frauen-Sparring: only women see and join it. */
+  womenOnly:     boolean;
   /** Organizer changed the sparring after publishing it */
   edited:        boolean;
   /** Personal opening ("<Name> lädt ein"), rendered above the title. */
@@ -31,7 +33,7 @@ const BAND_TILT = '-1.5deg';
 // strong accent) and where (children, directly below the band). Dates in
 // device-local time like everywhere else.
 export default function SparringDetailHeader({
-  title, discipline, scheduledAt, durationMin, isFeatured, isCreator, edited, hostLine, children,
+  title, discipline, scheduledAt, durationMin, isFeatured, isCreator, womenOnly, edited, hostLine, children,
 }: Props): React.ReactElement {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -43,6 +45,7 @@ export default function SparringDetailHeader({
   const meta = [
     discipline === 'Sonstiges' ? null : disciplineLabel(discipline, language),
     isCreator ? t('sparring.detailHeader.yours') : null,
+    womenOnly ? t('sparring.women.badge') : null,
     isFeatured ? 'Sparr Pick' : null,
   ].filter((v): v is string => v !== null);
 

@@ -10,6 +10,7 @@ import { TextAction } from '../components/common/TextAction';
 import type { SaveProfileResult } from '../hooks/useOnboardingGate';
 import type { CalendarDate, OnboardingRoute, OnboardingState } from '../utils/onboarding';
 import { FLOW_TOTAL_STEPS } from '../utils/intro';
+import { parseGender, type Gender } from '../utils/gender';
 
 const ENTER = FadeIn.duration(180);
 
@@ -28,13 +29,28 @@ export default function OnboardingScreen({ userId, route, state, total, fallback
   total:           number;
   /** Name from the sign-in provider (Apple / Google), if the profile has none. */
   fallbackName:    string | null;
-  onSaveProfile:   (name: string, birthDateIso: string) => Promise<SaveProfileResult>;
+  onSaveProfile:   (name: string, birthDateIso: string, gender: Gender | null) => Promise<SaveProfileResult>;
   onComplete:      () => Promise<boolean>;
   onBackToProfile: () => void;
   onSignOut:       () => void;
 }): React.ReactElement {
   const [name, setName] = useState(state.name ?? fallbackName ?? '');
   const [birth, setBirth] = useState<CalendarDate | null>(null);
+  const [gender, setGender] = useState<Gender | null>(null);
+  // 'unknown' until loaded; a stored gender is locked, so it is not asked again.
+  const [storedGender, setStoredGender] = useState<Gender | null | 'unknown'>('unknown');
+
+  useEffect(() => {
+    if (userId === 'preview') { setStoredGender(null); return; }
+    let cancelled = false;
+    void supabase.from('profiles').select('gender').eq('id', userId).maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        // On error ask anyway: the save only writes while the column is empty.
+        setStoredGender(error === null ? parseGender(data?.gender) : null);
+      });
+    return () => { cancelled = true; };
+  }, [userId]);
 
   // A stored birth date (e.g. back from step 2 after a restart) is shown again
   // instead of being asked a second time. Only the owner can read it.
@@ -58,8 +74,11 @@ export default function OnboardingScreen({ userId, route, state, total, fallback
             total={total}
             name={name}
             birth={birth}
+            gender={gender}
+            askGender={storedGender === null}
             onNameChange={setName}
             onBirthChange={setBirth}
+            onGenderChange={setGender}
             onSubmit={onSaveProfile}
             onSignOut={onSignOut}
           />

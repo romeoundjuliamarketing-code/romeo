@@ -54,6 +54,7 @@ import CreateEventSheet from '../components/sparring/CreateEventSheet';
 import EventPaymentSheet from '../components/sparring/EventPaymentSheet';
 import EventDetailSheet from '../components/sparring/EventDetailSheet';
 import MapModeToggle from '../components/sparring/MapModeToggle';
+import { isFemale } from '../utils/gender';
 import MapTimeFilter from '../components/sparring/MapTimeFilter';
 import SparringMapView from '../components/sparring/SparringMapView';
 import { useGym } from '../hooks/useGyms';
@@ -121,6 +122,14 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // found place, but the search location is never changed or stored.
   const [placeJump, setPlaceJump] = useState<(GeoPoint & { label: string }) | null>(null);
   const searchCenter = placeJump ?? searchLocation;
+  // Own profile photo: required (face-checked) before joining or publishing.
+  const [profileRefresh, setProfileRefresh] = useState(0);
+  const { profile: ownProfile, uploadAvatar } = useProfile(profileRefresh);
+  useFocusRefetch(() => setProfileRefresh((n) => n + 1));
+  const needsPhoto = ownProfile !== null && (ownProfile.avatar_url ?? '').trim() === '';
+  // Frauen-Sparrings are mixed into the normal results for women; everyone
+  // else never receives them (RLS on open_sparrings).
+  const ownIsFemale = isFemale(ownProfile?.gender);
   const { status: nearbyStatus, sparrings: searchSparrings, refetch: refetchNearby } = useNearbySparrings(searchCenter, radiusKm);
   useFocusRefetch(refetchNearby);
   // Visible map area after the user moved the map. Its sparrings are added as
@@ -159,11 +168,6 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
   // Server-side reach status (radius, planned slot, intro state).
   const reach = useSparringReach();
   useFocusRefetch(reach.refetch);
-  // Own profile photo: required (face-checked) before joining or publishing.
-  const [profileRefresh, setProfileRefresh] = useState(0);
-  const { profile: ownProfile, uploadAvatar } = useProfile(profileRefresh);
-  useFocusRefetch(() => setProfileRefresh((n) => n + 1));
-  const needsPhoto = ownProfile !== null && (ownProfile.avatar_url ?? '').trim() === '';
   // Join reach drawn around the real device position (the server measures from
   // there), never around a hand-picked search place.
   const devicePosition = useDevicePosition();
@@ -1167,6 +1171,8 @@ export default function SparringMapScreen({ navigation: _navigation }: Props) {
         initialGym={createGymId !== null ? createGym : null}
         needsPhoto={needsPhoto}
         uploadPhoto={uploadAvatar}
+        canWomenOnly={ownIsFemale}
+        subscriptionEndsAt={storeEntitlements.creatorEndsAt}
         onClose={() => setCreateSheetVisible(false)}
         onPublished={(sparringId) => {
           setCreateSheetVisible(false);

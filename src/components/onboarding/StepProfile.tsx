@@ -13,6 +13,8 @@ import {
   NAME_MAX_LENGTH, calendarDateOf, checkBirthDate, checkName, toIsoDate, type CalendarDate,
 } from '../../utils/onboarding';
 import type { SaveProfileResult } from '../../hooks/useOnboardingGate';
+import GenderPicker from '../common/GenderPicker';
+import type { Gender } from '../../utils/gender';
 
 // Hides the coach while the keyboard is up, so field and button stay visible.
 export function useKeyboardOpen(): boolean {
@@ -27,16 +29,21 @@ export function useKeyboardOpen(): boolean {
   return open;
 }
 
-// Step 1: name and birth date. Both required; the age limit is checked here
-// exactly (local calendar day) and again on the server.
-export default function StepProfile({ step, total, name, birth, onNameChange, onBirthChange, onSubmit, onSignOut }: {
+// Step 1: name, birth date and gender. All required; the age limit is checked
+// here exactly (local calendar day) and again on the server. Gender is only
+// asked while the profile has none (it is locked once set).
+export default function StepProfile({ step, total, name, birth, gender, askGender, onNameChange, onBirthChange, onGenderChange, onSubmit, onSignOut }: {
   step:          number;
   total:         number;
   name:          string;
   birth:         CalendarDate | null;
+  gender:        Gender | null;
+  /** False when the profile already has a gender (then it is not asked again). */
+  askGender:     boolean;
   onNameChange:  (next: string) => void;
   onBirthChange: (next: CalendarDate) => void;
-  onSubmit:      (name: string, birthDateIso: string) => Promise<SaveProfileResult>;
+  onGenderChange: (next: Gender) => void;
+  onSubmit:      (name: string, birthDateIso: string, gender: Gender | null) => Promise<SaveProfileResult>;
   onSignOut:     () => void;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -44,6 +51,7 @@ export default function StepProfile({ step, total, name, birth, onNameChange, on
   const keyboardOpen = useKeyboardOpen();
   const [nameError, setNameError] = useState<string | null>(null);
   const [birthError, setBirthError] = useState<string | null>(null);
+  const [genderError, setGenderError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -62,13 +70,15 @@ export default function StepProfile({ step, total, name, birth, onNameChange, on
         : birthCheck === 'future' ? t('onboarding.profile.birthFuture')
           : birthCheck === 'underage' ? t('onboarding.profile.underage')
             : t('onboarding.profile.birthInvalid');
+    const genderMissing = askGender && gender === null;
     setNameError(nextNameError);
     setBirthError(nextBirthError);
-    if (!nameCheck.ok || birthCheck !== 'ok' || birth === null) return;
+    setGenderError(genderMissing ? t('common.gender.missing') : null);
+    if (!nameCheck.ok || birthCheck !== 'ok' || birth === null || genderMissing) return;
 
     savingRef.current = true;
     setSaving(true);
-    const result = await onSubmit(nameCheck.name, toIsoDate(birth));
+    const result = await onSubmit(nameCheck.name, toIsoDate(birth), askGender ? gender : null);
     savingRef.current = false;
     setSaving(false);
     if (result.ok) return;
@@ -148,6 +158,14 @@ export default function StepProfile({ step, total, name, birth, onNameChange, on
           error={birthError}
           hint={t('onboarding.profile.birthHint')}
         />
+        {askGender && (
+          <GenderPicker
+            value={gender}
+            onChange={(next) => { onGenderChange(next); setGenderError(null); }}
+            error={genderError}
+            hint={`${t('common.gender.why')} ${t('common.gender.lockedHint')}`}
+          />
+        )}
       </View>
     </OnboardingShell>
   );
